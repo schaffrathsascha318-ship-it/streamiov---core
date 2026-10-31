@@ -87,6 +87,21 @@ function validatePayload(payload) {
   return null;
 }
 
+// Workers AI model bindings may return either the legacy { response } shape
+// or an OpenAI-style { choices: [{ message: { content } }] } result.
+function extractModelText(result) {
+  if (typeof result?.response === "string") return result.response;
+  const content = result?.choices?.[0]?.message?.content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((part) => part && part.type === "text" && typeof part.text === "string")
+      .map((part) => part.text)
+      .join("");
+  }
+  return "";
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -132,7 +147,7 @@ export default {
         temperature: 0.1,
         max_tokens: MAX_OUTPUT_TOKENS
       });
-      const content = result && typeof result.response === "string" ? result.response : "";
+      const content = extractModelText(result);
       if (!content.trim()) {
         return json({ error: { code: "empty_model_response", message: "The model returned no text." } }, 502);
       }
