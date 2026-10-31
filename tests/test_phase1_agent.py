@@ -96,7 +96,6 @@ class AgentTests(unittest.TestCase):
             response = '{"tool":"read_file","arguments":{"path":"README.md"},"final":"fake"}'
             with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider([response]), tmp).run("Do task")
 
-if __name__ == "__main__": unittest.main()
 
 class CliTests(unittest.TestCase):
     def test_cli_requires_task_and_accepts_workspace_options(self):
@@ -272,3 +271,6 @@ class LocalProviderHttpTests(unittest.TestCase):
         self.assertTrue(status["reachable"])
         self.assertFalse(status["model_available"])
         self.assertFalse(status["ready"])
+
+if __name__ == "__main__":
+    unittest.main()
