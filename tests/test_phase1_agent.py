@@ -114,6 +114,18 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.project_root, "/tmp/streamiov")
         self.assertEqual(args.max_steps, 5)
 
+    def test_doctor_cli_returns_success_only_when_provider_is_ready(self):
+        from unittest.mock import patch
+        from contextlib import redirect_stdout
+        from io import StringIO
+        class ReadyProvider:
+            def check_ready(self):
+                return {"ready": True, "reachable": True, "model_available": True}
+        output = StringIO()
+        with patch("ai.__main__.provider_from_env", return_value=ReadyProvider()), redirect_stdout(output):
+            self.assertEqual(main(["--doctor"]), 0)
+        self.assertIn('"ready": true', output.getvalue())
+
 
 class LocalProviderHttpTests(unittest.TestCase):
     @classmethod
