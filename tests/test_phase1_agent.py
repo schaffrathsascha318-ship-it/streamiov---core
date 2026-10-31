@@ -21,7 +21,7 @@ class FakeProvider:
 class ProviderTests(unittest.TestCase):
     def test_loopback_only(self):
         self.assertEqual(_local_url("http://127.0.0.1:11434/"), "http://127.0.0.1:11434")
-        for url in ("https://127.0.0.1:11434", "http://example.com:11434", "http://127.0.0.1"):
+        for url in ("https://127.0.0.1:11434", "http://example.com:11434", "http://127.0.0.1", "http://user:pass@127.0.0.1:11434", "http://127.0.0.1:11434?token=x", "http://127.0.0.1:bad"):
             with self.subTest(url=url), self.assertRaises(ProviderError): _local_url(url)
 
 class ProjectToolTests(unittest.TestCase):
@@ -200,3 +200,18 @@ class LocalProviderHttpTests(unittest.TestCase):
         with patch.dict(os.environ, {"STREAMIOV_MODEL_PROVIDER": "cloud"}):
             with self.assertRaises(ProviderError):
                 provider_from_env()
+
+
+    def test_ollama_provider_rejects_missing_or_empty_content(self):
+        for body in ({"message": {}}, {"message": {"content": ""}}, {"message": "wrong-shape"}):
+            with self.subTest(body=body):
+                type(self).response_body = body
+                provider = OllamaProvider("test-coder", self.base_url)
+                with self.assertRaises(ProviderError):
+                    provider.generate(system="System", messages=[])
+
+    def test_provider_requires_non_empty_model_name(self):
+        with self.assertRaises(ProviderError):
+            OllamaProvider(" ", self.base_url)
+        with self.assertRaises(ProviderError):
+            LocalOpenAICompatibleProvider("", self.base_url)
