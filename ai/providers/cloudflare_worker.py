@@ -100,6 +100,8 @@ class CloudflareWorkersAIProvider:
             data=data,
             headers={
                 "Accept": "application/json",
+                # Match the verified curl request; Python-urllib was rejected at the edge.
+                "User-Agent": "curl/8.0",
                 "Authorization": "Bearer " + self.token,
                 **({"Content-Type": "application/json"} if data is not None else {}),
             },
