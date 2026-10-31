@@ -260,7 +260,7 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
 
   let plugins = {};
   if (gstInspect.available) {
-    const names = ['videotestsrc', 'audiotestsrc', 'x264enc', 'rtmpsink'];
+    const names = ['videotestsrc', 'audiotestsrc', 'vp8enc', 'vorbisenc', 'webmmux', 'x264enc', 'rtmpsink'];
     const results = await Promise.all(names.map(async name => [name, await probeGStreamerPlugin(name)]));
     plugins = Object.fromEntries(results);
   }
@@ -281,6 +281,7 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
     },
     plugins,
     local_test_sources_available: Boolean(plugins.videotestsrc?.available && plugins.audiotestsrc?.available),
+    media_test_pipeline_available: Boolean(plugins.videotestsrc?.available && plugins.audiotestsrc?.available && plugins.vp8enc?.available && plugins.vorbisenc?.available && plugins.webmmux?.available),
     rtmp_pipeline_dependencies_available: missingForRtmp.length === 0,
     missing_rtmp_dependencies: missingForRtmp,
     live_stream_verified: false,
@@ -365,24 +366,84 @@ ipcMain.handle('studio:run-media-test', async (event) => {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
 
-  const code =
-    'import json; from modules.broadcast.gstreamer_engine import GStreamerEngine; ' +
-    'print(json.dumps(GStreamerEngine().record_test_av(duration_seconds=3)))';
+  const requiredPlugins = ['videotestsrc', 'audiotestsrc', 'vp8enc', 'vorbisenc', 'webmmux'];
+  const gstLaunch = await probeExecutable('gst-launch-1.0');
+  if (!gstLaunch.available) {
+    return {
+      ok: false,
+      stage: 'dependencies',
+      missing: ['gst-launch-1.0'],
+      device_capture_verified: false,
+      live_stream_verified: false
+    };
+  }
 
+  const pluginResults = await Promise.all(
+    requiredPlugins.map(async (name) => [name, await probeGStreamerPlugin(name)])
+  );
+  const missing = pluginResults.filter(([, result]) => !result.available).map(([name]) => name);
+  if (missing.length) {
+    return {
+      ok: false,
+      stage: 'dependencies',
+      missing,
+      device_capture_verified: false,
+      live_stream_verified: false
+    };
+  }
+
+  let testDirectory;
   try {
-    const { stdout } = await execFileAsync(
-      'python3',
-      ['-c', code],
-      { cwd: projectRoot, timeout: 45000, maxBuffer: 1048576 }
-    );
-    return JSON.parse(stdout.trim());
+    testDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'streamiov-av-smoke-'));
+    const outputFile = path.join(testDirectory, 'audio-video-smoke-test.webm');
+    const args = [
+      '-e',
+      'webmmux', 'name=mux', '!', 'filesink', 'location=' + outputFile,
+      'videotestsrc', 'num-buffers=90', '!',
+      'video/x-raw,width=640,height=360,framerate=30/1', '!',
+      'videoconvert', '!', 'vp8enc', 'deadline=1', '!', 'queue', '!', 'mux.',
+      'audiotestsrc', 'num-buffers=141', '!',
+      'audio/x-raw,rate=48000,channels=2', '!',
+      'audioconvert', '!', 'vorbisenc', '!', 'queue', '!', 'mux.'
+    ];
+
+    await execFileAsync('gst-launch-1.0', args, {
+      timeout: 45000,
+      windowsHide: true,
+      maxBuffer: 512 * 1024
+    });
+
+    const result = await fs.stat(outputFile);
+    if (!result.isFile() || result.size < 1024) {
+      throw new Error('Die erzeugte Audio-/Video-Testdatei ist leer oder unvollständig.');
+    }
+
+    return {
+      ok: true,
+      stage: 'completed',
+      test_type: 'synthetic_audio_video',
+      container: 'webm',
+      width: 640,
+      height: 360,
+      fps: 30,
+      audio_rate: 48000,
+      output_bytes: result.size,
+      device_capture_verified: false,
+      live_stream_verified: false,
+      note: 'Video- und Audiotestsignale wurden lokal gemeinsam encodiert. Physische Geräte und Live-Ausgabe wurden nicht getestet.'
+    };
   } catch (error) {
     return {
       ok: false,
-      stage: 'bridge_error',
-      error: String(error.message || error).slice(0, 1000),
+      stage: 'pipeline',
+      error: String(error.message || error).slice(0, 500),
+      device_capture_verified: false,
       live_stream_verified: false
     };
+  } finally {
+    if (testDirectory) {
+      await fs.rm(testDirectory, { recursive: true, force: true }).catch(() => {});
+    }
   }
 });
 
