@@ -31,7 +31,7 @@ class ProjectToolTests(unittest.TestCase):
         self.tools.write_file("ai/new.py", "print('ok')")
         self.assertEqual((self.root / "ai/new.py").read_text(), "print('ok')")
     def test_protected_paths(self):
-        for path in ("../outside", ".env", "secrets/admin.json", "config/oauth/token.json"):
+        for path in ("../outside", ".env", ".env.production", "secrets/admin.json", "config/oauth/token.json", "data/access-token.json", "keys/private-key.pem"):
             with self.subTest(path=path), self.assertRaises(ToolError): self.tools.read_file(path)
     def test_no_overwrite_or_unapproved_write(self):
         with self.assertRaises(ToolError): self.tools.write_file("core/app.py", "x")
