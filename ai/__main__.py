@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -16,8 +17,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--task",
-        required=True,
         help="A focused development task (maximum 8000 characters).",
+    )
+    parser.add_argument(
+        "--doctor",
+        action="store_true",
+        help="Check whether the configured local model server and model are ready.",
     )
     parser.add_argument(
         "--project-root",
@@ -34,9 +39,18 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if not args.doctor and not args.task:
+        parser.error("provide --task or use --doctor")
+    if args.doctor and args.task:
+        parser.error("--doctor and --task cannot be used together")
     try:
         provider = provider_from_env()
+        if args.doctor:
+            result = provider.check_ready()
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0 if result["ready"] else 3
         agent = DevelopmentAgent(
             provider=provider,
             project_root=Path(args.project_root),

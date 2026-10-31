@@ -44,12 +44,54 @@ def _reply_content(data: dict, provider: str) -> str:
     return content
 
 
+def _get(url: str) -> dict:
+    request = Request(url, headers={"Accept": "application/json"}, method="GET")
+    try:
+        with urlopen(request, timeout=5) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        raise ProviderError(f"Local model health check failed: {type(exc).__name__}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ProviderError("Local model health response must be a JSON object.")
+    return data
+
+
+def _model_status(data: dict, model: str, provider: str) -> dict:
+    try:
+        entries = data["models"] if provider == "ollama" else data["data"]
+        names = [entry["name"] if provider == "ollama" else entry["id"] for entry in entries]
+        if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
+            raise TypeError("invalid model list")
+    except (KeyError, TypeError) as exc:
+        raise ProviderError(f"{provider} returned an invalid model-list response.") from exc
+    available = model in names
+    return {
+        "provider": provider,
+        "model": model,
+        "reachable": True,
+        "model_available": available,
+        "models_count": len(names),
+        "ready": available,
+        "detail": "Configured model is available." if available else "Model server is online, but the configured model is not listed.",
+    }
+
+
 class OllamaProvider:
     def __init__(self, model: str, base_url: str = "http://127.0.0.1:11434") -> None:
         if not isinstance(model, str) or not model.strip():
             raise ProviderError("A local model name is required.")
         self.model = model
         self.base_url = _local_url(base_url)
+
+    def check_ready(self) -> dict:
+        try:
+            data = _get(self.base_url + "/api/tags")
+        except ProviderError as exc:
+            return {"provider": "ollama", "model": self.model, "reachable": False, "model_available": False, "models_count": 0, "ready": False, "detail": str(exc)}
+        try:
+            return _model_status(data, self.model, "ollama")
+        except ProviderError as exc:
+            return {"provider": "ollama", "model": self.model, "reachable": True, "model_available": False, "models_count": 0, "ready": False, "detail": str(exc)}
 
     def generate(self, *, system: str, messages: list[dict[str, str]]) -> ModelReply:
         payload = {
@@ -68,6 +110,16 @@ class LocalOpenAICompatibleProvider:
             raise ProviderError("A local model name is required.")
         self.model = model
         self.base_url = _local_url(base_url)
+
+    def check_ready(self) -> dict:
+        try:
+            data = _get(self.base_url + "/models")
+        except ProviderError as exc:
+            return {"provider": "openai-compatible", "model": self.model, "reachable": False, "model_available": False, "models_count": 0, "ready": False, "detail": str(exc)}
+        try:
+            return _model_status(data, self.model, "openai-compatible")
+        except ProviderError as exc:
+            return {"provider": "openai-compatible", "model": self.model, "reachable": True, "model_available": False, "models_count": 0, "ready": False, "detail": str(exc)}
 
     def generate(self, *, system: str, messages: list[dict[str, str]]) -> ModelReply:
         payload = {
