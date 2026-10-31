@@ -122,6 +122,7 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
     <button class="scene" data-scene="GAMEPLAY">GAMEPLAY <small>05</small></button>
     <button class="scene" data-scene="JUST CHATTING">JUST CHATTING <small>06</small></button>
    </div>
+   <button id="createScene" type="button" style="width:100%;margin-top:6px">＋ Eigene Szene</button>
    <div class="panel-title" style="margin:12px -12px">QUELLEN</div>
    <div class="source"><b>◉ Kamera</b><small>Quelle noch nicht verbunden</small></div>
    <div class="source"><b>◖ Mikrofon</b><small>Quelle noch nicht verbunden</small></div>
@@ -287,17 +288,67 @@ function log(message){
   message.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  box.scrollTop=box.scrollHeight;
 }
-function selectScene(name){
+function renderScenes(scenes, previewName){
+ const host=$("scenes");
+ host.replaceChildren();
+ for(const scene of scenes){
+  const button=document.createElement("button");
+  button.className="scene"+(scene.name===previewName?" active":"");
+  button.dataset.scene=scene.name;
+  button.append(document.createTextNode(scene.name));
+  const small=document.createElement("small");
+  small.textContent=String(scenes.indexOf(scene)+1).padStart(2,"0");
+  button.append(small);
+  button.addEventListener("click",()=>selectScene(scene.name));
+  host.append(button);
+ }
+}
+async function selectScene(name){
  selected=name;
  $("previewName").textContent=name;
  document.querySelectorAll(".scene").forEach(b=>b.classList.toggle("active",b.dataset.scene===name));
- log("Vorschau gewählt: "+name);
+ if(window.streamiovStudio?.sceneAction){
+  const result=await window.streamiovStudio.sceneAction({action:"select",name});
+  if(!result?.ok){log("Szene konnte nicht gespeichert werden: "+(result?.error||"unbekannter Fehler"));return;}
+ }
+ log("Vorschau gewählt und lokal gespeichert: "+name);
 }
-document.querySelectorAll(".scene").forEach(b=>b.addEventListener("click",()=>selectScene(b.dataset.scene)));
-function take(){
+async function loadScenes(){
+ if(!window.streamiovStudio?.sceneAction){log("Szenenverwaltung läuft im Demo-Modus.");return;}
+ const result=await window.streamiovStudio.sceneAction({action:"load"});
+ if(!result?.ok){log("Szenen konnten nicht geladen werden: "+(result?.error||"unbekannter Fehler"));return;}
+ const state=result.state;
+ const preview=state.scenes.find(s=>s.id===state.previewSceneId)?.name||state.scenes[0].name;
+ const program=state.scenes.find(s=>s.id===state.programSceneId)?.name||preview;
+ selected=preview;
+ $("previewName").textContent=preview;
+ $("programName").textContent=program;
+ renderScenes(state.scenes,preview);
+ log("Szenen aus lokalem Studio-Profil geladen.");
+}
+async function createScene(){
+ const name=window.prompt("Name der neuen Szene (max. 60 Zeichen):");
+ if(name===null)return;
+ if(!window.streamiovStudio?.sceneAction){log("Eigene Szenen benötigen die installierte Desktop-App.");return;}
+ const result=await window.streamiovStudio.sceneAction({action:"create",name});
+ if(!result?.ok){log("Szene nicht erstellt: "+(result?.error||"unbekannter Fehler"));return;}
+ const state=result.state;
+ const preview=state.scenes.find(s=>s.id===state.previewSceneId)?.name||name.trim();
+ selected=preview;
+ $("previewName").textContent=preview;
+ renderScenes(state.scenes,preview);
+ log("Eigene Szene dauerhaft im Studio-Profil gespeichert: "+preview);
+}
+async function take(){
  $("programName").textContent=selected;
- log("Programm lokal umgeschaltet: "+selected);
+ if(window.streamiovStudio?.sceneAction){
+  const result=await window.streamiovStudio.sceneAction({action:"take"});
+  if(!result?.ok){log("Programmumschaltung nicht gespeichert: "+(result?.error||"unbekannter Fehler"));return;}
+ }
+ log("Programm lokal umgeschaltet: "+selected+" (keine Live-Ausgabe).");
 }
+$("createScene").onclick=createScene;
+loadScenes();
 $("cut").onclick=take;
 $("take").onclick=take;
 $("fade").onclick=()=>{
