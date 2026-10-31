@@ -5,6 +5,7 @@ const { randomUUID } = require('node:crypto');
 const os = require('node:os');
 const http = require('node:http');
 const { pathToFileURL } = require('node:url');
+const { buildSyntheticAvPipelineArgs } = require('./media-pipeline');
 
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
@@ -396,16 +397,7 @@ ipcMain.handle('studio:run-media-test', async (event) => {
   try {
     testDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'streamiov-av-smoke-'));
     const outputFile = path.join(testDirectory, 'audio-video-smoke-test.webm');
-    const args = [
-      '-e',
-      'webmmux', 'name=mux', '!', 'filesink', 'location=' + outputFile,
-      'videotestsrc', 'num-buffers=90', '!',
-      'video/x-raw,width=640,height=360,framerate=30/1', '!',
-      'videoconvert', '!', 'vp8enc', 'deadline=1', '!', 'queue', '!', 'mux.',
-      'audiotestsrc', 'num-buffers=141', '!',
-      'audio/x-raw,rate=48000,channels=2', '!',
-      'audioconvert', '!', 'vorbisenc', '!', 'queue', '!', 'mux.'
-    ];
+    const args = buildSyntheticAvPipelineArgs(outputFile);
 
     await execFileAsync('gst-launch-1.0', args, {
       timeout: 45000,
