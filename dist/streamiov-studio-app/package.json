@@ -1,9 +1,13 @@
 {
   "name": "streamiov-studio",
   "version": "1.0.0",
-  "description": "Streamiov Studio Desktop-App für TikTok",
+  "description": "Streamiov Studio",
+  "homepage": "https://streamiov.pages.dev/",
+  "author": {
+    "name": "Streamiov",
+    "email": "schaffrathsascha318@gmail.com"
+  },
   "main": "main.js",
-  "private": true,
   "scripts": {
     "start": "electron .",
     "dist:win": "electron-builder --win nsis --x64",
@@ -14,12 +18,12 @@
     "pre-dist:linux": "python3 ../../scripts/sync-studio-ui.py",
     "pre-dist:linux:arm64": "python3 ../../scripts/sync-studio-ui.py"
   },
+  "dependencies": {
+    "tiktok-live-connector": "2.5.0"
+  },
   "devDependencies": {
     "electron": "44.7.0",
     "electron-builder": "^26.0.12"
-  },
-  "dependencies": {
-    "tiktok-live-connector": "2.5.0"
   },
   "build": {
     "appId": "tv.streamiov.studio",
@@ -44,12 +48,9 @@
         }
       ]
     },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    },
     "linux": {
       "category": "AudioVideo",
+      "maintainer": "Streamiov <schaffrathsascha318@gmail.com>",
       "target": [
         "AppImage",
         "deb"
