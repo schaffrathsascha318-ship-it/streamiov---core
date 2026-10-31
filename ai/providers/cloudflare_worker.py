@@ -8,9 +8,10 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from .base import ModelReply
+from .local_http import ProviderError
 
 
-class CloudflareWorkerError(RuntimeError):
+class CloudflareWorkerError(ProviderError):
     def __init__(self, message: str, *, reachable: bool = False) -> None:
         super().__init__(message)
         self.reachable = reachable
