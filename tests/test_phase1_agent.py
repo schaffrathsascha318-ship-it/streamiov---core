@@ -32,6 +32,22 @@ class ProjectToolTests(unittest.TestCase):
         self.assertEqual(self.tools.read_file("README.md"), "hello")
         self.tools.write_file("ai/new.py", "print('ok')")
         self.assertEqual((self.root / "ai/new.py").read_text(), "print('ok')")
+    def test_exact_unique_edit_changes_existing_file(self):
+        target = self.root / "ai" / "agent.py"
+        target.parent.mkdir()
+        target.write_text("before\nold setting\nafter\n", encoding="utf-8")
+        result = self.tools.replace_text("ai/agent.py", "old setting", "new setting")
+        self.assertIn("one exact match", result)
+        self.assertEqual(target.read_text(encoding="utf-8"), "before\nnew setting\nafter\n")
+    def test_exact_edit_rejects_missing_or_duplicate_matches_without_change(self):
+        target = self.root / "ai" / "agent.py"
+        target.parent.mkdir()
+        target.write_text("repeat\nrepeat\n", encoding="utf-8")
+        with self.assertRaises(ToolError):
+            self.tools.replace_text("ai/agent.py", "repeat", "changed")
+        with self.assertRaises(ToolError):
+            self.tools.replace_text("ai/agent.py", "missing", "changed")
+        self.assertEqual(target.read_text(encoding="utf-8"), "repeat\nrepeat\n")
     def test_protected_paths(self):
         for path in ("../outside", ".env", ".env.production", "secrets/admin.json", "config/oauth/token.json", "data/access-token.json", "keys/private-key.pem"):
             with self.subTest(path=path), self.assertRaises(ToolError): self.tools.read_file(path)
@@ -44,7 +60,6 @@ class ProjectToolTests(unittest.TestCase):
             self.skipTest("Symlinks are unavailable on this platform.")
         with self.assertRaises(ToolError):
             self.tools.write_file("ai/dangling.py", "unsafe")
-
     def test_no_overwrite_or_unapproved_write(self):
         with self.assertRaises(ToolError): self.tools.write_file("core/app.py", "x")
         (self.root / "ai").mkdir()
@@ -59,9 +74,24 @@ class AgentTests(unittest.TestCase):
             Path(tmp, "README.md").write_text("Streamiov")
             p = FakeProvider(['{"tool":"read_file","arguments":{"path":"README.md"}}', '{"final":"Read complete."}'])
             self.assertEqual(DevelopmentAgent(p, tmp).run("Inspect README"), "Read complete.")
+    def test_agent_performs_real_existing_file_edit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp, "ai", "agent.py")
+            target.parent.mkdir()
+            target.write_text("value = 1\n", encoding="utf-8")
+            p = FakeProvider([
+                '{"tool":"replace_text","arguments":{"path":"ai/agent.py","old_text":"value = 1","new_text":"value = 2"}}',
+                '{"final":"Updated the file."}',
+            ])
+            self.assertEqual(DevelopmentAgent(p, tmp).run("Change value"), "Updated the file.")
+            self.assertEqual(target.read_text(encoding="utf-8"), "value = 2\n")
     def test_invalid_json_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider(["not json"]), tmp).run("Do task")
+    def test_mixed_tool_and_final_response_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            response = '{"tool":"read_file","arguments":{"path":"README.md"},"final":"fake"}'
+            with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider([response]), tmp).run("Do task")
 
 if __name__ == "__main__": unittest.main()
 
@@ -78,4 +108,3 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.task, "inspect the project")
         self.assertEqual(args.project_root, "/tmp/streamiov")
         self.assertEqual(args.max_steps, 5)
-
