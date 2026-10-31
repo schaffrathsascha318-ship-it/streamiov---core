@@ -64,6 +64,7 @@ class CloudflareWorkerProviderTests(unittest.TestCase):
         request = mocked.call_args.args[0]
         self.assertEqual(request.full_url, WORKER_URL + "/v1/chat/completions")
         self.assertEqual(request.headers["Authorization"], "Bearer " + TOKEN)
+        self.assertEqual(request.headers["User-agent"], "curl/8.0")
         sent = json.loads(request.data.decode("utf-8"))
         self.assertEqual(sent["model"], DEFAULT_MODEL)
         self.assertEqual(sent["messages"][0]["role"], "system")
@@ -80,6 +81,7 @@ class CloudflareWorkerProviderTests(unittest.TestCase):
         request = mocked.call_args.args[0]
         self.assertEqual(request.full_url, WORKER_URL + "/health")
         self.assertEqual(request.headers["Authorization"], "Bearer " + TOKEN)
+        self.assertEqual(request.headers["User-agent"], "curl/8.0")
 
     def test_doctor_distinguishes_bad_token_from_unreachable_worker(self):
         error = HTTPError(WORKER_URL + "/health", 401, "Unauthorized", {}, io.BytesIO(b""))
