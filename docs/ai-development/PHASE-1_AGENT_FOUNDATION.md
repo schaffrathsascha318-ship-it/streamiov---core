@@ -13,6 +13,18 @@ The inspected base ref is `streamiov-build-setup-clean`. Its tracked `ai/` tree 
 - Secret-like paths, OAuth paths, environment files, symlinks, path traversal and build/dependency directories are denied.
 - Only one fixed unittest command is allowed. Existing files cannot be overwritten.
 
+## Start the agent
+
+From the repository root, start the agent through its CLI:
+
+```bash
+STREAMIOV_MODEL_PROVIDER=ollama \\
+STREAMIOV_MODEL=qwen2.5-coder:7b \\
+python -m ai --project-root . --max-steps 12 --task "Describe the AI architecture"
+```
+
+The CLI exits with status 2 and a concise error if the local model endpoint is unavailable or configuration is invalid. It does not download models or fall back to a cloud service.
+
 ## Local setup
 
 Install Python 3.10+ and a local model runtime separately. With Ollama, start its service and install a suitable model yourself, for example `ollama pull qwen2.5-coder:7b`. Hardware requirements vary.
