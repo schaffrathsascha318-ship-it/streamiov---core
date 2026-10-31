@@ -55,8 +55,7 @@ chmod 600 "$LOCAL_ENV"
 echo "=== Separates Zugriffstoken als Cloudflare Secret setzen ==="
 printf '%s' "$TOKEN" | npx --yes wrangler@4 secret put STREAMIOV_AI_WORKER_TOKEN --config "$CONFIG"
 
-echo "=== Worker mit Secret aktualisieren ==="
-npx --yes wrangler@4 deploy --config "$CONFIG"
+echo "=== Secret wurde als neue Worker-Version bereitgestellt ==="
 
 echo "=== Authentifizierten Health-Check ausführen ==="
 printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" | curl --fail --silent --show-error --config - "$WORKER_URL/health"
