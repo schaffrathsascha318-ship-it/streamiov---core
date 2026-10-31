@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
   getStatus: () => ipcRenderer.invoke('studio:get-status'),
+  getRuntimeDiagnostics: () => ipcRenderer.invoke('studio:get-runtime-diagnostics'),
   runMediaTest: () => ipcRenderer.invoke('studio:run-media-test'),
   recordMusicTest: (payload) => ipcRenderer.invoke('studio:record-music-test', payload),
   getCameraLab: () => ipcRenderer.invoke('studio:get-camera-lab'),

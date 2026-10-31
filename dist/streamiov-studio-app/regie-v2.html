@@ -178,6 +178,8 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
     <div class="metric"><span>Kamera</span><b>NICHT VERBUNDEN</b></div>
     <div class="metric"><span>Mikrofon</span><b>NICHT VERBUNDEN</b></div>
     <div class="metric"><span>Netzwerk</span><b>LOKAL</b></div>
+    <button id="runtimeCheck" type="button" style="width:100%;margin-top:12px">TECHNIK / ENCODER PRÜFEN</button>
+    <p id="runtimeDiagnostics" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Systemprüfung noch nicht ausgeführt.</p>
     <button class="go-live" style="width:100%;margin-top:12px" id="live">● LIVE VERBINDUNG PRÜFEN</button>
    </div>
   </section>
@@ -358,6 +360,19 @@ $("fade").onclick=()=>{
  log("Lokaler Fade-Übergang ausgeführt.");
 };
 $("addSource").onclick=()=>log("Quellenverwaltung benötigt noch native Geräteintegration.");
+$("runtimeCheck").onclick=async()=>{
+ const output=$("runtimeDiagnostics");
+ output.textContent="Prüfe installierte Streaming-Komponenten …";
+ if(!window.streamiovStudio?.getRuntimeDiagnostics){output.textContent="Diagnose ist in dieser Laufzeit nicht verfügbar.";return;}
+ try{
+  const report=await window.streamiovStudio.getRuntimeDiagnostics();
+  const missing=report.missing_rtmp_dependencies||[];
+  output.textContent=missing.length
+   ? "RTMP noch nicht bereit. Fehlend: "+missing.join(", ")+"."
+   : "Encoder-Abhängigkeiten vorhanden. Geräte, OAuth und Live-Ausgabe sind noch nicht verifiziert.";
+  log("Technikprüfung abgeschlossen. RTMP-Abhängigkeiten: "+(missing.length?"fehlen":"vorhanden")+"; Live verifiziert: nein.");
+ }catch(error){output.textContent="Technikprüfung fehlgeschlagen: "+String(error.message||error).slice(0,180);}
+};
 $("live").onclick=()=>log("Noch keine bestätigte Plattform- oder Streamingverbindung. LIVE wurde nicht gestartet.");
 document.querySelectorAll("[data-tool]").forEach(b=>b.onclick=()=>log("Werkzeug geöffnet: "+b.dataset.tool+" — Modulstatus muss angebunden werden."));
 document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("input",()=>{
