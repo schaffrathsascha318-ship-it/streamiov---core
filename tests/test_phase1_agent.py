@@ -8,7 +8,7 @@ from pathlib import Path
 from ai.providers.local_http import (ProviderError, _local_url, OllamaProvider, LocalOpenAICompatibleProvider, provider_from_env)
 from ai.runtime.project_tools import ProjectTools, ToolError
 from ai.core.agent import DevelopmentAgent, AgentError
-from ai.__main__ import build_parser
+from ai.__main__ import build_parser, main
 
 class FakeProvider:
     def __init__(self, outputs):
@@ -102,7 +102,9 @@ class CliTests(unittest.TestCase):
     def test_cli_requires_task_and_accepts_workspace_options(self):
         parser = build_parser()
         with self.assertRaises(SystemExit):
-            parser.parse_args([])
+            main([])
+        doctor_args = parser.parse_args(["--doctor"])
+        self.assertTrue(doctor_args.doctor)
         args = parser.parse_args([
             "--task", "inspect the project",
             "--project-root", "/tmp/streamiov",
@@ -118,8 +120,17 @@ class LocalProviderHttpTests(unittest.TestCase):
     def setUpClass(cls):
         cls.requests = []
         cls.response_body = {}
+        cls.get_response_body = {}
 
         class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                body = json.dumps(cls.get_response_body).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
             def do_POST(self):
                 length = int(self.headers.get("Content-Length", "0"))
                 payload = json.loads(self.rfile.read(length).decode("utf-8"))
@@ -215,3 +226,36 @@ class LocalProviderHttpTests(unittest.TestCase):
             OllamaProvider(" ", self.base_url)
         with self.assertRaises(ProviderError):
             LocalOpenAICompatibleProvider("", self.base_url)
+
+
+    def test_ollama_doctor_reports_server_and_model_readiness(self):
+        type(self).get_response_body = {"models": [{"name": "other:latest"}, {"name": "test-coder"}]}
+        status = OllamaProvider("test-coder", self.base_url).check_ready()
+        self.assertTrue(status["reachable"])
+        self.assertTrue(status["model_available"])
+        self.assertTrue(status["ready"])
+        self.assertEqual(status["models_count"], 2)
+
+    def test_ollama_doctor_distinguishes_missing_model_from_offline_server(self):
+        type(self).get_response_body = {"models": [{"name": "other:latest"}]}
+        missing = OllamaProvider("test-coder", self.base_url).check_ready()
+        self.assertTrue(missing["reachable"])
+        self.assertFalse(missing["model_available"])
+        self.assertFalse(missing["ready"])
+        offline = OllamaProvider("test-coder", "http://127.0.0.1:1").check_ready()
+        self.assertFalse(offline["reachable"])
+        self.assertFalse(offline["ready"])
+
+    def test_openai_compatible_doctor_reads_models_endpoint(self):
+        type(self).get_response_body = {"data": [{"id": "local-coder"}, {"id": "other"}]}
+        status = LocalOpenAICompatibleProvider("local-coder", self.base_url + "/v1").check_ready()
+        self.assertTrue(status["reachable"])
+        self.assertTrue(status["model_available"])
+        self.assertTrue(status["ready"])
+        self.assertEqual(status["models_count"], 2)
+
+    def test_doctor_rejects_malformed_model_list(self):
+        type(self).get_response_body = {"unexpected": []}
+        status = OllamaProvider("test-coder", self.base_url).check_ready()
+        self.assertTrue(status["reachable"] is False)
+        self.assertFalse(status["ready"])
