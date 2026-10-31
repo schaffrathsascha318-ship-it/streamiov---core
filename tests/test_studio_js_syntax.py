@@ -25,7 +25,7 @@ class StudioJavaScriptSyntaxTests(unittest.TestCase):
 
     def test_inline_regie_scripts_parse(self):
         html = (STUDIO / "regie-v2.html").read_text(encoding="utf-8")
-        scripts = re.findall(r"<script\\b[^>]*>(.*?)</script\\s*>", html, flags=re.IGNORECASE | re.DOTALL)
+        scripts = re.findall(r"<script[^>]*>(.*?)</script>", html, flags=re.IGNORECASE | re.DOTALL)
         self.assertTrue(scripts, "No inline Regie scripts found")
         checked = 0
         with tempfile.TemporaryDirectory() as temp_dir:
