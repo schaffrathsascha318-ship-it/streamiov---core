@@ -1,6 +1,7 @@
 """Small tool-using development agent backed by a real local model endpoint."""
 from __future__ import annotations
 import json
+import subprocess
 from pathlib import Path
 from ai.runtime.project_tools import ProjectTools, ToolError
 from ai.providers.base import ModelProvider
@@ -50,12 +51,8 @@ class DevelopmentAgent:
                     result = self.tools.run_tests(args.get("command"))
                 else:
                     raise ToolError("Unknown tool.")
-            except (ToolError, OSError, UnicodeError, subprocess_error()) as exc:
+            except (ToolError, OSError, UnicodeError, subprocess.TimeoutExpired) as exc:
                 result = f"TOOL_ERROR: {type(exc).__name__}: {exc}"
             messages.extend([{"role": "assistant", "content": reply.content}, {"role": "user", "content": result}])
         raise AgentError(f"Agent reached the {self.max_steps}-step limit without a final response.")
 
-def subprocess_error():
-    # Lazy import keeps the public exception list small.
-    import subprocess
-    return subprocess.TimeoutExpired
