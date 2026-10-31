@@ -15,6 +15,16 @@ The inspected base ref is `streamiov-build-setup-clean`. Its tracked `ai/` tree 
 - Only one fixed unittest command is allowed. Existing files cannot be overwritten wholesale.
 - The CLI exits with a concise error if the local model endpoint is unavailable or configuration is invalid. It does not download models or fall back to a cloud service.
 
+## Check local model readiness
+
+Before running a task, check the configured local endpoint and whether the exact configured model name is listed:
+
+```bash
+STREAMIOV_MODEL_PROVIDER=ollama STREAMIOV_MODEL=qwen2.5-coder:7b python -m ai --doctor
+```
+
+The diagnostic reports provider, model, endpoint reachability, model availability, and a short explanation. Exit code `0` means ready, `3` means the server is offline or the model is missing/invalid, and `2` means configuration or startup failed. The check uses only the configured loopback endpoint and does not download anything.
+
 ## Start the agent
 
 From the repository root, start the agent through its CLI:
@@ -38,4 +48,4 @@ For a local OpenAI-compatible server set `STREAMIOV_MODEL_PROVIDER=openai-compat
 
 ## Verification status
 
-Unit tests use a deterministic fake provider to prove that the agent loop performs a real scoped file edit. Local HTTP integration tests also start a temporary loopback server and verify both provider request/response protocols, malformed responses, environment selection, and URL restrictions. These tests verify transport and orchestration, not model intelligence. GitHub Actions runs the repository unit tests and the Studio media smoke test. A real local model inference run still requires an Ollama or compatible model server on a user's machine. No continuously running cloud agent, production deployment, or paid inference is claimed.
+Unit tests use a deterministic fake provider to prove that the agent loop performs a real scoped file edit. Readiness diagnostics are tested against a temporary loopback server for both model-list protocols, including offline, missing-model, and malformed-response cases. Local HTTP integration tests also start a temporary loopback server and verify both provider request/response protocols, malformed responses, environment selection, and URL restrictions. These tests verify transport and orchestration, not model intelligence. GitHub Actions runs the repository unit tests and the Studio media smoke test. A real local model inference run still requires an Ollama or compatible model server on a user's machine. No continuously running cloud agent, production deployment, or paid inference is claimed.
