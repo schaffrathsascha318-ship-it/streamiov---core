@@ -18,7 +18,7 @@ Official references:
 
 - All routes require a bearer token of at least 32 characters, including the health endpoint.
 - Store the token as a Cloudflare Worker secret; never commit it or put it in a frontend bundle.
-- Requests are limited to 64 KiB, 24 messages, 12,000 characters per message, 48,000 prompt characters, and 4,096 output tokens.
+- Requests are limited to 64 KiB, 24 messages, 32,000 characters per message, 48,000 prompt characters, and 4,096 output tokens. The per-message limit accommodates bounded multi-file context returned by the development agent; the aggregate prompt and body limits remain enforced.
 - Only system/user/assistant messages are accepted. The model ID is fixed server-side.
 - Prompts, responses, and tokens are not written to application logs.
 - Only the Cloudflare AI binding is used for inference.
