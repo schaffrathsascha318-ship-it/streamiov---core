@@ -5,6 +5,7 @@ from pathlib import Path
 from ai.providers.local_http import ProviderError, _local_url
 from ai.runtime.project_tools import ProjectTools, ToolError
 from ai.core.agent import DevelopmentAgent, AgentError
+from ai.__main__ import build_parser
 
 class FakeProvider:
     def __init__(self, outputs):
@@ -63,3 +64,18 @@ class AgentTests(unittest.TestCase):
             with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider(["not json"]), tmp).run("Do task")
 
 if __name__ == "__main__": unittest.main()
+
+class CliTests(unittest.TestCase):
+    def test_cli_requires_task_and_accepts_workspace_options(self):
+        parser = build_parser()
+        with self.assertRaises(SystemExit):
+            parser.parse_args([])
+        args = parser.parse_args([
+            "--task", "inspect the project",
+            "--project-root", "/tmp/streamiov",
+            "--max-steps", "5",
+        ])
+        self.assertEqual(args.task, "inspect the project")
+        self.assertEqual(args.project_root, "/tmp/streamiov")
+        self.assertEqual(args.max_steps, 5)
+
