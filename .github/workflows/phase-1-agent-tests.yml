@@ -4,6 +4,7 @@ on:
     paths:
       - "ai/**"
       - "infrastructure/cloudflare/streamiov-ai-worker/**"
+      - "scripts/deploy-streamiov-ai-worker.sh"
       - "tests/**"
       - ".github/workflows/phase-1-agent-tests.yml"
   workflow_dispatch:
@@ -27,6 +28,8 @@ jobs:
           sudo apt-get install -y gstreamer1.0-tools gstreamer1.0-plugins-good
       - name: Run real synthetic audio/video encoding smoke test
         run: node scripts/test-studio-media-pipeline.cjs
+      - name: Check Cloudflare deployment script syntax
+        run: bash -n scripts/deploy-streamiov-ai-worker.sh
       - name: Run Cloudflare AI Worker tests
         run: node --test tests/test_cloudflare_ai_worker.mjs
       - name: Run Phase 1 unit tests
