@@ -13,7 +13,7 @@ STUDIO = ROOT / "dist" / "streamiov-studio-app"
 @unittest.skipUnless(shutil.which("node"), "Node.js is required for JavaScript syntax checks")
 class StudioJavaScriptSyntaxTests(unittest.TestCase):
     def test_electron_main_and_preload_parse(self):
-        for filename in ("main.js", "preload.js"):
+        for filename in ("main.js", "preload.js", "media-pipeline.js"):
             with self.subTest(filename=filename):
                 result = subprocess.run(
                     ["node", "--check", str(STUDIO / filename)],
