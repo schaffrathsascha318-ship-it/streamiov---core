@@ -107,5 +107,22 @@ class CloudflareWorkerProviderTests(unittest.TestCase):
         self.assertEqual(provider.model, DEFAULT_MODEL)
 
 
+    def test_http_400_includes_sanitized_worker_error_detail(self):
+        body = json.dumps({"error": {"message": "messages exceed context window"}}).encode("utf-8")
+        error = HTTPError(WORKER_URL + "/v1/chat/completions", 400, "Bad Request", {}, io.BytesIO(body))
+        with patch("ai.providers.cloudflare_worker.urlopen", side_effect=error):
+            with self.assertRaisesRegex(CloudflareWorkerError, "messages exceed context window"):
+                self.provider().generate(system="System", messages=[])
+
+    def test_http_error_detail_redacts_worker_token(self):
+        body = json.dumps({"error": {"message": "bad token " + TOKEN}}).encode("utf-8")
+        error = HTTPError(WORKER_URL + "/v1/chat/completions", 400, "Bad Request", {}, io.BytesIO(body))
+        with patch("ai.providers.cloudflare_worker.urlopen", side_effect=error):
+            with self.assertRaises(CloudflareWorkerError) as caught:
+                self.provider().generate(system="System", messages=[])
+        self.assertIn("[redacted]", str(caught.exception))
+        self.assertNotIn(TOKEN, str(caught.exception))
+
+
 if __name__ == "__main__":
     unittest.main()
