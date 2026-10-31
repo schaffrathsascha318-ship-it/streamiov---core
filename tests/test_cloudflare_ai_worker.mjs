@@ -47,7 +47,7 @@ test("health endpoint requires token and reports pinned model", async () => {
   assert.equal(body.authentication, "verified");
 });
 
-test("chat endpoint proxies only the fixed model and returns OpenAI shape", async () => {
+test("chat endpoint supports legacy response shape and returns OpenAI shape", async () => {
   let receivedModel;
   let receivedOptions;
   const runtime = env({
@@ -70,6 +70,48 @@ test("chat endpoint proxies only the fixed model and returns OpenAI shape", asyn
   assert.equal(body.choices[0].message.content, '{"final":"completed"}');
   assert.equal(receivedModel, MODEL);
   assert.equal(receivedOptions.max_tokens, 4096);
+});
+
+test("chat endpoint extracts OpenAI-style choices returned by Workers AI", async () => {
+  const response = await worker.fetch(
+    chatRequest({ model: MODEL, messages: [{ role: "user", content: "Say hello" }] }),
+    env({
+      AI: {
+        run: async () => ({
+          choices: [{ message: { role: "assistant", content: "STREAMIOV-OK" } }]
+        })
+      }
+    })
+  );
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.choices[0].message.content, "STREAMIOV-OK");
+});
+
+test("chat endpoint joins text parts from structured choice content", async () => {
+  const response = await worker.fetch(
+    chatRequest({ messages: [{ role: "user", content: "Say hello" }] }),
+    env({
+      AI: {
+        run: async () => ({
+          choices: [{ message: { content: [{ type: "text", text: "STREAMIOV" }, { type: "text", text: "-OK" }] } }]
+        })
+      }
+    })
+  );
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.choices[0].message.content, "STREAMIOV-OK");
+});
+
+test("empty model result remains an explicit gateway error", async () => {
+  const response = await worker.fetch(
+    chatRequest({ messages: [{ role: "user", content: "hello" }] }),
+    env({ AI: { run: async () => ({}) } })
+  );
+  assert.equal(response.status, 502);
+  const body = await response.json();
+  assert.equal(body.error.code, "empty_model_response");
 });
 
 test("rejects invalid bearer tokens and missing secret configuration", async () => {
