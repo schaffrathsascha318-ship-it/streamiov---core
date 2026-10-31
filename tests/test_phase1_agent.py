@@ -1,8 +1,11 @@
 import tempfile
 import os
+import json
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from ai.providers.local_http import ProviderError, _local_url
+from ai.providers.local_http import (ProviderError, _local_url, OllamaProvider, LocalOpenAICompatibleProvider, provider_from_env)
 from ai.runtime.project_tools import ProjectTools, ToolError
 from ai.core.agent import DevelopmentAgent, AgentError
 from ai.__main__ import build_parser
@@ -108,3 +111,92 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.task, "inspect the project")
         self.assertEqual(args.project_root, "/tmp/streamiov")
         self.assertEqual(args.max_steps, 5)
+
+
+class LocalProviderHttpTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.requests = []
+        cls.response_body = {}
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                length = int(self.headers.get("Content-Length", "0"))
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                cls.requests.append((self.path, payload, self.headers.get("Content-Type")))
+                body = json.dumps(cls.response_body).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_args):
+                pass
+
+        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+        cls.base_url = f"http://127.0.0.1:{cls.server.server_port}"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls.thread.join(timeout=2)
+
+    def setUp(self):
+        type(self).requests.clear()
+
+    def test_ollama_provider_sends_chat_payload_and_reads_reply(self):
+        type(self).response_body = {"message": {"content": '{"final":"Ollama connected"}'}}
+        provider = OllamaProvider("test-coder", self.base_url)
+        reply = provider.generate(
+            system="Return JSON only.",
+            messages=[{"role": "user", "content": "Say hello"}],
+        )
+        self.assertEqual(reply.content, '{"final":"Ollama connected"}')
+        self.assertEqual(reply.provider, "ollama")
+        self.assertEqual(reply.model, "test-coder")
+        path, payload, content_type = self.requests[0]
+        self.assertEqual(path, "/api/chat")
+        self.assertEqual(content_type, "application/json")
+        self.assertEqual(payload["model"], "test-coder")
+        self.assertFalse(payload["stream"])
+        self.assertEqual(payload["messages"][0], {"role": "system", "content": "Return JSON only."})
+        self.assertEqual(payload["messages"][1]["content"], "Say hello")
+
+    def test_openai_compatible_provider_sends_chat_completion_payload(self):
+        type(self).response_body = {"choices": [{"message": {"content": '{"final":"Local server connected"}'}}]}
+        provider = LocalOpenAICompatibleProvider("local-code-model", self.base_url + "/v1")
+        reply = provider.generate(system="System", messages=[{"role": "user", "content": "Hello"}])
+        self.assertEqual(reply.content, '{"final":"Local server connected"}')
+        self.assertEqual(reply.provider, "local-openai-compatible")
+        path, payload, _ = self.requests[0]
+        self.assertEqual(path, "/v1/chat/completions")
+        self.assertEqual(payload["model"], "local-code-model")
+        self.assertEqual(payload["messages"][0]["role"], "system")
+
+    def test_openai_compatible_provider_rejects_malformed_response(self):
+        type(self).response_body = {"choices": []}
+        provider = LocalOpenAICompatibleProvider("local-code-model", self.base_url + "/v1")
+        with self.assertRaises(ProviderError):
+            provider.generate(system="System", messages=[])
+
+    def test_environment_selects_only_local_providers(self):
+        from unittest.mock import patch
+        with patch.dict(os.environ, {
+            "STREAMIOV_MODEL_PROVIDER": "ollama",
+            "STREAMIOV_MODEL": "test-model",
+            "STREAMIOV_MODEL_URL": self.base_url,
+        }):
+            self.assertIsInstance(provider_from_env(), OllamaProvider)
+        with patch.dict(os.environ, {
+            "STREAMIOV_MODEL_PROVIDER": "openai-compatible-local",
+            "STREAMIOV_MODEL": "test-model",
+            "STREAMIOV_MODEL_URL": self.base_url + "/v1",
+        }):
+            self.assertIsInstance(provider_from_env(), LocalOpenAICompatibleProvider)
+        with patch.dict(os.environ, {"STREAMIOV_MODEL_PROVIDER": "cloud"}):
+            with self.assertRaises(ProviderError):
+                provider_from_env()
