@@ -1,4 +1,5 @@
 import tempfile
+import os
 import unittest
 from pathlib import Path
 from ai.providers.local_http import ProviderError, _local_url
@@ -33,6 +34,16 @@ class ProjectToolTests(unittest.TestCase):
     def test_protected_paths(self):
         for path in ("../outside", ".env", ".env.production", "secrets/admin.json", "config/oauth/token.json", "data/access-token.json", "keys/private-key.pem"):
             with self.subTest(path=path), self.assertRaises(ToolError): self.tools.read_file(path)
+    def test_dangling_symlink_is_rejected(self):
+        (self.root / "ai").mkdir()
+        link = self.root / "ai/dangling.py"
+        try:
+            os.symlink(self.root / "missing-target.py", link)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symlinks are unavailable on this platform.")
+        with self.assertRaises(ToolError):
+            self.tools.write_file("ai/dangling.py", "unsafe")
+
     def test_no_overwrite_or_unapproved_write(self):
         with self.assertRaises(ToolError): self.tools.write_file("core/app.py", "x")
         (self.root / "ai").mkdir()
