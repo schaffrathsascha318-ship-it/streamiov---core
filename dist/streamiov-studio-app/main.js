@@ -214,6 +214,80 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
 });
 
 
+
+async function probeExecutable(command, args = ['--version']) {
+  try {
+    const result = await execFileAsync(command, args, {
+      timeout: 8000,
+      windowsHide: true,
+      maxBuffer: 256 * 1024
+    });
+    return {
+      available: true,
+      version: String(result.stdout || result.stderr || '').trim().split(/\\r?\\n/).slice(0, 2).join(' ').slice(0, 240)
+    };
+  } catch (error) {
+    return {
+      available: false,
+      reason: error.code === 'ENOENT' ? 'not_installed_or_not_in_PATH' : String(error.message || error).slice(0, 180)
+    };
+  }
+}
+
+async function probeGStreamerPlugin(plugin) {
+  try {
+    await execFileAsync('gst-inspect-1.0', [plugin], {
+      timeout: 8000,
+      windowsHide: true,
+      maxBuffer: 256 * 1024
+    });
+    return { available: true };
+  } catch (error) {
+    return { available: false, reason: error.code === 'ENOENT' ? 'gstreamer_not_installed' : 'plugin_not_available' };
+  }
+}
+
+ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
+  if (!isTrustedStudioSender(event)) {
+    throw new Error('Nicht autorisierter Studio-Aufruf');
+  }
+
+  const [gstInspect, gstLaunch, ffmpeg] = await Promise.all([
+    probeExecutable('gst-inspect-1.0'),
+    probeExecutable('gst-launch-1.0'),
+    probeExecutable('ffmpeg')
+  ]);
+
+  let plugins = {};
+  if (gstInspect.available) {
+    const names = ['videotestsrc', 'audiotestsrc', 'x264enc', 'rtmpsink'];
+    const results = await Promise.all(names.map(async name => [name, await probeGStreamerPlugin(name)]));
+    plugins = Object.fromEntries(results);
+  }
+
+  const missingForRtmp = [
+    ...(!gstLaunch.available ? ['gst-launch-1.0'] : []),
+    ...(!plugins.x264enc?.available ? ['x264enc'] : []),
+    ...(!plugins.rtmpsink?.available ? ['rtmpsink'] : [])
+  ];
+
+  return {
+    ok: true,
+    platform: process.platform,
+    runtime: {
+      gstreamer_inspect: gstInspect,
+      gstreamer_launch: gstLaunch,
+      ffmpeg
+    },
+    plugins,
+    local_test_sources_available: Boolean(plugins.videotestsrc?.available && plugins.audiotestsrc?.available),
+    rtmp_pipeline_dependencies_available: missingForRtmp.length === 0,
+    missing_rtmp_dependencies: missingForRtmp,
+    live_stream_verified: false,
+    note: 'Dies ist eine Abhängigkeitsprüfung. Gerätezugriff, Encoder-Pipeline, Plattformautorisierung und Live-Ausgabe sind damit nicht getestet.'
+  };
+});
+
 // Crostini-Kompatibilität: GPU-Beschleunigung vor app.whenReady deaktivieren.
 app.disableHardwareAcceleration();
 
