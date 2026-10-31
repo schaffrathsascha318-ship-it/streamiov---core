@@ -9,7 +9,7 @@ function buildSyntheticAvPipelineArgs(outputFile) {
 
   return [
     '-e',
-    'webmmux', 'name=mux', '!', 'filesink', 'location=' + outputFile,
+    'webmmux', 'name=mux', '!', 'filesink', 'location="' + outputFile.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"',
     'videotestsrc', 'num-buffers=90', '!',
     'video/x-raw,width=640,height=360,framerate=30/1', '!',
     'videoconvert', '!', 'vp8enc', 'deadline=1', '!', 'queue', '!', 'mux.',
