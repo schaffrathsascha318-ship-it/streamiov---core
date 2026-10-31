@@ -7,7 +7,7 @@ The inspected base ref is `streamiov-build-setup-clean`. Its tracked `ai/` tree 
 ## Implemented foundation
 
 - Replaceable provider contract and two local adapters: Ollama and local OpenAI-compatible HTTP.
-- Providers accept only plain HTTP loopback endpoints; there are no cloud providers, API keys, paid fallbacks, model weights, or automatic downloads.
+- Providers accept only credential-free plain HTTP loopback endpoints; URLs with credentials, query tokens, remote hosts, or malformed ports are rejected. Responses must contain non-empty text in the expected Ollama or OpenAI-compatible shape. There are no cloud providers, API keys, paid fallbacks, model weights, or automatic downloads.
 - JSON tool loop with bounded steps and fail-closed parsing.
 - File reads and create-only writes under AI, documentation, and test directories.
 - Exact-match editing of one unique text section in an existing file. Missing or duplicate matches fail without changing the file.
@@ -38,4 +38,4 @@ For a local OpenAI-compatible server set `STREAMIOV_MODEL_PROVIDER=openai-compat
 
 ## Verification status
 
-Unit tests use a deterministic fake provider to prove that the agent loop performs a real scoped file edit; this verifies orchestration and file tools, not model intelligence. GitHub Actions runs the repository unit tests and the Studio media smoke test. A real local model inference run still requires an Ollama or compatible model server on a user's machine. No continuously running cloud agent, production deployment, or paid inference is claimed.
+Unit tests use a deterministic fake provider to prove that the agent loop performs a real scoped file edit. Local HTTP integration tests also start a temporary loopback server and verify both provider request/response protocols, malformed responses, environment selection, and URL restrictions. These tests verify transport and orchestration, not model intelligence. GitHub Actions runs the repository unit tests and the Studio media smoke test. A real local model inference run still requires an Ollama or compatible model server on a user's machine. No continuously running cloud agent, production deployment, or paid inference is claimed.
