@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - "ai/**"
-      - "tests/test_phase1_agent.py"
+      - "tests/**"
       - ".github/workflows/phase-1-agent-tests.yml"
   workflow_dispatch:
 permissions:
