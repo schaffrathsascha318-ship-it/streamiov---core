@@ -72,6 +72,31 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("media_test_pipeline_available", handler)
 
 
+    def test_regie_exposes_real_camera_and_microphone_capture_controls(self):
+        for element_id in ("cameraDeviceSelect", "cameraStart", "cameraPreview",
+                           "cameraCaptureStatus", "microphoneDeviceSelect",
+                           "microphoneStart", "microphoneCaptureStatus",
+                           "microphoneLevel", "refreshDevices"):
+            self.assertIn(f'id="{element_id}"', self.ui)
+
+    def test_device_capture_uses_real_media_devices_and_stops_tracks(self):
+        self.assertIn("navigator.mediaDevices.enumerateDevices()", self.ui)
+        self.assertIn("navigator.mediaDevices.getUserMedia", self.ui)
+        self.assertIn("video:deviceId?{deviceId:{exact:deviceId}}:true", self.ui)
+        self.assertIn("audio:deviceId?{deviceId:{exact:deviceId}}:true", self.ui)
+        self.assertIn("track.stop()", self.ui)
+        self.assertIn("track.readyState!==\"live\"", self.ui)
+        self.assertIn("createMediaStreamSource(stream)", self.ui)
+        self.assertIn("beforeunload", self.ui)
+
+    def test_device_capture_reports_permissions_and_never_claims_live_stream(self):
+        self.assertIn("NotAllowedError", self.ui)
+        self.assertIn("NotFoundError", self.ui)
+        self.assertIn("Nur lokale Vorschau", self.ui)
+        self.assertIn("kein Ton wird übertragen", self.ui)
+        self.assertIn("Echte Kamera liefert einen lokalen Videostream.", self.ui)
+        self.assertIn("Echtes Mikrofon liefert einen lokalen Audiostream.", self.ui)
+
     def test_media_pipeline_builder_is_shared_with_ci_smoke_test(self):
         self.assertIn("require('./media-pipeline')", self.main)
         self.assertIn("buildSyntheticAvPipelineArgs(outputFile)", self.main)
