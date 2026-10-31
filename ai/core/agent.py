@@ -10,9 +10,13 @@ SYSTEM = """You are Streamiov's coding agent. Work only on the supplied project 
 You may request exactly one JSON object per response:
 {"tool":"read_file","arguments":{"path":"relative/path"}}
 {"tool":"write_file","arguments":{"path":"new/relative/path","content":"complete file text"}}
+{"tool":"replace_text","arguments":{"path":"ai/file.py","old_text":"one exact existing section","new_text":"its replacement"}}
 {"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}
 {"final":"concise result"}
-Never request secrets, environment files, credentials, OAuth data, production actions, arbitrary shell commands, network access, or overwriting files. Paths and tools are enforced independently. Do not claim a test passed unless its output proves it. Return JSON only."""
+Never request secrets, environment files, credentials, OAuth data, production actions, arbitrary shell commands, network access, or overwriting files wholesale. Exact-match edits must target one unique section. Paths and tools are enforced independently. Do not claim a test passed unless its output proves it. Return JSON only."""
+
+MAX_MODEL_REPLY_CHARS = 100_000
+
 class AgentError(RuntimeError):
     pass
 
@@ -30,16 +34,22 @@ class DevelopmentAgent:
         messages = [{"role": "user", "content": task.strip()}]
         for _ in range(self.max_steps):
             reply = self.provider.generate(system=SYSTEM, messages=messages)
+            if not isinstance(reply.content, str) or len(reply.content) > MAX_MODEL_REPLY_CHARS:
+                raise AgentError("Model response is missing or exceeds the 100 KB limit.")
             try:
                 action = json.loads(reply.content)
             except (TypeError, json.JSONDecodeError) as exc:
                 raise AgentError("Model response was not valid JSON; refusing to guess or execute.") from exc
             if not isinstance(action, dict):
                 raise AgentError("Model response must be a JSON object.")
-            if isinstance(action.get("final"), str):
+            if "final" in action:
+                if set(action) != {"final"} or not isinstance(action["final"], str):
+                    raise AgentError("Final response must contain only a string 'final' field.")
                 return action["final"]
-            tool = action.get("tool")
-            args = action.get("arguments", {})
+            if set(action) != {"tool", "arguments"}:
+                raise AgentError("Tool response must contain only 'tool' and 'arguments'.")
+            tool = action["tool"]
+            args = action["arguments"]
             if not isinstance(args, dict):
                 raise AgentError("Tool arguments must be a JSON object.")
             try:
@@ -47,6 +57,8 @@ class DevelopmentAgent:
                     result = self.tools.read_file(args.get("path"))
                 elif tool == "write_file":
                     result = self.tools.write_file(args.get("path"), args.get("content"))
+                elif tool == "replace_text":
+                    result = self.tools.replace_text(args.get("path"), args.get("old_text"), args.get("new_text"))
                 elif tool == "run_tests":
                     result = self.tools.run_tests(args.get("command"))
                 else:
@@ -55,4 +67,3 @@ class DevelopmentAgent:
                 result = f"TOOL_ERROR: {type(exc).__name__}: {exc}"
             messages.extend([{"role": "assistant", "content": reply.content}, {"role": "user", "content": result}])
         raise AgentError(f"Agent reached the {self.max_steps}-step limit without a final response.")
-
