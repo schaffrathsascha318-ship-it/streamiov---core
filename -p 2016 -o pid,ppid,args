@@ -1,0 +1,2 @@
+ExecStart={ path=/usr/bin/python3 ; argv[]=/usr/bin/python3 /home/schaffrathsascha318/streamiov/cloud/server/server.py ; ignore_errors=no ; start_time=[Tue 2026-10-13 11:20:01 CEST] ; stop_time=[n/a] ; pid=488 ; code=(null) ; status=0/0 }
+WorkingDirectory=/home/schaffrathsascha318/streamiov

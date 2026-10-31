@@ -1,0 +1,19 @@
+[
+  {
+    "id": "c3ecdf06-280e-4f82-b1cf-1551dfb02f67",
+    "streamer_id": "test-streamer",
+    "name": "Meine Test-Playlist",
+    "tracks": [
+      {
+        "id": "10e68ec0-b41b-4c2f-990f-6cea9a16120d",
+        "title": "Test Track",
+        "source": "local-test",
+        "rights_status": "test-only"
+      }
+    ],
+    "active": false,
+    "volume": 1.0,
+    "created_at": "2026-10-05T01:20:40.880045+00:00",
+    "updated_at": "2026-10-05T01:20:40.880663+00:00"
+  }
+]

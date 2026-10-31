@@ -1,0 +1,14 @@
+{
+  "wish_id": "wish-1d9ff4b2a7be496f",
+  "created_at": "2026-10-05T14:42:10.648481+00:00",
+  "source": "homepage",
+  "request": "Soundboard erweitern",
+  "result": {
+    "task_id": "task-68b14135d7704e5b",
+    "status": "completed",
+    "category": "sound",
+    "approval_required": false,
+    "message": "Auftrag ausgeführt und lokal nachgeprüft.",
+    "test_status": "PASS"
+  }
+}

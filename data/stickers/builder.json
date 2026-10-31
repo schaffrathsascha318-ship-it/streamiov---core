@@ -1,0 +1,54 @@
+{
+  "module": "sticker_builder",
+  "version": 2,
+  "state": "implemented",
+  "local_only": true,
+  "ai_enabled": true,
+  "capabilities": [
+    "create_sticker",
+    "edit_sticker",
+    "text_layer",
+    "shape_layer",
+    "image_reference",
+    "position",
+    "scale",
+    "rotation",
+    "animation_reference",
+    "multi_layer",
+    "overlay_reference",
+    "gift_binding",
+    "event_binding",
+    "action_binding",
+    "import",
+    "export"
+  ],
+  "pipeline": [
+    "game",
+    "event",
+    "gift",
+    "action",
+    "sticker",
+    "overlay"
+  ],
+  "ai_rules": {
+    "can_prepare_actions": true,
+    "can_prepare_sticker_configs": true,
+    "can_prepare_overlay_configs": true,
+    "must_use_game_registry": true,
+    "must_validate_before_tested": true,
+    "must_not_claim_untested_support": true,
+    "requires_approval_for_production_changes": true,
+    "external_connections_allowed": false,
+    "credential_access_allowed": false
+  },
+  "storage": "local",
+  "external_connections": false,
+  "action_pipeline": {
+    "game": true,
+    "event": true,
+    "gift": true,
+    "action": true,
+    "sticker": true,
+    "overlay": true
+  }
+}

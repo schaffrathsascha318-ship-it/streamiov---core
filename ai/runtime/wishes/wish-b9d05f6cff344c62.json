@@ -1,0 +1,14 @@
+{
+  "wish_id": "wish-b9d05f6cff344c62",
+  "created_at": "2026-10-04T21:26:37.184393+00:00",
+  "source": "self-test",
+  "request": "Prüfe meine Musikliste",
+  "result": {
+    "task_id": "task-ef353885cb9c4e94",
+    "status": "completed",
+    "category": "music",
+    "approval_required": false,
+    "message": "Auftrag ausgeführt und lokal nachgeprüft.",
+    "test_status": "PASS"
+  }
+}

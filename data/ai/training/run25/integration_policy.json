@@ -1,0 +1,29 @@
+{
+  "run": 25,
+  "mode": "local_integration_training",
+  "pipeline": [
+    "registry",
+    "classification",
+    "event",
+    "gift",
+    "action_builder",
+    "action_runtime",
+    "sticker",
+    "overlay",
+    "validation",
+    "evaluation"
+  ],
+  "truth_rules": {
+    "tested_requires_real_local_execution": true,
+    "unknown_game": "NEEDS_REVIEW",
+    "production": "NOT_VERIFIED",
+    "external_sources": "NOT_CONFIGURED"
+  },
+  "protected_operations": {
+    "deployment": false,
+    "server_restart": false,
+    "credential_access": false,
+    "external_authentication": false,
+    "permission_changes": false
+  }
+}

@@ -1,0 +1,59 @@
+name: Streamiov Studio Builds
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "dist/streamiov-studio-app/**"
+      - "scripts/sync-studio-ui.py"
+      - ".github/workflows/studio-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            runner: windows-latest
+            command: dist:win
+          - name: Linux x64
+            runner: ubuntu-latest
+            command: dist:linux
+          - name: Linux ARM64
+            runner: ubuntu-24.04-arm
+            command: dist:linux:arm64
+
+    defaults:
+      run:
+        working-directory: dist/streamiov-studio-app
+
+    steps:
+      - name: Quellcode laden
+        uses: actions/checkout@v4
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dist/streamiov-studio-app/package-lock.json
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Studio bauen
+        run: npm run ${{ matrix.command }}
+
+      - name: Installer als Artefakte speichern
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamiov-studio-${{ matrix.name }}
+          path: dist/streamiov-studio-app/release/*
+          if-no-files-found: error
+          retention-days: 30

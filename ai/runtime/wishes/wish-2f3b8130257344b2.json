@@ -1,0 +1,14 @@
+{
+  "wish_id": "wish-2f3b8130257344b2",
+  "created_at": "2026-10-05T15:08:48.395643+00:00",
+  "source": "homepage",
+  "request": "test",
+  "result": {
+    "task_id": "task-89f48bd2245f46af",
+    "status": "completed",
+    "category": "testing",
+    "approval_required": false,
+    "message": "Auftrag ausgeführt und lokal nachgeprüft.",
+    "test_status": "PASS"
+  }
+}

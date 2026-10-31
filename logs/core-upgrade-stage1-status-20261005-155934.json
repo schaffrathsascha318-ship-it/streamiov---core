@@ -1,0 +1,15 @@
+{
+  "project": "Streamiov",
+  "upgrade": "core-stage-1",
+  "name": "Integration & Aktivierung",
+  "timestamp": "2026-10-05T13:59:36.603949+00:00",
+  "backup": "backups/core-upgrade-stage1-20261005-155934",
+  "module_count": 29,
+  "modules_present": 29,
+  "modules_missing": 0,
+  "failed_tests": 1,
+  "server_restart": false,
+  "data_deleted": false,
+  "public_exposure_changed": false,
+  "status": "completed_with_test_results"
+}

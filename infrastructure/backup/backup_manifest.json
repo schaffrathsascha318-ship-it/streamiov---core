@@ -1,0 +1,6 @@
+{
+  "component": "backup-core",
+  "automatic_backup": false,
+  "verification_required": true,
+  "restore_test_required": true
+}

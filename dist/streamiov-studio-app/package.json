@@ -1,0 +1,59 @@
+{
+  "name": "streamiov-studio",
+  "version": "1.0.0",
+  "description": "Streamiov Studio Desktop-App für TikTok",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis --x64",
+    "dist:linux": "electron-builder --linux AppImage deb --x64",
+    "dist:linux:arm64": "electron-builder --linux AppImage deb --arm64",
+    "prestart": "python3 ../../scripts/sync-studio-ui.py",
+    "pre-dist:win": "python3 ../../scripts/sync-studio-ui.py",
+    "pre-dist:linux": "python3 ../../scripts/sync-studio-ui.py",
+    "pre-dist:linux:arm64": "python3 ../../scripts/sync-studio-ui.py"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "tiktok-live-connector": "2.5.0"
+  },
+  "build": {
+    "appId": "tv.streamiov.studio",
+    "productName": "Streamiov Studio",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "**/*",
+      "!backup-tiktok-*/**/*",
+      "!**/*.log",
+      "!**/.env*",
+      "!**/data/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "category": "AudioVideo",
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  }
+}

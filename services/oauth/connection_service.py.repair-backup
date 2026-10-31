@@ -1,0 +1,320 @@
+"""
+Streamiov — OAuth Connection Service
+
+Centralized persistence layer for verified platform OAuth connections.
+
+Rules:
+- OAuth tokens are encrypted before database storage.
+- Plaintext tokens are never persisted.
+- A platform is never marked connected before verification.
+- OAuth state is stored hashed.
+- Connection writes happen only after successful verification.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import secrets
+from datetime import datetime, timezone
+from typing import Any
+
+from core.database import connect
+from infrastructure.security.token_crypto import TokenCrypto
+
+
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def hash_state(state: str) -> str:
+    if not state:
+        raise ValueError("state must not be empty")
+
+    return hashlib.sha256(
+        state.encode("utf-8")
+    ).hexdigest()
+
+
+def create_oauth_state(
+    user_id: int,
+    platform: str,
+) -> str:
+    if not user_id:
+        raise ValueError("user_id must be valid")
+
+    if not platform:
+        raise ValueError("platform must not be empty")
+
+    state = secrets.token_urlsafe(32)
+    state_hash = hash_state(state)
+    now = utc_now_iso()
+
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO platform_connections (
+                user_id, platform, status, authorization_status,
+                authorization_state, connection_status,
+                oauth_state_hash, created_at, updated_at
+            )
+            VALUES (?, ?, 'disconnected', 'pending', 'pending',
+                    'disconnected', ?, ?, ?)
+            ON CONFLICT(user_id, platform) DO UPDATE SET
+                oauth_state_hash = excluded.oauth_state_hash,
+                authorization_state = 'pending',
+                authorization_status = 'pending',
+                updated_at = excluded.updated_at
+            """,
+            (user_id, platform, state_hash, now, now),
+        )
+
+    return state
+
+
+def verify_oauth_state(
+    user_id: int,
+    platform: str,
+    state: str,
+) -> bool:
+    if not user_id or not platform or not state:
+        return False
+
+    expected_hash = hash_state(state)
+
+    with connect() as conn:
+        row = conn.execute(
+            """
+            SELECT oauth_state_hash
+            FROM platform_connections
+            WHERE user_id = ?
+              AND platform = ?
+            """,
+            (
+                user_id,
+                platform,
+            ),
+        ).fetchone()
+
+    if row is None:
+        return False
+
+    stored_hash = row["oauth_state_hash"]
+
+    if not stored_hash:
+        return False
+
+    return secrets.compare_digest(
+        stored_hash,
+        expected_hash,
+    )
+
+
+def clear_oauth_state(
+    user_id: int,
+    platform: str,
+) -> None:
+    now = utc_now_iso()
+
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE platform_connections
+            SET
+                oauth_state_hash = NULL,
+                updated_at = ?
+            WHERE user_id = ?
+              AND platform = ?
+            """,
+            (
+                now,
+                user_id,
+                platform,
+            ),
+        )
+
+
+def save_verified_connection(
+    user_id: int,
+    platform: str,
+    account_id: str,
+    account_name: str | None,
+    access_token: str,
+    refresh_token: str | None,
+    expires_at: str | None,
+    scopes: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    if not user_id:
+        raise ValueError("user_id must be valid")
+
+    if not platform:
+        raise ValueError("platform must not be empty")
+
+    if not account_id:
+        raise ValueError("account_id must not be empty")
+
+    if not access_token:
+        raise ValueError("access_token must not be empty")
+
+    access_encrypted = TokenCrypto.encrypt(access_token)
+
+    refresh_encrypted = None
+
+    if refresh_token:
+        refresh_encrypted = TokenCrypto.encrypt(
+            refresh_token
+        )
+
+    now = utc_now_iso()
+
+    scopes_json = json.dumps(
+        scopes or [],
+        ensure_ascii=False,
+    )
+
+    metadata_json = json.dumps(
+        metadata or {},
+        ensure_ascii=False,
+    )
+
+    token_reference = (
+        f"{platform}:{user_id}:{account_id}"
+    )
+
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE platform_connections
+            SET
+                status = 'connected',
+                authorization_status = 'authorized',
+                authorization_state = 'authorized',
+                account_id = ?,
+                account_name = ?,
+                token_reference = ?,
+                scopes_json = ?,
+                access_token_encrypted = ?,
+                refresh_token_encrypted = ?,
+                token_expires_at = ?,
+                metadata_json = ?,
+                connected_at = ?,
+                disconnected_at = NULL,
+                last_verified_at = ?,
+                connection_status = 'connected',
+                authorization_method = 'oauth2',
+                oauth_state_hash = NULL,
+                updated_at = ?
+            WHERE user_id = ?
+              AND platform = ?
+            """,
+            (
+                account_id,
+                account_name,
+                token_reference,
+                scopes_json,
+                access_encrypted,
+                refresh_encrypted,
+                expires_at,
+                metadata_json,
+                now,
+                now,
+                now,
+                user_id,
+                platform,
+            ),
+        )
+
+
+def disconnect_platform(
+    user_id: int,
+    platform: str,
+) -> None:
+    now = utc_now_iso()
+
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE platform_connections
+            SET
+                status = 'disconnected',
+                authorization_status = 'not_authorized',
+                authorization_state = 'not_authorized',
+                account_id = NULL,
+                account_name = NULL,
+                token_reference = NULL,
+                scopes_json = '[]',
+                access_token_encrypted = NULL,
+                refresh_token_encrypted = NULL,
+                token_expires_at = NULL,
+                metadata_json = '{}',
+                connected_at = NULL,
+                disconnected_at = ?,
+                last_verified_at = NULL,
+                connection_status = 'disconnected',
+                authorization_method = NULL,
+                oauth_state_hash = NULL,
+                updated_at = ?
+            WHERE user_id = ?
+              AND platform = ?
+            """,
+            (
+                now,
+                now,
+                user_id,
+                platform,
+            ),
+        )
+
+
+def get_connection_status(
+    user_id: int,
+    platform: str,
+) -> dict[str, Any] | None:
+    with connect() as conn:
+        row = conn.execute(
+            """
+            SELECT
+                platform,
+                status,
+                authorization_status,
+                authorization_state,
+                account_id,
+                account_name,
+                token_reference,
+                scopes_json,
+                token_expires_at,
+                connected_at,
+                disconnected_at,
+                last_verified_at,
+                connection_status,
+                authorization_method
+            FROM platform_connections
+            WHERE user_id = ?
+              AND platform = ?
+            """,
+            (
+                user_id,
+                platform,
+            ),
+        ).fetchone()
+
+    if row is None:
+        return None
+
+    return {
+        "platform": row["platform"],
+        "status": row["status"],
+        "authorization_status": row["authorization_status"],
+        "authorization_state": row["authorization_state"],
+        "account_id": row["account_id"],
+        "account_name": row["account_name"],
+        "token_reference": row["token_reference"],
+        "scopes": json.loads(row["scopes_json"] or "[]"),
+        "token_expires_at": row["token_expires_at"],
+        "connected_at": row["connected_at"],
+        "disconnected_at": row["disconnected_at"],
+        "last_verified_at": row["last_verified_at"],
+        "connection_status": row["connection_status"],
+        "authorization_method": row["authorization_method"],
+    }

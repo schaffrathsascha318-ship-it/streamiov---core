@@ -1,0 +1,188 @@
+[
+  {
+    "id": "r26-001",
+    "type": "known_game",
+    "game_type": "Action",
+    "event": "enemy_defeated",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-002",
+    "type": "known_game",
+    "game_type": "Racing",
+    "event": "lap_completed",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-003",
+    "type": "known_game",
+    "game_type": "RPG",
+    "event": "boss_defeated",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-004",
+    "type": "known_game",
+    "game_type": "Simulation",
+    "event": "milestone_reached",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-005",
+    "type": "known_game",
+    "game_type": "Strategy",
+    "event": "objective_completed",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-006",
+    "type": "known_game",
+    "game_type": "Sport",
+    "event": "goal_scored",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-007",
+    "type": "known_game",
+    "game_type": "Shooter",
+    "event": "elimination",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-008",
+    "type": "known_game",
+    "game_type": "Survival",
+    "event": "wave_survived",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-009",
+    "type": "known_game",
+    "game_type": "Adventure",
+    "event": "puzzle_solved",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-010",
+    "type": "known_game",
+    "game_type": "Platformer",
+    "event": "checkpoint_reached",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-011",
+    "type": "known_game",
+    "game_type": "Fighting",
+    "event": "combo_finished",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-012",
+    "type": "known_game",
+    "game_type": "Party",
+    "event": "mini_game_won",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-013",
+    "type": "known_game",
+    "game_type": "Sandbox",
+    "event": "build_completed",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-014",
+    "type": "known_game",
+    "game_type": "Card",
+    "event": "card_drawn",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-015",
+    "type": "known_game",
+    "game_type": "MMO",
+    "event": "raid_completed",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-016",
+    "type": "streamiov_game",
+    "game": "Streamiov Arena",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-017",
+    "type": "streamiov_game",
+    "game": "Streamiov Racing",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-018",
+    "type": "streamiov_game",
+    "game": "Streamiov Quest",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-019",
+    "type": "streamiov_game",
+    "game": "Streamiov Strategy",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-020",
+    "type": "streamiov_game",
+    "game": "Streamiov Survival",
+    "expected": "valid_pipeline"
+  },
+  {
+    "id": "r26-021",
+    "type": "unknown_game",
+    "game": "Unknown Future Game",
+    "expected": "NEEDS_REVIEW"
+  },
+  {
+    "id": "r26-022",
+    "type": "missing_event",
+    "expected": "FALLBACK"
+  },
+  {
+    "id": "r26-023",
+    "type": "missing_gift",
+    "expected": "FALLBACK"
+  },
+  {
+    "id": "r26-024",
+    "type": "missing_action",
+    "expected": "FALLBACK"
+  },
+  {
+    "id": "r26-025",
+    "type": "missing_sticker",
+    "expected": "FALLBACK"
+  },
+  {
+    "id": "r26-026",
+    "type": "missing_overlay",
+    "expected": "FALLBACK"
+  },
+  {
+    "id": "r26-027",
+    "type": "cooldown_conflict",
+    "expected": "SUPPRESS_DUPLICATE"
+  },
+  {
+    "id": "r26-028",
+    "type": "priority_conflict",
+    "expected": "HIGH_PRIORITY_FIRST"
+  },
+  {
+    "id": "r26-029",
+    "type": "duplicate_action",
+    "expected": "DEDUPLICATED"
+  },
+  {
+    "id": "r26-030",
+    "type": "truth_status",
+    "expected": "NO_FALSE_TESTED"
+  }
+]

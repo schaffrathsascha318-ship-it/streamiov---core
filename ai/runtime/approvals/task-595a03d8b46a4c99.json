@@ -1,0 +1,22 @@
+{
+  "task_id": "task-595a03d8b46a4c99",
+  "status": "pending",
+  "created_at": "2026-10-08T01:13:21.399246+00:00",
+  "recipient": "schaffrathsascha318@gmail.com",
+  "request": "\nPRIORITÄT P1.\n\nFühre den Homepage-Auftrag vollständig aus:\nHomepage, Download-Bereich, integriertes Streamiov Studio,\nStreamer-Funktionen, Bot-/KI-Informationen sowie Installation\nund Startinformationen vervollständigen.\n\nNur vorhandene und überprüfbare Streamiov-Funktionen verwenden.\nJede Änderung testen.\nNur erfolgreich getestete Ergebnisse als verifiziert markieren.\n\nNICHT verändern:\n- Produktionskern\n- Sicherheit\n- Accounts\n- Berechtigungen\n- Media-E2E-Transport\n\nDas fertige integrierte Studio und das vorhandene Download-Paket\nsollen korrekt in die Homepage eingebunden werden.\nAm Ende einen vollständigen Abschlussreport erzeugen.\n",
+  "analysis": {
+    "category": "protected",
+    "action": "approval_request",
+    "allowed": false,
+    "approval_required": true,
+    "reason": "Der Auftrag betrifft einen geschützten Bereich.",
+    "plan": [
+      "Auftrag dokumentieren",
+      "Änderung fachlich prüfen",
+      "Freigabe beim Owner anfordern",
+      "Erst nach Freigabe ausführen",
+      "Ergebnis anschließend testen"
+    ]
+  },
+  "reason": "Geschützter Bereich"
+}

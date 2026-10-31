@@ -1,0 +1,135 @@
+{
+  "run": 27,
+  "step": 12,
+  "mode": "local-only",
+  "automatic_pass_conversion": false,
+  "results": [
+    {
+      "id": 1,
+      "type": "registry_lookup",
+      "status": "PASS",
+      "error": null,
+      "result_type": "list"
+    },
+    {
+      "id": 4,
+      "type": "game_registration",
+      "status": "NEEDS_REVIEW",
+      "error": "TypeError: GameRegistry.register() missing 1 required positional argument: 'name'"
+    },
+    {
+      "id": 2,
+      "type": "action_builder",
+      "status": "NEEDS_REVIEW",
+      "error": "TypeError: GameActionBuilder.build_from_capabilities() missing 1 required positional argument: 'capabilities'"
+    },
+    {
+      "id": 3,
+      "type": "action_runtime",
+      "status": "PASS",
+      "error": null,
+      "result_type": "list"
+    },
+    {
+      "id": 14,
+      "type": "runtime_validation",
+      "status": "PASS",
+      "error": null,
+      "result_type": "list"
+    },
+    {
+      "id": 5,
+      "type": "gift_action_mapping",
+      "status": "NEEDS_REVIEW",
+      "error": "Dedicated functional test not yet implemented."
+    },
+    {
+      "id": 6,
+      "type": "sticker_mapping",
+      "status": "NEEDS_REVIEW",
+      "error": "Dedicated functional test not yet implemented."
+    },
+    {
+      "id": 7,
+      "type": "overlay_mapping",
+      "status": "NEEDS_REVIEW",
+      "error": "Dedicated functional test not yet implemented."
+    },
+    {
+      "id": 8,
+      "type": "priority_conflict",
+      "status": "NEEDS_REVIEW",
+      "error": "Dedicated functional test not yet implemented."
+    },
+    {
+      "id": 9,
+      "type": "cooldown_conflict",
+      "status": "NEEDS_REVIEW",
+      "error": "Dedicated functional test not yet implemented."
+    },
+    {
+      "id": 10,
+      "type": "duplicate_action",
+      "status": "NEEDS_REVIEW",
+      "error": "Dedicated functional test not yet implemented."
+    },
+    {
+      "id": 11,
+      "type": "missing_event_fallback",
+      "status": "NEEDS_REVIEW",
+      "error": "Dedicated functional test not yet implemented."
+    },
+    {
+      "id": 12,
+      "type": "missing_action_fallback",
+      "status": "NEEDS_REVIEW",
+      "error": "Dedicated functional test not yet implemented."
+    },
+    {
+      "id": 13,
+      "type": "unknown_game_review",
+      "status": "NEEDS_REVIEW",
+      "error": "Unknown game is intentionally reviewable."
+    },
+    {
+      "id": 15,
+      "type": "local_only_boundary",
+      "status": "NEEDS_REVIEW",
+      "error": "Dedicated functional test not yet implemented."
+    },
+    {
+      "id": 16,
+      "type": "no_credentials",
+      "status": "NEEDS_REVIEW",
+      "error": "Dedicated functional test not yet implemented."
+    },
+    {
+      "id": 17,
+      "type": "no_external_api",
+      "status": "NEEDS_REVIEW",
+      "error": "Dedicated functional test not yet implemented."
+    },
+    {
+      "id": 18,
+      "type": "no_deployment",
+      "status": "NEEDS_REVIEW",
+      "error": "Dedicated functional test not yet implemented."
+    },
+    {
+      "id": 19,
+      "type": "no_restart",
+      "status": "NEEDS_REVIEW",
+      "error": "Dedicated functional test not yet implemented."
+    },
+    {
+      "id": 20,
+      "type": "component_import",
+      "status": "PASS",
+      "error": null
+    }
+  ],
+  "deployment": false,
+  "server_restart": false,
+  "external_connections": false,
+  "credentials": false
+}

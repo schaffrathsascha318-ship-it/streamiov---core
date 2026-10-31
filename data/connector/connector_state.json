@@ -1,0 +1,10 @@
+{
+  "protocol": "STREAMINIVO/1",
+  "connector_id": "e76e4a92-1d48-4174-935d-5028dc521b8c",
+  "gateway": "http://127.0.0.1:9090",
+  "connected": false,
+  "verified": false,
+  "last_error": null,
+  "last_heartbeat": null,
+  "updated": 1791158837
+}

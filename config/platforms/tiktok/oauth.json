@@ -1,0 +1,15 @@
+{
+  "platform": "tiktok",
+  "provider": "tiktok",
+  "enabled": true,
+  "login_kit": true,
+  "authorization_endpoint": "https://www.tiktok.com/v2/auth/authorize/",
+  "token_endpoint": "https://open.tiktokapis.com/v2/oauth/token/",
+  "scope": "user.info.basic",
+  "client_key_env": "STREAMIOV_TIKTOK_CLIENT_KEY",
+  "client_secret_env": "STREAMIOV_TIKTOK_CLIENT_SECRET",
+  "redirect_uri_env": "STREAMIOV_TIKTOK_REDIRECT_URI",
+  "csrf_state_required": true,
+  "token_storage": "server_only",
+  "status": "awaiting_tiktok_app_credentials"
+}

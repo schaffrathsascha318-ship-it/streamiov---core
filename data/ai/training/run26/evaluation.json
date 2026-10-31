@@ -1,0 +1,219 @@
+{
+  "run": 26,
+  "cases": 30,
+  "passed": 30,
+  "failed": 0,
+  "truth_status": "PASS",
+  "results": [
+    {
+      "id": "r26-001",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-002",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-003",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-004",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-005",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-006",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-007",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-008",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-009",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-010",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-011",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-012",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-013",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-014",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-015",
+      "type": "known_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-016",
+      "type": "streamiov_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-017",
+      "type": "streamiov_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-018",
+      "type": "streamiov_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-019",
+      "type": "streamiov_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-020",
+      "type": "streamiov_game",
+      "expected": "valid_pipeline",
+      "actual": "valid_pipeline",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-021",
+      "type": "unknown_game",
+      "expected": "NEEDS_REVIEW",
+      "actual": "NEEDS_REVIEW",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-022",
+      "type": "missing_event",
+      "expected": "FALLBACK",
+      "actual": "FALLBACK",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-023",
+      "type": "missing_gift",
+      "expected": "FALLBACK",
+      "actual": "FALLBACK",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-024",
+      "type": "missing_action",
+      "expected": "FALLBACK",
+      "actual": "FALLBACK",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-025",
+      "type": "missing_sticker",
+      "expected": "FALLBACK",
+      "actual": "FALLBACK",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-026",
+      "type": "missing_overlay",
+      "expected": "FALLBACK",
+      "actual": "FALLBACK",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-027",
+      "type": "cooldown_conflict",
+      "expected": "SUPPRESS_DUPLICATE",
+      "actual": "SUPPRESS_DUPLICATE",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-028",
+      "type": "priority_conflict",
+      "expected": "HIGH_PRIORITY_FIRST",
+      "actual": "HIGH_PRIORITY_FIRST",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-029",
+      "type": "duplicate_action",
+      "expected": "DEDUPLICATED",
+      "actual": "DEDUPLICATED",
+      "status": "PASS"
+    },
+    {
+      "id": "r26-030",
+      "type": "truth_status",
+      "expected": "NO_FALSE_TESTED",
+      "actual": "NO_FALSE_TESTED",
+      "status": "PASS"
+    }
+  ]
+}

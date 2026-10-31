@@ -1,0 +1,16 @@
+[
+  {
+    "game_id": "streamiov-test-game",
+    "name": "Streamiov Test Game",
+    "version": null,
+    "interface_status": "test",
+    "capabilities": []
+  },
+  {
+    "game_id": "run27_test_game",
+    "name": "Run27 Test Game",
+    "version": "1.0",
+    "interface_status": "test",
+    "capabilities": []
+  }
+]

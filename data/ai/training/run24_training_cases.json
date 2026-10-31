@@ -1,0 +1,50 @@
+{
+  "run": 24,
+  "purpose": "local_ai_training_and_evaluation",
+  "truth_policy": {
+    "tested_only_after_real_local_test": true,
+    "unknown_games": "NEEDS_REVIEW",
+    "production": "NOT_VERIFIED",
+    "external_sources": "NOT_CONFIGURED"
+  },
+  "pipeline": [
+    "GAME",
+    "EVENT",
+    "GIFT",
+    "ACTION",
+    "STICKER",
+    "OVERLAY",
+    "VALIDATE",
+    "TEST"
+  ],
+  "game_types": [
+    "Action",
+    "Racing",
+    "RPG",
+    "Simulation",
+    "Strategie",
+    "Sport",
+    "Shooter",
+    "Survival",
+    "Adventure",
+    "Platformer",
+    "Fighting",
+    "Party",
+    "Sandbox",
+    "Card",
+    "MMO"
+  ],
+  "training_rules": [
+    "recognize_game_type",
+    "map_event_to_gift",
+    "map_gift_to_action",
+    "prepare_sticker",
+    "prepare_overlay",
+    "respect_priority",
+    "respect_cooldown",
+    "detect_duplicate",
+    "use_fallback",
+    "mark_unknown_game_needs_review",
+    "never_fake_test_status"
+  ]
+}

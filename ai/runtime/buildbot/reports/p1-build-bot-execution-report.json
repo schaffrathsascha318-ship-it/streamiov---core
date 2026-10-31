@@ -1,0 +1,588 @@
+{
+  "project": "Streamiov",
+  "bot": "Streamiov P1 Build Bot",
+  "version": "1.1.0",
+  "priority": "P1",
+  "mission": "Streamiov für den Onlinegang fertig bauen und verifizieren.",
+  "started_at": "2026-10-14T14:12:28.669190+00:00",
+  "protected": [
+    "accounts",
+    "media_e2e_transport",
+    "permissions",
+    "production_core",
+    "security"
+  ],
+  "targets": [
+    {
+      "target": "server",
+      "status": "LOCAL_CHECKS_PASSED",
+      "protected": false,
+      "changed": false,
+      "tested": true,
+      "verified": false,
+      "checks": [
+        {
+          "name": "server_check_1",
+          "command": [
+            "python3",
+            "-m",
+            "py_compile",
+            "ai/runtime/executor.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:29.793481+00:00",
+          "finished_at": "2026-10-14T14:12:29.942471+00:00",
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "name": "server_check_2",
+          "command": [
+            "python3",
+            "-m",
+            "py_compile",
+            "ai/core/streamiov_ai.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:29.942527+00:00",
+          "finished_at": "2026-10-14T14:12:30.078682+00:00",
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "verification_note": "Lokale Einzelprüfungen bestanden; vollständige Integration und Produktionsbetrieb nicht nachgewiesen."
+    },
+    {
+      "target": "chatbot",
+      "status": "LOCAL_CHECKS_PASSED",
+      "protected": false,
+      "changed": false,
+      "tested": true,
+      "verified": false,
+      "checks": [
+        {
+          "name": "chatbot_check_1",
+          "command": [
+            "python3",
+            "-m",
+            "py_compile",
+            "ai/core/streamiov_ai.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:30.078913+00:00",
+          "finished_at": "2026-10-14T14:12:30.219850+00:00",
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "verification_note": "Lokale Einzelprüfungen bestanden; vollständige Integration und Produktionsbetrieb nicht nachgewiesen."
+    },
+    {
+      "target": "infrastructure",
+      "status": "LOCAL_CHECKS_PASSED",
+      "protected": false,
+      "changed": false,
+      "tested": true,
+      "verified": false,
+      "checks": [
+        {
+          "name": "infrastructure_check_1",
+          "command": [
+            "bash",
+            "-lc",
+            "PYTHONPATH=\"$PWD\" python3 infrastructure/foundation/tests/foundation_selftest.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:30.219957+00:00",
+          "finished_at": "2026-10-14T14:12:31.389159+00:00",
+          "stdout": "FOUNDATION SELFTEST: OK\nAUTHENTICATION: TESTED\nRBAC: TESTED\nDEVICE CORE: TESTED\nSTREAM CORE: TESTED\nWUNSCHBOX: TESTED\nPRODUCTION: NOT VERIFIED\n",
+          "stderr": ""
+        },
+        {
+          "name": "infrastructure_check_2",
+          "command": [
+            "bash",
+            "-lc",
+            "PYTHONPATH=\"$PWD\" python3 infrastructure/platform/tests/selftest.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:31.389200+00:00",
+          "finished_at": "2026-10-14T14:12:31.908344+00:00",
+          "stdout": "PLATFORM SELFTEST: OK\nFILES: 8\nPYTHON: OK\nJSON: OK\nEXTERNAL CONNECTION: NOT CONFIGURED\nPRODUCTION: NOT VERIFIED\n",
+          "stderr": ""
+        },
+        {
+          "name": "infrastructure_check_3",
+          "command": [
+            "bash",
+            "-lc",
+            "PYTHONPATH=\"$PWD\" python3 infrastructure/streaming/all_test.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:31.908388+00:00",
+          "finished_at": "2026-10-14T14:12:32.378564+00:00",
+          "stdout": "OK: Alle simulierten Signale -> bereit\nOK: Fehlende Signale -> nicht bereit\nHINWEIS: Simulation, keine echte Geräteprüfung.\n",
+          "stderr": ""
+        },
+        {
+          "name": "infrastructure_check_4",
+          "command": [
+            "bash",
+            "-lc",
+            "PYTHONPATH=\"$PWD\" python3 infrastructure/streaming/media/e2e_test.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:32.378603+00:00",
+          "finished_at": "2026-10-14T14:12:32.994434+00:00",
+          "stdout": "STREAMIOV MEDIA TRANSPORT READY ('127.0.0.1', 9320)\nMEDIA E2E TEST: OK\nPUBLISH: OK\nSUBSCRIBE: OK\nVIDEO FRAME: OK\nAUDIO FRAME: OK\nSEQUENCE: OK\nTIMESTAMP: OK\nPAYLOAD INTEGRITY: OK\nVIDEO_SHA256=e022188c77f241ce\nAUDIO_SHA256=bf4a08d23e8e3835\nEND_TO_END_MEDIA_CHANNEL: VERIFIED\n",
+          "stderr": ""
+        }
+      ],
+      "verification_note": "Lokale Einzelprüfungen bestanden; vollständige Integration und Produktionsbetrieb nicht nachgewiesen."
+    },
+    {
+      "target": "homepage",
+      "status": "LOCAL_CHECKS_PASSED",
+      "protected": false,
+      "changed": false,
+      "tested": true,
+      "verified": false,
+      "checks": [
+        {
+          "name": "homepage_check_1",
+          "command": [
+            "bash",
+            "-lc",
+            "test -s homepage/index.html"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:32.994557+00:00",
+          "finished_at": "2026-10-14T14:12:33.353572+00:00",
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "name": "homepage_check_2",
+          "command": [
+            "bash",
+            "-lc",
+            "test -s homepage/README.md"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:33.353611+00:00",
+          "finished_at": "2026-10-14T14:12:33.794021+00:00",
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "verification_note": "Lokale Einzelprüfungen bestanden; vollständige Integration und Produktionsbetrieb nicht nachgewiesen."
+    },
+    {
+      "target": "download",
+      "status": "LOCAL_CHECKS_PASSED",
+      "protected": false,
+      "changed": false,
+      "tested": true,
+      "verified": false,
+      "checks": [
+        {
+          "name": "download_check_1",
+          "command": [
+            "bash",
+            "-lc",
+            "find dist -maxdepth 3 -type f 2>/dev/null | head -1 | grep -q ."
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:33.794175+00:00",
+          "finished_at": "2026-10-14T14:12:34.265009+00:00",
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "verification_note": "Lokale Einzelprüfungen bestanden; vollständige Integration und Produktionsbetrieb nicht nachgewiesen."
+    },
+    {
+      "target": "integrated_studio",
+      "status": "LOCAL_CHECKS_PASSED",
+      "protected": false,
+      "changed": false,
+      "tested": true,
+      "verified": false,
+      "checks": [
+        {
+          "name": "integrated_studio_check_1",
+          "command": [
+            "bash",
+            "-lc",
+            "find . -maxdepth 5 -type f -iname '*studio*' | head -1 | grep -q ."
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:34.265155+00:00",
+          "finished_at": "2026-10-14T14:12:35.213428+00:00",
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "verification_note": "Lokale Einzelprüfungen bestanden; vollständige Integration und Produktionsbetrieb nicht nachgewiesen."
+    },
+    {
+      "target": "streamer_features",
+      "status": "LOCAL_CHECKS_PASSED",
+      "protected": false,
+      "changed": false,
+      "tested": true,
+      "verified": false,
+      "checks": [
+        {
+          "name": "streamer_features_check_1",
+          "command": [
+            "bash",
+            "-lc",
+            "find . -maxdepth 5 -type f \\( -iname '*stream*' -o -iname '*feature*' \\) | head -1 | grep -q ."
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:35.213533+00:00",
+          "finished_at": "2026-10-14T14:12:35.689995+00:00",
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "verification_note": "Lokale Einzelprüfungen bestanden; vollständige Integration und Produktionsbetrieb nicht nachgewiesen."
+    },
+    {
+      "target": "bot_ai",
+      "status": "LOCAL_CHECKS_PASSED",
+      "protected": false,
+      "changed": false,
+      "tested": true,
+      "verified": false,
+      "checks": [
+        {
+          "name": "bot_ai_check_1",
+          "command": [
+            "python3",
+            "-m",
+            "py_compile",
+            "ai/core/streamiov_ai.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:35.690145+00:00",
+          "finished_at": "2026-10-14T14:12:35.845834+00:00",
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "name": "bot_ai_check_2",
+          "command": [
+            "python3",
+            "-m",
+            "py_compile",
+            "ai/buildbot/p1_build_bot.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:35.845891+00:00",
+          "finished_at": "2026-10-14T14:12:36.002055+00:00",
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "verification_note": "Lokale Einzelprüfungen bestanden; vollständige Integration und Produktionsbetrieb nicht nachgewiesen."
+    },
+    {
+      "target": "installation",
+      "status": "LOCAL_CHECKS_PASSED",
+      "protected": false,
+      "changed": false,
+      "tested": true,
+      "verified": false,
+      "checks": [
+        {
+          "name": "installation_check_1",
+          "command": [
+            "bash",
+            "-lc",
+            "find . -maxdepth 5 -type f \\( -iname '*install*' -o -iname '*setup*' \\) | head -1 | grep -q ."
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:36.002180+00:00",
+          "finished_at": "2026-10-14T14:12:36.625908+00:00",
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "verification_note": "Lokale Einzelprüfungen bestanden; vollständige Integration und Produktionsbetrieb nicht nachgewiesen."
+    },
+    {
+      "target": "domain_deployment",
+      "status": "LOCAL_CHECKS_PASSED",
+      "protected": false,
+      "changed": false,
+      "tested": true,
+      "verified": false,
+      "checks": [
+        {
+          "name": "domain_deployment_check_1",
+          "command": [
+            "bash",
+            "-lc",
+            "test -d homepage && test -s homepage/index.html"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:36.626015+00:00",
+          "finished_at": "2026-10-14T14:12:37.020786+00:00",
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "verification_note": "Lokale Einzelprüfungen bestanden; vollständige Integration und Produktionsbetrieb nicht nachgewiesen."
+    },
+    {
+      "target": "end_to_end_tests",
+      "status": "LOCAL_CHECKS_PASSED",
+      "protected": false,
+      "changed": false,
+      "tested": true,
+      "verified": false,
+      "checks": [
+        {
+          "name": "end_to_end_tests_check_1",
+          "command": [
+            "python3",
+            "infrastructure/streaming/media/e2e_test.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:37.020941+00:00",
+          "finished_at": "2026-10-14T14:12:37.275322+00:00",
+          "stdout": "STREAMIOV MEDIA TRANSPORT READY ('127.0.0.1', 9320)\nMEDIA E2E TEST: OK\nPUBLISH: OK\nSUBSCRIBE: OK\nVIDEO FRAME: OK\nAUDIO FRAME: OK\nSEQUENCE: OK\nTIMESTAMP: OK\nPAYLOAD INTEGRITY: OK\nVIDEO_SHA256=0ea9d3813f9dbc43\nAUDIO_SHA256=18ab2ae4058daa88\nEND_TO_END_MEDIA_CHANNEL: VERIFIED\n",
+          "stderr": ""
+        }
+      ],
+      "verification_note": "Lokale Einzelprüfungen bestanden; vollständige Integration und Produktionsbetrieb nicht nachgewiesen."
+    },
+    {
+      "target": "security_checks",
+      "status": "LOCAL_CHECKS_PASSED",
+      "protected": false,
+      "changed": false,
+      "tested": true,
+      "verified": false,
+      "checks": [
+        {
+          "name": "security_checks_check_1",
+          "command": [
+            "python3",
+            "tests/security_secrets_check.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:37.275430+00:00",
+          "finished_at": "2026-10-14T14:12:37.380018+00:00",
+          "stdout": "=== STREAMIOV SECRET-SICHERHEITSCHECK ===\n[OK] Rotiertes Secret vorhanden: secrets/service.env:4 -> STREAMIOV_SERVICE_KEY\n[OK] Rotiertes Secret vorhanden: secrets/token-crypto.env:3 -> STREAMIOV_TOKEN_ENCRYPTION_KEY\n\n[OK] Aktive Secret-Konfigurationen erkannt: 2\n[OK] Secret-Werte werden niemals ausgegeben.\n[OK] STREAMIOV_SERVICE_KEY ist konfiguriert.\n[OK] STREAMIOV_TOKEN_ENCRYPTION_KEY ist konfiguriert.\n[OK] Keine automatische Rotation erforderlich.\n\nSECRET-SICHERHEIT: OK\n",
+          "stderr": ""
+        }
+      ],
+      "verification_note": "Lokale Einzelprüfungen bestanden; vollständige Integration und Produktionsbetrieb nicht nachgewiesen."
+    },
+    {
+      "target": "infrastructure_checks",
+      "status": "LOCAL_CHECKS_PASSED",
+      "protected": false,
+      "changed": false,
+      "tested": true,
+      "verified": false,
+      "checks": [
+        {
+          "name": "infrastructure_checks_check_1",
+          "command": [
+            "python3",
+            "tests/system_check.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:37.380190+00:00",
+          "finished_at": "2026-10-14T14:12:37.460543+00:00",
+          "stdout": "[OK]   core/config/project.json\n[OK]   core/config/runtime.json\n[OK]   core/auth/config.json\n[OK]   core/auth/providers.json\n[OK]   app/platforms/platforms.json\n[OK]   app/stream/state.json\n[OK]   app/streamer/profile.json\n[OK]   devices/devices.json\n[OK]   settings/settings.json\n[OK]   games/games.json\n[OK]   games/events.json\n[OK]   media/soundboard.json\n[OK]   media/music.json\n[OK]   data/wunschbox.json\n[OK]   security/policy.json\n[OK]   privacy/policy.json\n[OK]   compliance/policy.json\n[OK]   app/server.py\n[OK]   secrets/.env\n[OK]   MODULE_MANIFEST.json\n[OK]   Projektkonfiguration\n\nSTREAMIOV SYSTEM CHECK: ERFOLGREICH\n",
+          "stderr": ""
+        },
+        {
+          "name": "infrastructure_checks_check_2",
+          "command": [
+            "python3",
+            "infrastructure/foundation/tests/foundation_selftest.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:37.460582+00:00",
+          "finished_at": "2026-10-14T14:12:38.185518+00:00",
+          "stdout": "FOUNDATION SELFTEST: OK\nAUTHENTICATION: TESTED\nRBAC: TESTED\nDEVICE CORE: TESTED\nSTREAM CORE: TESTED\nWUNSCHBOX: TESTED\nPRODUCTION: NOT VERIFIED\n",
+          "stderr": ""
+        },
+        {
+          "name": "infrastructure_checks_check_3",
+          "command": [
+            "python3",
+            "infrastructure/platform/tests/selftest.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:38.185556+00:00",
+          "finished_at": "2026-10-14T14:12:38.265146+00:00",
+          "stdout": "PLATFORM SELFTEST: OK\nFILES: 8\nPYTHON: OK\nJSON: OK\nEXTERNAL CONNECTION: NOT CONFIGURED\nPRODUCTION: NOT VERIFIED\n",
+          "stderr": ""
+        }
+      ],
+      "verification_note": "Lokale Einzelprüfungen bestanden; vollständige Integration und Produktionsbetrieb nicht nachgewiesen."
+    },
+    {
+      "target": "pre_live_stream_check",
+      "status": "LOCAL_CHECKS_PASSED",
+      "protected": false,
+      "changed": false,
+      "tested": true,
+      "verified": false,
+      "checks": [
+        {
+          "name": "live_prepare_import",
+          "command": [
+            "bash",
+            "-lc",
+            "PYTHONPATH=\"$PWD\" python3 -c \"from infrastructure.streaming.live_prepare import LivePrepare; print(\\\"LIVE_PREPARE_IMPORT=PASS\\\")\""
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:38.265259+00:00",
+          "finished_at": "2026-10-14T14:12:38.754772+00:00",
+          "stdout": "LIVE_PREPARE_IMPORT=PASS\n",
+          "stderr": ""
+        },
+        {
+          "name": "system_check",
+          "command": [
+            "python3",
+            "tests/system_check.py"
+          ],
+          "status": "PASS",
+          "returncode": 0,
+          "started_at": "2026-10-14T14:12:38.754809+00:00",
+          "finished_at": "2026-10-14T14:12:38.870736+00:00",
+          "stdout": "[OK]   core/config/project.json\n[OK]   core/config/runtime.json\n[OK]   core/auth/config.json\n[OK]   core/auth/providers.json\n[OK]   app/platforms/platforms.json\n[OK]   app/stream/state.json\n[OK]   app/streamer/profile.json\n[OK]   devices/devices.json\n[OK]   settings/settings.json\n[OK]   games/games.json\n[OK]   games/events.json\n[OK]   media/soundboard.json\n[OK]   media/music.json\n[OK]   data/wunschbox.json\n[OK]   security/policy.json\n[OK]   privacy/policy.json\n[OK]   compliance/policy.json\n[OK]   app/server.py\n[OK]   secrets/.env\n[OK]   MODULE_MANIFEST.json\n[OK]   Projektkonfiguration\n\nSTREAMIOV SYSTEM CHECK: ERFOLGREICH\n",
+          "stderr": ""
+        }
+      ],
+      "verification_note": "Lokaler Preflight; externe Plattformverbindung und Produktionsbetrieb nicht nachgewiesen."
+    }
+  ],
+  "checks": [
+    {
+      "name": "python_compile_build_bot",
+      "command": [
+        "python3",
+        "-m",
+        "py_compile",
+        "/home/schaffrathsascha318/streamiov/ai/buildbot/p1_build_bot.py"
+      ],
+      "status": "PASS",
+      "returncode": 0,
+      "started_at": "2026-10-14T14:12:28.669681+00:00",
+      "finished_at": "2026-10-14T14:12:28.800627+00:00",
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "project_root",
+      "command": [
+        "bash",
+        "-lc",
+        "test -d . && test -f ai/runtime/executor.py"
+      ],
+      "status": "PASS",
+      "returncode": 0,
+      "started_at": "2026-10-14T14:12:28.800693+00:00",
+      "finished_at": "2026-10-14T14:12:29.354809+00:00",
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "build_plan",
+      "command": [
+        "bash",
+        "-lc",
+        "test -s ai/buildbot/p1_build_plan.json"
+      ],
+      "status": "PASS",
+      "returncode": 0,
+      "started_at": "2026-10-14T14:12:29.354849+00:00",
+      "finished_at": "2026-10-14T14:12:29.793312+00:00",
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "status": "P1_BUILD_PARTIAL",
+  "verified": false,
+  "production_ready": false,
+  "changes": [],
+  "summary": {
+    "targets_total": 14,
+    "verified": 0,
+    "failed": 0,
+    "open": 14
+  },
+  "pre_live_stream_check": {
+    "name": "pre_live_stream_check",
+    "status": "PASS",
+    "started_at": "2026-10-14T14:12:38.870961+00:00",
+    "finished_at": "2026-10-14T14:12:39.536431+00:00",
+    "checks": [
+      {
+        "name": "live_prepare_import",
+        "command": [
+          "bash",
+          "-lc",
+          "PYTHONPATH=\"$PWD\" python3 -c \"from infrastructure.streaming.live_prepare import LivePrepare; print(\\\"LIVE_PREPARE_IMPORT=PASS\\\")\""
+        ],
+        "status": "PASS",
+        "returncode": 0,
+        "started_at": "2026-10-14T14:12:38.870976+00:00",
+        "finished_at": "2026-10-14T14:12:39.431252+00:00",
+        "stdout": "LIVE_PREPARE_IMPORT=PASS\n",
+        "stderr": ""
+      },
+      {
+        "name": "system_check",
+        "command": [
+          "python3",
+          "tests/system_check.py"
+        ],
+        "status": "PASS",
+        "returncode": 0,
+        "started_at": "2026-10-14T14:12:39.431299+00:00",
+        "finished_at": "2026-10-14T14:12:39.536395+00:00",
+        "stdout": "[OK]   core/config/project.json\n[OK]   core/config/runtime.json\n[OK]   core/auth/config.json\n[OK]   core/auth/providers.json\n[OK]   app/platforms/platforms.json\n[OK]   app/stream/state.json\n[OK]   app/streamer/profile.json\n[OK]   devices/devices.json\n[OK]   settings/settings.json\n[OK]   games/games.json\n[OK]   games/events.json\n[OK]   media/soundboard.json\n[OK]   media/music.json\n[OK]   data/wunschbox.json\n[OK]   security/policy.json\n[OK]   privacy/policy.json\n[OK]   compliance/policy.json\n[OK]   app/server.py\n[OK]   secrets/.env\n[OK]   MODULE_MANIFEST.json\n[OK]   Projektkonfiguration\n\nSTREAMIOV SYSTEM CHECK: ERFOLGREICH\n",
+        "stderr": ""
+      }
+    ],
+    "failure_policy": {
+      "unresolved_error": "STREAM_BLOCKED",
+      "show_clear_error_to_streamer": true,
+      "never_start_broken_stream": true
+    }
+  },
+  "finished_at": "2026-10-14T14:12:39.536461+00:00"
+}

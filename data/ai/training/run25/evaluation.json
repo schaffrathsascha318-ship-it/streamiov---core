@@ -1,0 +1,45 @@
+{
+  "run": 25,
+  "total": 6,
+  "passed": 6,
+  "failed": 0,
+  "status": "TESTED",
+  "results": [
+    {
+      "name": "known_action",
+      "expected": "TESTED",
+      "actual": "TESTED",
+      "passed": true
+    },
+    {
+      "name": "known_racing",
+      "expected": "TESTED",
+      "actual": "TESTED",
+      "passed": true
+    },
+    {
+      "name": "known_rpg",
+      "expected": "TESTED",
+      "actual": "TESTED",
+      "passed": true
+    },
+    {
+      "name": "known_strategy",
+      "expected": "TESTED",
+      "actual": "TESTED",
+      "passed": true
+    },
+    {
+      "name": "unknown_game",
+      "expected": "NEEDS_REVIEW",
+      "actual": "NEEDS_REVIEW",
+      "passed": true
+    },
+    {
+      "name": "missing_event",
+      "expected": "NEEDS_REVIEW",
+      "actual": "NEEDS_REVIEW",
+      "passed": true
+    }
+  ]
+}

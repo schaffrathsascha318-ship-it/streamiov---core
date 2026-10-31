@@ -1,0 +1,40 @@
+{
+  "project": "Streamiov",
+  "task_id": "task-9e64ef84ddee45e4",
+  "category": "diagnostics",
+  "request": "Diagnostiziere Probleme in Streamiov",
+  "created_at": "2026-10-20T17:38:10.351861+00:00",
+  "created_by": "Streamiov AI",
+  "status": "verified",
+  "production_changed": false,
+  "results": [
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "compileall",
+        "-q",
+        "ai"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "status": "PASS"
+    },
+    {
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "exit_code": 0,
+      "stdout": "RUN18 OVERLAY + OWN GAME ACTION LOCAL TEST: OK\nSTICKER AI ACTION LOCAL TEST: OK\nSTICKER + AI ACTION + NEW GAME LOCAL TEST: OK\n",
+      "stderr": "test_15000_likes_rule_does_not_repeat_after_milestone (test_gift_event_processor_local.GiftEventProcessorLocalTest.test_15000_likes_rule_does_not_repeat_after_milestone) ... ok\ntest_15000_likes_rule_is_detected_without_execution (test_gift_event_processor_local.GiftEventProcessorLocalTest.test_15000_likes_rule_is_detected_without_execution) ... ok\ntest_rose_rule_is_detected_without_execution (test_gift_event_processor_local.GiftEventProcessorLocalTest.test_rose_rule_is_detected_without_execution) ... ok\ntest_incident_evidence_and_tamper_detection (test_incident_logger.IncidentLoggerTests.test_incident_evidence_and_tamper_detection) ... ok\ntest_rejects_empty_title (test_incident_logger.IncidentLoggerTests.test_rejects_empty_title) ... ok\ntest_game_request_is_classified (test_streamiov_executor.StreamiovExecutorTests.test_game_request_is_classified) ... ok\ntest_testing_request_reaches_executor_handler (test_streamiov_executor.StreamiovExecutorTests.test_testing_request_reaches_executor_handler) ... ok\n\n----------------------------------------------------------------------\nRan 7 tests in 0.008s\n\nOK\n",
+      "status": "PASS"
+    }
+  ]
+}

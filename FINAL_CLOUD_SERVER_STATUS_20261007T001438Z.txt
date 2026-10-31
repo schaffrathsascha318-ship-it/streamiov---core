@@ -1,0 +1,121 @@
+
+=== 1. GRUNDREGEL ===
+Chromebook = WORK/TEST ENVIRONMENT
+Cloud-Server = SEPARATE PRODUCTION TARGET
+REAL_CLOUD_SERVER wird NICHT vorgetäuscht.
+
+=== 2. AKTUELLER HOST ===
+penguin
+Linux penguin 6.6.143-09589-gf9e106250941 #1 SMP PREEMPT Wed, 26 Aug 2026 12:08:14 -0700 aarch64 GNU/Linux
+
+ARCHITECTURE:
+aarch64
+
+MEMORY:
+               total        used        free      shared  buff/cache   available
+Mem:           2.7Gi       2.1Gi       271Mi       468Ki       548Mi       665Mi
+Swap:             0B          0B          0B
+
+STORAGE:
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdb         10G  2.1G  7.6G  22% /
+
+=== 3. CLOUD STATUS ===
+REAL_CLOUD_SERVER=NOT_PROVISIONED
+PRODUCTION_CLOUD=NOT_VERIFIED
+CHROMEBOOK=WORK_TEST_ENVIRONMENT
+
+=== 4. CLOUD SERVER ZIELARCHITEKTUR ===
+COMPUTE=PLANNED
+PERSISTENT_STORAGE=PLANNED
+BACKUP_STORAGE=PLANNED
+NETWORK_FIREWALL=PLANNED
+HTTPS_REVERSE_PROXY=PLANNED
+STREAMINIVO_CORE=DEPLOYMENT_PENDING
+STREAMINIVO_CLOUD_API=DEPLOYMENT_PENDING
+AI_EXECUTOR=DEPLOYMENT_PENDING
+DATABASE=DEPLOYMENT_PENDING
+MONITORING=DEPLOYMENT_PENDING
+AUDIT_SECURITY=DEPLOYMENT_PENDING
+RECOVERY_BACKUP=DEPLOYMENT_PENDING
+
+=== 5. LOKALE DIENSTE – NUR NACHWEIS ===
+active
+active
+293 /usr/bin/node /home/schaffrathsascha318/streamiov/core/server.js
+534 /usr/bin/python3 /home/schaffrathsascha318/streamiov/cloud/server/server.py
+660 cloudflared tunnel run streaminivo
+
+=== 6. CORE / AI ===
+AI_EXECUTOR_FILE=FOUND
+AI_POLICY=FOUND
+PYTHON_AI_AGENT=FOUND
+
+=== 7. REAL EXECUTOR NACHWEIS ===
+{
+  "id": "1791331181012-94aae96d4657e",
+  "timestamp": "2026-10-06T23:59:41.012Z",
+  "action": "create_action",
+  "target": "app/actions",
+  "request": "BLOCK 168 REAL-EXECUTOR TEST",
+  "mode": "controlled-real-executor",
+  "executed": true,
+  "verification": "passed",
+  "result_file": "app/actions/.streaminivo-task-1791331181012-94aae96d4657e.json"
+}
+
+=== 8. HOMEPAGE NACHWEIS ===
+HTTP/1.1 200 OK
+Server: nginx
+Date: Wed, 07 Oct 2026 00:14:38 GMT
+Content-Type: text/html
+Content-Length: 3588
+Last-Modified: Tue, 06 Oct 2026 15:37:42 GMT
+Connection: keep-alive
+ETag: "6ac515c6-e04"
+Accept-Ranges: bytes
+
+
+{"status":"ok","service":"streaminivo-homepage"}
+=== 9. CORE LOCAL HEALTH ===
+curl: (7) Failed to connect to 127.0.0.1 port 8080 after 5 ms: Could not connect to server
+CORE_LOCAL_HEALTH=NOT_REACHABLE
+
+=== 10. PORTS ===
+LISTEN 0      511          0.0.0.0:80         0.0.0.0:*   
+LISTEN 0      511             [::]:80            [::]:*   
+
+=== 11. SERVER TRENNUNG ===
+LOCAL_WORK_TEST_HOST=THIS_CHROMEBOOK
+PRODUCTION_SERVER=SEPARATE_CLOUD_REQUIRED
+LOCAL_HOST_MUST_NOT_BE_MARKED_AS_PRODUCTION=TRUE
+
+=== 12. PRODUKTIONSKRITERIEN ===
+[ ] Echter Cloud-Server provisioniert
+[ ] Eigene Cloud-IP/Hostname vorhanden
+[ ] Cloud-Server separat erreichbar
+[ ] Netzwerk/Firewall getestet
+[ ] HTTPS getestet
+[ ] Persistenter Storage getestet
+[ ] Backup getestet
+[ ] Recovery getestet
+[ ] Streaminivo Core auf Cloud-Server gestartet
+[ ] Cloud/API auf Cloud-Server getestet
+[ ] AI/Executor auf Cloud-Server getestet
+[ ] Monitoring getestet
+[ ] Security/Audit getestet
+[ ] End-to-End von extern getestet
+
+=== 13. FINALER STATUS ===
+CLOUD_SERVER_TARGET=DEFINED
+CLOUD_SERVER_BUILD_PREPARATION=COMPLETED_ON_CHROMEBOOK
+REAL_CLOUD_SERVER=NOT_PROVISIONED
+PRODUCTION=NOT_VERIFIED
+CHROMEBOOK=WORK_TEST_ENVIRONMENT
+
+============================================================
+ ABSCHLUSSREGEL
+============================================================
+Erst nach echter Cloud-Provisionierung darf Production
+auf VERIFIED/ONLINE gesetzt werden.
+============================================================

@@ -1,0 +1,9 @@
+{
+  "run": 27,
+  "mode": "local-only",
+  "external_connections": false,
+  "deployment": false,
+  "server_restart": false,
+  "credentials": false,
+  "automatic_fake_pass": false
+}

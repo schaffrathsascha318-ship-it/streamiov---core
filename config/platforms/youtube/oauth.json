@@ -1,0 +1,18 @@
+{
+  "provider": "youtube",
+  "protocol": "oauth2",
+  "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+  "required": {
+    "client_id": true,
+    "client_secret": true,
+    "redirect_uri": true,
+    "user_authorization": true
+  },
+  "security": {
+    "state_required": true,
+    "https_required_production": true,
+    "secrets_environment_only": true,
+    "tokens_not_logged": true
+  },
+  "status": "not_configured"
+}

@@ -1,0 +1,13 @@
+{
+  "project": "Streaminivo Liberty TV",
+  "operation": "homepage_to_streaminivo_server",
+  "timestamp": "20261006-054001",
+  "homepage": "/home/schaffrathsascha318/streamiov/homepage",
+  "server_file": "/home/schaffrathsascha318/streamiov/services/stream_api.py",
+  "target": "/home/schaffrathsascha318/streamiov/public",
+  "backup": "/home/schaffrathsascha318/streamiov/backup/homepage-server-20261006-054001",
+  "external_connections": false,
+  "cloudflare_deployment": false,
+  "automatic_restart": false,
+  "status": "LOCAL_SERVER_COPY_COMPLETED_REQUIRES_RUNTIME_VERIFICATION"
+}

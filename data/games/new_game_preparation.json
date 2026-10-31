@@ -1,0 +1,41 @@
+{
+  "module": "new_game_preparation",
+  "version": 1,
+  "state": "implemented",
+  "local_only": true,
+  "automatic_preparation": true,
+  "external_detection_source": "NOT_CONFIGURED",
+  "detection": {
+    "enabled": true,
+    "registry_scan": true,
+    "new_game_detection": true,
+    "duplicate_protection": true
+  },
+  "workflow": [
+    "DETECTED",
+    "REGISTERED",
+    "ANALYZING",
+    "EVENTS_PREPARED",
+    "GIFTS_PREPARED",
+    "ACTIONS_PREPARED",
+    "STICKERS_PREPARED",
+    "OVERLAYS_PREPARED",
+    "VALIDATING",
+    "TESTING",
+    "PREPARED",
+    "TESTED"
+  ],
+  "fallback_status": "NEEDS_REVIEW",
+  "truth_policy": {
+    "unknown_game": "NEEDS_REVIEW",
+    "missing_information": "NEEDS_REVIEW",
+    "untested_game": "NOT_VERIFIED",
+    "production_support": "NOT_VERIFIED"
+  },
+  "security": {
+    "external_connections": false,
+    "credentials": false,
+    "deployment": false,
+    "permission_escalation": false
+  }
+}

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Streamiov 3D Crystal Lab</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#050711;color:#eafaff;font:15px system-ui;overflow:hidden}
+canvas{display:block}#ui{position:fixed;top:18px;left:18px;z-index:2;padding:16px;border:1px solid #37f5e6;border-radius:12px;background:#080d20dd;pointer-events:none}
+h1{margin:0;color:#66fff2;font-size:20px}p{margin:8px 0 0;font-size:13px}
+</style>
+</head>
+<body>
+<div id="ui"><h1>STREAMIOV / CRYSTAL LAB</h1><p id="status">3D wird geladen …</p></div>
+<script type="module">
+import * as THREE from './three.module.js';
+const status=document.getElementById('status');
+try {
+ const scene=new THREE.Scene();
+ scene.background=new THREE.Color(0x050711);
+ scene.fog=new THREE.FogExp2(0x050711,0.025);
+ const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,100);
+ camera.position.set(0,2.5,8);
+ const renderer=new THREE.WebGLRenderer({antialias:true});
+ renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+ renderer.setSize(innerWidth,innerHeight);
+ document.body.appendChild(renderer.domElement);
+ scene.add(new THREE.HemisphereLight(0x8beeff,0x170b38,2));
+ const light=new THREE.PointLight(0x22ffee,45);light.position.set(3,4,3);scene.add(light);
+ const purple=new THREE.PointLight(0x874bff,55);purple.position.set(-3,2,-2);scene.add(purple);
+ const crystal=new THREE.Mesh(new THREE.OctahedronGeometry(1.4,0),new THREE.MeshStandardMaterial({color:0x42f5e9,metalness:.55,roughness:.2,emissive:0x063f49,emissiveIntensity:.8}));
+ crystal.position.y=1.5;scene.add(crystal);
+ const core=new THREE.Mesh(new THREE.IcosahedronGeometry(.65,1),new THREE.MeshStandardMaterial({color:0xa67aff,emissive:0x5720b8,emissiveIntensity:1,wireframe:true}));
+ crystal.add(core);
+ const ring=new THREE.Mesh(new THREE.TorusGeometry(2,.015,8,100),new THREE.MeshBasicMaterial({color:0x37f5e6}));
+ ring.rotation.x=1.1;ring.position.y=1.5;scene.add(ring);
+ const floor=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({color:0x080d20,roughness:.85}));
+ floor.rotation.x=-Math.PI/2;floor.position.y=-.1;scene.add(floor);
+ const grid=new THREE.GridHelper(80,80,0x167b8d,0x172443);grid.position.y=-.08;scene.add(grid);
+ let dragging=false,lastX=0,angle=0;
+ renderer.domElement.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX});
+ addEventListener('pointerup',()=>dragging=false);
+ renderer.domElement.addEventListener('pointermove',e=>{if(dragging){angle+=(e.clientX-lastX)*.008;lastX=e.clientX}});
+ function frame(){
+  requestAnimationFrame(frame);
+  crystal.rotation.y+=.009;core.rotation.x+=.012;core.rotation.y-=.01;
+  crystal.position.y=1.5+Math.sin(performance.now()*.0015)*.12;
+  ring.rotation.z+=.003;
+  camera.position.x=Math.sin(angle)*8;camera.position.z=Math.cos(angle)*8;
+  camera.lookAt(0,1.3,0);renderer.render(scene,camera);
+ }
+ addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+ status.textContent='WebGL aktiv · Three.js '+THREE.REVISION;
+ frame();
+} catch(e) {status.textContent='3D-Fehler: '+e.message;console.error(e)}
+</script>
+</body>
+</html>

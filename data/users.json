@@ -1,0 +1,10 @@
+{
+  "users": [],
+  "registration_enabled": false,
+  "external_login": {
+    "google": {
+      "enabled": true,
+      "verified": false
+    }
+  }
+}

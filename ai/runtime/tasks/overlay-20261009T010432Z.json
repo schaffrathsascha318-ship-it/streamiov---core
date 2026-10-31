@@ -1,0 +1,7 @@
+{
+  "project": "Streamiov",
+  "category": "overlay",
+  "request": "Prüfe die vorhandenen Overlay- und Layout-Komponenten (core/stream-overlay.js, core/overlay-engine.js, infrastructure/overlay/overlay_core.py und infrastructure/graphics/overlays). Dokumentiere den Ist-Zustand, erkenne fehlende Overlay-Funktionen und schlage konkrete, testbare Verbesserungen für Streamer-Overlays, Spiel-/Event-Overlays, Community-Interaktionen und Layout-Auswahl vor. Entwickle nur nachweislich fehlende Funktionen in freigegebenen Dateien und führe geeignete Tests aus. Ändere NICHT den Produktionskern, Sicherheit, Accounts, Berechtigungen oder Media-E2E-Transport. Keine Änderungen an Live-Konfigurationen, kein Serverneustart, kein Deployment und keine Veröffentlichung. Bei unklaren Abhängigkeiten oder notwendiger Freigabe stoppen und einen Bericht erstellen. Behaupte Erfolg nur, wenn Änderungen und Tests tatsächlich geprüft wurden.",
+  "created": "2026-10-09T01:04:32.762972+00:00",
+  "status": "prepared"
+}

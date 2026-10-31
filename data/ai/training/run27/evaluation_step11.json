@@ -1,0 +1,134 @@
+{
+  "run": 27,
+  "step": 11,
+  "generated_at": "2026-10-06T03:29:20.618552+00:00",
+  "mode": "local-only",
+  "read_only_components": true,
+  "automatic_pass_conversion": false,
+  "results": [
+    {
+      "id": 1,
+      "type": "registry_lookup",
+      "status": "NEEDS_REVIEW",
+      "reason": "Concrete component behavior requires dedicated test."
+    },
+    {
+      "id": 2,
+      "type": "action_builder",
+      "status": "NEEDS_REVIEW",
+      "reason": "Concrete component behavior requires dedicated test."
+    },
+    {
+      "id": 3,
+      "type": "action_runtime",
+      "status": "NEEDS_REVIEW",
+      "reason": "Concrete component behavior requires dedicated test."
+    },
+    {
+      "id": 4,
+      "type": "game_registration",
+      "status": "NEEDS_REVIEW",
+      "reason": "Concrete component behavior requires dedicated test."
+    },
+    {
+      "id": 5,
+      "type": "gift_action_mapping",
+      "status": "NEEDS_REVIEW",
+      "reason": "Concrete component behavior requires dedicated test."
+    },
+    {
+      "id": 6,
+      "type": "sticker_mapping",
+      "status": "NEEDS_REVIEW",
+      "reason": "Concrete component behavior requires dedicated test."
+    },
+    {
+      "id": 7,
+      "type": "overlay_mapping",
+      "status": "NEEDS_REVIEW",
+      "reason": "Concrete component behavior requires dedicated test."
+    },
+    {
+      "id": 8,
+      "type": "priority_conflict",
+      "status": "NEEDS_REVIEW",
+      "reason": "Concrete component behavior requires dedicated test."
+    },
+    {
+      "id": 9,
+      "type": "cooldown_conflict",
+      "status": "NEEDS_REVIEW",
+      "reason": "Concrete component behavior requires dedicated test."
+    },
+    {
+      "id": 10,
+      "type": "duplicate_action",
+      "status": "NEEDS_REVIEW",
+      "reason": "Concrete component behavior requires dedicated test."
+    },
+    {
+      "id": 11,
+      "type": "missing_event_fallback",
+      "status": "NEEDS_REVIEW",
+      "reason": "Concrete component behavior requires dedicated test."
+    },
+    {
+      "id": 12,
+      "type": "missing_action_fallback",
+      "status": "NEEDS_REVIEW",
+      "reason": "Concrete component behavior requires dedicated test."
+    },
+    {
+      "id": 13,
+      "type": "unknown_game_review",
+      "status": "NEEDS_REVIEW",
+      "reason": "Unknown game must remain explicitly reviewable."
+    },
+    {
+      "id": 14,
+      "type": "runtime_validation",
+      "status": "NEEDS_REVIEW",
+      "reason": "Concrete component behavior requires dedicated test."
+    },
+    {
+      "id": 15,
+      "type": "local_only_boundary",
+      "status": "PASS",
+      "reason": "Boundary condition confirmed by local-only execution policy."
+    },
+    {
+      "id": 16,
+      "type": "no_credentials",
+      "status": "PASS",
+      "reason": "Boundary condition confirmed by local-only execution policy."
+    },
+    {
+      "id": 17,
+      "type": "no_external_api",
+      "status": "PASS",
+      "reason": "Boundary condition confirmed by local-only execution policy."
+    },
+    {
+      "id": 18,
+      "type": "no_deployment",
+      "status": "PASS",
+      "reason": "Boundary condition confirmed by local-only execution policy."
+    },
+    {
+      "id": 19,
+      "type": "no_restart",
+      "status": "PASS",
+      "reason": "Boundary condition confirmed by local-only execution policy."
+    },
+    {
+      "id": 20,
+      "type": "component_import",
+      "status": "NEEDS_REVIEW",
+      "reason": "Concrete component behavior requires dedicated test."
+    }
+  ],
+  "deployment": false,
+  "server_restart": false,
+  "external_connections": false,
+  "credentials": false
+}

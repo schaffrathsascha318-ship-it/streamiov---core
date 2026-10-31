@@ -1,0 +1,22 @@
+{
+  "task_id": "task-707dfc63beff4b69",
+  "status": "pending",
+  "created_at": "2026-10-04T21:24:05.032905+00:00",
+  "recipient": "schaffrathsascha318@gmail.com",
+  "request": "Ändere meine Ownerrechte",
+  "analysis": {
+    "category": "protected",
+    "action": "approval_request",
+    "allowed": false,
+    "approval_required": true,
+    "reason": "Der Auftrag betrifft einen geschützten Bereich.",
+    "plan": [
+      "Auftrag dokumentieren",
+      "Änderung fachlich prüfen",
+      "Freigabe beim Owner anfordern",
+      "Erst nach Freigabe ausführen",
+      "Ergebnis anschließend testen"
+    ]
+  },
+  "reason": "Geschützter Bereich"
+}

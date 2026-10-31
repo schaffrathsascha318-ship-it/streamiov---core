@@ -1,0 +1,10 @@
+{
+  "project": "Streamiov",
+  "task_id": "task-e302812ddb4a456c",
+  "category": "diagnostics",
+  "request": "Diagnostiziere einen Fehler im Studio",
+  "created_at": "2026-10-13T23:09:03.464321+00:00",
+  "created_by": "Streamiov AI",
+  "status": "prepared",
+  "production_changed": false
+}
