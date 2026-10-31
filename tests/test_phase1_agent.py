@@ -257,5 +257,6 @@ class LocalProviderHttpTests(unittest.TestCase):
     def test_doctor_rejects_malformed_model_list(self):
         type(self).get_response_body = {"unexpected": []}
         status = OllamaProvider("test-coder", self.base_url).check_ready()
-        self.assertTrue(status["reachable"] is False)
+        self.assertTrue(status["reachable"])
+        self.assertFalse(status["model_available"])
         self.assertFalse(status["ready"])
