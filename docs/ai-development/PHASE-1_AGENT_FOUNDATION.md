@@ -46,6 +46,22 @@ python -m unittest discover -s tests -v
 
 For a local OpenAI-compatible server set `STREAMIOV_MODEL_PROVIDER=openai-compatible-local`, `STREAMIOV_MODEL`, and `STREAMIOV_MODEL_URL=http://127.0.0.1:8000/v1`.
 
+## Optional Cloudflare-hosted model
+
+For server-side inference without running model weights on the Chromebook, the repository now includes a separate Worker at `infrastructure/cloudflare/streamiov-ai-worker/`. It uses the Cloudflare AI binding and the free-eligible `@cf/zai-org/glm-4.7-flash` model. The Worker is authenticated and exposes an OpenAI-compatible chat endpoint to the Python agent.
+
+Deploy and configure it using the instructions in that Worker's README. Then set:
+
+```bash
+STREAMIOV_MODEL_PROVIDER=cloudflare-workers-ai
+STREAMIOV_MODEL=@cf/zai-org/glm-4.7-flash
+STREAMIOV_MODEL_URL=https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev
+STREAMIOV_AI_WORKER_TOKEN='your-worker-secret'
+python -m ai --doctor
+```
+
+Cloudflare Workers AI currently includes 10,000 Neurons per day on the Free plan. This is a shared daily service quota, not unlimited inference. The Streamiov Worker pauses with HTTP 429 when the allocation is exhausted; it has no paid fallback or automatic plan upgrade. This cloud inference service is separate from the local project-file execution environment.
+
 ## Verification status
 
 Unit tests use a deterministic fake provider to prove that the agent loop performs a real scoped file edit. Readiness diagnostics are tested against a temporary loopback server for both model-list protocols, including offline, missing-model, and malformed-response cases. Local HTTP integration tests also start a temporary loopback server and verify both provider request/response protocols, malformed responses, environment selection, and URL restrictions. These tests verify transport and orchestration, not model intelligence. GitHub Actions runs the repository unit tests and the Studio media smoke test. A real local model inference run still requires an Ollama or compatible model server on a user's machine. No continuously running cloud agent, production deployment, or paid inference is claimed.
