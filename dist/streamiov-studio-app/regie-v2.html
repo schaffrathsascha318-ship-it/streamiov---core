@@ -340,11 +340,11 @@ async function createScene(){
  log("Eigene Szene dauerhaft im Studio-Profil gespeichert: "+preview);
 }
 async function take(){
- $("programName").textContent=selected;
  if(window.streamiovStudio?.sceneAction){
   const result=await window.streamiovStudio.sceneAction({action:"take"});
   if(!result?.ok){log("Programmumschaltung nicht gespeichert: "+(result?.error||"unbekannter Fehler"));return;}
  }
+ $("programName").textContent=selected;
  log("Programm lokal umgeschaltet: "+selected+" (keine Live-Ausgabe).");
 }
 $("createScene").onclick=createScene;
