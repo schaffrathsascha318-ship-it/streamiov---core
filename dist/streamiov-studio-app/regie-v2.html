@@ -122,6 +122,7 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
     <button class="scene" data-scene="GAMEPLAY">GAMEPLAY <small>05</small></button>
     <button class="scene" data-scene="JUST CHATTING">JUST CHATTING <small>06</small></button>
    </div>
+   <button id="createScene" type="button" style="width:100%;margin-top:6px">＋ Eigene Szene</button>
    <div class="panel-title" style="margin:12px -12px">QUELLEN</div>
    <div class="source"><b>◉ Kamera</b><small>Quelle noch nicht verbunden</small></div>
    <div class="source"><b>◖ Mikrofon</b><small>Quelle noch nicht verbunden</small></div>
@@ -213,7 +214,70 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
    <div class="pad"><div class="log">Bereit für lokale Regieaktionen.<br>Keine externe Aktion wird ohne Verbindung ausgeführt.</div></div>
   </div>
  </section>
-</main>
+
+  <section class="bottom" id="creator-settings">
+   <div class="panel">
+    <div class="panel-title">1 · STREAMER-PROFIL</div>
+    <div class="pad grid2">
+     <label>Streamername
+      <input id="streamerName" type="text" maxlength="40" autocomplete="nickname" placeholder="Dein Streamername" required>
+     </label>
+     <label>Profilname (optional)
+      <input id="profileName" type="text" maxlength="60" placeholder="Name dieses Studio-Profils">
+     </label>
+    </div>
+   </div>
+   <div class="panel">
+    <div class="panel-title">2 · KONTOZUORDNUNG</div>
+    <div class="pad">
+     <label for="accountEmail">Konto-E-Mail (optional)</label>
+     <input id="accountEmail" type="email" maxlength="254" autocomplete="email" placeholder="name@beispiel.de">
+     <small class="pill">Nur Profilzuordnung – kein Passwort wird hier abgefragt oder gespeichert.</small>
+    </div>
+   </div>
+   <div class="panel">
+    <div class="panel-title">3 · PLATTFORM</div>
+    <div class="pad">
+     <label for="platformSelect">Streaming-Plattform</label>
+     <select id="platformSelect">
+      <option value="tiktok">TikTok LIVE</option><option value="youtube">YouTube</option>
+      <option value="twitch">Twitch</option><option value="kick">Kick</option>
+      <option value="facebook">Facebook</option><option value="streamiov">Streamiov</option>
+     </select>
+     <p id="platformConnectionState" class="pill" role="status">Nicht verbunden</p>
+     <button id="platformConnectInfo" type="button">Verbindungsstatus prüfen</button>
+     <small>Die Auswahl speichert nur deine bevorzugte Plattform. Eine echte Anmeldung erfolgt erst über den jeweiligen offiziellen OAuth-Flow.</small>
+    </div>
+   </div>
+   <div class="panel">
+    <div class="panel-title">4 · STREAM-EINSTELLUNGEN</div>
+    <div class="pad grid2">
+     <label>Auflösung
+      <select id="streamResolution"><option value="720p">720p</option><option value="1080p" selected>1080p</option><option value="1440p">1440p</option>
+      </select>
+     </label>
+     <label>Bildrate
+      <select id="streamFps"><option value="30">30 FPS</option><option value="60" selected>60 FPS</option>
+      </select>
+     </label>
+     <label>Bitrate (kbit/s)
+      <input id="streamBitrate" type="number" min="500" max="20000" step="500" value="4500" required>
+     </label>
+     <label>Audio-Modus
+      <select id="streamAudio"><option value="mic-system">Mikrofon + System</option><option value="mic">Nur Mikrofon</option><option value="system">Nur System</option></select>
+     </label>
+     <label>Overlay
+      <select id="streamOverlay"><option value="standard">Streamiov Standard</option><option value="custom">Eigenes Overlay</option><option value="none">Kein Overlay</option></select>
+     </label>
+     <div>
+      <button id="saveCreatorSettings" type="button">Einstellungen speichern</button>
+      <p id="creatorSettingsStatus" role="status" aria-live="polite">Noch nicht gespeichert.</p>
+     </div>
+    </div>
+   </div>
+  </section>
+
+ </main>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -224,17 +288,67 @@ function log(message){
   message.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  box.scrollTop=box.scrollHeight;
 }
-function selectScene(name){
+function renderScenes(scenes, previewName){
+ const host=$("scenes");
+ host.replaceChildren();
+ for(const scene of scenes){
+  const button=document.createElement("button");
+  button.className="scene"+(scene.name===previewName?" active":"");
+  button.dataset.scene=scene.name;
+  button.append(document.createTextNode(scene.name));
+  const small=document.createElement("small");
+  small.textContent=String(scenes.indexOf(scene)+1).padStart(2,"0");
+  button.append(small);
+  button.addEventListener("click",()=>selectScene(scene.name));
+  host.append(button);
+ }
+}
+async function selectScene(name){
  selected=name;
  $("previewName").textContent=name;
  document.querySelectorAll(".scene").forEach(b=>b.classList.toggle("active",b.dataset.scene===name));
- log("Vorschau gewählt: "+name);
+ if(window.streamiovStudio?.sceneAction){
+  const result=await window.streamiovStudio.sceneAction({action:"select",name});
+  if(!result?.ok){log("Szene konnte nicht gespeichert werden: "+(result?.error||"unbekannter Fehler"));return;}
+ }
+ log("Vorschau gewählt und lokal gespeichert: "+name);
 }
-document.querySelectorAll(".scene").forEach(b=>b.addEventListener("click",()=>selectScene(b.dataset.scene)));
-function take(){
+async function loadScenes(){
+ if(!window.streamiovStudio?.sceneAction){log("Szenenverwaltung läuft im Demo-Modus.");return;}
+ const result=await window.streamiovStudio.sceneAction({action:"load"});
+ if(!result?.ok){log("Szenen konnten nicht geladen werden: "+(result?.error||"unbekannter Fehler"));return;}
+ const state=result.state;
+ const preview=state.scenes.find(s=>s.id===state.previewSceneId)?.name||state.scenes[0].name;
+ const program=state.scenes.find(s=>s.id===state.programSceneId)?.name||preview;
+ selected=preview;
+ $("previewName").textContent=preview;
+ $("programName").textContent=program;
+ renderScenes(state.scenes,preview);
+ log("Szenen aus lokalem Studio-Profil geladen.");
+}
+async function createScene(){
+ const name=window.prompt("Name der neuen Szene (max. 60 Zeichen):");
+ if(name===null)return;
+ if(!window.streamiovStudio?.sceneAction){log("Eigene Szenen benötigen die installierte Desktop-App.");return;}
+ const result=await window.streamiovStudio.sceneAction({action:"create",name});
+ if(!result?.ok){log("Szene nicht erstellt: "+(result?.error||"unbekannter Fehler"));return;}
+ const state=result.state;
+ const preview=state.scenes.find(s=>s.id===state.previewSceneId)?.name||name.trim();
+ selected=preview;
+ $("previewName").textContent=preview;
+ renderScenes(state.scenes,preview);
+ log("Eigene Szene dauerhaft im Studio-Profil gespeichert: "+preview);
+}
+async function take(){
+ if(window.streamiovStudio?.sceneAction){
+  const result=await window.streamiovStudio.sceneAction({action:"take"});
+  if(!result?.ok){log("Programmumschaltung nicht gespeichert: "+(result?.error||"unbekannter Fehler"));return;}
+ }
  $("programName").textContent=selected;
- log("Programm lokal umgeschaltet: "+selected);
+ log("Programm lokal umgeschaltet: "+selected+" (keine Live-Ausgabe).");
 }
+$("createScene").onclick=createScene;
+loadScenes();
 $("cut").onclick=take;
 $("take").onclick=take;
 $("fade").onclick=()=>{
@@ -250,5 +364,40 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
  r.closest(".channel").querySelector(".meter i").style.width=r.value+"%";
 }));
 </script>
+
+<script>
+(() => {
+ const ids = ['streamerName','profileName','accountEmail','platformSelect','streamResolution','streamFps','streamBitrate','streamAudio','streamOverlay'];
+ const byId = id => document.getElementById(id);
+ const status = byId('creatorSettingsStatus');
+ const storageKey = 'streamiov.studio.creator-settings.v1';
+ const defaults = {streamerName:'',profileName:'',accountEmail:'',platformSelect:'tiktok',streamResolution:'1080p',streamFps:'60',streamBitrate:'4500',streamAudio:'mic-system',streamOverlay:'standard'};
+ try {
+  const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  for (const id of ids) if (byId(id)) byId(id).value = String(saved[id] ?? defaults[id] ?? '');
+ } catch (_) { status.textContent = 'Gespeicherte Einstellungen konnten nicht gelesen werden.'; }
+ byId('saveCreatorSettings').addEventListener('click', () => {
+  const name = byId('streamerName').value.trim();
+  const email = byId('accountEmail').value.trim();
+  const bitrate = Number(byId('streamBitrate').value);
+  if (!name) { status.textContent = 'Bitte einen Streamername eingeben.'; byId('streamerName').focus(); return; }
+  if (email && !byId('accountEmail').checkValidity()) { status.textContent = 'Bitte eine gültige Konto-E-Mail eingeben.'; byId('accountEmail').focus(); return; }
+  if (!Number.isInteger(bitrate) || bitrate < 500 || bitrate > 20000 || bitrate % 500 !== 0) {
+   status.textContent = 'Bitrate muss zwischen 500 und 20.000 kbit/s liegen und in 500er-Schritten eingegeben werden.';
+   byId('streamBitrate').focus(); return;
+  }
+  const values = Object.fromEntries(ids.map(id => [id, byId(id).value.trim()]));
+  try {
+   localStorage.setItem(storageKey, JSON.stringify(values));
+   status.textContent = 'Einstellungen lokal gespeichert. Noch nicht an einen Streamingdienst übertragen.';
+  } catch (_) { status.textContent = 'Speichern fehlgeschlagen – lokaler Speicher nicht verfügbar.'; }
+ });
+ byId('platformConnectInfo').addEventListener('click', () => {
+  const platform = byId('platformSelect').selectedOptions[0].textContent;
+  byId('platformConnectionState').textContent = platform + ': nicht verbunden – offizieller Login/OAuth erforderlich.';
+ });
+})();
+</script>
+
 </body>
 </html>
