@@ -25,7 +25,15 @@ Official references:
 
 ## Deploy
 
-Use the Cloudflare account already authorized with Wrangler:
+For a guided one-command setup from the repository root, run:
+
+```bash
+bash scripts/deploy-streamiov-ai-worker.sh
+```
+
+The script checks the existing Wrangler login, deploys the Worker, generates a random 256-bit bearer token, stores it as a Cloudflare secret, writes a mode-600 local environment file under `~/.config/streamiov/ai-worker.env`, and performs an authenticated health check. It never prints or commits the token.
+
+Alternatively, use the manual process below. Use the Cloudflare account already authorized with Wrangler:
 
 ```bash
 npx wrangler@4 secret put STREAMIOV_AI_WORKER_TOKEN --config infrastructure/cloudflare/streamiov-ai-worker/wrangler.jsonc
