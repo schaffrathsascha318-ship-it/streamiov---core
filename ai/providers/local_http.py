@@ -85,9 +85,13 @@ class OllamaProvider:
 
     def check_ready(self) -> dict:
         try:
-            return _model_status(_get(self.base_url + "/api/tags"), self.model, "ollama")
+            data = _get(self.base_url + "/api/tags")
         except ProviderError as exc:
             return {"provider": "ollama", "model": self.model, "reachable": False, "model_available": False, "models_count": 0, "ready": False, "detail": str(exc)}
+        try:
+            return _model_status(data, self.model, "ollama")
+        except ProviderError as exc:
+            return {"provider": "ollama", "model": self.model, "reachable": True, "model_available": False, "models_count": 0, "ready": False, "detail": str(exc)}
 
     def generate(self, *, system: str, messages: list[dict[str, str]]) -> ModelReply:
         payload = {
@@ -109,9 +113,13 @@ class LocalOpenAICompatibleProvider:
 
     def check_ready(self) -> dict:
         try:
-            return _model_status(_get(self.base_url + "/models"), self.model, "openai-compatible")
+            data = _get(self.base_url + "/models")
         except ProviderError as exc:
             return {"provider": "openai-compatible", "model": self.model, "reachable": False, "model_available": False, "models_count": 0, "ready": False, "detail": str(exc)}
+        try:
+            return _model_status(data, self.model, "openai-compatible")
+        except ProviderError as exc:
+            return {"provider": "openai-compatible", "model": self.model, "reachable": True, "model_available": False, "models_count": 0, "ready": False, "detail": str(exc)}
 
     def generate(self, *, system: str, messages: list[dict[str, str]]) -> ModelReply:
         payload = {
