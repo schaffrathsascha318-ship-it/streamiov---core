@@ -9,7 +9,7 @@ on:
       - ".github/workflows/studio-build.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -57,3 +57,25 @@ jobs:
           path: dist/streamiov-studio-app/release/*
           if-no-files-found: error
           retention-days: 30
+
+  publish-release:
+    name: Installer dauerhaft veröffentlichen
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Installer aller Plattformen herunterladen
+        uses: actions/download-artifact@v4
+        with:
+          pattern: streamiov-studio-*
+          path: release
+          merge-multiple: true
+
+      - name: GitHub Release erstellen oder aktualisieren
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: studio-v1.0.0
+          name: Streamiov Studio 1.0.0
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: release/*
