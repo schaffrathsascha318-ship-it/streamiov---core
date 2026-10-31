@@ -124,12 +124,15 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
   const defaults = () => ({
     version: 1,
     scenes: [
-      { id: 'standard', name: 'Streamiov Standard', kind: 'built-in' },
-      { id: 'gameplay', name: 'Gameplay', kind: 'built-in' },
-      { id: 'fullscreen', name: 'Full Screen', kind: 'built-in' }
+      { id: 'starting-soon', name: 'STARTING SOON', kind: 'built-in' },
+      { id: 'live', name: 'LIVE', kind: 'built-in' },
+      { id: 'pause', name: 'PAUSE', kind: 'built-in' },
+      { id: 'ending', name: 'ENDING', kind: 'built-in' },
+      { id: 'gameplay', name: 'GAMEPLAY', kind: 'built-in' },
+      { id: 'just-chatting', name: 'JUST CHATTING', kind: 'built-in' }
     ],
-    previewSceneId: 'standard',
-    programSceneId: 'standard',
+    previewSceneId: 'starting-soon',
+    programSceneId: 'starting-soon',
     updatedAt: new Date().toISOString()
   });
 
