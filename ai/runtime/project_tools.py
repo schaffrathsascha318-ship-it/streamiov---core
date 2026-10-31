@@ -32,7 +32,7 @@ class ProjectTools:
         resolved_anchor = anchor.resolve()
         if self.root != resolved_anchor and self.root not in resolved_anchor.parents:
             raise ToolError("Path escapes the project workspace.")
-        if candidate.exists() and candidate.is_symlink():
+        if candidate.is_symlink():
             raise ToolError("Symlink access is denied.")
         return candidate
 
