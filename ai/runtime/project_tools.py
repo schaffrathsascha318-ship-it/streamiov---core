@@ -24,7 +24,7 @@ class ProjectTools:
         rel = PurePosixPath(raw)
         if rel.is_absolute() or any(part in {"", ".", ".."} for part in rel.parts):
             raise ToolError("Path must be a normalized relative path without traversal.")
-        if any(part.lower() in DENIED_PARTS for part in rel.parts) or rel.suffix.lower() in DENIED_SUFFIXES:
+        if any(part.lower() in DENIED_PARTS or part.lower().startswith(".env") or any(word in part.lower() for word in ("secret", "credential", "access-token", "refresh-token")) for part in rel.parts) or rel.suffix.lower() in DENIED_SUFFIXES:
             raise ToolError("Access to protected paths and secret-like files is denied.")
         candidate = self.root.joinpath(*rel.parts)
         # Resolve existing symlinks; for new files resolve the parent directory.
