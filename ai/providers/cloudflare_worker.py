@@ -11,7 +11,9 @@ from .base import ModelReply
 
 
 class CloudflareWorkerError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, reachable: bool = False) -> None:
+        super().__init__(message)
+        self.reachable = reachable
 
 
 DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash"
@@ -67,7 +69,7 @@ class CloudflareWorkersAIProvider:
             return {
                 "provider": "cloudflare-workers-ai",
                 "model": self.model,
-                "reachable": False,
+                "reachable": exc.reachable,
                 "model_available": False,
                 "models_count": 0,
                 "ready": False,
@@ -108,10 +110,10 @@ class CloudflareWorkersAIProvider:
         except HTTPError as exc:
             status = exc.code
             if status == 401:
-                raise CloudflareWorkerError("Streamiov AI Worker rejected its bearer token (401).") from exc
+                raise CloudflareWorkerError("Streamiov AI Worker rejected its bearer token (401).", reachable=True) from exc
             if status == 429:
-                raise CloudflareWorkerError("Cloudflare Workers AI daily free allocation is exhausted (429).") from exc
-            raise CloudflareWorkerError(f"Streamiov AI Worker request failed (HTTP {status}).") from exc
+                raise CloudflareWorkerError("Cloudflare Workers AI daily free allocation is exhausted (429).", reachable=True) from exc
+            raise CloudflareWorkerError(f"Streamiov AI Worker request failed (HTTP {status}).", reachable=True) from exc
         except (URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
             raise CloudflareWorkerError(f"Streamiov AI Worker request failed: {type(exc).__name__}.") from exc
         if not isinstance(result, dict):
