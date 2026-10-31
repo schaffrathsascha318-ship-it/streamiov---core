@@ -15,6 +15,15 @@ You may request exactly one JSON object per response:
 {"final":"concise result"}
 Never request secrets, environment files, credentials, OAuth data, production actions, arbitrary shell commands, network access, or overwriting files wholesale. Exact-match edits must target one unique section. Paths and tools are enforced independently. Do not claim a test passed unless its output proves it. Return JSON only."""
 
+def _parse_action(content: str):
+    """Parse a JSON action, accepting a single optional Markdown JSON fence."""
+    text = content.strip()
+    if text.startswith("```") and text.endswith("```"):
+        lines = text.splitlines()
+        if len(lines) >= 3 and lines[0].strip().lower() in {"```", "```json"} and lines[-1].strip() == "```":
+            text = "\n".join(lines[1:-1]).strip()
+    return json.loads(text)
+
 MAX_MODEL_REPLY_CHARS = 100_000
 
 class AgentError(RuntimeError):
@@ -37,7 +46,7 @@ class DevelopmentAgent:
             if not isinstance(reply.content, str) or len(reply.content) > MAX_MODEL_REPLY_CHARS:
                 raise AgentError("Model response is missing or exceeds the 100 KB limit.")
             try:
-                action = json.loads(reply.content)
+                action = _parse_action(reply.content)
             except (TypeError, json.JSONDecodeError) as exc:
                 raise AgentError("Model response was not valid JSON; refusing to guess or execute.") from exc
             if not isinstance(action, dict):
