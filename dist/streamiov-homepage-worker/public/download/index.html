@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#090b16">
 <title>Streamiov Studio – Downloads</title>
+<script src="/download/combine.js" defer></script>
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#090b16;color:#eef1ff;font:16px Arial,sans-serif}
@@ -15,6 +16,9 @@ p{line-height:1.6;color:#c5c9df}
 section{background:#15182a;border:1px solid #343052;border-radius:14px;padding:22px;margin:18px 0}
 a{color:#73e5e2;font-weight:bold}
 .download{display:inline-block;margin:8px 8px 8px 0;padding:12px 16px;border:1px solid #5b55a0;border-radius:9px;text-decoration:none}
+.download-button{display:inline-block;margin:8px 8px 8px 0;padding:13px 18px;border:0;border-radius:9px;background:#7c70ff;color:#fff;font-weight:bold;font-size:16px;cursor:pointer}
+.download-button:disabled{opacity:.55;cursor:wait}
+#studio-status,#studio-progress{display:block;margin-top:10px;color:#d9dcf5;line-height:1.5}
 small{display:block;color:#aeb3ca;margin-top:10px;line-height:1.5}
 .notice{border-left:4px solid #e5b85c;padding-left:14px}
 </style>
@@ -23,6 +27,31 @@ small{display:block;color:#aeb3ca;margin-top:10px;line-height:1.5}
 <main>
 <h1>STREAMIOV DOWNLOADS</h1>
 <p>Von Streamern für Streamer. Kostenlos und ohne Abonnements.</p>
+
+<section>
+<h2>Komplettes Studio-Paket</h2>
+<p>Das vollständige ZIP-Paket wird aus sieben geprüften Download-Teilen zusammengesetzt. Der direkte Download benötigt einen Chromium-Browser mit Dateispeicher-Unterstützung.</p>
+<button class="download-button" id="studio-one-click" type="button">Komplettes Studio-ZIP herunterladen</button>
+<strong id="studio-progress" aria-live="polite">Bereit · 0 %</strong>
+<span id="studio-status" role="status" aria-live="polite">Nach dem Klick Speicherort auswählen. Die Teile werden nacheinander geladen und auf Größe sowie ZIP-Kennung geprüft.</span>
+<details>
+<summary>Alternative: sieben Teile manuell herunterladen</summary>
+<p>Alle sieben Dateien herunterladen und in einem gemeinsamen Ordner speichern. Unter Linux/ChromeOS im Ordner ausführen:</p>
+<pre><code>cat streamiov-studio-part-*.bin &gt; streamiov-studio.zip</code></pre>
+<p>Unter Windows in der Eingabeaufforderung:</p>
+<pre><code>copy /b streamiov-studio-part-00.bin+streamiov-studio-part-01.bin+streamiov-studio-part-02.bin+streamiov-studio-part-03.bin+streamiov-studio-part-04.bin+streamiov-studio-part-05.bin+streamiov-studio-part-06.bin streamiov-studio.zip</code></pre>
+<ul>
+<li><a href="/downloads/streamiov-studio-part-00.bin">Teil 1 von 7</a></li>
+<li><a href="/downloads/streamiov-studio-part-01.bin">Teil 2 von 7</a></li>
+<li><a href="/downloads/streamiov-studio-part-02.bin">Teil 3 von 7</a></li>
+<li><a href="/downloads/streamiov-studio-part-03.bin">Teil 4 von 7</a></li>
+<li><a href="/downloads/streamiov-studio-part-04.bin">Teil 5 von 7</a></li>
+<li><a href="/downloads/streamiov-studio-part-05.bin">Teil 6 von 7</a></li>
+<li><a href="/downloads/streamiov-studio-part-06.bin">Teil 7 von 7</a></li>
+</ul>
+<small>Gesamtgröße: 134.811.280 Bytes. Nach dem Zusammenfügen ZIP-Datei vor der Installation entpacken und prüfen.</small>
+</details>
+</section>
 
 <section>
 <h2>Windows</h2>
@@ -45,6 +74,12 @@ small{display:block;color:#aeb3ca;margin-top:10px;line-height:1.5}
 <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0/Streamiov.Studio-1.0.0-arm64.AppImage">ARM64-AppImage herunterladen</a>
 <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0/streamiov-studio_1.0.0_arm64.deb">ARM64-DEB herunterladen</a>
 <small>Version 1.0.0 · ARM64</small>
+</section>
+
+<section>
+<h2>Android und iPhone</h2>
+<p>Eine freigegebene und auf echten Geräten getestete Android- oder iPhone-App ist derzeit noch nicht verfügbar. Die vorhandene kleine APK-Datei wird deshalb nicht als fertiger Installer angeboten.</p>
+<small>Mobile Apps bleiben Teil des Entwicklungsziels.</small>
 </section>
 
 <section>
