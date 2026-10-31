@@ -180,6 +180,8 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
     <div class="metric"><span>Netzwerk</span><b>LOKAL</b></div>
     <button id="runtimeCheck" type="button" style="width:100%;margin-top:12px">TECHNIK / ENCODER PRÜFEN</button>
     <p id="runtimeDiagnostics" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Systemprüfung noch nicht ausgeführt.</p>
+    <button id="mediaTest" type="button" style="width:100%;margin-top:8px">LOKALEN AUDIO-/VIDEO-TEST STARTEN</button>
+    <p id="mediaTestResult" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Erzeugt einen kurzen lokalen Testclip aus Bild- und Tonsignalen.</p>
     <button class="go-live" style="width:100%;margin-top:12px" id="live">● LIVE VERBINDUNG PRÜFEN</button>
    </div>
   </section>
@@ -372,6 +374,25 @@ $("runtimeCheck").onclick=async()=>{
    : "Encoder-Abhängigkeiten vorhanden. Geräte, OAuth und Live-Ausgabe sind noch nicht verifiziert.";
   log("Technikprüfung abgeschlossen. RTMP-Abhängigkeiten: "+(missing.length?"fehlen":"vorhanden")+"; Live verifiziert: nein.");
  }catch(error){output.textContent="Technikprüfung fehlgeschlagen: "+String(error.message||error).slice(0,180);}
+};
+$("mediaTest").onclick=async()=>{
+ const output=$("mediaTestResult");
+ const button=$("mediaTest");
+ button.disabled=true;
+ output.textContent="Erzeuge lokalen Audio-/Video-Testclip …";
+ try{
+  if(!window.streamiovStudio?.runMediaTest){output.textContent="Audio-/Video-Test ist in dieser Laufzeit nicht verfügbar.";return;}
+  const result=await window.streamiovStudio.runMediaTest();
+  if(!result?.ok){
+   output.textContent="Test nicht ausgeführt: "+(result?.missing?.join(", ")||result?.error||"unbekannter Fehler");
+   log("Lokaler Audio-/Video-Test fehlgeschlagen: "+output.textContent);
+   return;
+  }
+  output.textContent="Lokaler A/V-Test erfolgreich: "+result.width+"×"+result.height+" @ "+result.fps+" FPS, "+result.output_bytes+" Byte WebM.";
+  log("Lokaler Audio-/Video-Test erfolgreich. Keine Geräteaufnahme oder Live-Ausgabe verifiziert.");
+ }catch(error){
+  output.textContent="Audio-/Video-Test fehlgeschlagen: "+String(error.message||error).slice(0,180);
+ }finally{button.disabled=false;}
 };
 $("live").onclick=()=>log("Noch keine bestätigte Plattform- oder Streamingverbindung. LIVE wurde nicht gestartet.");
 document.querySelectorAll("[data-tool]").forEach(b=>b.onclick=()=>log("Werkzeug geöffnet: "+b.dataset.tool+" — Modulstatus muss angebunden werden."));
