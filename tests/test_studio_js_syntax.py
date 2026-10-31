@@ -56,8 +56,6 @@ class StudioJavaScriptSyntaxTests(unittest.TestCase):
         self.assertGreater(checked, 0, "No inline JavaScript was checked")
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class HomepageDownloadPageTests(unittest.TestCase):
@@ -82,3 +80,6 @@ class HomepageDownloadPageTests(unittest.TestCase):
         self.assertIn("downloaded !== totalSize", script)
         self.assertIn("isZipSignature(signature)", script)
         self.assertIn("await writable.abort()", script)
+
+if __name__ == "__main__":
+    unittest.main()
