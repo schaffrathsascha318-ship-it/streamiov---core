@@ -72,6 +72,17 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("media_test_pipeline_available", handler)
 
 
+    def test_media_pipeline_builder_is_shared_with_ci_smoke_test(self):
+        self.assertIn("require('./media-pipeline')", self.main)
+        self.assertIn("buildSyntheticAvPipelineArgs(outputFile)", self.main)
+        helper = (ROOT / "dist" / "streamiov-studio-app" / "media-pipeline.js").read_text(encoding="utf-8")
+        self.assertIn("videotestsrc", helper)
+        self.assertIn("audiotestsrc", helper)
+        self.assertIn("webmmux", helper)
+        ci_script = (ROOT / "scripts" / "test-studio-media-pipeline.cjs").read_text(encoding="utf-8")
+        self.assertIn("buildSyntheticAvPipelineArgs(output)", ci_script)
+        self.assertIn("assert.ok(stat.size > 1024", ci_script)
+
 
 if __name__ == "__main__":
     unittest.main()
