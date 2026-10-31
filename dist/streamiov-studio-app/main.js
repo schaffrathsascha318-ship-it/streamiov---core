@@ -224,7 +224,7 @@ async function probeExecutable(command, args = ['--version']) {
     });
     return {
       available: true,
-      version: String(result.stdout || result.stderr || '').trim().split(/\\r?\\n/).slice(0, 2).join(' ').slice(0, 240)
+      version: String(result.stdout || result.stderr || '').trim().split(String.fromCharCode(10)).slice(0, 2).join(' ').slice(0, 240)
     };
   } catch (error) {
     return {
