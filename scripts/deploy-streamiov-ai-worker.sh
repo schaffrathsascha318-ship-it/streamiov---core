@@ -44,12 +44,6 @@ if [[ -z "$WORKER_URL" ]]; then
   exit 4
 fi
 
-echo "=== Separates Zugriffstoken als Cloudflare Secret setzen ==="
-printf '%s' "$TOKEN" | npx --yes wrangler@4 secret put STREAMIOV_AI_WORKER_TOKEN --config "$CONFIG"
-
-echo "=== Worker mit Secret aktualisieren ==="
-npx --yes wrangler@4 deploy --config "$CONFIG"
-
 cat > "$LOCAL_ENV" <<EOF
 export STREAMIOV_MODEL_PROVIDER=cloudflare-workers-ai
 export STREAMIOV_MODEL=@cf/zai-org/glm-4.7-flash
@@ -57,6 +51,12 @@ export STREAMIOV_MODEL_URL=$WORKER_URL
 export STREAMIOV_AI_WORKER_TOKEN=$TOKEN
 EOF
 chmod 600 "$LOCAL_ENV"
+
+echo "=== Separates Zugriffstoken als Cloudflare Secret setzen ==="
+printf '%s' "$TOKEN" | npx --yes wrangler@4 secret put STREAMIOV_AI_WORKER_TOKEN --config "$CONFIG"
+
+echo "=== Worker mit Secret aktualisieren ==="
+npx --yes wrangler@4 deploy --config "$CONFIG"
 
 echo "=== Authentifizierten Health-Check ausführen ==="
 printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" | curl --fail --silent --show-error --config - "$WORKER_URL/health"
