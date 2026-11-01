@@ -27,6 +27,7 @@ on:
       - ".github/workflows/studio-build.yml"
   push:
     branches:
+      - main
       - streamiov-build-setup-clean
     paths:
       - "dist/streamiov-studio-app/**"
