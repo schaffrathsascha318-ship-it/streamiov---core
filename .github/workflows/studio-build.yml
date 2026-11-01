@@ -18,6 +18,12 @@ on:
         required: true
         type: boolean
         default: true
+  pull_request:
+    paths:
+      - "dist/streamiov-studio-app/**"
+      - "scripts/sync-studio-ui.py"
+      - "scripts/sync-studio-games.py"
+      - ".github/workflows/studio-build.yml"
   push:
     paths:
       - "dist/streamiov-studio-app/**"
@@ -39,6 +45,9 @@ jobs:
           - name: Windows x64
             runner: windows-latest
             command: dist:win
+          - name: Windows ARM64
+            runner: windows-latest
+            command: dist:win:arm64
           - name: Linux x64
             runner: ubuntu-latest
             command: dist:linux
@@ -53,6 +62,11 @@ jobs:
     steps:
       - name: Quellcode laden
         uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Node.js einrichten
         uses: actions/setup-node@v4
