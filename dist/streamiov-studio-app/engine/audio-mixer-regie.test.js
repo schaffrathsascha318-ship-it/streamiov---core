@@ -89,7 +89,7 @@ test('Electron main process uses the official display media request handler for 
   assert.ok(main.includes("setDisplayMediaRequestHandler(async (request, callback)"));
   assert.ok(main.includes("selectedDesktopCaptureSourceId"));
   assert.ok(main.includes("audio: 'loopback'"));
-  assert.match(main, /callback\\(\\{\\s*video:\\s*selectedSource/);
+  assert.match(main, /callback\(\{\s*video:\s*selectedSource/);
   assert.ok(main.includes("ipcMain.handle('studio:select-capture-source'"));
   assert.ok(preload.includes("selectCaptureSource: (sourceId) => ipcRenderer.invoke('studio:select-capture-source', { sourceId })"));
 });
