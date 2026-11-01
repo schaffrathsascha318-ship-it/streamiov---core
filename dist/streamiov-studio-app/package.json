@@ -17,7 +17,8 @@
     "test:engine": "node --test engine/*.test.js",
     "predist:win": "python3 ../../scripts/sync-studio-ui.py && python3 ../../scripts/sync-studio-games.py",
     "predist:linux": "python3 ../../scripts/sync-studio-ui.py && python3 ../../scripts/sync-studio-games.py",
-    "predist:linux:arm64": "python3 ../../scripts/sync-studio-ui.py && python3 ../../scripts/sync-studio-games.py"
+    "predist:linux:arm64": "python3 ../../scripts/sync-studio-ui.py && python3 ../../scripts/sync-studio-games.py",
+    "predist:win:arm64": "python3 ../../scripts/sync-studio-ui.py && python3 ../../scripts/sync-studio-games.py"
   },
   "dependencies": {
     "tiktok-live-connector": "2.5.0"
