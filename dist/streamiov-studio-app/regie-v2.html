@@ -515,6 +515,7 @@ loadSources();
 // Es wird nichts übertragen oder gespeichert; Tracks enden beim erneuten Klick bzw. Schließen.
 const captureState={camera:null,microphone:null,desktop:null,audioContext:null,analyser:null,meterFrame:0};
 const studioAudioMixer=window.StreamiovAudioMixer?new window.StreamiovAudioMixer():null;
+if(studioAudioMixer){for(const bus of ["microphone_stem","music_stem","game_stem","alerts_stem","tts_stem"])studioAudioMixer.createBus(bus);}
 const micMixGain=$("microphoneMixGain");
 if(micMixGain)micMixGain.addEventListener("input",()=>{
  if(studioAudioMixer?.snapshot("microphone"))studioAudioMixer.setGain("microphone",Number(micMixGain.value)/100);
@@ -608,7 +609,7 @@ $("microphoneStart").onclick=async()=>{
   captureState.microphone=stream;
   if(!studioAudioMixer)throw new Error("Der lokale Audio-Mixer ist in dieser Laufzeit nicht verfügbar.");
   await studioAudioMixer.resume();
-  studioAudioMixer.connect("microphone",stream,{gain:Number(micMixGain?.value??75)/100});
+  studioAudioMixer.connect("microphone",stream,{gain:Number(micMixGain?.value??75)/100,routes:["stream","monitor","microphone_stem"]});
   const AudioContextClass=window.AudioContext||window.webkitAudioContext;
   if(!AudioContextClass)throw new Error("AudioContext ist in dieser Laufzeit nicht verfügbar.");
   const context=new AudioContextClass();
