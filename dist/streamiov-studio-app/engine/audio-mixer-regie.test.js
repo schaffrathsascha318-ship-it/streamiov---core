@@ -5,13 +5,13 @@ const fs = require('node:fs');
 const html = fs.readFileSync(require.resolve('../regie-v2.html'), 'utf8');
 
 test('Regie loads the local mixer and routes microphone capture into it', () => {
-  assert.match(html, /<script src="\\.\\/engine\\/audio-mixer\\.js"><\\/script>/);
-  assert.match(html, /studioAudioMixer\\.connect\\("microphone",stream/);
-  assert.match(html, /studioAudioMixer\\.disconnect\\("microphone"\\)/);
-  assert.match(html, /studioAudioMixer\\.setGain\\("microphone"/);
-  assert.match(html, /noch nicht mit Encoder\\/LIVE verbunden/i);
+  assert.ok(html.includes('<script src="./engine/audio-mixer.js"></script>'));
+  assert.ok(html.includes('studioAudioMixer.connect("microphone",stream'));
+  assert.ok(html.includes('studioAudioMixer.disconnect("microphone")'));
+  assert.ok(html.includes('studioAudioMixer.setGain("microphone"'));
+  assert.ok(html.includes('noch nicht mit Encoder/LIVE verbunden'));
 });
 
 test('local mixer output is not falsely reported as a live encoder connection', () => {
-  assert.match(html, /Audio-Ausgang vorbereitet; noch nicht mit Encoder\\/LIVE verbunden/);
+  assert.ok(html.includes('Audio-Ausgang vorbereitet; noch nicht mit Encoder/LIVE verbunden'));
 });
