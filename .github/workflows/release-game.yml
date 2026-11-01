@@ -46,12 +46,16 @@ jobs:
           const manifestPath = path.join(directory, 'game.json');
           const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
           if (manifest.id !== id) throw new Error('Manifest ID does not match registry.');
+          if (manifest.release?.automatedTestsPassed !== true || entry.automatedTestsPassed !== true) {
+            throw new Error('Release blocked: automated game checks have not passed.');
+          }
           if (manifest.status !== 'gameplay_verified' || manifest.release?.gameplayVerified !== true) {
             throw new Error('Release blocked: real gameplay verification is not recorded.');
           }
           if (manifest.release?.released === true || entry.released === true) throw new Error('Game is already released.');
-          if (!manifest.entry || !fs.existsSync(path.join(directory, manifest.entry)) || !fs.existsSync(path.join(directory, 'README.md'))) {
-            throw new Error('Game entry point or README is missing.');
+          const entryPoint = path.resolve(directory, manifest.entry || '');
+          if (!entryPoint.startsWith(directory + path.sep) || !fs.existsSync(entryPoint) || !fs.existsSync(path.join(directory, 'README.md'))) {
+            throw new Error('Game entry point escapes the package or the entry point/README is missing.');
           }
           if (!/^[0-9]+[.][0-9]+[.][0-9]+(?:-[0-9A-Za-z.-]+)?$/.test(manifest.version)) throw new Error('Invalid semantic game version.');
           fs.appendFileSync(process.env.GITHUB_OUTPUT, 'game_name=' + manifest.name.replace(/[\r\n]/g, ' ') + '\n');
@@ -94,7 +98,7 @@ jobs:
           if (!entry) throw new Error('Registry entry not found.');
           const manifestPath = entry.path + '/game.json';
           const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-          if (manifest.status !== 'gameplay_verified' || manifest.release?.gameplayVerified !== true) throw new Error('Gameplay verification changed.');
+          if (manifest.release?.automatedTestsPassed !== true || manifest.status !== 'gameplay_verified' || manifest.release?.gameplayVerified !== true) throw new Error('Automated or gameplay verification changed.');
           const releasedAt = new Date().toISOString();
           manifest.status = 'released';
           manifest.release.released = true;
