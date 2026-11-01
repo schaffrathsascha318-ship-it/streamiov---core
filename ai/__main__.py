@@ -13,6 +13,7 @@ from pathlib import Path
 from ai.core.agent import AgentError, DevelopmentAgent
 from ai.providers.local_http import ProviderError, provider_from_env
 from ai.runtime.task_queue import SpecialistTaskQueue, SpecialistWorker, TaskQueueError
+from ai.runtime.learning_store import VerifiedLearningStore
 from ai.runtime.worker_service import run_worker_loop
 from ai.core.orchestrator import SpecialistTask
 from ai.core.planner import PlannerError, SpecialistPlanner
@@ -45,6 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Select the least-privilege STREAMIOV AI specialist role (default: code).",
     )
     parser.add_argument("--queue-db", help="SQLite path for the persistent specialist task queue.")
+    parser.add_argument("--learning-db", help="Optional SQLite path for retrieval of test-verified lessons.")
     queue_mode = parser.add_mutually_exclusive_group()
     queue_mode.add_argument("--enqueue", action="store_true", help="Queue --task for the selected specialist instead of running immediately.")
     queue_mode.add_argument("--plan-and-enqueue", action="store_true", help="Ask Core AI to split --task across specialists and persist the validated plan.")
@@ -109,6 +111,7 @@ def main(argv: list[str] | None = None) -> int:
                     project_root=Path(args.project_root),
                     max_steps=args.max_steps,
                     specialist=role,
+                    learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
                 ),
             )
             execution = worker.run_once()
@@ -161,6 +164,7 @@ def main(argv: list[str] | None = None) -> int:
             project_root=Path(args.project_root),
             max_steps=args.max_steps,
             specialist=args.specialist,
+            learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
         )
         print(agent.run(args.task))
         return 0
