@@ -58,6 +58,9 @@ def main() -> int:
             if not (source_dir / entry).is_file():
                 raise SystemExit(f"Game entry point missing for {game_id}.")
 
+            if any(item.is_symlink() for item in source_dir.rglob('*')):
+                raise SystemExit(f"Symlink found inside game package: {game_id}")
+
             destination = staged / game_id
             shutil.copytree(
                 source_dir,
