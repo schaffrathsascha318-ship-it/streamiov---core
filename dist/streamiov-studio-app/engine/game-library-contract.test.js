@@ -36,6 +36,6 @@ test('Regie exposes the packaged game library and labels unreleased games', () =
 
 test('Studio launch and installer preparation sync registered game packages', () => {
   assert.match(packageJson.scripts.prestart, /sync-studio-games\.py/);
-  assert.match(packageJson.scripts['pre-dist:win'], /sync-studio-games\.py/);
-  assert.match(packageJson.scripts['pre-dist:linux'], /sync-studio-games\.py/);
+  assert.match(packageJson.scripts['predist:win'], /sync-studio-games\.py/);
+  assert.match(packageJson.scripts['predist:linux'], /sync-studio-games\.py/);
 });
