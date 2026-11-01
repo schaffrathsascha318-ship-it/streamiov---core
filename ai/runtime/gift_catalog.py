@@ -75,7 +75,7 @@ class GiftCatalog:
                 raise GiftCatalogError(f"Gift {gift_id} has invalid STREAMIOV point value.")
             if not isinstance(asset, str) or not asset.startswith("/assets/gifts/") or ".." in Path(asset).parts:
                 raise GiftCatalogError(f"Gift {gift_id} has an unsafe asset path.")
-            if status not in ALLOWED_STATUSES:
+            if not isinstance(status, str) or status not in ALLOWED_STATUSES:
                 raise GiftCatalogError(f"Gift {gift_id} has an unknown release status.")
             if tiktok_id is not None:
                 raise GiftCatalogError(
@@ -84,10 +84,13 @@ class GiftCatalog:
             asset_available = False
             if root is not None:
                 relative = asset.removeprefix("/assets/gifts/")
-                resolved = (root / relative).resolve()
+                candidate = root / relative
+                if candidate.is_symlink():
+                    raise GiftCatalogError(f"Gift {gift_id} asset must not be a symlink.")
+                resolved = candidate.resolve()
                 if not resolved.is_relative_to(root):
                     raise GiftCatalogError(f"Gift {gift_id} asset escapes the configured asset root.")
-                asset_available = resolved.is_file() and not resolved.is_symlink()
+                asset_available = resolved.is_file()
             gifts.append(NativeGift(
                 gift_id=gift_id,
                 name=name.strip(),
