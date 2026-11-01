@@ -26,12 +26,19 @@ on:
       - "scripts/test-studio-media-pipeline.cjs"
       - ".github/workflows/studio-build.yml"
   push:
+    branches:
+      - main
+      - streamiov-build-setup-clean
     paths:
       - "dist/streamiov-studio-app/**"
       - "scripts/sync-studio-ui.py"
       - "scripts/sync-studio-games.py"
       - "scripts/test-studio-media-pipeline.cjs"
       - ".github/workflows/studio-build.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write

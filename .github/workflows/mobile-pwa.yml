@@ -9,12 +9,19 @@ on:
       - "scripts/test-mobile-pwa.py"
       - ".github/workflows/mobile-pwa.yml"
   push:
+    branches:
+      - main
+      - streamiov-build-setup-clean
     paths:
       - "dist/streamiov-studio-app/regie-v2.html"
       - "dist/streamiov-homepage-worker/public/app/**"
       - "scripts/build-mobile-pwa.py"
       - "scripts/test-mobile-pwa.py"
       - ".github/workflows/mobile-pwa.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
