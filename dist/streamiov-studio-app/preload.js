@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
   chatAction: (payload) => ipcRenderer.invoke('studio:chat-action', payload),
   sceneAction: (payload) => ipcRenderer.invoke('studio:scene-action', payload),
   sourceAction: (payload) => ipcRenderer.invoke('studio:source-action', payload),
+  listGames: () => ipcRenderer.invoke('studio:list-games'),
+  openGame: (id) => ipcRenderer.invoke('studio:open-game', { id }),
   aiLogin: (payload) => ipcRenderer.invoke('studio:ai-login', payload),
   aiLogout: () => ipcRenderer.invoke('studio:ai-logout'),
   aiSubmit: (payload) => ipcRenderer.invoke('studio:ai-submit', payload)
