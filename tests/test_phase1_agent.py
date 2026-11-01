@@ -30,6 +30,24 @@ class ProjectToolTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.tools = ProjectTools(self.root)
     def tearDown(self): self.tmp.cleanup()
+    def test_list_files_is_bounded_and_skips_protected_entries(self):
+        (self.root / "README.md").write_text("hello", encoding="utf-8")
+        (self.root / ".env").write_text("never list", encoding="utf-8")
+        (self.root / "secrets").mkdir()
+        (self.root / "src").mkdir()
+        listing = self.tools.list_files(".")
+        self.assertIn("file README.md", listing)
+        self.assertIn("dir src", listing)
+        self.assertNotIn(".env", listing)
+        self.assertNotIn("secrets", listing)
+
+    def test_list_files_rejects_traversal_and_non_directories(self):
+        (self.root / "README.md").write_text("hello", encoding="utf-8")
+        with self.assertRaises(ToolError):
+            self.tools.list_files("../")
+        with self.assertRaises(ToolError):
+            self.tools.list_files("README.md")
+
     def test_read_create(self):
         (self.root / "README.md").write_text("hello", encoding="utf-8")
         self.assertEqual(self.tools.read_file("README.md"), "hello")
@@ -77,6 +95,15 @@ class AgentTests(unittest.TestCase):
             Path(tmp, "README.md").write_text("Streamiov")
             p = FakeProvider(['{"tool":"read_file","arguments":{"path":"README.md"}}', '{"final":"Read complete."}'])
             self.assertEqual(DevelopmentAgent(p, tmp).run("Inspect README"), "Read complete.")
+    def test_agent_lists_project_files_then_finishes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "README.md").write_text("Streamiov")
+            p = FakeProvider([
+                '{"tool":"list_files","arguments":{"path":"."}}',
+                '{"final":"Project listing complete."}',
+            ])
+            self.assertEqual(DevelopmentAgent(p, tmp).run("Inspect project structure"), "Project listing complete.")
+
     def test_agent_performs_real_existing_file_edit(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp, "ai", "agent.py")
