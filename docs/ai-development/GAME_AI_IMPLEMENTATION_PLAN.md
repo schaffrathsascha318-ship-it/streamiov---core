@@ -15,7 +15,7 @@ Implement this as a dedicated specialist under the shared AI runtime/provider ar
 
 ### G2 — Original game production
 - Create a project manifest and reproducible build/test commands.
-- Support an original 2D vertical slice first, then a 3D prototype when the engine/toolchain is available.
+- Support original 2D and 3D games, plus a dedicated 2D-to-3D modernization path for rights-cleared legacy games. Assess full 3D versus 2.5D and whether an optional classic 2D mode is appropriate; build real 3D environments, models, camera, lighting, animation, and adapted gameplay rather than applying a superficial 3D filter.
 - Require playability and gameplay verification in addition to unit tests.
 
 ### G3 — Retro discovery and rights gate
@@ -25,7 +25,7 @@ Implement this as a dedicated specialist under the shared AI runtime/provider ar
 - Unknown rights must block use of protected material; offer a clean-room original alternative.
 
 ### G4 — Remaster/remake/sequel production
-- Enable each activity only for the exact scope covered by documented rights.
+- Enable each activity only for the exact scope covered by documented rights, including a separate explicit permission check for adapting a 2D title into 2.5D/3D.
 - Preserve third-party attribution and licence obligations.
 - Re-run rights checks before packaging and release.
 
@@ -36,4 +36,4 @@ Implement this as a dedicated specialist under the shared AI runtime/provider ar
 
 ## Current status
 
-This file records the approved target architecture and acceptance criteria. It does not claim the specialist is registered, autonomous, connected to a rights database, or able to publish games yet. Those capabilities must be implemented and tested in the phases above.
+This file records the approved target architecture and acceptance criteria. The Game AI must modernize eligible 2D classics into genuine 3D experiences as well as create original 2D/3D games. It does not claim the specialist is registered, autonomous, connected to a rights database, or able to publish games yet. Those capabilities must be implemented and tested in the phases above.
