@@ -123,11 +123,10 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
     <button class="scene" data-scene="JUST CHATTING">JUST CHATTING <small>06</small></button>
    </div>
    <button id="createScene" type="button" style="width:100%;margin-top:6px">＋ Eigene Szene</button>
-   <div class="panel-title" style="margin:12px -12px">QUELLEN</div>
-   <div class="source"><b>◉ Kamera</b><small>Quelle noch nicht verbunden</small></div>
-   <div class="source"><b>◖ Mikrofon</b><small>Quelle noch nicht verbunden</small></div>
-   <div class="source"><b>▣ Bildschirm</b><small>Quelle noch nicht verbunden</small></div>
-   <button style="width:100%;margin-top:8px" id="addSource">＋ Quelle hinzufügen</button>
+   <div class="panel-title" style="margin:12px -12px">QUELLEN / LOKALE VERWALTUNG</div>
+   <div id="sourceList" aria-live="polite"><div class="source"><b>Quellen werden geladen …</b></div></div>
+   <button style="width:100%;margin-top:8px" id="addSource" type="button">＋ Quelle hinzufügen</button>
+   <small style="display:block;color:var(--muted);margin-top:7px">Quellenliste und Einstellungen werden lokal gespeichert. Aufnahme, Compositing und Encoder-Anbindung sind davon getrennte nächste Entwicklungsschritte.</small>
    <section class="panel section" id="deviceCapturePanel">
     <div class="panel-title">ECHTE GERÄTE / KAMERA & MIKROFON</div>
     <div class="pad">
@@ -377,7 +376,54 @@ $("fade").onclick=()=>{
  setTimeout(()=>{take();screen.style.opacity="1"},180);
  log("Lokaler Fade-Übergang ausgeführt.");
 };
-$("addSource").onclick=()=>log("Quellenverwaltung benötigt noch native Geräteintegration.");
+let sourceState=[];
+function renderSources(sources){
+ const host=$("sourceList");
+ host.replaceChildren();
+ if(!sources.length){
+  const empty=document.createElement("div");empty.className="source";
+  const label=document.createElement("small");label.textContent="Noch keine Quellen angelegt.";
+  empty.append(label);host.append(empty);return;
+ }
+ for(const source of sources){
+  const card=document.createElement("div");card.className="source";card.style.margin="6px 0";
+  const title=document.createElement("b");title.textContent=source.name;
+  const detail=document.createElement("small");
+  detail.textContent=source.type.toUpperCase()+" · "+(source.enabled?"aktiv":"deaktiviert")+(source.muted?" · stumm":"")+" · "+Math.round(source.volume*100)+" %";
+  const controls=document.createElement("div");controls.style.display="flex";controls.style.gap="5px";controls.style.marginTop="7px";
+  const enabled=document.createElement("button");enabled.type="button";enabled.textContent=source.enabled?"Deaktivieren":"Aktivieren";
+  enabled.addEventListener("click",()=>changeSource(source.id,{enabled:!source.enabled}));
+  const mute=document.createElement("button");mute.type="button";mute.textContent=source.muted?"Ton an":"Stumm";
+  mute.addEventListener("click",()=>changeSource(source.id,{muted:!source.muted}));
+  const remove=document.createElement("button");remove.type="button";remove.textContent="Entfernen";
+  remove.addEventListener("click",()=>removeSource(source.id));
+  controls.append(enabled,mute,remove);card.append(title,detail,controls);host.append(card);
+ }
+}
+async function callSource(action){
+ if(!window.streamiovStudio?.sourceAction){log("Quellenverwaltung benötigt die installierte Desktop-App.");return null;}
+ const result=await window.streamiovStudio.sourceAction(action);
+ if(!result?.ok){log("Quellenaktion fehlgeschlagen: "+(result?.error||"unbekannter Fehler"));return null;}
+ sourceState=result.state.sources||[];renderSources(sourceState);return result;
+}
+async function loadSources(){
+ const result=await callSource({action:"load"});
+ if(result)log("Gespeicherte Quellen-Metadaten geladen. Encoder-Anbindung ist noch nicht aktiv.");
+}
+async function changeSource(id,patch){await callSource({action:"update",id,patch});}
+async function removeSource(id){
+ if(!window.confirm("Diese Quelle aus der lokalen Liste entfernen?"))return;
+ await callSource({action:"remove",id});
+}
+async function addSource(){
+ const type=window.prompt("Quellentyp: camera, capture, screen, window, image, video, audio, text oder color","camera");
+ if(type===null)return;
+ const name=window.prompt("Name der Quelle:");
+ if(name===null)return;
+ await callSource({action:"add",source:{type:type.trim().toLowerCase(),name:name.trim()}});
+}
+$("addSource").onclick=addSource;
+loadSources();
 
 // Reale lokale Kamera- und Mikrofonaufnahme über Chromium/Electron MediaDevices.
 // Es wird nichts übertragen oder gespeichert; Tracks enden beim erneuten Klick bzw. Schließen.
