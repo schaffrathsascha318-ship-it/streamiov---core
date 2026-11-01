@@ -6,6 +6,7 @@ const os = require('node:os');
 const http = require('node:http');
 const { pathToFileURL } = require('node:url');
 const { buildSyntheticAvPipelineArgs } = require('./media-pipeline');
+const { buildCompositeAvPipelineArgs } = require('./engine/composite-pipeline');
 const { StudioSourceModel } = require('./engine/source-model');
 const { StudioSceneEngine } = require('./engine/scene-engine');
 
@@ -354,7 +355,7 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
 
   let plugins = {};
   if (gstInspect.available) {
-    const names = ['videotestsrc', 'audiotestsrc', 'vp8enc', 'vorbisenc', 'webmmux', 'x264enc', 'rtmpsink'];
+    const names = ['videotestsrc', 'audiotestsrc', 'vp8enc', 'vorbisenc', 'webmmux', 'x264enc', 'rtmpsink', 'compositor', 'audiomixer'];
     const results = await Promise.all(names.map(async name => [name, await probeGStreamerPlugin(name)]));
     plugins = Object.fromEntries(results);
   }
@@ -376,6 +377,7 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
     plugins,
     local_test_sources_available: Boolean(plugins.videotestsrc?.available && plugins.audiotestsrc?.available),
     media_test_pipeline_available: Boolean(plugins.videotestsrc?.available && plugins.audiotestsrc?.available && plugins.vp8enc?.available && plugins.vorbisenc?.available && plugins.webmmux?.available),
+    composite_media_pipeline_available: Boolean(plugins.compositor?.available && plugins.audiomixer?.available && plugins.vp8enc?.available && plugins.vorbisenc?.available && plugins.webmmux?.available),
     rtmp_pipeline_dependencies_available: missingForRtmp.length === 0,
     missing_rtmp_dependencies: missingForRtmp,
     live_stream_verified: false,
@@ -529,7 +531,7 @@ ipcMain.handle('studio:get-module-status', async (event) => {
       { id: 'source-model', status: 'automated_tested', note: 'Quellen-Metadaten werden lokal gespeichert; keine Capture-/Encoder-Verbindung.' },
       { id: 'local-camera-preview', status: 'renderer_local_only', note: 'Getrennte lokale MediaDevices-Vorschau; nicht in Program/Encoder eingebunden.' },
       { id: 'synthetic-av-test', status: 'dependency_gated', note: 'Lokaler Test mit installierten GStreamer-Komponenten.' },
-      { id: 'compositor', status: 'not_implemented' },
+      { id: 'compositor', status: 'synthetic_graph_ci_verified', note: 'Zwei Testquellen werden im GStreamer-Compositor zusammengesetzt; echte Gerätequellen und Regie-Program-Ausgabe bleiben offen.' },
       { id: 'production-encoder', status: 'not_implemented' },
       { id: 'audio-mixer-routing', status: 'ui_only' },
       { id: 'tiktok-live-output', status: 'oauth_and_live_verification_pending' },
@@ -555,7 +557,7 @@ ipcMain.handle('studio:get-status', async (event) => {
         name: 'STREAMIOV Studio Runtime',
         scene_engine: 'available',
         source_metadata_store: 'available',
-        compositor: 'not_implemented',
+        compositor: 'synthetic_graph_only',
         encoder: 'not_implemented',
         output_connected: false,
         output_active: false,
@@ -571,7 +573,7 @@ ipcMain.handle('studio:run-media-test', async (event) => {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
 
-  const requiredPlugins = ['videotestsrc', 'audiotestsrc', 'vp8enc', 'vorbisenc', 'webmmux'];
+  const requiredPlugins = ['videotestsrc', 'audiotestsrc', 'vp8enc', 'vorbisenc', 'webmmux', 'compositor', 'audiomixer'];
   const gstLaunch = await probeExecutable('gst-launch-1.0');
   if (!gstLaunch.available) {
     return {
@@ -614,10 +616,23 @@ ipcMain.handle('studio:run-media-test', async (event) => {
       throw new Error('Die erzeugte Audio-/Video-Testdatei ist leer oder unvollständig.');
     }
 
+    const compositeOutputFile = path.join(testDirectory, 'composited-audio-video-smoke-test.webm');
+    await execFileAsync('gst-launch-1.0', buildCompositeAvPipelineArgs({ outputFile: compositeOutputFile }), {
+      timeout: 60000,
+      windowsHide: true,
+      maxBuffer: 512 * 1024
+    });
+    const compositeResult = await fs.stat(compositeOutputFile);
+    if (!compositeResult.isFile() || compositeResult.size < 1024) {
+      throw new Error('Die erzeugte Compositor-/Audio-Mixer-Testdatei ist leer oder unvollständig.');
+    }
+
     return {
       ok: true,
       stage: 'completed',
-      test_type: 'synthetic_audio_video',
+      test_type: 'synthetic_audio_video_and_compositor',
+      tests: ['synthetic_audio_video', 'two_layer_compositor_and_audio_mixer'],
+      composite_output_bytes: compositeResult.size,
       container: 'webm',
       width: 640,
       height: 360,
