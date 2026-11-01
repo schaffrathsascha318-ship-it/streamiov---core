@@ -234,6 +234,14 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
     <div class="channel" data-audio-channel="tts"><b>TTS / Sprache</b><div class="meter"><i></i></div>
      <input id="ttsMixGain" data-mix-gain="tts" type="range" min="0" max="100" value="85"><small>TTS · PROGRAMM</small><button type="button" data-mix-mute="tts" aria-pressed="false">STUMM</button><small data-mix-state="tts">Quelle noch nicht verbunden</small></div>
    </div>
+   <div class="controls" id="audioMonitorControls">
+    <label for="audioMonitorDevice">Kopfhörer / Lautsprecher</label>
+    <select id="audioMonitorDevice"><option value="">Systemstandard</option></select>
+    <button id="audioMonitorConnect" type="button">MONITOR AKTIVIEREN</button>
+    <button id="audioMonitorDisconnect" type="button">MONITOR TRENNEN</button>
+    <small id="audioMonitorStatus" role="status">Monitor-Ausgang nicht verbunden.</small>
+    <audio id="audioMonitorElement" autoplay playsinline></audio>
+   </div>
   </div>
  </section>
 
@@ -546,6 +554,28 @@ document.querySelectorAll("[data-mix-mute]").forEach(control=>control.addEventLi
  renderAudioChannel(name);
 }));
 Object.keys(audioChannelState).forEach(renderAudioChannel);
+const monitorElement=$("audioMonitorElement"),monitorDevice=$("audioMonitorDevice"),monitorStatus=$("audioMonitorStatus");
+async function refreshAudioOutputs(){
+ if(!navigator.mediaDevices?.enumerateDevices)return;
+ const devices=await navigator.mediaDevices.enumerateDevices(),selected=monitorDevice.value;
+ monitorDevice.replaceChildren();
+ const standard=document.createElement("option");standard.value="";standard.textContent="Systemstandard";monitorDevice.append(standard);
+ devices.filter(device=>device.kind==="audiooutput").forEach((device,index)=>{
+  const option=document.createElement("option");option.value=device.deviceId;option.textContent=device.label||"Audioausgang "+(index+1);monitorDevice.append(option);
+ });
+ if([...monitorDevice.options].some(option=>option.value===selected))monitorDevice.value=selected;
+}
+$("audioMonitorConnect").addEventListener("click",async()=>{
+ try{
+  const result=await studioAudioMixer.attachMonitor(monitorElement,{deviceId:monitorDevice.value});
+  monitorStatus.textContent="Monitor aktiv · "+(result.deviceId||"Systemstandard");
+ }catch(error){monitorStatus.textContent="Monitor nicht aktiviert: "+captureError(error);}
+});
+$("audioMonitorDisconnect").addEventListener("click",()=>{
+ studioAudioMixer.detachMonitor(monitorElement);monitorStatus.textContent="Monitor-Ausgang getrennt.";
+});
+refreshAudioOutputs().catch(error=>{monitorStatus.textContent="Audioausgänge nicht verfügbar.";});
+navigator.mediaDevices?.addEventListener?.("devicechange",()=>refreshAudioOutputs().catch(()=>{}));
 window.addEventListener("beforeunload",()=>{if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
 const cameraSelect=$("cameraDeviceSelect");
 const microphoneSelect=$("microphoneDeviceSelect");
