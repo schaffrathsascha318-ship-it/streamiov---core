@@ -23,6 +23,7 @@ on:
       - "dist/streamiov-studio-app/**"
       - "scripts/sync-studio-ui.py"
       - "scripts/sync-studio-games.py"
+      - "scripts/test-studio-media-pipeline.cjs"
       - ".github/workflows/studio-build.yml"
   push:
     paths:
@@ -98,10 +99,30 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  media-pipeline-smoke:
+    name: Synthetic audio/video pipeline smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Quellcode laden
+        uses: actions/checkout@v4
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: GStreamer installieren
+        timeout-minutes: 5
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gstreamer1.0-tools gstreamer1.0-plugins-good
+      - name: Synthetische Audio-/Video-Encoding-Pipeline testen
+        timeout-minutes: 5
+        run: node scripts/test-studio-media-pipeline.cjs
+
   publish-release:
     if: github.ref == 'refs/heads/streamiov-build-setup-clean' && github.event_name == 'workflow_dispatch' && inputs.publish_release
     name: Installer dauerhaft veröffentlichen
-    needs: build
+    needs: [build, media-pipeline-smoke]
     runs-on: ubuntu-latest
     steps:
       - name: Installer aller Plattformen herunterladen
