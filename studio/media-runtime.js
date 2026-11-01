@@ -128,7 +128,7 @@ class MediaRuntime {
       }
       return this.snapshot();
     } catch (error) {
-      await this._bestEffortStop(["output", "encoder"]);
+      await this._bestEffortStop(["output", "encoder", "compositor", "mixer"]);
       this._setState(STATES.ERROR, "OUTPUT_START_FAILED");
       throw new MediaRuntimeError("OUTPUT_START_FAILED", "Stream output could not be established.");
     } finally {
