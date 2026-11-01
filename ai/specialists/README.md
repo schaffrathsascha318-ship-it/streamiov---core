@@ -78,3 +78,13 @@ The loop processes tasks until it receives SIGINT/SIGTERM. `--max-tasks N` provi
 An example hardened systemd unit is provided at `infrastructure/systemd/streamiov-ai-worker.service.example`. It is deliberately not enabled by CI and is not a production deployment. Before installing it, provision a dedicated low-privilege `streamiov` user, review the filesystem paths and write access, install the project/virtual environment, configure the provider in `/etc/streamiov/ai-worker.env`, and keep that environment file outside Git with restrictive permissions. Do not place real tokens in the repository or unit file.
 
 The worker still needs an available configured provider and model. Local Ollama requires a local model runtime on the host. The authenticated Cloudflare Workers AI gateway must be provisioned separately and can stop when its free allocation is exhausted; no paid fallback is performed. A running service on a real cloud host remains a separate deployment and operations acceptance test.
+
+## Core AI planning and specialist assignment
+
+Ask Core AI to split a goal into a validated specialist plan and enqueue it:
+
+```bash
+python -m ai --plan-and-enqueue --queue-db data/ai-tasks.sqlite3 --task "Build and test a new STREAMIOV feature"
+```
+
+The planner returns a strict JSON task graph. The runtime validates role names, task limits, identifiers, dependencies and cycles before persisting anything. Plan IDs are namespaced to avoid collisions between separate plans. The planner does not execute tasks itself; supervised workers claim them through the queue. Invalid or ambiguous model output is rejected rather than guessed.
