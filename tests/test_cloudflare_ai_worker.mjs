@@ -158,6 +158,16 @@ test("allows bounded multi-file agent context above the former 12 KB message lim
   assert.equal(called, true);
 });
 
+test("accepts a message exactly at the 32 KB per-message ceiling", async () => {
+  let called = false;
+  const response = await worker.fetch(
+    chatRequest({ messages: [{ role: "user", content: "x".repeat(32_000) }] }),
+    env({ AI: { run: async () => { called = true; return { response: "accepted" }; } } })
+  );
+  assert.equal(response.status, 200);
+  assert.equal(called, true);
+});
+
 test("enforces per-message, aggregate prompt, and request body limits before inference", async () => {
   const oversizedBody = await worker.fetch(
     chatRequest({ messages: [{ role: "user", content: "x".repeat(70_000) }] }),
