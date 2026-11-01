@@ -18,13 +18,13 @@ permissions:
 
 jobs:
   publish:
-    if: github.ref == 'refs/heads/streamiov-build-setup-clean' && inputs.confirm_gameplay_verified
+    if: github.ref == 'refs/heads/main' && inputs.confirm_gameplay_verified
     runs-on: ubuntu-latest
     steps:
       - name: Checkout default branch
         uses: actions/checkout@v4
         with:
-          ref: streamiov-build-setup-clean
+          ref: main
 
       - name: Validate game release gate
         id: validate
