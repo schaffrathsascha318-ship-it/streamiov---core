@@ -1,0 +1,36 @@
+name: TikTok sandbox OAuth tests
+on:
+  pull_request:
+    paths:
+      - "core/integration/tiktok-oauth.js"
+      - "tests/tiktok-oauth.test.js"
+      - "config/platforms/tiktok/oauth.json"
+      - "docs/integrations/tiktok-oauth.md"
+      - "dist/streamiov-studio-app/main.js"
+      - "dist/streamiov-studio-app/preload.js"
+      - "dist/streamiov-studio-app/regie-v2.html"
+      - ".github/workflows/tiktok-oauth-tests.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  oauth-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Run sandbox-only OAuth tests
+        run: node --test tests/tiktok-oauth.test.js
+      - name: Check Electron Studio JavaScript syntax
+        run: |
+          node --check dist/streamiov-studio-app/main.js
+          node --check dist/streamiov-studio-app/preload.js
+      - name: Build active Studio UI entry point
+        run: |
+          python3 scripts/sync-studio-ui.py
+          python3 scripts/sync-studio-tiktok-oauth.py
+          test -s dist/streamiov-studio-app/index.html
+          test -s dist/streamiov-studio-app/tiktok-oauth.js
+          cmp core/integration/tiktok-oauth.js dist/streamiov-studio-app/tiktok-oauth.js
