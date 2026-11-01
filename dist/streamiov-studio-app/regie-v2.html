@@ -260,15 +260,13 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
    <div class="panel">
     <div class="panel-title">3 · PLATTFORM</div>
     <div class="pad">
-     <label for="platformSelect">Streaming-Plattform</label>
+     <label for="platformSelect">Einzige Streaming-Plattform</label>
      <select id="platformSelect">
-      <option value="tiktok">TikTok LIVE</option><option value="youtube">YouTube</option>
-      <option value="twitch">Twitch</option><option value="kick">Kick</option>
-      <option value="facebook">Facebook</option><option value="streamiov">Streamiov</option>
+      <option value="tiktok">TikTok LIVE</option>
      </select>
      <p id="platformConnectionState" class="pill" role="status">Nicht verbunden</p>
      <button id="platformConnectInfo" type="button">Verbindungsstatus prüfen</button>
-     <small>Die Auswahl speichert nur deine bevorzugte Plattform. Eine echte Anmeldung erfolgt erst über den jeweiligen offiziellen OAuth-Flow.</small>
+     <small>STREAMIOV Studio ist zum Start ausschließlich für TikTok LIVE ausgelegt. Die Verbindung erfolgt über den offiziellen TikTok-OAuth-/LIVE-Berechtigungsumfang; nicht freigegebene Funktionen bleiben deaktiviert.</small>
     </div>
    </div>
    <div class="panel">
@@ -541,6 +539,7 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
  try {
   const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
   for (const id of ids) if (byId(id)) byId(id).value = String(saved[id] ?? defaults[id] ?? '');
+  byId('platformSelect').value = 'tiktok';
  } catch (_) { status.textContent = 'Gespeicherte Einstellungen konnten nicht gelesen werden.'; }
  byId('saveCreatorSettings').addEventListener('click', () => {
   const name = byId('streamerName').value.trim();
