@@ -12,7 +12,6 @@ const { StudioSceneEngine } = require('./engine/scene-engine');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const execFileAsync = promisify(execFile);
-const projectRoot = path.resolve(__dirname, '..', '..');
 const studioUrl = pathToFileURL(path.join(__dirname, 'index.html')).href;
 
 function isTrustedStudioSender(event) {
@@ -292,32 +291,24 @@ ipcMain.handle('studio:get-module-status', async (event) => {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
 
-  const code =
-    'import json; from studio.modules.module_loader import ModuleLoader; ' +
-    'loader = ModuleLoader(); result = loader.load_modules(); ' +
-    'print(json.dumps({"ok": True, "verification": "discovery_only", ' +
-    '"modules": result}, ensure_ascii=False))';
-
-  try {
-    const { stdout } = await execFileAsync(
-      'python3',
-      ['-c', code],
-      { cwd: projectRoot, timeout: 15000, maxBuffer: 1048576 }
-    );
-    const report = JSON.parse(stdout.trim());
-    return {
-      ok: true,
-      verification: 'discovery_only',
-      note: 'Dateien gefunden; Funktion und Integration nicht automatisch verifiziert.',
-      modules: report.modules
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      verification: 'failed',
-      error: String(error.message || error).slice(0, 1000)
-    };
-  }
+  return {
+    ok: true,
+    verification: 'repository_capability_inventory',
+    live_stream_verified: false,
+    modules: [
+      { id: 'scene-engine', status: 'automated_tested', note: 'Preview/Program-Zustand und TAKE; keine gerenderte Videoausgabe.' },
+      { id: 'source-model', status: 'automated_tested', note: 'Quellen-Metadaten werden lokal gespeichert; keine Capture-/Encoder-Verbindung.' },
+      { id: 'local-camera-preview', status: 'renderer_local_only', note: 'Getrennte lokale MediaDevices-Vorschau; nicht in Program/Encoder eingebunden.' },
+      { id: 'synthetic-av-test', status: 'dependency_gated', note: 'Lokaler Test mit installierten GStreamer-Komponenten.' },
+      { id: 'compositor', status: 'not_implemented' },
+      { id: 'production-encoder', status: 'not_implemented' },
+      { id: 'audio-mixer-routing', status: 'ui_only' },
+      { id: 'tiktok-live-output', status: 'oauth_and_live_verification_pending' },
+      { id: 'chat-events', status: 'not_connected' },
+      { id: 'gift-events', status: 'not_connected' },
+      { id: 'music-mixing', status: 'not_implemented' }
+    ]
+  };
 });
 
 ipcMain.handle('studio:get-status', async (event) => {
@@ -325,36 +316,26 @@ ipcMain.handle('studio:get-status', async (event) => {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
 
-  const code =
-    'import json; from modules.broadcast.gstreamer_engine import GStreamerEngine; ' +
-    'print(json.dumps(GStreamerEngine().status()))';
-
-  try {
-    const { stdout } = await execFileAsync(
-      'python3',
-      ['-c', code],
-      { cwd: projectRoot, timeout: 15000, maxBuffer: 1048576 }
-    );
-
-    const engine = JSON.parse(stdout.trim());
-    return {
-      ok: true,
-      bridge: 'ready',
-      backend: { connected: true, engine }
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      bridge: 'ready',
-      backend: {
-        connected: false,
-        error: String(error.message || error).slice(0, 1000)
-      }
-    };
-  }
+  return {
+    ok: true,
+    bridge: 'ready',
+    backend: {
+      connected: false,
+      state: 'foundation_only',
+      engine: {
+        name: 'STREAMIOV Studio Runtime',
+        scene_engine: 'available',
+        source_metadata_store: 'available',
+        compositor: 'not_implemented',
+        encoder: 'not_implemented',
+        output_connected: false,
+        output_active: false,
+        live_stream_verified: false
+      },
+      note: 'Die eigene Medienpipeline und der produktive Encoder sind noch nicht integriert.'
+    }
+  };
 });
-
-
 
 ipcMain.handle('studio:run-media-test', async (event) => {
   if (!isTrustedStudioSender(event)) {
@@ -433,48 +414,17 @@ ipcMain.handle('studio:run-media-test', async (event) => {
   }
 });
 
-ipcMain.handle('studio:record-music-test', async (event, payload = {}) => {
+ipcMain.handle('studio:record-music-test', async (event) => {
   if (!isTrustedStudioSender(event)) {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
 
-  const chosen = await dialog.showOpenDialog({
-    title: 'Musikdatei für den Streamiov-Mischtest auswählen',
-    properties: ['openFile'],
-    filters: [{
-      name: 'Audiodateien',
-      extensions: ['wav', 'mp3', 'ogg', 'opus', 'flac', 'm4a', 'aac']
-    }]
-  });
-
-  if (chosen.canceled || !chosen.filePaths.length) {
-    return { ok: false, cancelled: true, stage: 'file_selection' };
-  }
-
-  const volume = Number(payload.volume);
-  if (!Number.isFinite(volume) || volume < 0 || volume > 1) {
-    return { ok: false, stage: 'input', error: 'Ungültige Lautstärke.' };
-  }
-
-  const code =
-    'import json,sys; from modules.broadcast.gstreamer_engine import GStreamerEngine; ' +
-    'print(json.dumps(GStreamerEngine().record_music_test(sys.argv[1], float(sys.argv[2]))))';
-
-  try {
-    const { stdout } = await execFileAsync(
-      'python3',
-      ['-c', code, chosen.filePaths[0], String(volume)],
-      { cwd: projectRoot, timeout: 105000, maxBuffer: 1048576 }
-    );
-    return JSON.parse(stdout.trim());
-  } catch (error) {
-    return {
-      ok: false,
-      stage: 'bridge_error',
-      error: String(error.message || error).slice(0, 1000),
-      live_stream_verified: false
-    };
-  }
+  return {
+    ok: false,
+    stage: 'not_implemented',
+    error: 'Der native Audio-Mixer und die Musik-Encoding-Pipeline sind noch nicht integriert.',
+    live_stream_verified: false
+  };
 });
 
 ipcMain.handle('studio:get-network-status', async (event) => {
@@ -546,37 +496,17 @@ ipcMain.handle('studio:get-camera-lab', async (event) => {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
 
-  const code =
-    'import json; from modules.devices.universal_hub import UniversalDeviceHub; ' +
-    'report = UniversalDeviceHub().scan(include_network=True); ' +
-    'devices = report["devices"]; ' +
-    'cameras = [d for d in devices if d["type"] == "camera"]; ' +
-    'print(json.dumps({'
-    + '"devices": devices, '
-    + '"local_camera_count": len(cameras), '
-    + '"network_report": report.get("network_report", {}), '
-    + '"network_discovery": report.get("network_discovery"), '
-    + '"platform": report.get("platform"), '
-    + '"protocols": {}, '
-    + '"live_stream_verified": False, '
-    + '"note": "Lokale Geräteerkennung und passiver Netzwerk-Cache; kein aktiver Netzwerk-Scan und kein Livebildtest"'
-    + '}))';
-
-  try {
-    const { stdout } = await execFileAsync(
-      'python3',
-      ['-c', code],
-      { cwd: projectRoot, timeout: 15000, maxBuffer: 1048576 }
-    );
-    return { ok: true, report: JSON.parse(stdout.trim()) };
-  } catch (error) {
-    return {
-      ok: false,
-      error: String(error.message || error).slice(0, 1000)
-    };
-  }
+  return {
+    ok: true,
+    report: {
+      discovery: 'renderer_media_devices',
+      devices: [],
+      local_camera_count: null,
+      live_stream_verified: false,
+      note: 'Kamera- und Mikrofonvorschau werden im Renderer über MediaDevices getestet. Eine native Geräteinventur und Verbindung zur Produktionspipeline sind noch nicht implementiert.'
+    }
+  };
 });
-
 
 // STREAMIOV_STUDIO_AI_BRIDGE
 // API-Zugang und Session bleiben ausschließlich im Electron-Hauptprozess.
