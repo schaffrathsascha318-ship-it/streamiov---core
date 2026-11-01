@@ -59,3 +59,17 @@ The Game AI must own a repeatable evidence workflow, not just a rights checklist
 - A completed dossier is not a legal opinion or a guarantee. The release gate must display the precise evidence and any human approval, not merely a green boolean.
 
 For Germany, the AI should use current official legal sources as a starting point—for example, UrhG §§ 64–65 for general and joint-author copyright terms and MarkenG § 47 plus DPMA register guidance for registered-mark duration/renewal—then verify the applicable rules for each other territory. Do not hard-code one country's term as a worldwide rule.
+
+
+## Runtime delivery status — 2026-11-01
+
+The first executable rights-register slice is now implemented in `ai/rights/register.py`:
+
+- SQLite records titles, territories, distinct game components, evidence sources, and per-activity assessments.
+- Evidence URLs must be HTTPS and access dates must be valid ISO dates.
+- A positive `CLEARED` or `PUBLIC_DOMAIN_VERIFIED` assessment cannot be recorded without evidence.
+- Clearance is scoped to one activity per component; preservation clearance does not imply remake, distribution, sequel, or 2D-to-3D adaptation rights.
+- The release decision fails closed when components, assessments, evidence, current reviews, or required human review are missing.
+- Machine-readable dossiers can be exported through the register's `dossier()` result.
+
+**Not yet delivered:** automated primary-source discovery, jurisdiction-aware copyright-term calculations, trademark-register lookups, autonomous evidence ingestion, and integration into the Game AI task runner. This slice must not be presented as autonomous legal research or legal clearance. The next phase implements the research adapters and agent workflow, with every uncertain result remaining blocked.
