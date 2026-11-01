@@ -108,7 +108,7 @@ class StudioSourceModel {
     if (!source) return { ok: false, error: 'Ungültige Quelle: Typ, ID, Name oder Einstellungen prüfen.' };
     if (this.sources.some(item => item.id === source.id)) return { ok: false, error: 'Quellen-ID existiert bereits.' };
     this.sources.push(source);
-    return { ok: true, state: this.snapshot(), source: { ...source, settings: source.settings ? { ...source.settings } : undefined } };
+    return { ok: true, state: this.snapshot(), source: { ...source, ...(source.settings ? { settings: { ...source.settings } } : {}) } };
   }
 
   update(id, patch = {}) {
