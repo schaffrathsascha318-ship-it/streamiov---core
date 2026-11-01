@@ -1,0 +1,85 @@
+{
+  "test_suite": "run19_multi_game_ai",
+  "local_only": true,
+  "games": [
+    {
+      "game_id": "run19-action",
+      "name": "Run19 Action Arena",
+      "genre": "action",
+      "events": [
+        "enemy_defeated",
+        "combo_started",
+        "player_damaged"
+      ],
+      "actions": [
+        "spawn_effect",
+        "play_sound",
+        "show_sticker",
+        "update_overlay"
+      ]
+    },
+    {
+      "game_id": "run19-racing",
+      "name": "Run19 Racing Circuit",
+      "genre": "racing",
+      "events": [
+        "lap_completed",
+        "boost_used",
+        "race_finished"
+      ],
+      "actions": [
+        "show_lap_sticker",
+        "update_position_overlay",
+        "trigger_boost_effect",
+        "show_finish_overlay"
+      ]
+    },
+    {
+      "game_id": "run19-rpg",
+      "name": "Run19 RPG Quest",
+      "genre": "rpg",
+      "events": [
+        "quest_completed",
+        "level_up",
+        "boss_defeated"
+      ],
+      "actions": [
+        "reward_effect",
+        "level_overlay",
+        "boss_sticker",
+        "celebration_animation"
+      ]
+    },
+    {
+      "game_id": "run19-simulation",
+      "name": "Run19 Simulation World",
+      "genre": "simulation",
+      "events": [
+        "resource_created",
+        "resource_consumed",
+        "milestone_reached"
+      ],
+      "actions": [
+        "resource_overlay",
+        "milestone_sticker",
+        "progress_update"
+      ]
+    },
+    {
+      "game_id": "run19-strategy",
+      "name": "Run19 Strategy Command",
+      "genre": "strategy",
+      "events": [
+        "unit_created",
+        "objective_completed",
+        "battle_won"
+      ],
+      "actions": [
+        "unit_event",
+        "objective_overlay",
+        "victory_sticker",
+        "celebration_effect"
+      ]
+    }
+  ]
+}

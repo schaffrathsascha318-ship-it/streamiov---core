@@ -1,0 +1,59 @@
+**/.env*
+**/.wrangler/
+**/node_modules/
+**/__pycache__/
+**/*.pyc
+**/.gradle/
+**/build/
+**/local.properties
+**/data/oauth/
+**/*token*.json
+**/*.sqlite*
+**/*.log
+**/backups/
+**/backup-*/
+**/*-backup-*/
+**/*.backup*
+**/*.bak*
+**/*.save*
+**/*.before*
+**/*.vor-*
+**/*.tar
+**/*.tar.gz
+**/*.zip
+.venv/
+dist/streamiov-studio-app/electron
+dist/streamiov-studio-app/streamiov-studio@1.0.0
+
+# Alte Sicherungs- und generierte Projektstände
+**/backup-*/
+**/backups/
+**/backups-*/
+**/*-backup-*/
+**/dist/candidates/
+
+/backup/
+
+# Alte Studio-Sicherungen und Diagnose-Dateien
+dist/streamiov-studio-app/backup-*/
+dist/streamiov-studio-app/**/*-backup-*/
+dist/streamiov-studio-app/**/*.bak
+dist/streamiov-studio-app/**/*.bak-*
+dist/streamiov-studio-app/**/*.before-*
+dist/streamiov-studio-app/**/*.before_*
+dist/streamiov-studio-app/**/diagnose-*.cjs
+
+/android/backup/
+
+# Sensitive local credentials and private configuration (never commit)
+/secrets/
+/config/platforms/**/oauth*.json
+ /config/**/*.secret.*
+/config/**/*credentials*
+
+# Runtime state, private request data and historical deployment logs
+/.en
+/.testdir/
+/logs/
+/storage/
+*.pid

@@ -1,0 +1,102 @@
+[
+  {
+    "id": 1,
+    "type": "registry_lookup",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 2,
+    "type": "action_builder",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 3,
+    "type": "action_runtime",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 4,
+    "type": "game_registration",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 5,
+    "type": "gift_action_mapping",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 6,
+    "type": "sticker_mapping",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 7,
+    "type": "overlay_mapping",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 8,
+    "type": "priority_conflict",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 9,
+    "type": "cooldown_conflict",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 10,
+    "type": "duplicate_action",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 11,
+    "type": "missing_event_fallback",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 12,
+    "type": "missing_action_fallback",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 13,
+    "type": "unknown_game_review",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 14,
+    "type": "runtime_validation",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 15,
+    "type": "local_only_boundary",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 16,
+    "type": "no_credentials",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 17,
+    "type": "no_external_api",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 18,
+    "type": "no_deployment",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 19,
+    "type": "no_restart",
+    "expected": "REVIEW"
+  },
+  {
+    "id": 20,
+    "type": "component_import",
+    "expected": "REVIEW"
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "name": "Streamiov Local AI Training Policy",
+  "version": 1,
+  "mode": "local_training",
+  "automatic_external_access": false,
+  "automatic_deployment": false,
+  "automatic_restart": false,
+  "credential_access": false,
+  "permission_changes": false,
+  "production_changes": false,
+  "required_pipeline": [
+    "detect",
+    "classify",
+    "prepare",
+    "validate",
+    "test",
+    "evaluate",
+    "report"
+  ],
+  "truth_states": [
+    "PREPARED",
+    "TESTED",
+    "NEEDS_REVIEW",
+    "NOT_VERIFIED"
+  ]
+}

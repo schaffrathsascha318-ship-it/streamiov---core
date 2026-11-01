@@ -1,0 +1,32 @@
+{
+  "name": "Streamiov AI Training Policy Run26",
+  "version": 26,
+  "scope": "local-only",
+  "truth_status_required": true,
+  "rules": {
+    "known_game": "TESTED only after actual local validation",
+    "unknown_game": "NEEDS_REVIEW",
+    "production": "NOT_VERIFIED",
+    "external_sources": "NOT_CONFIGURED",
+    "never_fake_success": true,
+    "never_claim_deployment": true,
+    "never_create_credentials": true,
+    "never_read_credentials": true,
+    "never_authenticate_platforms": true,
+    "never_call_external_apis": true,
+    "never_restart_server": true,
+    "never_escalate_permissions": true,
+    "never_delete_project": true
+  },
+  "pipeline": [
+    "GAME",
+    "EVENT",
+    "GIFT",
+    "ACTION",
+    "STICKER",
+    "OVERLAY",
+    "VALIDATE",
+    "EVALUATE",
+    "TRUTH_STATUS"
+  ]
+}

@@ -1,0 +1,229 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, asdict
+from datetime import datetime, timezone
+from pathlib import Path
+import json
+import uuid
+
+from ai.core.streamiov_ai import create_ai
+
+
+BASE = Path(__file__).resolve().parents[2]
+TASK_DIR = BASE / "ai" / "runtime" / "tasks"
+APPROVAL_DIR = BASE / "ai" / "runtime" / "approvals"
+LOG_DIR = BASE / "ai" / "runtime" / "logs"
+GAME_DIR = BASE / "games" / "ai_created"
+
+
+@dataclass
+class ExecutionResult:
+    task_id: str
+    status: str
+    category: str
+    approval_required: bool
+    message: str
+    test_status: str
+
+    def as_dict(self):
+        return asdict(self)
+
+
+class AIExecutor:
+    """
+    Sichere Ausführungsschicht über dem Streamiov AI-Core.
+
+    Wichtig:
+    - Der Executor besitzt keinen Schreibzugriff auf geschützte Core-Bereiche.
+    - Geschützte Aufgaben werden ausschließlich als Freigabeantrag angelegt.
+    - Erfolgreich bedeutet nur, dass die konkrete lokale Aktion und ihr Test
+      tatsächlich abgeschlossen wurden.
+    """
+
+    def __init__(self):
+        self.ai = create_ai()
+
+    @staticmethod
+    def _now():
+        return datetime.now(timezone.utc).isoformat()
+
+    @staticmethod
+    def _write_json(path: Path, data: dict):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def _log(self, event: dict):
+        event = {
+            "timestamp": self._now(),
+            **event,
+        }
+
+        filename = LOG_DIR / (
+            datetime.now(timezone.utc).strftime("%Y%m%d") + ".jsonl"
+        )
+
+        with filename.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+    def _approval(self, task_id, request, analysis):
+        data = {
+            "task_id": task_id,
+            "status": "pending",
+            "created_at": self._now(),
+            "recipient": "schaffrathsascha318@gmail.com",
+            "request": request,
+            "analysis": analysis.as_dict(),
+            "reason": "Geschützter Bereich",
+        }
+
+        self._write_json(
+            APPROVAL_DIR / f"{task_id}.json",
+            data,
+        )
+
+        return data
+
+    def _execute_game(self, task_id, request):
+        """
+        Erstellt zunächst eine überprüfbare Spielauftragsdatei.
+        Das ist bewusst noch kein Produktions-Deployment.
+        """
+
+        game = {
+            "project": "Streamiov",
+            "task_id": task_id,
+            "created_by": "Streamiov AI",
+            "status": "created_for_testing",
+            "request": request,
+            "created_at": self._now(),
+            "download_ready": False,
+            "production_deployed": False,
+        }
+
+        path = GAME_DIR / f"{task_id}.json"
+        self._write_json(path, game)
+
+        check = json.loads(path.read_text(encoding="utf-8"))
+
+        if (
+            check["task_id"] != task_id
+            or check["created_by"] != "Streamiov AI"
+            or check["production_deployed"] is not False
+        ):
+            return "FAIL"
+
+        return "PASS"
+
+    def _execute_safe_task(self, task_id, category, request):
+        """
+        Sichere lokale Aktionen.
+
+        Noch keine Produktionseingriffe:
+        Der Executor baut zunächst überprüfbare Task-Artefakte.
+        """
+
+        artifact = {
+            "project": "Streamiov",
+            "task_id": task_id,
+            "category": category,
+            "request": request,
+            "created_at": self._now(),
+            "created_by": "Streamiov AI",
+            "status": "prepared",
+            "production_changed": False,
+        }
+
+        path = TASK_DIR / f"{task_id}.json"
+        self._write_json(path, artifact)
+
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+
+        if (
+            loaded["task_id"] != task_id
+            or loaded["production_changed"] is not False
+            or loaded["status"] != "prepared"
+        ):
+            return "FAIL"
+
+        return "PASS"
+
+    def execute(self, request: str) -> ExecutionResult:
+        task_id = "task-" + uuid.uuid4().hex[:16]
+
+        analysis = self.ai.analyze(request)
+
+        self._log({
+            "event": "task_received",
+            "task_id": task_id,
+            "request": request,
+            "analysis": analysis.as_dict(),
+        })
+
+        if analysis.approval_required:
+            approval = self._approval(
+                task_id,
+                request,
+                analysis,
+            )
+
+            self._log({
+                "event": "approval_required",
+                "task_id": task_id,
+                "approval_file": str(
+                    APPROVAL_DIR / f"{task_id}.json"
+                ),
+            })
+
+            return ExecutionResult(
+                task_id=task_id,
+                status="awaiting_approval",
+                category=analysis.category,
+                approval_required=True,
+                message=(
+                    "Auftrag gestoppt. Freigabe erforderlich. "
+                    "Freigabeantrag wurde erzeugt."
+                ),
+                test_status="NOT_RUN",
+            )
+
+        if analysis.category == "game":
+            test_status = self._execute_game(
+                task_id,
+                request,
+            )
+        else:
+            test_status = self._execute_safe_task(
+                task_id,
+                analysis.category,
+                request,
+            )
+
+        if test_status != "PASS":
+            status = "failed"
+            message = "Ausführung oder Nachprüfung fehlgeschlagen."
+        else:
+            status = "completed"
+            message = "Auftrag ausgeführt und lokal nachgeprüft."
+
+        result = ExecutionResult(
+            task_id=task_id,
+            status=status,
+            category=analysis.category,
+            approval_required=False,
+            message=message,
+            test_status=test_status,
+        )
+
+        self._log({
+            "event": "task_finished",
+            "result": result.as_dict(),
+        })
+
+        return result
+
+
+def create_executor():
+    return AIExecutor()

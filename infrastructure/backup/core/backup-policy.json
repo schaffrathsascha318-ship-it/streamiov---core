@@ -1,0 +1,9 @@
+{
+  "project": "Streaminivo",
+  "technical_marker": "STREAMINIVO::LIBERTY::CORE",
+  "component": "backup",
+  "backup_required": true,
+  "restore_test_required": true,
+  "status": "IMPLEMENTED_STRUCTURE",
+  "production_status": "NOT_VERIFIED"
+}

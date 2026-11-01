@@ -1,0 +1,36 @@
+{
+  "module": "own_game_action_preparation",
+  "version": 1,
+  "local_only": true,
+  "automatic_preparation": true,
+  "pipeline": [
+    "GAME_DETECTED",
+    "GAME_REGISTERED",
+    "GAME_ANALYZED",
+    "EVENTS_PREPARED",
+    "GIFTS_PREPARED",
+    "ACTIONS_PREPARED",
+    "STICKERS_PREPARED",
+    "OVERLAYS_PREPARED",
+    "VALIDATING",
+    "TESTING",
+    "PREPARED"
+  ],
+  "action_categories": [
+    "gameplay",
+    "score",
+    "combo",
+    "timer",
+    "spawn",
+    "reward",
+    "challenge",
+    "success",
+    "failure",
+    "custom"
+  ],
+  "rules": {
+    "never_claim_unverified_game_support": true,
+    "never_claim_untested_action_as_tested": true,
+    "production_requires_approval": true
+  }
+}

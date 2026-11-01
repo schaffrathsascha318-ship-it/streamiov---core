@@ -1,0 +1,86 @@
+{
+  "run": 27,
+  "step": 14,
+  "mode": "local-only",
+  "automatic_pass_conversion": false,
+  "results": [
+    {
+      "id": 1,
+      "type": "registry_lookup",
+      "status": "PASS",
+      "error": null,
+      "result": [
+        {
+          "game_id": "streamiov-test-game",
+          "name": "Streamiov Test Game",
+          "version": null,
+          "interface_status": "test",
+          "capabilities": []
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "game_registration",
+      "status": "PASS",
+      "error": null,
+      "result": {
+        "game_id": "run27_test_game",
+        "name": "Run27 Test Game",
+        "version": "1.0",
+        "interface_status": "test",
+        "capabilities": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "action_builder",
+      "status": "PASS",
+      "error": null,
+      "result": [
+        {
+          "id": "8b91fb7e-99c4-4149-881a-eebb7f060cde",
+          "game_id": "run27_test_game",
+          "name": "Run27 Test Action",
+          "description": "Lokaler Regressionstest",
+          "trigger_type": "stream_event",
+          "trigger_config": {},
+          "execution_config": {},
+          "status": "planned",
+          "source": "run27-test",
+          "created_at": "2026-10-06T03:31:13.502203+00:00",
+          "updated_at": "2026-10-06T03:31:13.502292+00:00"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "action_runtime",
+      "status": "PASS",
+      "error": null,
+      "result": []
+    },
+    {
+      "id": 14,
+      "type": "runtime_validation",
+      "status": "PASS",
+      "error": null,
+      "result": []
+    },
+    {
+      "id": 20,
+      "type": "component_import",
+      "status": "PASS",
+      "error": null,
+      "result": {
+        "registry": "GameRegistry",
+        "builder": "GameActionBuilder",
+        "runtime": "StreamActionRuntime"
+      }
+    }
+  ],
+  "deployment": false,
+  "server_restart": false,
+  "external_connections": false,
+  "credentials": false
+}

@@ -1,0 +1,31 @@
+{
+  "product": "Streamiov",
+  "pipeline": "autonomous_release",
+  "game": "streamiov-neon-challenge-c90e38",
+  "entry": "games/ai_created/streamiov-neon-challenge-c90e38/index.html",
+  "checked_at": "2026-10-18T07:34:37.246424+00:00",
+  "checks": {
+    "entry_exists": true,
+    "html_nonempty": true,
+    "canvas_present": true,
+    "start_handler_present": true,
+    "game_loop_present": true,
+    "collision_handler_present": true,
+    "pause_handler_present": true,
+    "restart_handler_present": true,
+    "streamiov_brand_present": true,
+    "javascript_present": true,
+    "node_available": true,
+    "javascript_syntax": true
+  },
+  "failed_checks": [],
+  "errors": [],
+  "package_created": true,
+  "package": "dist/games/streamiov-neon-challenge-c90e38-20261018T073437Z.zip",
+  "package_sha256": "d3e6dcc456b0dc2fd966b2211737a2d54564fc04dadc2f58f590ca23ffbfad33",
+  "browser_gameplay_verified": false,
+  "platform_exports_verified": false,
+  "public_release_verified": false,
+  "release_status": "PACKAGE_READY_NOT_PUBLISHED",
+  "note": "Syntax- und Strukturtests sind kein Browser-Spieltest. Es wurde nichts öffentlich veröffentlicht."
+}

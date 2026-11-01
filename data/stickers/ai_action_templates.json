@@ -1,0 +1,36 @@
+{
+  "module": "ai_action_templates",
+  "version": 2,
+  "state": "implemented",
+  "local_only": true,
+  "pipeline": [
+    "resolve_game",
+    "analyze_game",
+    "prepare_events",
+    "prepare_gifts",
+    "prepare_actions",
+    "prepare_stickers",
+    "prepare_overlays",
+    "validate",
+    "test",
+    "set_truthful_status"
+  ],
+  "action_types": [
+    "show_sticker",
+    "hide_sticker",
+    "replace_sticker",
+    "animate_sticker",
+    "move_sticker",
+    "scale_sticker",
+    "rotate_sticker",
+    "trigger_overlay"
+  ],
+  "truth_policy": {
+    "prepared": "PREPARED",
+    "tested": "TESTED",
+    "unknown": "NEEDS_REVIEW",
+    "external_unverified": "NOT_VERIFIED",
+    "never_claim_unverified_as_ready": true,
+    "unknown_game": "do_not_claim_support"
+  }
+}

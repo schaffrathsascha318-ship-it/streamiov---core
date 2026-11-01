@@ -1,0 +1,10 @@
+{
+  "project": "Streamiov",
+  "task_id": "task-21a824bd6a634cc8",
+  "category": "homepage",
+  "request": "\nPRIORITÄT P1 – HOMEPAGE NEU AUSFÜHREN.\n\nFühre ausschließlich den freigegebenen Homepage-Bereich aus.\n\nAUFGABEN:\n- Homepage vollständig analysieren\n- fehlende Homepage-Bereiche ergänzen\n- vorhandene Streamiov-Funktionen korrekt darstellen\n- integriertes Streamiov Studio im Download-Bereich berücksichtigen\n- vorhandenes Streamiov-Download-Paket korrekt einbinden\n- Streamer-Funktionen darstellen\n- Bot-/KI-Funktionen korrekt darstellen\n- Installations- und Startinformationen ergänzen\n- Homepage testen\n- Download testen\n- nur tatsächlich getestete Funktionen als verifiziert markieren\n- vollständigen Abschlussreport schreiben\n\nREGELN:\n- Produktname ausschließlich Streamiov\n- nichts erfinden\n- vorhandene fertige Komponenten nicht unnötig ersetzen\n- jede Änderung testen\n- keine falschen OK-/VERIFIED-Angaben\n\nABSOLUT NICHT ÄNDERN:\n- Produktionskern\n- Sicherheit\n- Accounts\n- Berechtigungen\n- Media-E2E-Transport\n",
+  "created_at": "2026-10-08T01:27:03.126853+00:00",
+  "created_by": "Streamiov AI",
+  "status": "prepared",
+  "production_changed": false
+}

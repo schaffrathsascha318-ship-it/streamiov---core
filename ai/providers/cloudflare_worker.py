@@ -1,0 +1,203 @@
+"""Authenticated client for Streamiov's Cloudflare Workers AI gateway."""
+from __future__ import annotations
+
+import json
+import os
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
+
+from .base import ModelReply
+from .local_http import ProviderError
+
+
+class CloudflareWorkerError(ProviderError):
+    def __init__(self, message: str, *, reachable: bool = False) -> None:
+        super().__init__(message)
+        self.reachable = reachable
+
+
+DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash"
+MAX_MESSAGE_CHARS = 32_000
+MAX_PROMPT_CHARS = 48_000
+MAX_REQUEST_BYTES = 64 * 1024
+
+
+def _worker_url(value: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise CloudflareWorkerError("STREAMIOV_MODEL_URL must be the deployed workers.dev URL.")
+    try:
+        parsed = urlparse(value)
+        port = parsed.port
+    except ValueError as exc:
+        raise CloudflareWorkerError("Cloudflare Worker URL is malformed.") from exc
+    host = parsed.hostname or ""
+    if (
+        parsed.scheme != "https"
+        or not (host == "workers.dev" or host.endswith(".workers.dev"))
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+        or parsed.path not in ("", "/")
+        or port not in (None, 443)
+    ):
+        raise CloudflareWorkerError("Only HTTPS workers.dev URLs without credentials, query strings, or custom ports are allowed.")
+    return value.rstrip("/")
+
+
+def _http_error_detail(exc: HTTPError, token: str) -> str:
+    """Return a short, sanitized diagnostic from an HTTP error response."""
+    try:
+        raw = exc.read(2048).decode("utf-8", errors="replace")
+    except (OSError, ValueError):
+        return ""
+    if not raw:
+        return ""
+    try:
+        body = json.loads(raw)
+    except json.JSONDecodeError:
+        detail = " ".join(raw.split())
+    else:
+        detail = ""
+        if isinstance(body, dict):
+            error = body.get("error")
+            if isinstance(error, dict):
+                message = error.get("message") or error.get("detail") or ""
+                code = error.get("code") or ""
+                # Keep the machine-readable code: Workers often return a generic
+                # message such as "Chat request failed validation." for every 400.
+                detail = f"{message} (code: {code})" if message and code else str(message or code)
+            elif isinstance(error, str):
+                detail = error
+            if not detail:
+                detail = str(body.get("message") or body.get("detail") or body.get("code") or "")
+    detail = " ".join(detail.split())
+    if token:
+        detail = detail.replace(token, "[redacted]")
+    return detail[:500]
+
+
+def _validated_payload(model: str, system: str, messages: list[dict[str, str]]) -> dict:
+    """Validate the Worker request limits before sending any prompt data."""
+    if not isinstance(system, str) or not isinstance(messages, list):
+        raise CloudflareWorkerError("System prompt and messages must be text and a message list.")
+    all_messages = [{"role": "system", "content": system}, *messages]
+    total_chars = 0
+    for message in all_messages:
+        if not isinstance(message, dict) or not isinstance(message.get("role"), str) or not isinstance(message.get("content"), str):
+            raise CloudflareWorkerError("Every chat message must contain text role and content fields.")
+        content_length = len(message["content"])
+        if content_length > MAX_MESSAGE_CHARS:
+            raise CloudflareWorkerError(
+                f"Chat message exceeds the Worker limit of {MAX_MESSAGE_CHARS} characters."
+            )
+        total_chars += content_length
+    if total_chars > MAX_PROMPT_CHARS:
+        raise CloudflareWorkerError(
+            f"Combined chat prompt exceeds the Worker limit of {MAX_PROMPT_CHARS} characters."
+        )
+    payload = {
+        "model": model,
+        "stream": False,
+        "temperature": 0.1,
+        "messages": all_messages,
+    }
+    if len(json.dumps(payload).encode("utf-8")) > MAX_REQUEST_BYTES:
+        raise CloudflareWorkerError(
+            f"Serialized chat request exceeds the Worker limit of {MAX_REQUEST_BYTES} bytes."
+        )
+    return payload
+
+
+class CloudflareWorkersAIProvider:
+    def __init__(self, model: str = DEFAULT_MODEL, base_url: str = "", token: str = "") -> None:
+        if model != DEFAULT_MODEL:
+            raise CloudflareWorkerError(f"The Streamiov AI Worker is pinned to {DEFAULT_MODEL}.")
+        if not isinstance(token, str) or len(token) < 32:
+            raise CloudflareWorkerError("STREAMIOV_AI_WORKER_TOKEN must contain at least 32 characters.")
+        self.model = model
+        self.base_url = _worker_url(base_url)
+        self.token = token
+
+    def check_ready(self) -> dict:
+        try:
+            data = self._request("GET", "/health")
+            ready = data.get("ok") is True and data.get("model") == self.model
+            return {
+                "provider": "cloudflare-workers-ai",
+                "model": self.model,
+                "reachable": True,
+                "model_available": ready,
+                "models_count": 1 if ready else 0,
+                "ready": ready,
+                "detail": "Authenticated Streamiov AI Worker is ready." if ready else "Worker responded, but its model configuration does not match.",
+            }
+        except CloudflareWorkerError as exc:
+            return {
+                "provider": "cloudflare-workers-ai",
+                "model": self.model,
+                "reachable": exc.reachable,
+                "model_available": False,
+                "models_count": 0,
+                "ready": False,
+                "detail": str(exc),
+            }
+
+    def generate(self, *, system: str, messages: list[dict[str, str]]) -> ModelReply:
+        payload = _validated_payload(self.model, system, messages)
+        data = self._request("POST", "/v1/chat/completions", payload)
+        try:
+            content = data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise CloudflareWorkerError("Streamiov AI Worker returned an invalid chat response.") from exc
+        if not isinstance(content, str) or not content.strip():
+            raise CloudflareWorkerError("Streamiov AI Worker returned empty or non-text content.")
+        return ModelReply(content, "cloudflare-workers-ai", self.model)
+
+    def _request(self, method: str, path: str, payload: dict | None = None) -> dict:
+        data = json.dumps(payload).encode("utf-8") if payload is not None else None
+        request = Request(
+            self.base_url + path,
+            data=data,
+            headers={
+                "Accept": "application/json",
+                # Match the verified curl request; Python-urllib was rejected at the edge.
+                "User-Agent": "curl/8.0",
+                "Authorization": "Bearer " + self.token,
+                **({"Content-Type": "application/json"} if data is not None else {}),
+            },
+            method=method,
+        )
+        try:
+            with urlopen(request, timeout=120 if method == "POST" else 10) as response:
+                result = json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            status = exc.code
+            detail = _http_error_detail(exc, self.token)
+            suffix = f" Details: {detail}" if detail else ""
+            if status == 401:
+                raise CloudflareWorkerError("Streamiov AI Worker rejected its bearer token (401)." + suffix, reachable=True) from exc
+            if status == 429:
+                raise CloudflareWorkerError("Cloudflare Workers AI daily free allocation may be exhausted (429)." + suffix, reachable=True) from exc
+            raise CloudflareWorkerError(f"Streamiov AI Worker request failed (HTTP {status})." + suffix, reachable=True) from exc
+        except (URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+            raise CloudflareWorkerError(f"Streamiov AI Worker request failed: {type(exc).__name__}.") from exc
+        if not isinstance(result, dict):
+            raise CloudflareWorkerError("Streamiov AI Worker response must be a JSON object.")
+        if "error" in result:
+            error = result["error"]
+            code = error.get("code", "worker_error") if isinstance(error, dict) else "worker_error"
+            if code == "daily_ai_limit_reached":
+                raise CloudflareWorkerError("Cloudflare Workers AI daily free allocation is exhausted (429).")
+            message = error.get("message") if isinstance(error, dict) else None
+            safe_message = str(message or code).replace(self.token, "[redacted]")[:500]
+            raise CloudflareWorkerError(f"Streamiov AI Worker reported an inference error: {safe_message}")
+        return result
+
+
+def provider_from_env() -> CloudflareWorkersAIProvider:
+    model = os.environ.get("STREAMIOV_MODEL", DEFAULT_MODEL)
+    base_url = os.environ.get("STREAMIOV_MODEL_URL", "")
+    token = os.environ.get("STREAMIOV_AI_WORKER_TOKEN", "")
+    return CloudflareWorkersAIProvider(model=model, base_url=base_url, token=token)

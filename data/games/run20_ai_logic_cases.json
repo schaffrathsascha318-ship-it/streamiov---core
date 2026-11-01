@@ -1,0 +1,353 @@
+{
+  "worker": 20,
+  "created_at": "2026-10-06T02:34:24.701971+00:00",
+  "purpose": "local_ai_logic_test",
+  "games": [
+    {
+      "game": {
+        "game_id": "run20-own-action",
+        "name": "Streamiov Own Action Test",
+        "type": "action",
+        "source": "local_test"
+      },
+      "status": "PREPARED",
+      "events": [
+        {
+          "event_type": "enemy_defeated",
+          "gift": {
+            "name": "enemy_defeated_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "spawn_effect",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        },
+        {
+          "event_type": "combo_started",
+          "gift": {
+            "name": "combo_started_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "screen_flash",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        },
+        {
+          "event_type": "player_damaged",
+          "gift": {
+            "name": "player_damaged_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "reaction_sticker",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        }
+      ]
+    },
+    {
+      "game": {
+        "game_id": "run20-own-racing",
+        "name": "Streamiov Own Racing Test",
+        "type": "racing",
+        "source": "local_test"
+      },
+      "status": "PREPARED",
+      "events": [
+        {
+          "event_type": "lap_completed",
+          "gift": {
+            "name": "lap_completed_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "show_lap_sticker",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        },
+        {
+          "event_type": "boost_used",
+          "gift": {
+            "name": "boost_used_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "speed_effect",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        },
+        {
+          "event_type": "race_finished",
+          "gift": {
+            "name": "race_finished_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "race_result_overlay",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        }
+      ]
+    },
+    {
+      "game": {
+        "game_id": "run20-own-rpg",
+        "name": "Streamiov Own RPG Test",
+        "type": "rpg",
+        "source": "local_test"
+      },
+      "status": "PREPARED",
+      "events": [
+        {
+          "event_type": "quest_completed",
+          "gift": {
+            "name": "quest_completed_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "reward_effect",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        },
+        {
+          "event_type": "level_up",
+          "gift": {
+            "name": "level_up_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "level_up_overlay",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        },
+        {
+          "event_type": "boss_defeated",
+          "gift": {
+            "name": "boss_defeated_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "boss_effect",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        }
+      ]
+    },
+    {
+      "game": {
+        "game_id": "run20-own-simulation",
+        "name": "Streamiov Own Simulation Test",
+        "type": "simulation",
+        "source": "local_test"
+      },
+      "status": "PREPARED",
+      "events": [
+        {
+          "event_type": "resource_created",
+          "gift": {
+            "name": "resource_created_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "resource_overlay",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        },
+        {
+          "event_type": "resource_consumed",
+          "gift": {
+            "name": "resource_consumed_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "milestone_effect",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        },
+        {
+          "event_type": "milestone_reached",
+          "gift": {
+            "name": "milestone_reached_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "status_update",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        }
+      ]
+    },
+    {
+      "game": {
+        "game_id": "run20-new-unknown",
+        "name": "Run20 Newly Detected Game",
+        "type": "unknown",
+        "source": "local_new_game_simulation"
+      },
+      "status": "NEEDS_REVIEW",
+      "events": [
+        {
+          "event_type": "game_started",
+          "gift": {
+            "name": "game_started_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "generic_event_effect",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        },
+        {
+          "event_type": "milestone_reached",
+          "gift": {
+            "name": "milestone_reached_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "generic_sticker",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        },
+        {
+          "event_type": "reward_received",
+          "gift": {
+            "name": "reward_received_gift",
+            "state": "PREPARED"
+          },
+          "action": {
+            "name": "generic_overlay",
+            "state": "PREPARED"
+          },
+          "sticker": {
+            "template": "auto_generated",
+            "state": "PREPARED"
+          },
+          "overlay": {
+            "template": "pro_overlay_auto",
+            "state": "PREPARED"
+          }
+        }
+      ]
+    }
+  ],
+  "truth_rules": {
+    "local_test": "TESTED",
+    "unknown_game": "NEEDS_REVIEW",
+    "production": "NOT_VERIFIED",
+    "external_source": "NOT_CONFIGURED"
+  }
+}

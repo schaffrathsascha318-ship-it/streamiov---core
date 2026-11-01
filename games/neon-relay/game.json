@@ -1,0 +1,25 @@
+{
+  "id": "neon-relay",
+  "name": "Neon Relay",
+  "version": "0.1.0",
+  "description": "Ein schnelles Neon-Arcade-Spiel: Energie sammeln und roten Störfeldern ausweichen.",
+  "entry": "index.html",
+  "runtime": "browser",
+  "controls": {
+    "keyboard": [
+      "ArrowLeft",
+      "ArrowRight",
+      "A",
+      "D"
+    ],
+    "pointer": true,
+    "touch": true
+  },
+  "dependencies": [],
+  "status": "development",
+  "release": {
+    "automatedTestsPassed": true,
+    "gameplayVerified": false,
+    "released": false
+  }
+}

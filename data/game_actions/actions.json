@@ -1,0 +1,49 @@
+[
+  {
+    "id": "f328ceb6-d05f-4920-869c-6aaceccdc4ee",
+    "game_id": "streamiov-test-game",
+    "name": "Test Event",
+    "description": "Testaktion für die Streamiov Engine.",
+    "trigger_type": "gift",
+    "trigger_config": {
+      "gift": "test"
+    },
+    "execution_config": {
+      "type": "test"
+    },
+    "status": "active",
+    "source": "ai",
+    "created_at": "2026-10-05T01:20:40.876600+00:00",
+    "updated_at": "2026-10-05T01:20:40.879547+00:00"
+  },
+  {
+    "id": "83042838-fab3-4fba-8897-53f35e56c820",
+    "game_id": "streamiov-test-game",
+    "name": "Test Timer",
+    "description": "Testaktion über einen Timer.",
+    "trigger_type": "timer",
+    "trigger_config": {
+      "seconds": 30
+    },
+    "execution_config": {
+      "type": "test"
+    },
+    "status": "planned",
+    "source": "ai",
+    "created_at": "2026-10-05T01:20:40.877571+00:00",
+    "updated_at": "2026-10-05T01:20:40.877590+00:00"
+  },
+  {
+    "id": "8b91fb7e-99c4-4149-881a-eebb7f060cde",
+    "game_id": "run27_test_game",
+    "name": "Run27 Test Action",
+    "description": "Lokaler Regressionstest",
+    "trigger_type": "stream_event",
+    "trigger_config": {},
+    "execution_config": {},
+    "status": "planned",
+    "source": "run27-test",
+    "created_at": "2026-10-06T03:31:13.502203+00:00",
+    "updated_at": "2026-10-06T03:31:13.502292+00:00"
+  }
+]

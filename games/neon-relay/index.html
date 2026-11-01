@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080b18">
+<title>Neon Relay · STREAMIOV</title>
+<style>
+:root{color-scheme:dark;--bg:#080b18;--cyan:#39f5e8;--violet:#7c70ff;--red:#ff557e}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 0,#20224c 0,var(--bg) 62%);color:#f4f6ff;font:16px system-ui,sans-serif;display:grid;place-items:center;padding:18px}
+main{width:min(920px,100%)}header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}.brand{font-weight:900;letter-spacing:.16em;color:var(--cyan)}.brand span{color:var(--violet)}
+.stats{display:flex;gap:10px;flex-wrap:wrap}.stat{background:#11182bdc;border:1px solid #343d61;border-radius:12px;padding:8px 14px;min-width:92px}.stat small{display:block;color:#aeb7d4;font-size:11px;text-transform:uppercase;letter-spacing:.1em}.stat strong{font-size:20px}
+.stage{position:relative;border:1px solid #39436d;border-radius:20px;overflow:hidden;background:#080d20;box-shadow:0 18px 70px #0009}canvas{display:block;width:100%;height:min(62vh,560px);min-height:360px;touch-action:none}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;background:#080b18b8;padding:24px;text-align:center}.overlay[hidden]{display:none}.dialog{max-width:440px;background:#11182bf2;border:1px solid #535b91;border-radius:18px;padding:24px;box-shadow:0 12px 50px #0009}.dialog h1{margin:0 0 8px;font-size:clamp(28px,6vw,44px)}.dialog p{color:#c3cbe4;line-height:1.5}.action{border:0;border-radius:999px;padding:13px 24px;font-weight:800;color:#07121b;background:linear-gradient(90deg,var(--cyan),#a0fff4);cursor:pointer}.action:focus-visible{outline:3px solid white;outline-offset:3px}.hint{color:#aeb7d4;text-align:center;font-size:13px;margin:12px 0}
+</style>
+</head>
+<body>
+<main>
+<header><div class="brand">STREAMIOV <span>♥</span> ARCADE</div><div class="stats" aria-live="polite"><div class="stat"><small>Punkte</small><strong id="score">0</strong></div><div class="stat"><small>Leben</small><strong id="lives">3</strong></div><div class="stat"><small>Zeit</small><strong id="time">60</strong></div></div></header>
+<section class="stage" aria-label="Neon Relay Spielfeld">
+<canvas id="game" width="900" height="560" aria-label="Spieler steuert das Schiff und sammelt Energie-Orbs"></canvas>
+<div class="overlay" id="overlay"><div class="dialog"><h1 id="headline">NEON RELAY</h1><p id="message">Sammle türkisfarbene Energie-Orbs. Weiche den roten Störfeldern aus. Überlebe 60 Sekunden und knacke deinen Highscore.</p><button class="action" id="start">Spiel starten</button></div></div>
+</section>
+<p class="hint">← → oder A/D bewegen · alternativ ziehen oder antippen · Sammle Cyan, meide Rot</p>
+</main>
+<script>
+(() => {
+'use strict';
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+const ui={score:document.getElementById('score'),lives:document.getElementById('lives'),time:document.getElementById('time'),overlay:document.getElementById('overlay'),headline:document.getElementById('headline'),message:document.getElementById('message'),start:document.getElementById('start')};
+const W=900,H=560;let running=false,score=0,lives=3,left=60,last=0,spawn=0,raf=0,player={x:W/2,y:H-64,r:19,speed:520},objects=[],keys=new Set(),pointer=null;
+const rand=(a,b)=>a+Math.random()*(b-a);
+function reset(){score=0;lives=3;left=60;spawn=0;objects=[];player.x=W/2;ui.score.textContent=score;ui.lives.textContent=lives;ui.time.textContent=left;}
+function addObject(){const good=Math.random()<.68;objects.push({x:rand(24,W-24),y:-24,r:good?10:rand(13,20),vy:rand(150,260),good,spin:rand(0,6)});}
+function draw(){ctx.clearRect(0,0,W,H);ctx.fillStyle='#090f25';ctx.fillRect(0,0,W,H);
+for(let i=0;i<70;i++){const x=(i*137)%W,y=(i*83+(performance.now()*.012))%H;ctx.fillStyle='#8b9bd0';ctx.globalAlpha=.22;ctx.fillRect(x,y,2,2)}ctx.globalAlpha=1;
+ctx.save();ctx.translate(player.x,player.y);ctx.shadowBlur=24;ctx.shadowColor='#39f5e8';ctx.fillStyle='#39f5e8';ctx.beginPath();ctx.moveTo(0,-24);ctx.lineTo(19,17);ctx.lineTo(0,10);ctx.lineTo(-19,17);ctx.closePath();ctx.fill();ctx.restore();
+for(const o of objects){ctx.save();ctx.translate(o.x,o.y);ctx.rotate(o.spin);ctx.shadowBlur=18;ctx.shadowColor=o.good?'#39f5e8':'#ff557e';ctx.fillStyle=o.good?'#39f5e8':'#ff557e';ctx.beginPath();if(o.good){ctx.arc(0,0,o.r,0,Math.PI*2)}else{ctx.moveTo(0,-o.r);ctx.lineTo(o.r,o.r);ctx.lineTo(-o.r,o.r);ctx.closePath()}ctx.fill();ctx.restore();}
+}
+function finish(won){running=false;cancelAnimationFrame(raf);ui.headline.textContent=won?'RUN COMPLETE':'GAME OVER';ui.message.textContent=(won?'Stark! ':'Weiter üben! ')+ 'Du hast '+score+' Punkte gesammelt.';ui.start.textContent='Nochmal spielen';ui.overlay.hidden=false;}
+function tick(now){if(!running)return;const dt=Math.min((now-last)/1000,.04);last=now;left=Math.max(0,left-dt);spawn-=dt;
+if(keys.has('ArrowLeft')||keys.has('a')||keys.has('A'))player.x-=player.speed*dt;
+if(keys.has('ArrowRight')||keys.has('d')||keys.has('D'))player.x+=player.speed*dt;
+if(pointer!==null)player.x+=(pointer-player.x)*Math.min(1,dt*12);
+player.x=Math.max(22,Math.min(W-22,player.x));
+if(spawn<=0){addObject();spawn=rand(.28,.62)}
+for(let i=objects.length-1;i>=0;i--){const o=objects[i];o.y+=o.vy*dt;o.spin+=dt*1.8;const dx=o.x-player.x,dy=o.y-player.y;if(Math.hypot(dx,dy)<o.r+player.r*.72){if(o.good)score+=10;else lives--;objects.splice(i,1);continue}if(o.y>H+30)objects.splice(i,1);}
+ui.score.textContent=score;ui.lives.textContent=lives;ui.time.textContent=Math.ceil(left);draw();
+if(lives<=0||left<=0){finish(left<=0&&lives>0);return}raf=requestAnimationFrame(tick);}
+function start(){cancelAnimationFrame(raf);reset();ui.overlay.hidden=true;running=true;last=performance.now();raf=requestAnimationFrame(tick);}
+ui.start.addEventListener('click',start);
+window.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();keys.add(e.key);});
+window.addEventListener('keyup',e=>keys.delete(e.key));
+function setPointer(e){const r=canvas.getBoundingClientRect();pointer=Math.max(0,Math.min(W,(e.clientX-r.left)/r.width*W));}
+canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);setPointer(e)});
+canvas.addEventListener('pointermove',e=>{if(e.buttons||e.pointerType==='touch')setPointer(e)});
+canvas.addEventListener('pointerup',()=>{pointer=null});canvas.addEventListener('pointercancel',()=>{pointer=null});
+reset();draw();
+})();
+</script>
+</body>
+</html>

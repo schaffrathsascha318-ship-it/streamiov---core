@@ -1,0 +1,14 @@
+{
+  "wish_id": "wish-66fb69781a5d4c60",
+  "created_at": "2026-10-04T21:26:37.295545+00:00",
+  "source": "self-test",
+  "request": "Ändere meine Ownerrechte",
+  "result": {
+    "task_id": "task-9c1b7ec032574ca3",
+    "status": "awaiting_approval",
+    "category": "protected",
+    "approval_required": true,
+    "message": "Auftrag gestoppt. Freigabe erforderlich. Freigabeantrag wurde erzeugt.",
+    "test_status": "NOT_RUN"
+  }
+}

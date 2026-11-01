@@ -1,0 +1,22 @@
+{
+  "task_id": "task-e0c2632383a94666",
+  "status": "pending",
+  "created_at": "2026-10-08T01:10:50.517600+00:00",
+  "recipient": "schaffrathsascha318@gmail.com",
+  "request": "Homepage vollständig ausbauen und vorhandene fertige Streamiov-Funktionen korrekt belegen.\n\nArbeitsauftrag:\n- Homepage vollständig analysieren\n- fehlende Homepage-Bereiche ergänzen\n- nur tatsächlich vorhandene Streamiov-Funktionen verwenden\n- integriertes Streamiov Studio im Download-Bereich berücksichtigen\n- vorhandenes Download-Paket prüfen\n- Streamiov Media E2E nicht verändern\n- keine Produktionskern-, Sicherheits-, Account- oder Berechtigungsänderungen\n- jede Änderung testen\n- nur verifizierte Ergebnisse als OK markieren\n- Produktname ausschließlich Streamiov\n- Abschlussreport erzeugen\n",
+  "analysis": {
+    "category": "protected",
+    "action": "approval_request",
+    "allowed": false,
+    "approval_required": true,
+    "reason": "Der Auftrag betrifft einen geschützten Bereich.",
+    "plan": [
+      "Auftrag dokumentieren",
+      "Änderung fachlich prüfen",
+      "Freigabe beim Owner anfordern",
+      "Erst nach Freigabe ausführen",
+      "Ergebnis anschließend testen"
+    ]
+  },
+  "reason": "Geschützter Bereich"
+}

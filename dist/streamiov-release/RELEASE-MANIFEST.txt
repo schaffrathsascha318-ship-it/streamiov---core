@@ -1,0 +1,23 @@
+STREAMIOV RELEASE
+=================
+Erstellt: 2026-10-07T20:37:45+02:00
+
+Enthalten:
+- Homepage
+- Core
+- Studio
+- Bot/KI-Komponenten
+- Infrastruktur
+- Konfiguration
+- Tests
+- Server-Komponenten
+
+Nicht enthalten:
+- Backups
+- Python __pycache__
+- *.pyc
+- alte *.bak Dateien
+
+WICHTIG:
+Dieses Release behauptet keine nicht vorhandenen nativen Windows-
+oder Android-Builds als fertig.

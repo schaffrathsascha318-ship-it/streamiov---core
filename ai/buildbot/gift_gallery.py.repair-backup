@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""Streamiov Gift Gallery: sichere interne Aufnahme neuer SVG-Entwürfe."""
+
+import argparse
+import hashlib
+import json
+import re
+import shutil
+from datetime import datetime, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+CATALOG = ROOT / "config/gifts/catalog.json"
+ASSETS = ROOT / "public/assets/gifts"
+DRAFTS = ROOT / "data/gift-gallery/drafts"
+MANIFEST = DRAFTS / "manifest.json"
+
+
+def sha256(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def visual_signature(svg):
+    """Normalisierte Strukturprüfung; kein echter Bildvergleich."""
+    svg = re.sub(r"<!--.*?-->", "", svg, flags=re.DOTALL)
+    svg = re.sub(r"<title\b[^>]*>.*?</title>", "", svg,
+                 flags=re.IGNORECASE | re.DOTALL)
+    svg = re.sub(r"<desc\b[^>]*>.*?</desc>", "", svg,
+                 flags=re.IGNORECASE | re.DOTALL)
+    svg = re.sub(r"\s+", " ", svg).strip().lower()
+
+    # Farben, Beschriftungen und Zahlenwerte normalisieren.
+    svg = re.sub(r"#[0-9a-f]{3,8}\b", "#color", svg)
+    svg = re.sub(
+        r"\b(?:rgb|rgba|hsl|hsla)\([^)]*\)",
+        "colorvalue",
+        svg,
+    )
+    svg = re.sub(r'aria-label\s*=\s*["\'][^"\']*["\']',
+                 'aria-label=""', svg)
+    svg = re.sub(r">[^<>]+<", "><", svg)
+schaffrathsascha318@penguin:~/streamiov$ cd ~/streamiov && nano +42 ai/buildbot/gift_gallery.py
+    svg = re.sub(r"\s+", "", svg)
+
+    return sha256(svg.encode("utf-8"))#
+def visual_signature(svg):
+    # Entfernt Beschriftungen und Farben, um ähnliche SVG-Grundformen
+    # zu erkennen. Das ist ein Hinweis, kein zuverlässiger Bildvergleich.
+    svg = re.sub(r'aria-label="[^"]*"', 'aria-label=""', svg)
+    svg = re.sub(r'#[0-9a-fA-F]{3,8}\b', '#COLOR', svg)
+    svg = re.sub(r'\s+', '', svg)
+    return sha256(svg.encode("utf-8"))
+
+
+def load_json(path, default):
+    if not path.exists():
+        return default
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def catalog_items(data):
+    result = []
+    for category, value in data.get("categories", {}).items():
+        for item in value.get("items", []):
+            result.append((category, item))
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Geschenk-SVG intern prüfen und als Entwurf speichern"
+    )
+    parser.add_argument("--id", required=True, help="Eindeutige Gift-ID")
+    parser.add_argument("--name", required=True, help="Anzeigename")
+    parser.add_argument("--asset", required=True, help="Pfad zur SVG-Datei")
+    parser.add_argument("--event", required=True, help="Event-ID")
+    parser.add_argument("--action", required=True, help="Aktion-ID")
+    args = parser.parse_args()
+
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{1,63}", args.id):
+        parser.error("Ungültige ID: nur Kleinbuchstaben, Zahlen, _ und -")
+
+    source = Path(args.asset).expanduser().resolve()
+    if not source.is_file() or source.suffix.lower() != ".svg":
+        parser.error("Die Quelldatei muss eine vorhandene SVG-Datei sein")
+
+    try:
+        source.relative_to(ROOT)
+    except ValueError:
+        parser.error("Die Quelldatei muss innerhalb von ~/streamiov liegen")
+
+    svg = source.read_text(encoding="utf-8")
+    if "<svg" not in svg.lower():
+        parser.error("Keine gültige SVG-Grundstruktur gefunden")
+
+    if re.search(
+        r"<\s*(script|foreignObject)\b|"
+        r"\bon[a-z]+\s*=|"
+        r"(?:href|src)\s*=\s*['\"]\s*(?:https?:|//|javascript:|data:)",
+        svg,
+        re.IGNORECASE,
+    ):
+        parser.error("SVG enthält nicht erlaubte aktive oder externe Inhalte")
+
+    catalog = load_json(CATALOG, {})
+    items = catalog_items(catalog)
+
+    if any(item.get("id") == args.id for _, item in items):
+        parser.error(f"Gift-ID existiert bereits: {args.id}")
+
+    if any(item.get("id") == args.id for item in
+           load_json(MANIFEST, {}).get("drafts", [])):
+        parser.error(f"Gift-ID ist bereits als Entwurf vorhanden: {args.id}")
+
+    digest = sha256(svg.encode("utf-8"))
+    signature = visual_signature(svg)
+
+    known = []
+    for path in sorted(ASSETS.glob("*.svg")):
+        content = path.read_text(encoding="utf-8")
+        known.append((path.name, sha256(content.encode("utf-8")),
+                      visual_signature(content)))
+
+    manifest = load_json(MANIFEST, {"drafts": []})
+    for draft in manifest["drafts"]:
+        known.append((draft.get("asset", ""),
+                      draft.get("sha256", ""),
+                      draft.get("visual_signature", "")))
+
+    if any(old_hash == digest for _, old_hash, _ in known):
+        parser.error("Identische SVG-Datei bereits vorhanden")
+
+    similar = [
+        name for name, _, old_signature in known
+        if old_signature == signature
+    ]
+
+    DRAFTS.mkdir(parents=True, exist_ok=True)
+    target = DRAFTS / f"{args.id}.svg"
+    if target.exists():
+        parser.error(f"Entwurfsdatei existiert bereits: {target.name}")
+
+    shutil.copyfile(source, target)
+
+    entry = {
+        "id": args.id,
+        "name": args.name,
+        "event": args.event,
+        "action": args.action,
+        "asset": target.name,
+        "sha256": digest,
+        "visual_signature": signature,
+        "similar_structure_to": similar,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "status": "needs_review",
+        "published": False,
+        "tiktok_comparison": "not_performed",
+    }
+
+    manifest["drafts"].append(entry)
+    MANIFEST.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    print(json.dumps({
+        "status": "DRAFT_SAVED",
+        "id": args.id,
+        "asset": str(target.relative_to(ROOT)),
+        "similar_structure_to": similar,
+        "published": False,
+        "next_step": "Manuelle Motivprüfung und Tests erforderlich",
+    }, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

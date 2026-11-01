@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "points_note": "Eigene Streamiov-Punktwerte; keine TikTok-Coins und keine Auszahlung ohne separat eingerichteten Zahlungsweg.",
+  "gifts": [
+    {
+      "id": "rose",
+      "name": "Rose",
+      "streamiov_points": 1,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/rose.svg"
+    },
+    {
+      "id": "donuts",
+      "name": "Donuts",
+      "streamiov_points": 30,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/donuts.svg"
+    },
+    {
+      "id": "handherz",
+      "name": "Handherz",
+      "streamiov_points": 100,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/handherz.svg"
+    },
+    {
+      "id": "schwan",
+      "name": "Schwan",
+      "streamiov_points": 500,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/schwan.svg"
+    },
+    {
+      "id": "loewe",
+      "name": "Löwe",
+      "streamiov_points": 2300,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/loewe.svg"
+    },
+    {
+      "id": "galaxy",
+      "name": "Galaxy",
+      "streamiov_points": 5000,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/galaxy.svg"
+    },
+    {
+      "id": "streamiov_glanz",
+      "name": "Streamiov Glanz",
+      "streamiov_points": 1,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/streamiov_glanz.svg",
+      "streamiov_custom": true,
+      "status": "local_preview_only",
+      "animation": "css-3d-v1"
+    },
+    {
+      "id": "streamiov_neonherz",
+      "name": "Streamiov Neonherz",
+      "streamiov_points": 10,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/streamiov_neonherz.svg",
+      "streamiov_custom": true,
+      "status": "local_preview_only",
+      "animation": "css-3d-v1"
+    },
+    {
+      "id": "streamiov_funken",
+      "name": "Streamiov Funken",
+      "streamiov_points": 49,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/streamiov_funken.svg",
+      "streamiov_custom": true,
+      "status": "local_preview_only",
+      "animation": "css-3d-v1"
+    },
+    {
+      "id": "streamiov_sternflug",
+      "name": "Streamiov Sternflug",
+      "streamiov_points": 100,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/streamiov_sternflug.svg",
+      "streamiov_custom": true,
+      "status": "local_preview_only",
+      "animation": "css-3d-v1"
+    },
+    {
+      "id": "streamiov_krone",
+      "name": "Streamiov Krone",
+      "streamiov_points": 499,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/streamiov_krone.svg",
+      "streamiov_custom": true,
+      "status": "local_preview_only",
+      "animation": "css-3d-v1"
+    },
+    {
+      "id": "streamiov_orbit",
+      "name": "Streamiov Orbit",
+      "streamiov_points": 999,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/streamiov_orbit.svg",
+      "streamiov_custom": true,
+      "status": "local_preview_only",
+      "animation": "css-3d-v1"
+    },
+    {
+      "id": "streamiov_supernova",
+      "name": "Streamiov Supernova",
+      "streamiov_points": 4999,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/streamiov_supernova.svg",
+      "streamiov_custom": true,
+      "status": "local_preview_only",
+      "animation": "css-3d-v1"
+    },
+    {
+      "id": "streamiov_phoenix",
+      "name": "Streamiov Phönix",
+      "streamiov_points": 9999,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/streamiov_phoenix.svg",
+      "streamiov_custom": true,
+      "status": "local_preview_only",
+      "animation": "css-3d-v1"
+    },
+    {
+      "id": "streamiov_creatorportal",
+      "name": "Streamiov Creator-Portal",
+      "streamiov_points": 24999,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/streamiov_creatorportal.svg",
+      "streamiov_custom": true,
+      "status": "local_preview_only",
+      "animation": "css-3d-v1"
+    },
+    {
+      "id": "streamiov_universum",
+      "name": "Streamiov Universum",
+      "streamiov_points": 49999,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/streamiov_universum.svg",
+      "streamiov_custom": true,
+      "status": "local_preview_only",
+      "animation": "css-3d-v1"
+    },
+    {
+      "id": "streamiov_drachenflug",
+      "name": "Streamiov Drachenflug",
+      "streamiov_points": 14999,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/streamiov_drachenflug.svg",
+      "streamiov_custom": true,
+      "status": "local_preview_only",
+      "animation": "css-3d-v1"
+    },
+    {
+      "id": "streamiov_kristallherz",
+      "name": "Streamiov Kristallherz",
+      "streamiov_points": 39999,
+      "tiktok_gift_id": null,
+      "svg": "/assets/gifts/streamiov_kristallherz.svg",
+      "streamiov_custom": true,
+      "status": "local_preview_only",
+      "animation": "css-3d-v1"
+    }
+  ],
+  "like_milestones": [
+    10000,
+    15000,
+    20000
+  ],
+  "rules": [
+    {
+      "id": "rose-difficulty-medium",
+      "name": "Rose – Schwierigkeit erhöhen",
+      "trigger": {
+        "type": "gift",
+        "gift_id": "rose"
+      },
+      "action": {
+        "type": "increase_difficulty",
+        "intensity": "medium"
+      },
+      "status": "planned"
+    },
+    {
+      "id": "likes-15000-difficulty-medium",
+      "name": "15.000 Likes – Schwierigkeit erhöhen",
+      "trigger": {
+        "type": "like_milestone",
+        "count": 15000
+      },
+      "action": {
+        "type": "increase_difficulty",
+        "intensity": "medium"
+      },
+      "status": "planned"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "name": "known_action",
+    "game_type": "Action",
+    "event": "enemy_defeated",
+    "expected": "TESTED"
+  },
+  {
+    "name": "known_racing",
+    "game_type": "Racing",
+    "event": "lap_completed",
+    "expected": "TESTED"
+  },
+  {
+    "name": "known_rpg",
+    "game_type": "RPG",
+    "event": "quest_completed",
+    "expected": "TESTED"
+  },
+  {
+    "name": "known_strategy",
+    "game_type": "Strategie",
+    "event": "objective_completed",
+    "expected": "TESTED"
+  },
+  {
+    "name": "unknown_game",
+    "game_type": "UNKNOWN",
+    "event": "unknown_event",
+    "expected": "NEEDS_REVIEW"
+  },
+  {
+    "name": "missing_event",
+    "game_type": "Action",
+    "event": null,
+    "expected": "NEEDS_REVIEW"
+  }
+]

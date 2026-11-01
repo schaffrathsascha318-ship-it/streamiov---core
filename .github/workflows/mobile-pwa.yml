@@ -1,0 +1,43 @@
+name: STREAMIOV Mobile and Chromebook PWA
+
+on:
+  pull_request:
+    paths:
+      - "dist/streamiov-studio-app/regie-v2.html"
+      - "dist/streamiov-homepage-worker/public/app/**"
+      - "scripts/build-mobile-pwa.py"
+      - "scripts/test-mobile-pwa.py"
+      - ".github/workflows/mobile-pwa.yml"
+  push:
+    branches:
+      - main
+      - streamiov-build-setup-clean
+    paths:
+      - "dist/streamiov-studio-app/regie-v2.html"
+      - "dist/streamiov-homepage-worker/public/app/**"
+      - "scripts/build-mobile-pwa.py"
+      - "scripts/test-mobile-pwa.py"
+      - ".github/workflows/mobile-pwa.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pwa-build-and-test:
+    name: Build and validate installable web Regie
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Generate PWA from canonical Studio UI and test it
+        run: python scripts/test-mobile-pwa.py
+      - name: Verify generated page is present
+        run: test -s dist/streamiov-homepage-worker/public/app/index.html

@@ -1,0 +1,34 @@
+name: Phase 1 agent tests
+on:
+  pull_request:
+    paths:
+      - "ai/**"
+      - "infrastructure/cloudflare/streamiov-ai-worker/**"
+      - "scripts/deploy-streamiov-ai-worker.sh"
+      - "tests/**"
+      - ".github/workflows/phase-1-agent-tests.yml"
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+jobs:
+  unittest:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check Cloudflare deployment script syntax
+        run: bash -n scripts/deploy-streamiov-ai-worker.sh
+      - name: Run Cloudflare AI Worker tests
+        run: node --test tests/test_cloudflare_ai_worker.mjs
+      - name: Run Phase 1 unit tests
+        run: python -m unittest discover -s tests -v

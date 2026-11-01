@@ -1,0 +1,200 @@
+[
+  {
+    "game_type": "Action",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "Racing",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "RPG",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "Simulation",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "Strategie",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "Sport",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "Shooter",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "Survival",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "Adventure",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "Platformer",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "Fighting",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "Party",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "Sandbox",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "Card",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "MMO",
+    "event": "standard_event",
+    "gift": "standard_gift",
+    "action": "standard_action",
+    "sticker": "standard_sticker",
+    "overlay": "standard_overlay",
+    "priority": 1,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "boss_case",
+    "event": "boss_defeated",
+    "gift": "boss_gift",
+    "action": "critical_boss_action",
+    "sticker": "boss_sticker",
+    "overlay": "boss_overlay",
+    "priority": 4,
+    "cooldown": true,
+    "expected": "TESTED"
+  },
+  {
+    "game_type": "unknown_case",
+    "event": "unknown_event",
+    "gift": "unknown_gift",
+    "action": "unknown_action",
+    "sticker": "unknown_sticker",
+    "overlay": "unknown_overlay",
+    "priority": 1,
+    "cooldown": false,
+    "expected": "NEEDS_REVIEW"
+  },
+  {
+    "game_type": "fallback_case",
+    "event": null,
+    "gift": null,
+    "action": null,
+    "sticker": null,
+    "overlay": null,
+    "priority": 1,
+    "cooldown": false,
+    "expected": "NEEDS_REVIEW"
+  }
+]

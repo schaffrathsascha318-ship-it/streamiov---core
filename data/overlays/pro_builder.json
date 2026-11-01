@@ -1,0 +1,60 @@
+{
+  "module": "professional_overlay_builder",
+  "version": 1,
+  "enabled": true,
+  "local_only": true,
+  "builder": {
+    "elements": [
+      "text",
+      "shape",
+      "image",
+      "sticker",
+      "animation",
+      "camera",
+      "microphone",
+      "audio",
+      "stream_status",
+      "event",
+      "gift",
+      "action",
+      "game"
+    ],
+    "transform": [
+      "position",
+      "size",
+      "rotation",
+      "scale",
+      "layer_order"
+    ],
+    "editing": [
+      "create",
+      "duplicate",
+      "modify",
+      "delete",
+      "save",
+      "export",
+      "import"
+    ],
+    "preview": true
+  },
+  "ai_assistance": {
+    "enabled": true,
+    "mode": "prepare_only",
+    "requires_test_before_tested": true,
+    "requires_approval_for_production": true
+  },
+  "bindings": {
+    "game": true,
+    "event": true,
+    "gift": true,
+    "action": true,
+    "sticker": true
+  },
+  "status_rules": {
+    "draft": "DRAFT",
+    "prepared": "PREPARED",
+    "validated": "VALIDATED",
+    "tested": "TESTED",
+    "unverified": "NOT_VERIFIED"
+  }
+}

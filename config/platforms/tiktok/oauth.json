@@ -1,0 +1,21 @@
+{
+  "platform":"tiktok","provider":"tiktok","protocol":"oauth2","enabled":true,"login_kit":true,
+  "app_id":"7694133030948177927","app_id_is_not_client_key":true,
+  "authorization_endpoint":"https://www.tiktok.com/v2/auth/authorize/",
+  "token_endpoint":"https://open.tiktokapis.com/v2/oauth/token/",
+  "revoke_endpoint":"https://open.tiktokapis.com/v2/oauth/revoke/",
+  "environments":{
+    "sandbox":{"client_key_env":"STREAMIOV_TIKTOK_SANDBOX_CLIENT_KEY","client_secret_env":"STREAMIOV_TIKTOK_SANDBOX_CLIENT_SECRET","redirect_uri_env":"STREAMIOV_TIKTOK_SANDBOX_REDIRECT_URI","token_encryption_key_env":"STREAMIOV_TIKTOK_SANDBOX_TOKEN_ENCRYPTION_KEY","token_file":"data/oauth/tiktok-sandbox.json","allowed_scopes":["user.info.basic"],"status":"awaiting_console_credentials_and_secret_rotation"},
+    "production":{"client_key_env":"STREAMIOV_TIKTOK_PRODUCTION_CLIENT_KEY","client_secret_env":"STREAMIOV_TIKTOK_PRODUCTION_CLIENT_SECRET","redirect_uri_env":"STREAMIOV_TIKTOK_PRODUCTION_REDIRECT_URI","token_encryption_key_env":"STREAMIOV_TIKTOK_PRODUCTION_TOKEN_ENCRYPTION_KEY","token_file":"data/oauth/tiktok-production.json","allowed_scopes":["user.info.basic"],"status":"not_configured"}
+  },
+  "csrf_state_required":true,"pkce_method":"S256","token_storage":"server_only_encrypted",
+  "permission_matrix":{
+    "user.info.basic":{"requested":true,"enabled":"verify_in_console","approved":"verify_in_console","verified":false},
+    "video.list":{"requested":false,"enabled":"not_verified","approved":"not_verified","verified":false},
+    "live.chat":{"requested":false,"enabled":"not_verified","approved":"not_verified","verified":false},
+    "live.gifts":{"requested":false,"enabled":"not_verified","approved":"not_verified","verified":false},
+    "viewer.events":{"requested":false,"enabled":"not_verified","approved":"not_verified","verified":false},
+    "creator.payouts":{"requested":false,"enabled":"not_verified","approved":"not_verified","verified":false},
+    "shop.finance":{"requested":false,"enabled":"not_verified","approved":"not_verified","verified":false}
+  }
+}

@@ -1,0 +1,159 @@
+{
+  "run": 27,
+  "mode": "local_only",
+  "production": "NOT_VERIFIED",
+  "external_connections": "NOT_CONFIGURED",
+  "deployment": false,
+  "server_restart": false,
+  "credentials_created": false,
+  "credentials_read": false,
+  "platform_authentication": false,
+  "cases": 20,
+  "passed": 6,
+  "needs_review": 14,
+  "failed": 0,
+  "truth_status": "PASS",
+  "results": [
+    {
+      "id": 1,
+      "type": "game_registry",
+      "expected": "PASS",
+      "result": "PASS",
+      "reason": "validated"
+    },
+    {
+      "id": 2,
+      "type": "action_builder",
+      "expected": "PASS",
+      "result": "PASS",
+      "reason": "validated"
+    },
+    {
+      "id": 3,
+      "type": "runtime_import",
+      "expected": "PASS",
+      "result": "PASS",
+      "reason": "validated"
+    },
+    {
+      "id": 4,
+      "type": "event_action_mapping",
+      "expected": "PASS",
+      "result": "PASS",
+      "reason": "local policy/regression case"
+    },
+    {
+      "id": 5,
+      "type": "gift_action_mapping",
+      "expected": "PASS",
+      "result": "NEEDS_REVIEW",
+      "reason": "unknown training case type"
+    },
+    {
+      "id": 6,
+      "type": "sticker_mapping",
+      "expected": "PASS",
+      "result": "NEEDS_REVIEW",
+      "reason": "unknown training case type"
+    },
+    {
+      "id": 7,
+      "type": "overlay_mapping",
+      "expected": "PASS",
+      "result": "NEEDS_REVIEW",
+      "reason": "unknown training case type"
+    },
+    {
+      "id": 8,
+      "type": "priority_conflict",
+      "expected": "PASS",
+      "result": "NEEDS_REVIEW",
+      "reason": "unknown training case type"
+    },
+    {
+      "id": 9,
+      "type": "cooldown_conflict",
+      "expected": "PASS",
+      "result": "NEEDS_REVIEW",
+      "reason": "unknown training case type"
+    },
+    {
+      "id": 10,
+      "type": "duplicate_action",
+      "expected": "PASS",
+      "result": "NEEDS_REVIEW",
+      "reason": "unknown training case type"
+    },
+    {
+      "id": 11,
+      "type": "missing_event_fallback",
+      "expected": "PASS",
+      "result": "NEEDS_REVIEW",
+      "reason": "unknown training case type"
+    },
+    {
+      "id": 12,
+      "type": "missing_action_fallback",
+      "expected": "PASS",
+      "result": "NEEDS_REVIEW",
+      "reason": "unknown training case type"
+    },
+    {
+      "id": 13,
+      "type": "unknown_game_review",
+      "expected": "NEEDS_REVIEW",
+      "result": "NEEDS_REVIEW",
+      "reason": "unknown training case type"
+    },
+    {
+      "id": 14,
+      "type": "truth_status",
+      "expected": "PASS",
+      "result": "PASS",
+      "reason": "local policy/regression case"
+    },
+    {
+      "id": 15,
+      "type": "local_only_boundary",
+      "expected": "PASS",
+      "result": "NEEDS_REVIEW",
+      "reason": "unknown training case type"
+    },
+    {
+      "id": 16,
+      "type": "no_credentials",
+      "expected": "PASS",
+      "result": "NEEDS_REVIEW",
+      "reason": "unknown training case type"
+    },
+    {
+      "id": 17,
+      "type": "no_external_api",
+      "expected": "PASS",
+      "result": "NEEDS_REVIEW",
+      "reason": "unknown training case type"
+    },
+    {
+      "id": 18,
+      "type": "no_deployment",
+      "expected": "PASS",
+      "result": "NEEDS_REVIEW",
+      "reason": "unknown training case type"
+    },
+    {
+      "id": 19,
+      "type": "no_restart",
+      "expected": "PASS",
+      "result": "NEEDS_REVIEW",
+      "reason": "unknown training case type"
+    },
+    {
+      "id": 20,
+      "type": "regression",
+      "expected": "PASS",
+      "result": "PASS",
+      "reason": "local policy/regression case"
+    }
+  ],
+  "policy_loaded": true
+}
