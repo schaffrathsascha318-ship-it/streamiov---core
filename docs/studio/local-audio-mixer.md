@@ -1,17 +1,13 @@
-# STREAMIOV Studio local audio mixer
+# STREAMIOV Studio audio routing
 
-The Studio now has a Web Audio mixer engine that accepts live MediaStream audio inputs, applies independent gain/mute controls, and combines them into one MediaStreamAudioDestinationNode output.
+The local mixer exposes independent MediaStream output buses instead of forcing every source into one inseparable output:
 
-Current integration:
-- The actual local microphone capture is routed into the mixer.
-- The microphone fader controls its gain (0–100%).
-- Stopping microphone capture disconnects the mixer input; closing the window closes the audio graph.
-- The mixer can accept additional named streams (music, game, TTS and alerts) through its channel API.
+- `stream`: combined programme mix intended for the encoder.
+- `monitor`: separate local-monitor bus, not yet connected to a physical output device.
+- `microphone_stem`, `music_stem`, `game_stem`, `alerts_stem`, `tts_stem`: isolated per-source outputs for independent capture/processing.
 
-Important boundary:
-- The mixed output stream is prepared for a future encoder adapter but is not yet consumed by GStreamer or an RTMP output.
-- Music/game/TTS/alerts are not yet connected as live inputs.
-- No audio is transmitted and this does not indicate LIVE.
-- TikTok OAuth and token handling are untouched.
+Every channel has its own gain and mute state and can be routed to one or more buses with `connect(..., { routes })` or `setRoutes(channel, routes)`. The same source is never implicitly copied into every bus. The microphone currently routes to the programme mix, monitor bus, and its isolated stem. The other named stems are provisioned but have no active source yet.
 
-Run npm run test:engine.
+The mixer only produces local MediaStreams. It does not connect physical speakers, GStreamer, RTMP, or TikTok. No audio is transmitted and no LIVE state is implied. TikTok OAuth and token handling remain untouched.
+
+Run `npm run test:engine`.
