@@ -91,14 +91,15 @@ class LocalExecutorTests(unittest.TestCase):
         subprocess.run(["git", "init", "-q", str(self.workspace)], check=True)
         self.audit = self.workspace / "data/ai-development/local-executor.sqlite3"
         self.audit.parent.mkdir(parents=True)
-        self.executor = LocalTerminalExecutor(
-            workspace=self.workspace,
-            device_id=DEVICE,
-            control_url="https://streamiov-ai-worker.example.workers.dev",
-            device_token="device-token-value-at-least-32-characters",
-            signing_key=KEY,
-            audit_db=self.audit,
-        )
+        with patch.dict(os.environ, {"HOME": str(self.home)}):
+            self.executor = LocalTerminalExecutor(
+                workspace=self.workspace,
+                device_id=DEVICE,
+                control_url="https://streamiov-ai-worker.example.workers.dev",
+                device_token="device-token-value-at-least-32-characters",
+                signing_key=KEY,
+                audit_db=self.audit,
+            )
 
     def tearDown(self):
         self.temp.cleanup()
