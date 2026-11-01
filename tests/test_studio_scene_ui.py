@@ -37,7 +37,9 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
 
     def test_scene_actions_remain_persistent(self):
         self.assertIn("studio:scene-action", self.main)
-        self.assertIn("await save(state)", self.main)
+        self.assertIn("streamiov-scenes.json", self.main)
+        self.assertIn("await fs.writeFile(temporary, JSON.stringify(engine.toJSON()", self.main)
+        self.assertIn("await fs.rename(temporary, file)", self.main)
         self.assertIn('window.streamiovStudio.sceneAction({action:"take"})', self.ui)
 
     def test_media_test_uses_native_gstreamer_pipeline_not_missing_python_module(self):
