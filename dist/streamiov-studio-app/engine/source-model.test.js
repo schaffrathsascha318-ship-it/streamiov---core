@@ -66,3 +66,61 @@ test('snapshots do not expose mutable internal source records', () => {
   snapshot.sources[0].name = 'Tampered';
   assert.equal(model.snapshot().sources[0].name, 'Camera');
 });
+
+test('persists only type-specific camera, audio and desktop capture settings', () => {
+  const model = new StudioSourceModel();
+  const camera = model.add({
+    id: 'camera-main', type: 'camera', name: 'Hauptkamera',
+    settings: { deviceId: 'camera-device-opaque-id', width: 1920, height: 1080, fps: 30 }
+  });
+  assert.equal(camera.ok, true);
+  assert.deepEqual(camera.source.settings, {
+    deviceId: 'camera-device-opaque-id', width: 1920, height: 1080, fps: 30
+  });
+
+  const microphone = model.add({
+    id: 'mic-main', type: 'audio', name: 'Mikrofon',
+    settings: { deviceId: 'audio-device-opaque-id' }
+  });
+  assert.equal(microphone.ok, true);
+
+  const desktop = model.add({
+    id: 'screen-main', type: 'screen', name: 'Bildschirm',
+    settings: { sourceId: 'screen:1:0', displayId: '1', width: 1280, height: 720, fps: 30 }
+  });
+  assert.equal(desktop.ok, true);
+
+  const restored = new StudioSourceModel(model.toJSON());
+  assert.deepEqual(restored.snapshot(), model.snapshot());
+});
+
+test('rejects invalid and cross-type source settings instead of persisting arbitrary fields', () => {
+  const model = new StudioSourceModel();
+  assert.equal(model.add({
+    id: 'bad-camera', type: 'camera', name: 'Camera',
+    settings: { deviceId: 'device', width: 99999 }
+  }).ok, false);
+  assert.equal(model.add({
+    id: 'bad-screen', type: 'screen', name: 'Screen',
+    settings: { sourceId: 'screen:1', password: 'not-allowed' }
+  }).ok, false);
+  assert.equal(model.add({
+    id: 'bad-text', type: 'text', name: 'Text',
+    settings: { text: 'hello\\u0000world' }
+  }).ok, false);
+  assert.equal(model.add({
+    id: 'bad-color', type: 'color', name: 'Color',
+    settings: { color: 'url(https://example.test)' }
+  }).ok, false);
+});
+
+test('updates source settings atomically and returns defensive copies', () => {
+  const model = new StudioSourceModel();
+  model.add({ id: 'screen', type: 'screen', name: 'Screen', settings: { sourceId: 'screen:1' } });
+  assert.equal(model.update('screen', { settings: { sourceId: 'screen:2', displayId: '2' } }).ok, true);
+  const snapshot = model.snapshot();
+  snapshot.sources[0].settings.sourceId = 'tampered';
+  assert.equal(model.snapshot().sources[0].settings.sourceId, 'screen:2');
+  assert.equal(model.update('screen', { settings: { sourceId: 'screen:3', deviceId: 'wrong-type' } }).ok, false);
+  assert.equal(model.snapshot().sources[0].settings.sourceId, 'screen:2');
+});
