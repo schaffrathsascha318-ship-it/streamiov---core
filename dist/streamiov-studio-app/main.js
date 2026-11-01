@@ -157,6 +157,102 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
   return { ok: true, state: engine.snapshot() };
 });
 
+// Eigene, lokal paketierte Spielebibliothek. Spiele laufen in isolierten Fenstern
+// und erhalten keinen Node-/Preload-Zugriff auf das Studio.
+async function readGameLibrary() {
+  const root = path.join(__dirname, 'games');
+  const registry = JSON.parse(await fs.readFile(path.join(root, 'registry.json'), 'utf8'));
+  if (!registry || registry.schemaVersion !== 1 || !Array.isArray(registry.games)) {
+    throw new Error('Ungültige Spielebibliothek.');
+  }
+  const games = [];
+  for (const item of registry.games) {
+    if (!item || typeof item.id !== 'string' || !/^[a-z0-9-]{2,64}$/.test(item.id)) continue;
+    const directory = path.resolve(root, item.id);
+    if (!directory.startsWith(root + path.sep)) continue;
+    const manifest = JSON.parse(await fs.readFile(path.join(directory, 'game.json'), 'utf8'));
+    if (manifest.id !== item.id || typeof manifest.name !== 'string') continue;
+    games.push({
+      id: item.id,
+      name: manifest.name,
+      version: manifest.version,
+      description: manifest.description || '',
+      status: item.status || manifest.status || 'unknown',
+      gameplayVerified: manifest.release?.gameplayVerified === true,
+      released: manifest.release?.released === true
+    });
+  }
+  return games;
+}
+
+ipcMain.handle('studio:list-games', async (event) => {
+  if (!isTrustedStudioSender(event)) {
+    throw new Error('Nicht autorisierter Studio-Aufruf');
+  }
+  try {
+    return { ok: true, games: await readGameLibrary() };
+  } catch (error) {
+    return { ok: false, error: 'Spielebibliothek konnte nicht geladen werden: ' + String(error.message || error).slice(0, 180) };
+  }
+});
+
+ipcMain.handle('studio:open-game', async (event, payload = {}) => {
+  if (!isTrustedStudioSender(event)) {
+    throw new Error('Nicht autorisierter Studio-Aufruf');
+  }
+  const id = typeof payload.id === 'string' ? payload.id : '';
+  if (!/^[a-z0-9-]{2,64}$/.test(id)) return { ok: false, error: 'Ungültige Spiel-ID.' };
+
+  try {
+    const root = path.join(__dirname, 'games');
+    const games = await readGameLibrary();
+    const game = games.find(item => item.id === id);
+    if (!game) return { ok: false, error: 'Spiel ist nicht in der lokalen Bibliothek.' };
+
+    const directory = path.resolve(root, id);
+    const manifest = JSON.parse(await fs.readFile(path.join(directory, 'game.json'), 'utf8'));
+    const entry = typeof manifest.entry === 'string' ? manifest.entry : '';
+    if (!entry || path.isAbsolute(entry) || entry.split(/[\\/]/).includes('..')) {
+      return { ok: false, error: 'Ungültiger Spieleinstiegspunkt.' };
+    }
+    const entryPath = path.resolve(directory, entry);
+    if (!entryPath.startsWith(directory + path.sep)) return { ok: false, error: 'Spieleinstiegspunkt außerhalb des Pakets.' };
+    await fs.access(entryPath);
+
+    const gameWindow = new BrowserWindow({
+      width: 1200,
+      height: 820,
+      minWidth: 640,
+      minHeight: 480,
+      title: game.name + ' · STREAMIOV',
+      backgroundColor: '#080b18',
+      autoHideMenuBar: true,
+      parent: mainWindow || undefined,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true
+      }
+    });
+    gameWindow.setMenuBarVisibility(false);
+    gameWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    gameWindow.webContents.on('will-navigate', (navigationEvent, url) => {
+      let allowed = false;
+      try {
+        const actual = new URL(url);
+        const expected = pathToFileURL(entryPath);
+        allowed = actual.protocol === 'file:' && actual.pathname === expected.pathname;
+      } catch {}
+      if (!allowed) navigationEvent.preventDefault();
+    });
+    await gameWindow.loadFile(entryPath);
+    return { ok: true, id, status: game.status, released: game.released, windowOpened: true };
+  } catch (error) {
+    return { ok: false, error: 'Spiel konnte nicht gestartet werden: ' + String(error.message || error).slice(0, 180) };
+  }
+});
+
+
 // Dauerhafte Verwaltung von Quellen-Metadaten. Dies verbindet noch keine
 // Kamera-/Capture-Quelle mit der Encoder-Pipeline.
 ipcMain.handle('studio:source-action', async (event, payload = {}) => {
