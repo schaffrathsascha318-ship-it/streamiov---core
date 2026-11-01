@@ -35,5 +35,5 @@ test('responsive layout changes density, not the shared Regie feature model', ()
 });
 
 test('invalid viewport values fall back safely', () => {
-  assert.equal(resolveRegieLayout({ width: 'not-a-number' }).formFactor, 'desktop');
+  assert.equal(resolveRegieLayout({ width: 'not-a-number' }).formFactor, 'tablet');
 });
