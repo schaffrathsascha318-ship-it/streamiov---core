@@ -38,6 +38,9 @@ jobs:
           - name: Windows x64
             runner: windows-latest
             command: dist:win
+          - name: Windows ARM64
+            runner: windows-latest
+            command: dist:win:arm64
           - name: Linux x64
             runner: ubuntu-latest
             command: dist:linux
