@@ -5,8 +5,22 @@
   "description": "Ein eigenständiger Neon-Shooter: Verteidige den Kern gegen fallende Drohnen.",
   "entry": "index.html",
   "runtime": "browser",
-  "controls": {"keyboard": ["ArrowLeft", "ArrowRight", "A", "D", "Space"], "pointer": true, "touch": true},
+  "controls": {
+    "keyboard": [
+      "ArrowLeft",
+      "ArrowRight",
+      "A",
+      "D",
+      "Space"
+    ],
+    "pointer": true,
+    "touch": true
+  },
   "dependencies": [],
   "status": "development",
-  "release": {"automatedTestsPassed": false, "gameplayVerified": false, "released": false}
+  "release": {
+    "automatedTestsPassed": true,
+    "gameplayVerified": false,
+    "released": false
+  }
 }
