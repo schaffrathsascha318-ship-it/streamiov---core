@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import Mock
 from ai.rights.research import (
     ResearchError, OfficialSourceFetcher, RightsResearcher,
-    extract_text, validate_official_url,
+    _OfficialRedirectHandler, extract_text, validate_official_url,
 )
 from ai.rights.sources import sources_for
 
@@ -37,6 +37,15 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(snapshot.authority, "DPMA")
         self.assertIn("Trade mark information", snapshot.text)
         self.assertEqual(len(snapshot.sha256), 64)
+
+    def test_default_fetcher_has_a_working_opener(self):
+        fetcher = OfficialSourceFetcher()
+        self.assertTrue(callable(fetcher.opener))
+
+    def test_unapproved_redirect_is_rejected_before_following(self):
+        handler = _OfficialRedirectHandler()
+        with self.assertRaises(ResearchError):
+            handler.redirect_request(None, None, 302, "Found", {}, "https://attacker.example/redirect")
 
     def test_fetch_rejects_unapproved_redirect_target(self):
         response = Mock()
