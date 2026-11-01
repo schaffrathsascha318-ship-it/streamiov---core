@@ -221,10 +221,10 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
    </div>
   </div>
   <div class="panel section">
-   <div class="panel-title">AUDIO-MIXER / LOKALE REGLER</div>
+   <div class="panel-title">AUDIO-MIXER / LOKALE MISCHUNG</div>
    <div class="pad mixer">
     <div class="channel"><b>Mikrofon</b><div class="meter"><i></i></div>
-     <input type="range" min="0" max="100" value="75"><small>MIC 1</small></div>
+     <input id="microphoneMixGain" type="range" min="0" max="100" value="75"><small>MIC 1</small></div>
     <div class="channel"><b>Musik</b><div class="meter"><i></i></div>
      <input type="range" min="0" max="100" value="45"><small>MUSIC</small></div>
     <div class="channel"><b>Spiel</b><div class="meter"><i></i></div>
@@ -363,6 +363,7 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
 
  </main>
 
+<script src="./engine/audio-mixer.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const mobileRegieToggle=$("mobile-regie-toggle");
@@ -513,6 +514,12 @@ loadSources();
 // Reale lokale Kamera- und Mikrofonaufnahme über Chromium/Electron MediaDevices.
 // Es wird nichts übertragen oder gespeichert; Tracks enden beim erneuten Klick bzw. Schließen.
 const captureState={camera:null,microphone:null,desktop:null,audioContext:null,analyser:null,meterFrame:0};
+const studioAudioMixer=window.StreamiovAudioMixer?new window.StreamiovAudioMixer():null;
+const micMixGain=$("microphoneMixGain");
+if(micMixGain)micMixGain.addEventListener("input",()=>{
+ if(studioAudioMixer?.snapshot("microphone"))studioAudioMixer.setGain("microphone",Number(micMixGain.value)/100);
+});
+window.addEventListener("beforeunload",()=>{if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
 const cameraSelect=$("cameraDeviceSelect");
 const microphoneSelect=$("microphoneDeviceSelect");
 const cameraVideo=$("cameraPreview");
@@ -530,6 +537,7 @@ function stopCapture(kind){
   if(captureState.meterFrame)cancelAnimationFrame(captureState.meterFrame);
   captureState.meterFrame=0;
   if(captureState.audioContext){captureState.audioContext.close().catch(()=>{});captureState.audioContext=null;}
+  if(studioAudioMixer)studioAudioMixer.disconnect("microphone");
   captureState.analyser=null;
   $("microphoneLevel").style.width="0%";
   $("microphoneStart").textContent="MIKROFON TESTEN";
@@ -598,6 +606,9 @@ $("microphoneStart").onclick=async()=>{
   const deviceId=microphoneSelect.value;
   const stream=await navigator.mediaDevices.getUserMedia({video:false,audio:deviceId?{deviceId:{exact:deviceId}}:true});
   captureState.microphone=stream;
+  if(!studioAudioMixer)throw new Error("Der lokale Audio-Mixer ist in dieser Laufzeit nicht verfügbar.");
+  await studioAudioMixer.resume();
+  studioAudioMixer.connect("microphone",stream,{gain:Number(micMixGain?.value??75)/100});
   const AudioContextClass=window.AudioContext||window.webkitAudioContext;
   if(!AudioContextClass)throw new Error("AudioContext ist in dieser Laufzeit nicht verfügbar.");
   const context=new AudioContextClass();
@@ -617,7 +628,7 @@ $("microphoneStart").onclick=async()=>{
   draw();
   const track=stream.getAudioTracks()[0];
   if(!track||track.readyState!=="live")throw new Error("Mikrofon liefert keinen aktiven Audiostream.");
-  status.textContent="Mikrofon aktiv: "+(track.label||"Audiogerät")+". Pegelanzeige lokal – kein Ton wird übertragen.";
+  status.textContent="Mikrofon aktiv und lokal gemischt. Audio-Ausgang vorbereitet; noch nicht mit Encoder/LIVE verbunden.";
   button.textContent="MIKROFON STOPPEN";
   await refreshCaptureDevices();
   log("Echtes Mikrofon liefert einen lokalen Audiostream.");
