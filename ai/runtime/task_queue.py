@@ -284,3 +284,40 @@ class SpecialistTaskQueue:
         with self._connect() as connection:
             rows = connection.execute("SELECT * FROM specialist_tasks ORDER BY created_at, task_id").fetchall()
         return [self._row_to_task(row) for row in rows]
+
+
+@dataclass(frozen=True)
+class WorkerExecution:
+    task_id: str
+    status: QueueStatus
+    result: str = ""
+    error: str = ""
+
+
+class SpecialistWorker:
+    """Run at most one claimed task using the existing role-scoped agent factory."""
+
+    def __init__(self, queue: SpecialistTaskQueue, worker_id: str, agent_factory, *, lease_seconds: int = 300) -> None:
+        if not callable(agent_factory):
+            raise TypeError("agent_factory must be callable")
+        if not isinstance(worker_id, str) or not worker_id.strip():
+            raise ValueError("worker_id is required")
+        self.queue = queue
+        self.worker_id = worker_id
+        self.agent_factory = agent_factory
+        self.lease_seconds = lease_seconds
+
+    def run_once(self) -> WorkerExecution | None:
+        task = self.queue.claim_next(self.worker_id, lease_seconds=self.lease_seconds)
+        if task is None:
+            return None
+        try:
+            result = self.agent_factory(task.specialist).run(task.prompt)
+            if not isinstance(result, str):
+                raise TypeError("Specialist agent returned a non-text result.")
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {str(exc)[:500]}"
+            status = self.queue.fail(task.task_id, self.worker_id, error)
+            return WorkerExecution(task.task_id, status, error=error)
+        self.queue.complete(task.task_id, self.worker_id, result)
+        return WorkerExecution(task.task_id, "succeeded", result=result)
