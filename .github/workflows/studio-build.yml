@@ -22,6 +22,7 @@ on:
     paths:
       - "dist/streamiov-studio-app/**"
       - "scripts/sync-studio-ui.py"
+      - "scripts/sync-studio-games.py"
       - ".github/workflows/studio-build.yml"
   push:
     paths:
