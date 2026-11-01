@@ -650,6 +650,8 @@ function stopCapture(kind){
  if(stream){for(const track of stream.getTracks())track.stop();captureState[kind]=null;}
  if(kind==="camera"){cameraVideo.pause();cameraVideo.srcObject=null;cameraVideo.style.display="none";$("cameraStart").textContent="KAMERA TESTEN";}
  if(kind==="desktop"){
+  if(studioAudioMixer)studioAudioMixer.disconnect("game");
+  renderAudioChannel("game");
   desktopCaptureVideo.pause();desktopCaptureVideo.srcObject=null;desktopCaptureVideo.style.display="none";
   $("desktopCaptureStart").textContent="VORSCHAU STARTEN";
  }
