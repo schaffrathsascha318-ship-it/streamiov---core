@@ -218,7 +218,7 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
  * tokens are handled by the encrypted OAuth service in the main process.
  */
 const { shell } = require('electron');
-const { TikTokOAuth } = require('../../core/integration/tiktok-oauth.js');
+const { TikTokOAuth } = require('./tiktok-oauth.js');
 let tikTokOAuth = null;
 let tikTokCallbackServer = null;
 let tikTokConnectInProgress = false;
