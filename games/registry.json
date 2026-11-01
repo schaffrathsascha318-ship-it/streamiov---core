@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "games": [
+    {
+      "id": "neon-relay",
+      "name": "Neon Relay",
+      "version": "0.1.0",
+      "path": "games/neon-relay",
+      "status": "development",
+      "independent": true,
+      "automatedTestsPassed": false,
+      "gameplayVerified": false,
+      "released": false
+    }
+  ]
+}
