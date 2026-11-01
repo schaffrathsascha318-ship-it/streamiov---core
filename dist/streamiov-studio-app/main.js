@@ -388,7 +388,6 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
  * Native Electron OAuth callback. Credentials are read only from process.env;
  * tokens are handled by the encrypted OAuth service in the main process.
  */
-const { shell } = require('electron');
 const { TikTokOAuth } = require('./tiktok-oauth.js');
 let tikTokOAuth = null;
 let tikTokCallbackServer = null;
