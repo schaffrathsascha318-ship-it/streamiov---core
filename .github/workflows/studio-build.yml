@@ -47,6 +47,9 @@ jobs:
       - name: Abhängigkeiten installieren
         run: npm ci
 
+      - name: Eigene Regie-Engine testen
+        run: npm run test:engine
+
       - name: Studio bauen
         run: npm run ${{ matrix.command }}
 
