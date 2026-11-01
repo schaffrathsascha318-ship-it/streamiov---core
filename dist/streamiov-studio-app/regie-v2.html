@@ -787,22 +787,22 @@ $("desktopCaptureStart").onclick=async()=>{
   const sourceId=desktopCaptureSelect.value;
   if(!sourceId)throw new Error("Bitte zuerst eine Bildschirm- oder Fensterquelle auswählen.");
   if(!navigator.mediaDevices?.getUserMedia)throw new Error("Desktop-Capture ist in dieser Laufzeit nicht verfügbar.");
-  const videoConstraints={mandatory:{
-   chromeMediaSource:"desktop",
-   chromeMediaSourceId:sourceId,
-   maxWidth:1920,
-   maxHeight:1080,
-   maxFrameRate:30
-  }};
+  if(!navigator.mediaDevices?.getDisplayMedia)throw new Error("Die standardisierte Desktop-Capture-API ist in dieser Laufzeit nicht verfügbar.");
+  const selected=await window.streamiovStudio.selectCaptureSource(sourceId);
+  if(!selected?.ok)throw new Error(selected?.error||"Desktopquelle konnte nicht ausgewählt werden.");
   let stream,audioCaptureUnavailable=false;
   try{
-   stream=await navigator.mediaDevices.getUserMedia({
-    audio:{mandatory:{chromeMediaSource:"desktop",chromeMediaSourceId:sourceId}},
-    video:videoConstraints
+   stream=await navigator.mediaDevices.getDisplayMedia({
+    audio:true,
+    video:{width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30,max:30}}
    });
-  }catch(audioError){
+  }catch(captureError){
+   if(captureError?.name==="NotAllowedError"||captureError?.name==="NotFoundError")throw captureError;
    audioCaptureUnavailable=true;
-   stream=await navigator.mediaDevices.getUserMedia({audio:false,video:videoConstraints});
+   stream=await navigator.mediaDevices.getDisplayMedia({
+    audio:false,
+    video:{width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30,max:30}}
+   });
   }
   captureState.desktop=stream;desktopCaptureVideo.srcObject=stream;desktopCaptureVideo.style.display="block";
   await desktopCaptureVideo.play();
