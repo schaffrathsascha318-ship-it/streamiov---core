@@ -48,3 +48,18 @@ test('media file object URLs are revoked when replaced and when the Regie closes
   assert.ok(html.includes('window.addEventListener("beforeunload"'));
   assert.ok(html.includes('for(const url of mediaObjectUrls.values())URL.revokeObjectURL(url)'));
 });
+
+test('Regie exposes a German TTS test routed through the dedicated mixer channel', () => {
+  assert.ok(html.includes('id="ttsTestText"'));
+  assert.ok(html.includes('id="ttsTestSpeak"'));
+  assert.ok(html.includes('window.streamiovStudio.chatAction({action:"speak",text})'));
+  assert.ok(html.includes('createBufferSource()'));
+  assert.ok(html.includes('connectAudioSource("tts",ttsOutputDestination.stream)'));
+});
+
+test('TTS bridge returns generated WAV audio instead of bypassing the mixer', () => {
+  assert.ok(html.includes("chatAction: (payload) => ipcRenderer.invoke('studio:chat-action', payload)"));
+  assert.ok(html.includes("['-v', 'de', '--stdout', text]"));
+  assert.ok(html.includes("tts_audio_mime: 'audio/wav'"));
+  assert.ok(html.includes('tts_audio_verified: true'));
+});
