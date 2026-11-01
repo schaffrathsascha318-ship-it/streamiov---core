@@ -128,7 +128,7 @@ jobs:
         run: node scripts/test-studio-media-pipeline.cjs
 
   publish-release:
-    if: github.ref == 'refs/heads/streamiov-build-setup-clean' && github.event_name == 'workflow_dispatch' && inputs.publish_release
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release
     name: Installer dauerhaft veröffentlichen
     needs: [build, media-pipeline-smoke]
     runs-on: ubuntu-latest
