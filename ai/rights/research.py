@@ -9,7 +9,7 @@ from datetime import date
 from html.parser import HTMLParser
 import re
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 from .sources import sources_for
 
