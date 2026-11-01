@@ -226,11 +226,13 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
     <div class="channel" data-audio-channel="microphone"><b>Mikrofon</b><div class="meter"><i></i></div>
      <input id="microphoneMixGain" data-mix-gain="microphone" type="range" min="0" max="100" value="75"><small>MIC · PROGRAMM + MONITOR</small><button type="button" data-mix-mute="microphone" aria-pressed="false">STUMM</button><small data-mix-state="microphone">Noch nicht verbunden</small></div>
     <div class="channel" data-audio-channel="music"><b>Musik</b><div class="meter"><i></i></div>
-     <input id="musicMixGain" data-mix-gain="music" type="range" min="0" max="100" value="45"><small>MUSIC · PROGRAMM</small><button type="button" data-mix-mute="music" aria-pressed="false">STUMM</button><small data-mix-state="music">Quelle noch nicht verbunden</small></div>
+     <input id="musicMixGain" data-mix-gain="music" type="range" min="0" max="100" value="45"><small>MUSIC · PROGRAMM + MONITOR</small><button type="button" data-mix-mute="music" aria-pressed="false">STUMM</button><small data-mix-state="music">Quelle noch nicht verbunden</small>
+     <label for="musicAudioFile">Lokale Musikdatei</label><input id="musicAudioFile" type="file" accept="audio/*"><audio id="musicAudioPlayer" controls preload="metadata"></audio></div>
     <div class="channel" data-audio-channel="game"><b>Spielton</b><div class="meter"><i></i></div>
      <input id="gameMixGain" data-mix-gain="game" type="range" min="0" max="100" value="65"><small>GAME · PROGRAMM</small><button type="button" data-mix-mute="game" aria-pressed="false">STUMM</button><small data-mix-state="game">Quelle noch nicht verbunden</small></div>
     <div class="channel" data-audio-channel="alerts"><b>Alerts</b><div class="meter"><i></i></div>
-     <input id="alertsMixGain" data-mix-gain="alerts" type="range" min="0" max="100" value="80"><small>ALERTS · PROGRAMM</small><button type="button" data-mix-mute="alerts" aria-pressed="false">STUMM</button><small data-mix-state="alerts">Quelle noch nicht verbunden</small></div>
+     <input id="alertsMixGain" data-mix-gain="alerts" type="range" min="0" max="100" value="80"><small>ALERTS · PROGRAMM + MONITOR</small><button type="button" data-mix-mute="alerts" aria-pressed="false">STUMM</button><small data-mix-state="alerts">Quelle noch nicht verbunden</small>
+     <label for="alertAudioFile">Lokaler Alert-Sound</label><input id="alertAudioFile" type="file" accept="audio/*"><audio id="alertAudioPlayer" controls preload="metadata"></audio></div>
     <div class="channel" data-audio-channel="tts"><b>TTS / Sprache</b><div class="meter"><i></i></div>
      <input id="ttsMixGain" data-mix-gain="tts" type="range" min="0" max="100" value="85"><small>TTS · PROGRAMM</small><button type="button" data-mix-mute="tts" aria-pressed="false">STUMM</button><small data-mix-state="tts">Quelle noch nicht verbunden</small></div>
    </div>
@@ -526,7 +528,7 @@ loadSources();
 const captureState={camera:null,microphone:null,desktop:null,audioContext:null,analyser:null,meterFrame:0};
 const studioAudioMixer=window.StreamiovAudioMixer?new window.StreamiovAudioMixer():null;
 if(studioAudioMixer){for(const bus of ["microphone_stem","music_stem","game_stem","alerts_stem","tts_stem"])studioAudioMixer.createBus(bus);}
-const audioChannelDefaults={microphone:{gain:75,muted:false,routes:["stream","monitor","microphone_stem"]},music:{gain:45,muted:false,routes:["stream","music_stem"]},game:{gain:65,muted:false,routes:["stream","game_stem"]},alerts:{gain:80,muted:false,routes:["stream","alerts_stem"]},tts:{gain:85,muted:false,routes:["stream","tts_stem"]}};
+const audioChannelDefaults={microphone:{gain:75,muted:false,routes:["stream","monitor","microphone_stem"]},music:{gain:45,muted:false,routes:["stream","monitor","music_stem"]},game:{gain:65,muted:false,routes:["stream","monitor","game_stem"]},alerts:{gain:80,muted:false,routes:["stream","monitor","alerts_stem"]},tts:{gain:85,muted:false,routes:["stream","monitor","tts_stem"]}};
 const audioChannelState=Object.fromEntries(Object.entries(audioChannelDefaults).map(([name,value])=>[name,{...value}]));
 const micMixGain=$("microphoneMixGain");
 function renderAudioChannel(name){
@@ -542,6 +544,25 @@ function connectAudioSource(name,stream){
  renderAudioChannel(name);
 }
 window.streamiovAudioInputs={connect:connectAudioSource,disconnect:(name)=>{studioAudioMixer?.disconnect(name);renderAudioChannel(name);},getOutput:(bus="stream")=>studioAudioMixer?.getOutputStream(bus)};
+const mediaElementSources=new Map(),mediaObjectUrls=new Map();
+function bindMediaFile(channel,fileInput,player){
+ fileInput.addEventListener("change",()=>{
+  const file=fileInput.files?.[0];if(!file)return;
+  if(!file.type.startsWith("audio/")){fileInput.value="";throw new Error("Bitte eine Audiodatei auswählen.");}
+  const previousUrl=mediaObjectUrls.get(channel);if(previousUrl)URL.revokeObjectURL(previousUrl);
+  const url=URL.createObjectURL(file);mediaObjectUrls.set(channel,url);player.src=url;player.load();
+  let binding=mediaElementSources.get(channel);
+  if(!binding){
+   const source=studioAudioMixer.context.createMediaElementSource(player);
+   const destination=studioAudioMixer.context.createMediaStreamDestination();
+   source.connect(destination);
+   binding={source,destination};mediaElementSources.set(channel,binding);
+  }
+  connectAudioSource(channel,binding.destination.stream);
+ });
+}
+bindMediaFile("music",$("musicAudioFile"),$("musicAudioPlayer"));
+bindMediaFile("alerts",$("alertAudioFile"),$("alertAudioPlayer"));
 document.querySelectorAll("[data-mix-gain]").forEach(control=>control.addEventListener("input",()=>{
  const name=control.dataset.mixGain,state=audioChannelState[name];if(!state)return;
  state.gain=Number(control.value);
