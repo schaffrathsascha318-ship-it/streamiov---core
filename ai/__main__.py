@@ -15,6 +15,7 @@ from ai.providers.local_http import ProviderError, provider_from_env
 from ai.runtime.task_queue import SpecialistTaskQueue, SpecialistWorker, TaskQueueError
 from ai.runtime.worker_service import run_worker_loop
 from ai.core.orchestrator import SpecialistTask
+from ai.core.planner import PlannerError, SpecialistPlanner
 from ai.specialists import specialist_names
 
 
@@ -46,6 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--queue-db", help="SQLite path for the persistent specialist task queue.")
     queue_mode = parser.add_mutually_exclusive_group()
     queue_mode.add_argument("--enqueue", action="store_true", help="Queue --task for the selected specialist instead of running immediately.")
+    queue_mode.add_argument("--plan-and-enqueue", action="store_true", help="Ask Core AI to split --task across specialists and persist the validated plan.")
     queue_mode.add_argument("--worker-once", action="store_true", help="Claim and execute at most one queued specialist task, then exit.")
     queue_mode.add_argument("--worker-loop", action="store_true", help="Run a supervised worker until SIGINT/SIGTERM or --max-tasks.")
     parser.add_argument("--poll-seconds", type=int, default=5, help="Idle polling interval for --worker-loop (1–60 seconds).")
@@ -66,6 +68,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.enqueue:
         if not args.task or not args.queue_db or args.doctor:
             parser.error("--enqueue requires --task and --queue-db and cannot be combined with --doctor")
+    elif args.plan_and_enqueue:
+        if not args.task or not args.queue_db or args.doctor:
+            parser.error("--plan-and-enqueue requires --task and --queue-db and cannot be combined with --doctor")
     elif args.worker_once or args.worker_loop:
         mode = "--worker-loop" if args.worker_loop else "--worker-once"
         if not args.queue_db or args.task or args.doctor:
@@ -81,6 +86,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.doctor and args.task:
         parser.error("--doctor and --task cannot be used together")
     try:
+        if args.plan_and_enqueue:
+            provider = provider_from_env()
+            tasks = SpecialistPlanner(provider).plan(args.task)
+            queue = SpecialistTaskQueue(args.queue_db)
+            queue.enqueue_plan(tasks)
+            print(json.dumps({"status": "queued", "tasks": [{"task_id": task.task_id, "specialist": task.specialist, "depends_on": list(task.depends_on)} for task in tasks]}, ensure_ascii=False))
+            return 0
         if args.enqueue:
             queue = SpecialistTaskQueue(args.queue_db)
             task_id = uuid.uuid4().hex
@@ -152,7 +164,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(agent.run(args.task))
         return 0
-    except (AgentError, ProviderError, TaskQueueError, sqlite3.Error, OSError, ValueError) as exc:
+    except (AgentError, PlannerError, ProviderError, TaskQueueError, sqlite3.Error, OSError, ValueError) as exc:
         print(f"streamiov-agent: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
 
