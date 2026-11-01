@@ -7,6 +7,14 @@ on:
       - "scripts/deploy-streamiov-ai-worker.sh"
       - "tests/**"
       - ".github/workflows/phase-1-agent-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ai/**"
+      - "infrastructure/cloudflare/streamiov-ai-worker/**"
+      - "scripts/deploy-streamiov-ai-worker.sh"
+      - "tests/**"
+      - ".github/workflows/phase-1-agent-tests.yml"
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
