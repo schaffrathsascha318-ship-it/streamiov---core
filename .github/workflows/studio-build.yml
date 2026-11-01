@@ -54,6 +54,12 @@ jobs:
           - name: Linux ARM64
             runner: ubuntu-24.04-arm
             command: dist:linux:arm64
+          - name: ChromeOS ARM64 (Crostini)
+            runner: ubuntu-24.04-arm
+            command: dist:chromeos:arm64
+          - name: ChromeOS x64 (Crostini)
+            runner: ubuntu-latest
+            command: dist:chromeos:x64
 
     defaults:
       run:
