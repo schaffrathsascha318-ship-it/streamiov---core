@@ -16,7 +16,8 @@
     "prestart": "python3 ../../scripts/sync-studio-ui.py",
     "pre-dist:win": "python3 ../../scripts/sync-studio-ui.py",
     "pre-dist:linux": "python3 ../../scripts/sync-studio-ui.py",
-    "pre-dist:linux:arm64": "python3 ../../scripts/sync-studio-ui.py"
+    "pre-dist:linux:arm64": "python3 ../../scripts/sync-studio-ui.py",
+    "test:engine": "node --test engine/scene-engine.test.js"
   },
   "dependencies": {
     "tiktok-live-connector": "2.5.0"
