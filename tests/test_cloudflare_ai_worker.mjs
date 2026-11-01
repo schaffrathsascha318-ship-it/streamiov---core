@@ -148,19 +148,56 @@ test("validates message roles, model id, and streaming mode", async () => {
   assert.equal(streaming.status, 400);
 });
 
-test("enforces request body and prompt limits before inference", async () => {
-  const oversized = await worker.fetch(
+test("allows bounded multi-file agent context above the former 12 KB message limit", async () => {
+  let called = false;
+  const response = await worker.fetch(
+    chatRequest({ messages: [{ role: "user", content: "x".repeat(20_000) }] }),
+    env({ AI: { run: async () => { called = true; return { response: "accepted" }; } } })
+  );
+  assert.equal(response.status, 200);
+  assert.equal(called, true);
+});
+
+test("accepts a message exactly at the 32 KB per-message ceiling", async () => {
+  let called = false;
+  const response = await worker.fetch(
+    chatRequest({ messages: [{ role: "user", content: "x".repeat(32_000) }] }),
+    env({ AI: { run: async () => { called = true; return { response: "accepted" }; } } })
+  );
+  assert.equal(response.status, 200);
+  assert.equal(called, true);
+});
+
+test("enforces per-message, aggregate prompt, and request body limits before inference", async () => {
+  const oversizedBody = await worker.fetch(
     chatRequest({ messages: [{ role: "user", content: "x".repeat(70_000) }] }),
     env()
   );
-  assert.equal(oversized.status, 413);
+  assert.equal(oversizedBody.status, 413);
 
   let called = false;
-  const tooMany = await worker.fetch(
+  const tooManyMessages = await worker.fetch(
     chatRequest({ messages: Array.from({ length: 25 }, () => ({ role: "user", content: "x" })) }),
     env({ AI: { run: async () => { called = true; return { response: "no" }; } } })
   );
-  assert.equal(tooMany.status, 400);
+  assert.equal(tooManyMessages.status, 400);
+  assert.equal(called, false);
+
+  const tooLongMessage = await worker.fetch(
+    chatRequest({ messages: [{ role: "user", content: "x".repeat(32_001) }] }),
+    env({ AI: { run: async () => { called = true; return { response: "no" }; } } })
+  );
+  assert.equal(tooLongMessage.status, 400);
+  assert.equal(called, false);
+
+  const tooLargePrompt = await worker.fetch(
+    chatRequest({ messages: [
+      { role: "user", content: "x".repeat(25_000) },
+      { role: "assistant", content: "y".repeat(24_000) }
+    ] }),
+    env({ AI: { run: async () => { called = true; return { response: "no" }; } } })
+  );
+  assert.equal(tooLargePrompt.status, 400);
   assert.equal(called, false);
 });
 
