@@ -590,12 +590,13 @@ $("ttsTestSpeak").addEventListener("click",async()=>{
   const audioBuffer=await studioAudioMixer.context.decodeAudioData(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength));
   if(!ttsOutputDestination)ttsOutputDestination=studioAudioMixer.context.createMediaStreamDestination();
   if(activeTtsSource){try{activeTtsSource.stop();}catch{}try{activeTtsSource.disconnect();}catch{}}
-  activeTtsSource=studioAudioMixer.context.createBufferSource();
-  activeTtsSource.buffer=audioBuffer;
-  activeTtsSource.connect(ttsOutputDestination);
+  const source=studioAudioMixer.context.createBufferSource();
+  activeTtsSource=source;
+  source.buffer=audioBuffer;
+  source.connect(ttsOutputDestination);
   connectAudioSource("tts",ttsOutputDestination.stream);
-  activeTtsSource.onended=()=>{try{activeTtsSource?.disconnect();}catch{}activeTtsSource=null;};
-  activeTtsSource.start();
+  source.onended=()=>{try{source.disconnect();}catch{}if(activeTtsSource===source)activeTtsSource=null;};
+  source.start();
   status.textContent="TTS-Audio läuft über den separaten TTS-Mixer-Kanal.";
  }catch(error){status.textContent="TTS nicht verfügbar: "+String(error.message||error).slice(0,180);}
  finally{button.disabled=false;}
