@@ -3,17 +3,139 @@
   "scope": {
     "from_year": 1996,
     "to_year": 2026,
-    "manufacturers": [
-      "SEGA",
-      "Nintendo",
-      "Sony",
-      "Microsoft",
-      "Atari",
-      "PC",
-      "Arcade",
-      "Handheld",
-      "Mobile"
-    ]
+    "manufacturers": ["SEGA", "Nintendo", "Sony", "Microsoft", "Atari", "PC", "Arcade", "Handheld", "Mobile"]
   },
-  "entries": []
+  "entries": [
+    {
+      "id": "paybacktime-2",
+      "title": "PaybackTime 2",
+      "release_year": 1997,
+      "platforms": ["MS-DOS", "PC"],
+      "publisher": null,
+      "developer": "Niko Nevatie and Kari Luojus",
+      "project_status": "archived",
+      "discovery_sources": [
+        {"url": "https://github.com/nnevatie/paybacktime2", "source_type": "developer-associated source repository", "accessed_at": "2026-11-01", "notes": "Repository describes the game as later released into the public domain with source code. Obtain and preserve the original author statement and inspect every file before acquisition."},
+        {"url": "https://www.dosgamesarchive.com/download/paybacktime-2/", "source_type": "secondary historical reference", "accessed_at": "2026-11-01", "notes": "Reports full version and source released by the authors; secondary corroboration only."}
+      ],
+      "components": [
+        {"component": "code", "rights_basis": "public_domain", "license_name": "Public domain (author-reported)", "license_version": null, "evidence_urls": ["https://github.com/nnevatie/paybacktime2"], "status": "partial", "restrictions": ["Verify original author declaration and scope; repository-level statement is not yet independently authenticated."]},
+        {"component": "art", "rights_basis": "public_domain", "license_name": "Public domain (author-reported)", "license_version": null, "evidence_urls": ["https://github.com/nnevatie/paybacktime2"], "status": "partial", "restrictions": ["Confirm all bundled art, maps, music and sound are included in the author grant."]},
+        {"component": "music", "rights_basis": "unknown", "license_name": null, "license_version": null, "evidence_urls": [], "status": "unknown", "restrictions": ["Identify composer and verify music/sound scope before reuse."]},
+        {"component": "trademarks", "rights_basis": "unknown", "license_name": null, "license_version": null, "evidence_urls": [], "status": "unknown", "restrictions": ["Do not assume title or logos are included in public-domain statement."]}
+      ],
+      "territories": ["Worldwide (to be legally confirmed)"],
+      "activities": ["download", "preserve", "copy", "modify", "port", "remaster", "remake"],
+      "rights_status": "SOURCE_VERIFIED",
+      "archive_status": "NOT_ACQUIRED",
+      "remake_plan": {"status": "CANDIDATE", "types": ["restoration", "port", "remaster", "remake", "2d_to_3d"], "notes": "Turn-based squad tactics, up to four players, editable maps/weapons/items and persistent teams. Strong remake candidate after original grant and component scope are verified.", "blocked_components": ["music", "trademarks"]},
+      "last_reviewed": "2026-11-01",
+      "reviewer_notes": "Promising lead; do not download/reuse until primary author grant and complete component scope are captured."
+    },
+    {
+      "id": "duelyst",
+      "title": "Duelyst",
+      "release_year": 2016,
+      "platforms": ["PC", "Web", "Android", "iOS"],
+      "publisher": "Counterplay Games",
+      "developer": "Counterplay Games",
+      "project_status": "archived",
+      "discovery_sources": [
+        {"url": "https://github.com/open-duelyst/duelyst", "source_type": "preservation repository and licence declaration", "accessed_at": "2026-11-01", "notes": "Repository identifies original 2016 game, shutdown-era snapshot, local hosting and CC0-1.0. Confirm upstream rights-holder grant and any excluded dependencies before acquisition."}
+      ],
+      "components": [
+        {"component": "code", "rights_basis": "license", "license_name": "CC0 1.0 Universal", "license_version": "1.0", "evidence_urls": ["https://github.com/open-duelyst/duelyst"], "status": "verified", "restrictions": ["Audit bundled third-party libraries and dependencies individually."]},
+        {"component": "art", "rights_basis": "license", "license_name": "CC0 1.0 Universal (repository-declared)", "license_version": "1.0", "evidence_urls": ["https://github.com/open-duelyst/duelyst"], "status": "partial", "restrictions": ["Confirm original rights-holder scope and check every asset for third-party exclusions."]},
+        {"component": "music", "rights_basis": "unknown", "license_name": null, "license_version": null, "evidence_urls": [], "status": "unknown", "restrictions": ["Verify music and audio provenance separately."]},
+        {"component": "trademarks", "rights_basis": "unknown", "license_name": null, "license_version": null, "evidence_urls": [], "status": "unknown", "restrictions": ["Duelyst name, logos and marks are not presumed CC0."]},
+        {"component": "middleware", "rights_basis": "unknown", "license_name": null, "license_version": null, "evidence_urls": [], "status": "unknown", "restrictions": ["Audit Firebase, fonts, packages and bundled libraries."]}
+      ],
+      "territories": ["Worldwide (CC0 scope subject to third-party rights)"],
+      "activities": ["download", "preserve", "copy", "modify", "port", "remaster", "remake"],
+      "rights_status": "PARTIAL_CLEARANCE",
+      "archive_status": "NOT_ACQUIRED",
+      "remake_plan": {"status": "CANDIDATE", "types": ["restoration", "port", "remaster", "remake"], "notes": "Digital collectible card game plus tactical grid combat. Candidate for a modern Streamiov edition; first verify all source/assets and any excluded third-party materials.", "blocked_components": ["music", "trademarks", "middleware"]},
+      "last_reviewed": "2026-11-01",
+      "reviewer_notes": "Strong lead. The repository states CC0, but the catalogue intentionally does not mark the complete title as fully cleared until all component provenance is checked."
+    },
+    {
+      "id": "glitch",
+      "title": "Glitch",
+      "release_year": 2009,
+      "platforms": ["Web", "Browser", "Android client"],
+      "publisher": "Tiny Speck",
+      "developer": "Tiny Speck",
+      "project_status": "archived",
+      "discovery_sources": [
+        {"url": "https://github.com/tinyspeck/glitch-client", "source_type": "original developer organization repository", "accessed_at": "2026-11-01", "notes": "Client repository says all included files are CC0 1.0 and expressly excludes Glitch logo and trademark."},
+        {"url": "https://github.com/tinyspeck/glitch-locations", "source_type": "original developer organization repository", "accessed_at": "2026-11-01", "notes": "Location art and source repository explicitly states CC0."},
+        {"url": "https://github.com/tinyspeck/glitch-overlays", "source_type": "original developer organization repository", "accessed_at": "2026-11-01", "notes": "Overlay art/source explicitly CC0; logo and trademark excluded."}
+      ],
+      "components": [
+        {"component": "code", "rights_basis": "license", "license_name": "CC0 1.0 Universal", "license_version": "1.0", "evidence_urls": ["https://github.com/tinyspeck/glitch-client"], "status": "partial", "restrictions": ["Only files in the released client repositories; do not infer that the complete server/backend or full original game is included."]},
+        {"component": "art", "rights_basis": "license", "license_name": "CC0 1.0 Universal", "license_version": "1.0", "evidence_urls": ["https://github.com/tinyspeck/glitch-locations", "https://github.com/tinyspeck/glitch-overlays"], "status": "verified", "restrictions": ["Only files included in the specific Tiny Speck repositories; preserve repository and file-level provenance."]},
+        {"component": "characters", "rights_basis": "license", "license_name": "CC0 1.0 Universal (included files only)", "license_version": "1.0", "evidence_urls": ["https://github.com/tinyspeck/glitch-client"], "status": "partial", "restrictions": ["Verify each character asset is within the original CC0 grant and not a third-party item."]},
+        {"component": "trademarks", "rights_basis": "not_cleared", "license_name": null, "license_version": null, "evidence_urls": ["https://github.com/tinyspeck/glitch-client"], "status": "blocked", "restrictions": ["Original repository expressly excludes the Glitch logo and trademark. Do not use original branding."]}
+      ],
+      "territories": ["Worldwide (CC0 scope subject to exclusions and third-party rights)"],
+      "activities": ["download", "preserve", "copy", "modify", "port", "remaster", "remake"],
+      "rights_status": "PARTIAL_CLEARANCE",
+      "archive_status": "NOT_ACQUIRED",
+      "remake_plan": {"status": "CANDIDATE", "types": ["restoration", "remake", "2d_to_3d", "clean_room_reinterpretation"], "notes": "Shutdown-era creative browser MMO. Excellent candidate to study and selectively reuse the explicitly CC0 art/client files; a full MMO reconstruction needs a new backend and original Streamiov identity.", "blocked_components": ["Glitch name", "Glitch logo/trademark", "unreleased server/backend", "unverified third-party content"]},
+      "last_reviewed": "2026-11-01",
+      "reviewer_notes": "Do not describe the complete original game as CC0. The grant applies to specified released repositories/files only."
+    },
+    {
+      "id": "scp-containment-breach",
+      "title": "SCP - Containment Breach",
+      "release_year": 2012,
+      "platforms": ["PC", "Windows"],
+      "publisher": null,
+      "developer": "Undertow Games / Regalis",
+      "project_status": "inactive",
+      "discovery_sources": [
+        {"url": "https://github.com/Regalis11/scpcb", "source_type": "developer source repository", "accessed_at": "2026-11-01", "notes": "Repository README declares game and source code CC BY-SA 3.0; the work is based on SCP Foundation community works."},
+        {"url": "https://creativecommons.org/licenses/by-sa/3.0/", "source_type": "official licence text", "accessed_at": "2026-11-01", "notes": "CC BY-SA 3.0 permits sharing/adaptation subject to attribution and share-alike conditions; not public domain."}
+      ],
+      "components": [
+        {"component": "code", "rights_basis": "license", "license_name": "CC BY-SA 3.0", "license_version": "3.0", "evidence_urls": ["https://github.com/Regalis11/scpcb"], "status": "partial", "restrictions": ["Confirm repository scope and dependencies."]},
+        {"component": "art", "rights_basis": "license", "license_name": "CC BY-SA 3.0 (declared)", "license_version": "3.0", "evidence_urls": ["https://github.com/Regalis11/scpcb"], "status": "partial", "restrictions": ["Check asset provenance, credits and any separately licensed third-party materials."]},
+        {"component": "characters", "rights_basis": "license", "license_name": "CC BY-SA 3.0 and upstream SCP licences", "license_version": "3.0", "evidence_urls": ["https://github.com/Regalis11/scpcb"], "status": "partial", "restrictions": ["SCP Foundation source works and identifiers require separate licence/attribution review."]},
+        {"component": "trademarks", "rights_basis": "unknown", "license_name": null, "license_version": null, "evidence_urls": [], "status": "unknown", "restrictions": ["Do not presume the SCP name, logos or marks are cleared for Streamiov branding."]}
+      ],
+      "territories": ["Worldwide (subject to CC BY-SA and upstream SCP terms)"],
+      "activities": ["download", "preserve", "copy", "modify", "port", "remaster", "remake"],
+      "rights_status": "PARTIAL_CLEARANCE",
+      "archive_status": "NOT_ACQUIRED",
+      "remake_plan": {"status": "CANDIDATE", "types": ["restoration", "port", "remaster", "remake"], "notes": "3D survival-horror game. A remake would need attribution and share-alike compliance plus separate review of SCP Foundation works and third-party assets.", "blocked_components": ["trademarks", "unverified third-party assets", "upstream SCP content pending licence audit"]},
+      "last_reviewed": "2026-11-01",
+      "reviewer_notes": "This is openly licensed, not a lapsed-copyright/public-domain title. Include only if Streamiov accepts CC BY-SA obligations."
+    },
+    {
+      "id": "machines-wired-for-war",
+      "title": "Machines: Wired for War",
+      "release_year": 1999,
+      "platforms": ["PC", "Windows"],
+      "publisher": "Acclaim",
+      "developer": "Charybdis",
+      "project_status": "inactive",
+      "discovery_sources": [
+        {"url": "https://github.com/markol/machines", "source_type": "source repository; rights-holder permission reported", "accessed_at": "2026-11-01", "notes": "Repository says the GL port source was released as free software under permission of Night Dive Studios, current rights holder."},
+        {"url": "https://github.com/WiredForWar/machines", "source_type": "community fork and asset acquisition instructions", "accessed_at": "2026-11-01", "notes": "Community fork identifies separate downloadable game assets; verify the rights basis and exact scope for those assets directly with Nightdive before redistribution or derivative work."}
+      ],
+      "components": [
+        {"component": "code", "rights_basis": "license", "license_name": "GPL-3.0 (repository)", "license_version": "3.0", "evidence_urls": ["https://github.com/markol/machines"], "status": "partial", "restrictions": ["Preserve GPL notices and confirm rights-holder permission covers intended commercial modification and distribution."]},
+        {"component": "art", "rights_basis": "unknown", "license_name": null, "license_version": null, "evidence_urls": ["https://github.com/WiredForWar/machines"], "status": "unknown", "restrictions": ["Assets are distributed separately; no clear redistributable licence established in current research."]},
+        {"component": "music", "rights_basis": "unknown", "license_name": null, "license_version": null, "evidence_urls": ["https://github.com/WiredForWar/machines"], "status": "unknown", "restrictions": ["Verify music/sound rights and scope."]},
+        {"component": "trademarks", "rights_basis": "unknown", "license_name": null, "license_version": null, "evidence_urls": [], "status": "unknown", "restrictions": ["Verify game title/logo use separately."]}
+      ],
+      "territories": ["Worldwide (permission scope to be confirmed)"],
+      "activities": ["download", "preserve", "copy", "modify", "port", "remaster", "remake"],
+      "rights_status": "PARTIAL_CLEARANCE",
+      "archive_status": "NOT_ACQUIRED",
+      "remake_plan": {"status": "CANDIDATE", "types": ["restoration", "port", "remaster", "remake", "2d_to_3d"], "notes": "1999 3D real-time strategy game; technically interesting revival candidate. Do not copy/redistribute assets or market a remake until Nightdive permission and all component rights are confirmed.", "blocked_components": ["art", "music", "trademarks", "asset licence scope"]},
+      "last_reviewed": "2026-11-01",
+      "reviewer_notes": "Code appears permissively available under GPL-3.0 with rights-holder permission, but the game as a whole is not yet cleared."
+    }
+  ]
 }
