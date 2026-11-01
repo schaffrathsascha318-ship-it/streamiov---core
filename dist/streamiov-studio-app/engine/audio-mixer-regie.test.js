@@ -71,3 +71,10 @@ test('TTS playback cleanup cannot disconnect a newer utterance', () => {
   assert.ok(html.includes('if(activeTtsSource===source)activeTtsSource=null'));
   assert.ok(html.includes('source.onended=()=>{try{source.disconnect();}catch{}'));
 });
+
+test('desktop capture requests system audio and gracefully falls back to video-only capture', () => {
+  assert.ok(html.includes('audio:{mandatory:{chromeMediaSource:"desktop",chromeMediaSourceId:sourceId}}'));
+  assert.ok(html.includes('audioCaptureUnavailable=true'));
+  assert.ok(html.includes('connectAudioSource("game",stream)'));
+  assert.ok(html.includes('Diese Laufzeit unterstützt kein Desktop-Audio; Bild bleibt verfügbar.'));
+});
