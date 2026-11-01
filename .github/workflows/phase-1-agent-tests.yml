@@ -6,6 +6,8 @@ on:
       - "infrastructure/cloudflare/streamiov-ai-worker/**"
       - "scripts/deploy-streamiov-ai-worker.sh"
       - "tests/**"
+      - "scripts/autonomous/**"
+      - ".github/workflows/autonomous-development.yml"
       - ".github/workflows/phase-1-agent-tests.yml"
   push:
     branches: [main]
@@ -38,5 +40,7 @@ jobs:
         run: bash -n scripts/deploy-streamiov-ai-worker.sh
       - name: Run Cloudflare AI Worker tests
         run: node --test tests/test_cloudflare_ai_worker.mjs
+      - name: Check autonomous runner Python syntax
+        run: python -m py_compile scripts/autonomous/run_issue.py
       - name: Run Phase 1 unit tests
         run: python -m unittest discover -s tests -v
