@@ -63,5 +63,11 @@ test('TTS bridge returns generated WAV audio instead of bypassing the mixer', ()
   assert.ok(preload.includes("chatAction: (payload) => ipcRenderer.invoke('studio:chat-action', payload)"));
   assert.ok(main.includes("['-v', 'de', '--stdout', text]"));
   assert.ok(main.includes("tts_audio_mime: 'audio/wav'"));
-  assert.ok(main.includes('tts_audio_verified: true'));
+  assert.ok(main.includes('tts_audio_generated: true'));
+  assert.ok(main.includes('tts_audio_verified: false'));
+});
+
+test('TTS playback cleanup cannot disconnect a newer utterance', () => {
+  assert.ok(html.includes('if(activeTtsSource===source)activeTtsSource=null'));
+  assert.ok(html.includes('source.onended=()=>{try{source.disconnect();}catch{}'));
 });
