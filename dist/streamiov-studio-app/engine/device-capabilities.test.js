@@ -28,7 +28,8 @@ test('unknown hardware support is never guessed as available', () => {
 
 test('responsive layout changes density, not the shared Regie feature model', () => {
   assert.deepEqual(resolveRegieLayout({ width: 390, height: 844, coarsePointer: true }), {
-    formFactor: 'phone', inputMode: 'touch', orientation: 'portrait', navigation: 'compact', columns: 1
+    formFactor: 'phone', inputMode: 'touch', orientation: 'portrait', navigation: 'compact',
+    columns: 1, contentRegieArrangement: 'stacked'
   });
   assert.equal(resolveRegieLayout({ width: 900, height: 600 }).columns, 2);
   assert.equal(resolveRegieLayout({ width: 1440, height: 900 }).columns, 3);
@@ -36,4 +37,10 @@ test('responsive layout changes density, not the shared Regie feature model', ()
 
 test('invalid viewport values fall back safely', () => {
   assert.equal(resolveRegieLayout({ width: 'not-a-number' }).formFactor, 'tablet');
+});
+
+test('capability reports and their nested map are immutable', () => {
+  const report = resolveDeviceCapabilities();
+  assert.equal(Object.isFrozen(report), true);
+  assert.equal(Object.isFrozen(report.capabilities), true);
 });
