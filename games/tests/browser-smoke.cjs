@@ -7,7 +7,7 @@ const { pathToFileURL } = require('node:url');
 const { chromium } = require('playwright');
 
 const root = path.resolve(__dirname, '..', '..');
-const gameUrl = id => pathToFileURL(path.join(root, id, 'index.html')).href;
+const gameUrl = id => pathToFileURL(path.join(root, 'games', id, 'index.html')).href;
 
 test('three independent games load and complete core browser interactions', async () => {
   const browser = await chromium.launch({ headless: true });
