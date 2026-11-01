@@ -209,7 +209,7 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
     <button class="fade" id="fade">FADE</button>
     <span class="pill">ÜBERGANG: 300 MS</span>
     <button id="take">TAKE → PROGRAMM</button>
-    <button id="openProgramOutput" type="button">2. BILDSCHIRM ÖFFNEN</button>
+    <button id="openProgramOutput" type="button">REGIE AUF 2. BILDSCHIRM</button>
    </div>
   </div>
   <div class="panel section">
@@ -423,11 +423,13 @@ async function createScene(){
 $("openProgramOutput").onclick=async()=>{
  const button=$("openProgramOutput");button.disabled=true;
  try{
-  if(!window.streamiovStudio?.openProgramOutput)throw new Error("Zweitbildschirm-Funktion ist in diesem Build nicht verfügbar.");
-  const result=await window.streamiovStudio.openProgramOutput();
-  if(!result?.ok)throw new Error(result?.error||"Programmausgabe konnte nicht geöffnet werden.");
-  log(result.externalDisplay?"Programmausgabe auf externem Bildschirm geöffnet.":"Kein externer Bildschirm erkannt – separates Ausgabefenster geöffnet.");
- }catch(error){log("Programmausgabe: "+String(error.message||error));}
+  if(!window.streamiovStudio?.moveRegieToDisplay)throw new Error("Display-Steuerung ist in diesem Build nicht verfügbar.");
+  const displays=await window.streamiovStudio.getDisplays();
+  const external=displays?.displays?.find(display=>!display.primary);
+  const result=await window.streamiovStudio.moveRegieToDisplay(external?.id);
+  if(!result?.ok)throw new Error(result?.error||"Regie konnte nicht auf den Bildschirm verschoben werden.");
+  log(result.primary?"Nur ein Bildschirm erkannt – Regie bleibt auf dem Hauptbildschirm.":"STREAMIOV-Regie läuft jetzt auf dem zweiten Bildschirm. Spiel und Inhalt bleiben auf Bildschirm 1 frei.");
+ }catch(error){log("Zweitbildschirm-Regie: "+String(error.message||error));}
  finally{button.disabled=false;}
 };
 async function take(){
