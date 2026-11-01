@@ -6,6 +6,7 @@ const os = require('node:os');
 const http = require('node:http');
 const { pathToFileURL } = require('node:url');
 const { buildSyntheticAvPipelineArgs } = require('./media-pipeline');
+const { StudioSceneEngine } = require('./engine/scene-engine');
 
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
@@ -122,98 +123,39 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
   }
 
   const file = path.join(app.getPath('userData'), 'streamiov-scenes.json');
-  const defaults = () => ({
-    version: 1,
-    scenes: [
-      { id: 'starting-soon', name: 'STARTING SOON', kind: 'built-in' },
-      { id: 'live', name: 'LIVE', kind: 'built-in' },
-      { id: 'pause', name: 'PAUSE', kind: 'built-in' },
-      { id: 'ending', name: 'ENDING', kind: 'built-in' },
-      { id: 'gameplay', name: 'GAMEPLAY', kind: 'built-in' },
-      { id: 'just-chatting', name: 'JUST CHATTING', kind: 'built-in' }
-    ],
-    previewSceneId: 'starting-soon',
-    programSceneId: 'starting-soon',
-    updatedAt: new Date().toISOString()
-  });
-
-  const normalize = (value) => {
-    if (!value || value.version !== 1 || !Array.isArray(value.scenes)) return defaults();
-    const scenes = value.scenes
-      .filter(s => s && typeof s.id === 'string' && typeof s.name === 'string')
-      .filter(s => /^[a-zA-Z0-9_-]{1,80}$/.test(s.id))
-      .filter(s => s.name.trim().length > 0 && s.name.length <= 60)
-      .slice(0, 100)
-      .map(s => ({
-        id: s.id,
-        name: s.name.trim(),
-        kind: s.kind === 'custom' ? 'custom' : 'built-in'
-      }));
-
-    if (!scenes.length) return defaults();
-    const ids = new Set(scenes.map(s => s.id));
-    return {
-      version: 1,
-      scenes,
-      previewSceneId: ids.has(value.previewSceneId) ? value.previewSceneId : scenes[0].id,
-      programSceneId: ids.has(value.programSceneId) ? value.programSceneId : scenes[0].id,
-      updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : new Date().toISOString()
-    };
-  };
-
-  const save = async (state) => {
-    state.updatedAt = new Date().toISOString();
-    await fs.mkdir(path.dirname(file), { recursive: true });
-    const temp = file + '.' + process.pid + '.tmp';
-    await fs.writeFile(temp, JSON.stringify(state, null, 2), { mode: 0o600 });
-    await fs.rename(temp, file);
-  };
-
-  let state;
+  let savedState = {};
   try {
-    state = normalize(JSON.parse(await fs.readFile(file, 'utf8')));
+    savedState = JSON.parse(await fs.readFile(file, 'utf8'));
   } catch (error) {
     if (error.code !== 'ENOENT') {
       return { ok: false, error: 'Szenendatei konnte nicht gelesen werden: ' + String(error.message || error) };
     }
-    state = defaults();
-    await save(state);
   }
 
+  const engine = new StudioSceneEngine(savedState);
   const action = payload && payload.action;
+  let result;
   if (action === 'load') {
-    return { ok: true, state };
-  }
-
-  if (action === 'select') {
-    const name = typeof payload.name === 'string' ? payload.name.trim() : '';
-    const scene = state.scenes.find(s => s.name === name);
-    if (!scene) return { ok: false, error: 'Szene wurde nicht gefunden.' };
-    state.previewSceneId = scene.id;
+    result = { ok: true, state: engine.snapshot() };
+  } else if (action === 'select') {
+    result = engine.selectPreview(payload.name);
   } else if (action === 'take') {
-    state.programSceneId = state.previewSceneId;
+    result = engine.take();
   } else if (action === 'create') {
-    const name = typeof payload.name === 'string' ? payload.name.trim() : '';
-    if (!name || name.length > 60) {
-      return { ok: false, error: 'Szenenname muss 1 bis 60 Zeichen lang sein.' };
-    }
-    if (state.scenes.length >= 100) {
-      return { ok: false, error: 'Maximal 100 Szenen sind möglich.' };
-    }
-    if (state.scenes.some(s => s.name.toLowerCase() === name.toLowerCase())) {
-      return { ok: false, error: 'Eine Szene mit diesem Namen existiert bereits.' };
-    }
-    const scene = { id: randomUUID(), name, kind: 'custom' };
-    state.scenes.push(scene);
-    state.previewSceneId = scene.id;
+    result = engine.createScene(payload.name);
   } else {
     return { ok: false, error: 'Unbekannte Szenenaktion.' };
   }
 
-  await save(state);
-  return { ok: true, state };
-});
+  if (!result.ok || action === 'load') return result;
 
+  const directory = path.dirname(file);
+  await fs.mkdir(directory, { recursive: true });
+  const temporary = file + '.' + process.pid + '.tmp';
+  await fs.writeFile(temporary, JSON.stringify(engine.toJSON(), null, 2), { mode: 0o600 });
+  await fs.rename(temporary, file);
+  return { ok: true, state: engine.snapshot() };
+});
 
 
 async function probeExecutable(command, args = ['--version']) {
