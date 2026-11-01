@@ -1,0 +1,25 @@
+[Unit]
+Description=STREAMIOV supervised Chromebook terminal executor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/streamiov
+EnvironmentFile=-%h/.config/streamiov/device.env
+ExecStart=%h/streamiov/.venv/bin/python -m ai.runtime.local_terminal_executor --loop
+Restart=on-failure
+RestartSec=20
+TimeoutStopSec=20
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+LockPersonality=true
+
+[Install]
+WantedBy=default.target
