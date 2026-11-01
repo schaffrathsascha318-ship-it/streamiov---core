@@ -80,6 +80,23 @@ class GiftAssetPipelineTests(unittest.TestCase):
         with self.assertRaises(GiftAssetError):
             build_gift_pack(pack_id="neon-starters", assets=[entry], output_root=output)
 
+    def test_committed_neon_starters_pack_has_valid_checksums_and_no_release(self):
+        repo_root = Path(__file__).resolve().parents[1]
+        pack = repo_root / "data/gift-gallery/packs/neon-starters"
+        manifest = json.loads((pack / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["pack_status"], "REVIEW_REQUIRED")
+        self.assertEqual(manifest["release_status"], "NOT_RELEASED")
+        self.assertFalse(manifest["published"])
+        self.assertFalse(manifest["real_money_enabled"])
+        self.assertEqual(len(manifest["gifts"]), 3)
+        for gift in manifest["gifts"]:
+            metadata = validate_svg((pack / gift["asset"]).read_bytes())
+            self.assertEqual(metadata["sha256"], gift["asset_metadata"]["sha256"])
+            self.assertEqual(metadata["bytes"], gift["asset_metadata"]["bytes"])
+            self.assertEqual(gift["price_unit"], "STREAMIOV_POINTS")
+            self.assertIsNone(gift["tiktok_coin_price"])
+            self.assertEqual(gift["review_status"], "REVIEW_REQUIRED")
+
 
 if __name__ == "__main__":
     unittest.main()
