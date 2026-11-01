@@ -50,3 +50,10 @@ dist/streamiov-studio-app/**/diagnose-*.cjs
 /config/platforms/**/oauth*.json
  /config/**/*.secret.*
 /config/**/*credentials*
+
+# Runtime state, private request data and historical deployment logs
+/.en
+/.testdir/
+/logs/
+/storage/
+*.pid
