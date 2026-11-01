@@ -8,6 +8,7 @@ from ai.providers.base import ModelProvider
 
 SYSTEM = """You are Streamiov's coding agent. Work only on the supplied project task.
 You may request exactly one JSON object per response:
+{"tool":"list_files","arguments":{"path":"."}}
 {"tool":"read_file","arguments":{"path":"relative/path"}}
 {"tool":"write_file","arguments":{"path":"new/relative/path","content":"complete file text"}}
 {"tool":"replace_text","arguments":{"path":"ai/file.py","old_text":"one exact existing section","new_text":"its replacement"}}
@@ -88,7 +89,7 @@ class DevelopmentAgent:
             for action in actions:
                 if set(action) != {"tool", "arguments"}:
                     raise AgentError("Tool response must contain only 'tool' and 'arguments'.")
-                if action["tool"] not in {"read_file", "write_file", "replace_text", "run_tests"}:
+                if action["tool"] not in {"list_files", "read_file", "write_file", "replace_text", "run_tests"}:
                     raise AgentError("Unknown tool.")
                 if not isinstance(action["arguments"], dict):
                     raise AgentError("Tool arguments must be a JSON object.")
@@ -98,7 +99,9 @@ class DevelopmentAgent:
                 tool = action["tool"]
                 args = action["arguments"]
                 try:
-                    if tool == "read_file":
+                    if tool == "list_files":
+                        result = self.tools.list_files(args.get("path", "."))
+                    elif tool == "read_file":
                         result = self.tools.read_file(args.get("path"))
                     elif tool == "write_file":
                         result = self.tools.write_file(args.get("path"), args.get("content"))

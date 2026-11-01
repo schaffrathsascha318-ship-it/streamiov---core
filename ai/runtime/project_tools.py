@@ -13,6 +13,7 @@ TEST_COMMANDS = {
     "python -m unittest discover -s tests": [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
 }
 MAX_FILE_BYTES = 200_000
+MAX_LIST_ENTRIES = 100
 
 class ProjectTools:
     def __init__(self, root: str | Path, writable_prefixes: tuple[str, ...] = ("ai/", "docs/ai-development/", "tests/")) -> None:
@@ -42,6 +43,31 @@ class ProjectTools:
         if not any(normalized.startswith(prefix) for prefix in self.writable_prefixes):
             raise ToolError("Writes are restricted to configured AI, documentation, and test directories.")
         return target, normalized
+
+    def list_files(self, path: str = ".") -> str:
+        """List a bounded set of safe immediate children inside the project workspace."""
+        target = self.root if path == "." else self._resolve(path)
+        if not target.is_dir():
+            raise ToolError("Requested path is not a project directory.")
+        entries = []
+        for child in sorted(target.iterdir(), key=lambda item: item.name.lower()):
+            lowered = child.name.lower()
+            if child.is_symlink():
+                continue
+            if lowered in DENIED_PARTS or lowered.startswith(".env"):
+                continue
+            if any(word in lowered for word in ("secret", "credential", "access-token", "refresh-token")):
+                continue
+            if child.suffix.lower() in DENIED_SUFFIXES:
+                continue
+            kind = "dir" if child.is_dir() else "file" if child.is_file() else "other"
+            if kind == "other":
+                continue
+            entries.append(f"{kind} {child.name}")
+            if len(entries) >= MAX_LIST_ENTRIES:
+                break
+        suffix = "\n[listing capped at 100 entries]" if len(entries) >= MAX_LIST_ENTRIES else ""
+        return "\n".join(entries) + suffix if entries else "(directory is empty or contains only excluded entries)"
 
     def read_file(self, path: str) -> str:
         target = self._resolve(path)
