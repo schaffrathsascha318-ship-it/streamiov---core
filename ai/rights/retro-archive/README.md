@@ -79,3 +79,10 @@ Keine Archive werden in Git eingecheckt, wenn sie groß, binär, redistributiv u
 ## Pflichtfelder je Eintrag
 
 Siehe `catalogue.schema.json` und `catalogue.json`. Kein Eintrag darf ohne Quell-URL, Zugriffsdatum, Lizenztext/Beleg, Komponenten-Scope, Gebiete, erlaubte Aktivitäten, Einschränkungen und Review-Status auf freigegeben gesetzt werden.
+
+
+## Rechte-Akquise statt Unternehmenskauf
+
+Streamiov verfolgt standardmäßig keinen Kauf ganzer Studios oder Spielekataloge. Ziel ist die gezielte, schriftliche Entwicklungs- und Veröffentlichungserlaubnis der aktuellen Rechteinhaber oder autorisierten Rechtsnachfolger für Remakes, Remaster, Ports, Fortsetzungen und echte 2D-zu-3D-Neuentwicklungen. Inaktive, eingestellte, delistete oder vergessene Spiele werden als Erwerbs-/Verhandlungskandidaten aufgenommen; dieser Zustand begründet für sich allein keine Nutzungsrechte. Verstorbene Urheber, geschlossene Studios und nicht auffindbare Ansprechpartner lösen eine Recherche der Erben, Rechtsnachfolger und Rechtekette aus – keine automatische Freigabe.
+
+Der vollständige Ablauf, die Statuswerte, Rechteinhaber-Recherche und Dossier-Vorlage stehen in [RIGHTS_ACQUISITION_PIPELINE.md](./RIGHTS_ACQUISITION_PIPELINE.md).
