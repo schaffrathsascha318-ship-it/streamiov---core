@@ -244,8 +244,11 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
       <option value="facebook">Facebook</option><option value="streamiov">Streamiov</option>
      </select>
      <p id="platformConnectionState" class="pill" role="status">Nicht verbunden</p>
-     <button id="platformConnectInfo" type="button">Verbindungsstatus prüfen</button>
-     <small>Die Auswahl speichert nur deine bevorzugte Plattform. Eine echte Anmeldung erfolgt erst über den jeweiligen offiziellen OAuth-Flow.</small>
+     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button id="platformConnectInfo" type="button">TikTok-Konto verbinden</button>
+      <button id="platformDisconnect" type="button" hidden>Verbindung trennen</button>
+     </div>
+     <small id="platformHelp">TikTok wird über den offiziellen Login sicher mit STREAMIOV Studio verbunden. Andere Plattformen bleiben getrennt, bis ihre eigenen Freigaben und Integrationen fertig sind.</small>
     </div>
    </div>
    <div class="panel">
@@ -341,10 +344,90 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
    status.textContent = 'Einstellungen lokal gespeichert. Noch nicht an einen Streamingdienst übertragen.';
   } catch (_) { status.textContent = 'Speichern fehlgeschlagen – lokaler Speicher nicht verfügbar.'; }
  });
- byId('platformConnectInfo').addEventListener('click', () => {
-  const platform = byId('platformSelect').selectedOptions[0].textContent;
-  byId('platformConnectionState').textContent = platform + ': nicht verbunden – offizieller Login/OAuth erforderlich.';
+ const connection = byId('platformConnectionState');
+ const connectButton = byId('platformConnectInfo');
+ const disconnectButton = byId('platformDisconnect');
+ const platformHelp = byId('platformHelp');
+ let tiktokConnected = false;
+
+ function renderTikTokStatus(result) {
+  tiktokConnected = result?.status === 'connected';
+  connection.textContent = result?.ok === false
+   ? 'Konfiguration fehlt: ' + (result.error || 'Sandbox-Zugangsdaten fehlen.')
+   : tiktokConnected
+    ? 'TikTok-Konto verbunden · Sandbox · ' + (result.openIdPresent ? 'Konto bestätigt' : 'Token gespeichert')
+    : result?.status === 'token_expired'
+     ? 'Token abgelaufen · bitte erneut verbinden'
+     : 'Nicht verbunden · TikTok-Login erforderlich';
+  connectButton.textContent = tiktokConnected ? 'Verbindung aktualisieren' : 'Mit TikTok verbinden';
+  disconnectButton.hidden = !tiktokConnected;
+  if (result?.status === 'configuration_required') {
+   platformHelp.textContent = 'Im sicheren App-/Server-Secret-Speicher fehlen STREAMIOV_TIKTOK_SANDBOX_CLIENT_KEY, CLIENT_SECRET, REDIRECT_URI oder TOKEN_ENCRYPTION_KEY.';
+  } else {
+   platformHelp.textContent = 'Die Anmeldung läuft über TikTok. Streamiov speichert Tokens verschlüsselt lokal im geschützten App-Datenbereich.';
+  }
+ }
+
+ async function refreshTikTokStatus() {
+  if (!window.streamiovStudio?.tiktokStatus) {
+   renderTikTokStatus({ok:false,status:'configuration_required',error:'Electron-Schnittstelle nicht verfügbar.'});
+   return;
+  }
+  try { renderTikTokStatus(await window.streamiovStudio.tiktokStatus()); }
+  catch (error) { connection.textContent = 'Status konnte nicht geladen werden: ' + error.message; }
+ }
+
+ byId('platformSelect').addEventListener('change', () => {
+  const platform = byId('platformSelect').value;
+  const isTikTok = platform === 'tiktok';
+  connectButton.disabled = !isTikTok;
+  disconnectButton.hidden = !isTikTok || !tiktokConnected;
+  connection.textContent = isTikTok
+   ? 'TikTok-Verbindungsstatus wird geladen …'
+   : byId('platformSelect').selectedOptions[0].textContent + ': Integration noch nicht aktiviert.';
+  if (isTikTok) refreshTikTokStatus();
  });
+
+ connectButton.addEventListener('click', async () => {
+  if (byId('platformSelect').value !== 'tiktok') return;
+  connectButton.disabled = true;
+  connection.textContent = 'TikTok-Anmeldung wird vorbereitet …';
+  try {
+   const result = await window.streamiovStudio.tiktokConnect();
+   if (result.ok) {
+    connection.textContent = 'TikTok-Login im Browser geöffnet. Anmeldung dort abschließen …';
+    log('TikTok-OAuth-Anmeldung im Browser geöffnet.');
+   } else {
+    connection.textContent = 'Anmeldung nicht gestartet: ' + result.error;
+    log('TikTok-Verbindung fehlgeschlagen: ' + result.error);
+   }
+  } catch (error) {
+   connection.textContent = 'TikTok-Verbindung fehlgeschlagen: ' + error.message;
+  } finally { connectButton.disabled = false; }
+ });
+
+ disconnectButton.addEventListener('click', async () => {
+  disconnectButton.disabled = true;
+  try {
+   const result = await window.streamiovStudio.tiktokDisconnect();
+   if (result.ok) { renderTikTokStatus({ok:true,status:'not_connected'}); log('TikTok-Verbindung getrennt.'); }
+   else connection.textContent = 'Trennen fehlgeschlagen: ' + result.error;
+  } catch (error) { connection.textContent = 'Trennen fehlgeschlagen: ' + error.message; }
+  finally { disconnectButton.disabled = false; }
+ });
+
+ if (window.streamiovStudio?.onTikTokAuthResult) {
+  window.streamiovStudio.onTikTokAuthResult(result => {
+   if (result.ok) {
+    log('TikTok-Konto erfolgreich autorisiert.');
+    refreshTikTokStatus();
+   } else {
+    connection.textContent = 'TikTok-Anmeldung fehlgeschlagen: ' + result.error;
+    log('TikTok-OAuth-Fehler: ' + result.error);
+   }
+  });
+ }
+ refreshTikTokStatus();
 })();
 </script>
 
