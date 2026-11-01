@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
   recordMusicTest: (payload) => ipcRenderer.invoke('studio:record-music-test', payload),
   getCameraLab: () => ipcRenderer.invoke('studio:get-camera-lab'),
   getCaptureSources: () => ipcRenderer.invoke('studio:get-capture-sources'),
+  selectCaptureSource: (sourceId) => ipcRenderer.invoke('studio:select-capture-source', { sourceId }),
   getNetworkStatus: () => ipcRenderer.invoke('studio:get-network-status'),
   getModuleStatus: () => ipcRenderer.invoke('studio:get-module-status'),
   chatAction: (payload) => ipcRenderer.invoke('studio:chat-action', payload),
