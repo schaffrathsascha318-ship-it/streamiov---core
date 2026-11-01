@@ -8,7 +8,7 @@
       "path": "games/neon-relay",
       "status": "development",
       "independent": true,
-      "automatedTestsPassed": false,
+      "automatedTestsPassed": true,
       "gameplayVerified": false,
       "released": false
     },
@@ -19,7 +19,7 @@
       "path": "games/echo-grid",
       "status": "development",
       "independent": true,
-      "automatedTestsPassed": false,
+      "automatedTestsPassed": true,
       "gameplayVerified": false,
       "released": false
     },
@@ -30,7 +30,7 @@
       "path": "games/pulse-defender",
       "status": "development",
       "independent": true,
-      "automatedTestsPassed": false,
+      "automatedTestsPassed": true,
       "gameplayVerified": false,
       "released": false
     }

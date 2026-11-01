@@ -6,14 +6,19 @@
   "entry": "index.html",
   "runtime": "browser",
   "controls": {
-    "keyboard": ["ArrowLeft", "ArrowRight", "A", "D"],
+    "keyboard": [
+      "ArrowLeft",
+      "ArrowRight",
+      "A",
+      "D"
+    ],
     "pointer": true,
     "touch": true
   },
   "dependencies": [],
   "status": "development",
   "release": {
-    "automatedTestsPassed": false,
+    "automatedTestsPassed": true,
     "gameplayVerified": false,
     "released": false
   }

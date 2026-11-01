@@ -5,8 +5,26 @@
   "description": "Ein eigenständiges Muster- und Gedächtnisspiel mit wachsender Neon-Sequenz.",
   "entry": "index.html",
   "runtime": "browser",
-  "controls": {"keyboard": ["1", "2", "3", "4", "5", "6", "7", "8", "9"], "pointer": true, "touch": true},
+  "controls": {
+    "keyboard": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9"
+    ],
+    "pointer": true,
+    "touch": true
+  },
   "dependencies": [],
   "status": "development",
-  "release": {"automatedTestsPassed": false, "gameplayVerified": false, "released": false}
+  "release": {
+    "automatedTestsPassed": true,
+    "gameplayVerified": false,
+    "released": false
+  }
 }
