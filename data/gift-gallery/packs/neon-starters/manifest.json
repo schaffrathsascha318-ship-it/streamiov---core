@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "pack_id": "neon-starters",
+  "pack_status": "REVIEW_REQUIRED",
+  "release_status": "NOT_RELEASED",
+  "published": false,
+  "real_money_enabled": false,
+  "checkout_enabled": false,
+  "payout_enabled": false,
+  "points_note": "STREAMIOV points only; not TikTok coins and not a cash value.",
+  "copyright_review": "NOT_PERFORMED",
+  "human_approval": "REQUIRED",
+  "gifts": [
+    {
+      "id": "neon-heart",
+      "name": "Neonherz",
+      "category": "REACTION",
+      "rarity": "COMMON",
+      "streamiov_points": 10,
+      "price_unit": "STREAMIOV_POINTS",
+      "tiktok_coin_price": null,
+      "asset": "neon-heart.svg",
+      "fallback_still": "neon-heart.svg",
+      "asset_metadata": {
+        "format": "image/svg+xml",
+        "width": 256,
+        "height": 256,
+        "element_count": 7,
+        "bytes": 496,
+        "sha256": "799116bc49248d3629554c7beed6c480c3b44fad680c83df6ad810d4c49bfb5d"
+      },
+      "animation": {
+        "status": "NOT_PROVIDED",
+        "duration_ms": 0,
+        "loop": false
+      },
+      "audio": {
+        "status": "NOT_PROVIDED"
+      },
+      "accessibility_text": "Ein leuchtendes Herz in Türkis und Violett.",
+      "validation_status": "VALIDATED",
+      "review_status": "REVIEW_REQUIRED",
+      "release_status": "NOT_RELEASED"
+    },
+    {
+      "id": "nova-burst",
+      "name": "Nova-Ausbruch",
+      "category": "CELEBRATION",
+      "rarity": "RARE",
+      "streamiov_points": 499,
+      "price_unit": "STREAMIOV_POINTS",
+      "tiktok_coin_price": null,
+      "asset": "nova-burst.svg",
+      "fallback_still": "nova-burst.svg",
+      "asset_metadata": {
+        "format": "image/svg+xml",
+        "width": 256,
+        "height": 256,
+        "element_count": 8,
+        "bytes": 523,
+        "sha256": "5f42e8803d05f8fbc5932168b8a42eb0cebac1b2fa1a2470e0b76472b33bd768"
+      },
+      "animation": {
+        "status": "NOT_PROVIDED",
+        "duration_ms": 0,
+        "loop": false
+      },
+      "audio": {
+        "status": "NOT_PROVIDED"
+      },
+      "accessibility_text": "Ein heller Sternenausbruch in Türkis und Violett.",
+      "validation_status": "VALIDATED",
+      "review_status": "REVIEW_REQUIRED",
+      "release_status": "NOT_RELEASED"
+    },
+    {
+      "id": "orbit-star",
+      "name": "Orbit-Stern",
+      "category": "CELEBRATION",
+      "rarity": "UNCOMMON",
+      "streamiov_points": 49,
+      "price_unit": "STREAMIOV_POINTS",
+      "tiktok_coin_price": null,
+      "asset": "orbit-star.svg",
+      "fallback_still": "orbit-star.svg",
+      "asset_metadata": {
+        "format": "image/svg+xml",
+        "width": 256,
+        "height": 256,
+        "element_count": 8,
+        "bytes": 567,
+        "sha256": "581f7020df699b25dc23578e583ca1b330784a5d6ec1aac92b94cab08cf797c7"
+      },
+      "animation": {
+        "status": "NOT_PROVIDED",
+        "duration_ms": 0,
+        "loop": false
+      },
+      "audio": {
+        "status": "NOT_PROVIDED"
+      },
+      "accessibility_text": "Ein türkis-violetter Stern mit umlaufender Lichtbahn.",
+      "validation_status": "VALIDATED",
+      "review_status": "REVIEW_REQUIRED",
+      "release_status": "NOT_RELEASED"
+    }
+  ]
+}
