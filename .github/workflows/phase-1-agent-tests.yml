@@ -8,6 +8,10 @@ on:
       - "tests/**"
       - ".github/workflows/phase-1-agent-tests.yml"
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:
