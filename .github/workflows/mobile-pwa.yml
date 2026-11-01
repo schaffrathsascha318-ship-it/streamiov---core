@@ -9,6 +9,8 @@ on:
       - "scripts/test-mobile-pwa.py"
       - ".github/workflows/mobile-pwa.yml"
   push:
+    branches:
+      - streamiov-build-setup-clean
     paths:
       - "dist/streamiov-studio-app/regie-v2.html"
       - "dist/streamiov-homepage-worker/public/app/**"
