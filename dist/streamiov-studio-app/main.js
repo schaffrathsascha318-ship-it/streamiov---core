@@ -763,6 +763,28 @@ ipcMain.handle('studio:get-capture-sources', async (event) => {
   }
 });
 
+ipcMain.handle('studio:select-capture-source', async (event, payload = {}) => {
+  if (!isTrustedStudioSender(event)) {
+    throw new Error('Nicht autorisierter Studio-Aufruf');
+  }
+  const sourceId = typeof payload.sourceId === 'string' ? payload.sourceId : '';
+  if (!sourceId || sourceId.length > 256) {
+    selectedDesktopCaptureSourceId = null;
+    return { ok: false, error: 'Ungültige Bildschirm-/Fensterquelle.' };
+  }
+  const sources = await desktopCapturer.getSources({
+    types: ['screen', 'window'],
+    thumbnailSize: { width: 0, height: 0 },
+    fetchWindowIcons: false
+  });
+  if (!sources.some(source => source.id === sourceId)) {
+    selectedDesktopCaptureSourceId = null;
+    return { ok: false, error: 'Die ausgewählte Bildschirm-/Fensterquelle ist nicht mehr verfügbar. Bitte Liste aktualisieren.' };
+  }
+  selectedDesktopCaptureSourceId = sourceId;
+  return { ok: true, selected: true };
+});
+
 ipcMain.handle('studio:get-camera-lab', async (event) => {
   if (!isTrustedStudioSender(event)) {
     throw new Error('Nicht autorisierter Studio-Aufruf');
@@ -904,6 +926,7 @@ ipcMain.handle('studio:ai-submit', async (event, payload = {}) => {
 
 let mainWindow = null;
 let programOutputWindow = null;
+let selectedDesktopCaptureSourceId = null;
 function getExternalDisplay() {
   const displays = screen.getAllDisplays();
   const primary = screen.getPrimaryDisplay();
@@ -1008,6 +1031,42 @@ function reconcileRegieDisplay() {
 
 app.whenReady().then(() => {
   const ses = session.defaultSession;
+
+  // Official Electron display-capture flow: the renderer chooses a source,
+  // while the trusted main process grants only that source and requests
+  // system loopback audio where the platform supports it.
+  ses.setDisplayMediaRequestHandler(async (request, callback) => {
+    try {
+      if (!mainWindow || mainWindow.isDestroyed() ||
+          request.securityOrigin !== 'file://') {
+        callback(null);
+        return;
+      }
+      const sourceId = selectedDesktopCaptureSourceId;
+      if (!sourceId) {
+        callback(null);
+        return;
+      }
+      const sources = await desktopCapturer.getSources({
+        types: ['screen', 'window'],
+        thumbnailSize: { width: 0, height: 0 },
+        fetchWindowIcons: false
+      });
+      const selectedSource = sources.find(source => source.id === sourceId);
+      if (!selectedSource) {
+        selectedDesktopCaptureSourceId = null;
+        callback(null);
+        return;
+      }
+      callback({
+        video: selectedSource,
+        ...(request.audioRequested ? { audio: 'loopback' } : {})
+      });
+    } catch (error) {
+      console.error('[DESKTOP_CAPTURE] request failed', String(error.message || error));
+      callback(null);
+    }
+  });
 
   ses.setPermissionRequestHandler((webContents, permission, callback) => {
     const trusted = webContents.getURL() === studioUrl;
