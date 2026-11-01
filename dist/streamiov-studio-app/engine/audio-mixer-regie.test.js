@@ -35,3 +35,16 @@ test('Regie connects local music and alert media files to their own mixer channe
   assert.ok(html.includes('music:{gain:45,muted:false,routes:["stream","monitor","music_stem"]}'));
   assert.ok(html.includes('alerts:{gain:80,muted:false,routes:["stream","monitor","alerts_stem"]}'));
 });
+
+test('invalid media files report a visible status without throwing from the event handler', () => {
+  assert.ok(html.includes('id="musicAudioStatus" role="status"'));
+  assert.ok(html.includes('id="alertAudioStatus" role="status"'));
+  assert.ok(html.includes('status.textContent="Ungültige Datei. Bitte eine Audiodatei auswählen."'));
+  assert.ok(!html.includes('throw new Error("Bitte eine Audiodatei auswählen.")'));
+});
+
+test('media file object URLs are revoked when replaced and when the Regie closes', () => {
+  assert.ok(html.includes('if(previousUrl)URL.revokeObjectURL(previousUrl)'));
+  assert.ok(html.includes('window.addEventListener("beforeunload"'));
+  assert.ok(html.includes('for(const url of mediaObjectUrls.values())URL.revokeObjectURL(url)'));
+});
