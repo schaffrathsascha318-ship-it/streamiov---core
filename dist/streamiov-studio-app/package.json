@@ -13,13 +13,13 @@
     "dist:win": "electron-builder --win nsis --x64",
     "dist:linux": "electron-builder --linux AppImage deb --x64",
     "dist:linux:arm64": "electron-builder --linux AppImage deb --arm64",
-    "prestart": "python3 ../../scripts/sync-studio-ui.py",
-    "pre-dist:win": "python ../../scripts/sync-studio-ui.py",
-    "pre-dist:linux": "python3 ../../scripts/sync-studio-ui.py",
-    "pre-dist:linux:arm64": "python3 ../../scripts/sync-studio-ui.py",
+    "prestart": "python3 ../../scripts/sync-studio-ui.py && python3 ../../scripts/sync-studio-games.py",
     "test:engine": "node --test engine/*.test.js",
     "dist:win:arm64": "electron-builder --win nsis --arm64",
-    "pre-dist:win:arm64": "python3 ../../scripts/sync-studio-ui.py"
+    "predist:win": "python3 ../../scripts/sync-studio-ui.py && python3 ../../scripts/sync-studio-games.py",
+    "predist:win:arm64": "python3 ../../scripts/sync-studio-ui.py && python3 ../../scripts/sync-studio-games.py",
+    "predist:linux": "python3 ../../scripts/sync-studio-ui.py && python3 ../../scripts/sync-studio-games.py",
+    "predist:linux:arm64": "python3 ../../scripts/sync-studio-ui.py && python3 ../../scripts/sync-studio-games.py"
   },
   "dependencies": {
     "tiktok-live-connector": "2.5.0"
