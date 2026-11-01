@@ -71,5 +71,24 @@ class QueueCliTests(unittest.TestCase):
         self.assertEqual(args.max_tasks, 4)
 
 
+    def test_core_planner_splits_goal_and_enqueues_specialist_tasks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            database = str(Path(tmp) / "queue.sqlite3")
+            class PlannerProvider:
+                def generate(self, *, system, messages):
+                    class Reply:
+                        content = '{"tasks":[{"id":"core","specialist":"core","prompt":"Define contract","depends_on":[]},{"id":"game","specialist":"game","prompt":"Build original game","depends_on":[]}]}'
+                    return Reply()
+            output = StringIO()
+            with patch("ai.__main__.provider_from_env", return_value=PlannerProvider()), redirect_stdout(output):
+                self.assertEqual(main(["--plan-and-enqueue", "--queue-db", database, "--task", "Build a new STREAMIOV feature"]), 0)
+            response = json.loads(output.getvalue())
+            self.assertEqual(response["status"], "queued")
+            self.assertEqual([item["specialist"] for item in response["tasks"]], ["core", "game"])
+            queued = SpecialistTaskQueue(database).list_tasks()
+            self.assertEqual(len(queued), 2)
+            self.assertTrue(all(task.status == "queued" for task in queued))
+
+
 if __name__ == "__main__":
     unittest.main()
