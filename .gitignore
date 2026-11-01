@@ -46,7 +46,7 @@ dist/streamiov-studio-app/**/diagnose-*.cjs
 /android/backup/
 
 # Sensitive local credentials and private configuration (never commit)
- /secrets/
- /config/platforms/**/oauth*.json
+/secrets/
+/config/platforms/**/oauth*.json
  /config/**/*.secret.*
- /config/**/*credentials*
+/config/**/*credentials*
