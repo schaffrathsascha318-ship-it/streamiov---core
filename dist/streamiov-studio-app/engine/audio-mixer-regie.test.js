@@ -5,7 +5,6 @@ const fs = require('node:fs');
 const html = fs.readFileSync(require.resolve('../regie-v2.html'), 'utf8');
 const main = fs.readFileSync(require.resolve('../main.js'), 'utf8');
 const preload = fs.readFileSync(require.resolve('../preload.js'), 'utf8');
-const main = fs.readFileSync(require.resolve('../main.js'), 'utf8');
 
 test('Regie loads the local mixer and routes microphone capture into it', () => {
   assert.ok(html.includes('<script src="./engine/audio-mixer.js"></script>'));
@@ -73,8 +72,9 @@ test('TTS playback cleanup cannot disconnect a newer utterance', () => {
   assert.ok(html.includes('source.onended=()=>{try{source.disconnect();}catch{}'));
 });
 
-test('desktop capture requests system audio and gracefully falls back to video-only capture', () => {
-  assert.ok(html.includes('audio:{mandatory:{chromeMediaSource:"desktop",chromeMediaSourceId:sourceId}}'));
+test('desktop capture uses the standard API and routes a returned audio track into the game mixer', () => {
+  assert.ok(html.includes('navigator.mediaDevices.getDisplayMedia({'));
+  assert.ok(html.includes('audio:true'));
   assert.ok(html.includes('audioCaptureUnavailable=true'));
   assert.ok(html.includes('connectAudioSource("game",stream)'));
   assert.ok(html.includes('Diese Laufzeit unterstützt kein Desktop-Audio; Bild bleibt verfügbar.'));
