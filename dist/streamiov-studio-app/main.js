@@ -391,6 +391,7 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
 const { TikTokOAuth } = require('./tiktok-oauth.js');
 let tikTokOAuth = null;
 let tikTokCallbackServer = null;
+let tikTokCallbackTimeout = null;
 let tikTokConnectInProgress = false;
 
 function getTikTokOAuth() {
@@ -465,6 +466,8 @@ ipcMain.handle('studio:tiktok-connect', async (event) => {
         response.end('<!doctype html><html lang="de"><meta charset="utf-8"><title>STREAMIOV</title><body><h1>Anmeldung fehlgeschlagen</h1><p>Bitte zu STREAMIOV Studio zurückkehren.</p></body></html>');
         sendTikTokAuthResult({ ok: false, error: String(error.message || error) });
       } finally {
+        if (tikTokCallbackTimeout) clearTimeout(tikTokCallbackTimeout);
+        tikTokCallbackTimeout = null;
         tikTokConnectInProgress = false;
         const server = tikTokCallbackServer;
         tikTokCallbackServer = null;
@@ -475,9 +478,19 @@ ipcMain.handle('studio:tiktok-connect', async (event) => {
       tikTokCallbackServer.once('error', reject);
       tikTokCallbackServer.listen(Number(redirect.port), '127.0.0.1', resolve);
     });
+    tikTokCallbackTimeout = setTimeout(() => {
+      tikTokConnectInProgress = false;
+      const server = tikTokCallbackServer;
+      tikTokCallbackServer = null;
+      if (server) server.close();
+      sendTikTokAuthResult({ ok: false, error: 'oauth_state_expired' });
+    }, 600000);
+    if (typeof tikTokCallbackTimeout.unref === 'function') tikTokCallbackTimeout.unref();
     await shell.openExternal(authorization.url);
     return { ok: true, status: 'authorization_opened', environment: 'sandbox' };
   } catch (error) {
+    if (tikTokCallbackTimeout) clearTimeout(tikTokCallbackTimeout);
+    tikTokCallbackTimeout = null;
     tikTokConnectInProgress = false;
     if (tikTokCallbackServer) {
       try { tikTokCallbackServer.close(); } catch {}
