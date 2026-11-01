@@ -397,7 +397,8 @@ function getTikTokOAuth() {
   if (!tikTokOAuth) {
     tikTokOAuth = new TikTokOAuth({
       environment: 'sandbox',
-      env: process.env
+      env: process.env,
+      tokenFile: path.join(app.getPath('userData'), 'oauth', 'tiktok-sandbox.json')
     });
   }
   return tikTokOAuth;
