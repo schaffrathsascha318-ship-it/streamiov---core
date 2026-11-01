@@ -110,5 +110,45 @@ class PersistentTaskQueueTests(unittest.TestCase):
         self.assertEqual(self.queue.get("work").attempts, 2)
 
 
+    def test_expired_lease_cannot_be_renewed_completed_or_failed(self):
+        self.queue.enqueue_plan([
+            SpecialistTask("heartbeat", "testing", "heartbeat"),
+            SpecialistTask("complete", "testing", "complete"),
+            SpecialistTask("fail", "testing", "fail"),
+        ])
+        for task_id in ("heartbeat", "complete", "fail"):
+            task = self.queue.claim_next("worker")
+            self.assertEqual(task.task_id, task_id)
+            with self.queue._connection() as connection:
+                connection.execute("UPDATE specialist_tasks SET lease_until=0 WHERE task_id=?", (task_id,))
+            if task_id == "heartbeat":
+                with self.assertRaises(TaskQueueError):
+                    self.queue.heartbeat(task_id, "worker")
+            elif task_id == "complete":
+                with self.assertRaises(TaskQueueError):
+                    self.queue.complete(task_id, "worker", "late result")
+            else:
+                with self.assertRaises(TaskQueueError):
+                    self.queue.fail(task_id, "worker", "late failure")
+
+    def test_worker_renews_lease_during_a_long_running_agent_call(self):
+        import time
+        from ai.runtime.task_queue import SpecialistWorker
+        self.queue.enqueue_plan([SpecialistTask("long", "testing", "long test")])
+        calls = []
+        original_heartbeat = self.queue.heartbeat
+        def record_heartbeat(*args, **kwargs):
+            calls.append(args[0])
+            return original_heartbeat(*args, **kwargs)
+        self.queue.heartbeat = record_heartbeat
+        class SlowAgent:
+            def run(self, _prompt):
+                time.sleep(3.5)
+                return "finished after lease renewal"
+        result = SpecialistWorker(self.queue, "worker", lambda _role: SlowAgent(), lease_seconds=10).run_once()
+        self.assertEqual(result.status, "succeeded")
+        self.assertGreaterEqual(len(calls), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
