@@ -29,3 +29,8 @@ Every game must include:
 - automated tests appropriate to its runtime.
 
 Never mark a game released because its files merely exist or because CI passed.
+
+
+## Independent game publishing
+
+A game is released separately through the manual GitHub Actions workflow **Publish an independent STREAMIOV game**. Before it can publish, its own manifest must be committed with `status: gameplay_verified` and `release.gameplayVerified: true`, and the operator must explicitly confirm the real-device gameplay checklist. The workflow packages only that game's directory, creates a versioned GitHub Release with SHA-256 checksums, then records the released state in the registry. CI success alone cannot unlock publication.
