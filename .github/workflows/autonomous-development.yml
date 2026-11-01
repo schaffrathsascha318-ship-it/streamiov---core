@@ -40,6 +40,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          gh label create agent-ready --color 5319E7 --description "Eligible for bounded autonomous STREAMIOV development" --force >/dev/null
           issue_json="$(gh issue list --state open --label agent-ready --limit 1 --json number,title,body)"
           if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
             echo "No issue carries the agent-ready label."
