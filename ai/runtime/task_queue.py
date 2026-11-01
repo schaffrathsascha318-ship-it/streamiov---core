@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from ai.core.orchestrator import SpecialistTask, TaskOrchestrator
+from ai.core.orchestrator import SpecialistTask, TaskOrchestrator, TaskPlanError
 from ai.specialists.registry import get_specialist
 
 
@@ -79,6 +79,7 @@ class SpecialistTaskQueue:
                 """
                 CREATE TABLE IF NOT EXISTS specialist_tasks (
                     task_id TEXT PRIMARY KEY,
+                    queue_order INTEGER NOT NULL DEFAULT 0,
                     specialist TEXT NOT NULL,
                     prompt TEXT NOT NULL,
                     depends_on TEXT NOT NULL,
@@ -94,9 +95,12 @@ class SpecialistTaskQueue:
                 )
                 """
             )
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(specialist_tasks)")}
+            if "queue_order" not in columns:
+                connection.execute("ALTER TABLE specialist_tasks ADD COLUMN queue_order INTEGER NOT NULL DEFAULT 0")
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_specialist_tasks_claim "
-                "ON specialist_tasks(status, created_at, task_id)"
+                "ON specialist_tasks(status, queue_order, task_id)"
             )
 
     def enqueue_plan(
@@ -109,19 +113,23 @@ class SpecialistTaskQueue:
             raise TaskQueueError("max_attempts must be between 1 and 5.")
         plan = tuple(tasks)
         # Reuse the exact same preflight validation as the in-process orchestrator.
-        ordered = TaskOrchestrator(lambda _role: None, max_tasks=self.max_tasks_per_plan)._validate_and_order(plan)
+        try:
+            ordered = TaskOrchestrator(lambda _role: None, max_tasks=self.max_tasks_per_plan)._validate_and_order(plan)
+        except TaskPlanError as exc:
+            raise TaskQueueError(str(exc)) from exc
         now = time.time()
         connection = self._connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
-            for task in ordered:
+            first_order = connection.execute("SELECT COALESCE(MAX(queue_order), -1) + 1 FROM specialist_tasks").fetchone()[0]
+            for index, task in enumerate(ordered):
                 connection.execute(
                     """
                     INSERT INTO specialist_tasks
-                    (task_id, specialist, prompt, depends_on, status, attempts, max_attempts, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, 'queued', 0, ?, ?, ?)
+                    (task_id, queue_order, specialist, prompt, depends_on, status, attempts, max_attempts, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, 'queued', 0, ?, ?, ?)
                     """,
-                    (task.task_id, task.specialist, task.prompt, json.dumps(task.depends_on), max_attempts, now, now),
+                    (task.task_id, first_order + index, task.specialist, task.prompt, json.dumps(task.depends_on), max_attempts, now, now),
                 )
             connection.commit()
         except sqlite3.IntegrityError as exc:
@@ -190,7 +198,7 @@ class SpecialistTaskQueue:
                         (now, row["task_id"]),
                     )
             candidates = connection.execute(
-                "SELECT * FROM specialist_tasks WHERE status='queued' ORDER BY created_at, task_id"
+                "SELECT * FROM specialist_tasks WHERE status='queued' ORDER BY queue_order, task_id"
             ).fetchall()
             selected = None
             for row in candidates:
