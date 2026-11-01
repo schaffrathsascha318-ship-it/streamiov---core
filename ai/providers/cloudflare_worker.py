@@ -60,7 +60,11 @@ def _http_error_detail(exc: HTTPError, token: str) -> str:
         if isinstance(body, dict):
             error = body.get("error")
             if isinstance(error, dict):
-                detail = str(error.get("message") or error.get("detail") or error.get("code") or "")
+                message = error.get("message") or error.get("detail") or ""
+                code = error.get("code") or ""
+                # Keep the machine-readable code: Workers often return a generic
+                # message such as "Chat request failed validation." for every 400.
+                detail = f"{message} (code: {code})" if message and code else str(message or code)
             elif isinstance(error, str):
                 detail = error
             if not detail:

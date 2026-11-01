@@ -114,6 +114,18 @@ class CloudflareWorkerProviderTests(unittest.TestCase):
             with self.assertRaisesRegex(CloudflareWorkerError, "messages exceed context window"):
                 self.provider().generate(system="System", messages=[])
 
+    def test_http_400_includes_machine_readable_worker_validation_code(self):
+        body = json.dumps({
+            "error": {
+                "code": "invalid-message-content",
+                "message": "Chat request failed validation.",
+            }
+        }).encode("utf-8")
+        error = HTTPError(WORKER_URL + "/v1/chat/completions", 400, "Bad Request", {}, io.BytesIO(body))
+        with patch("ai.providers.cloudflare_worker.urlopen", side_effect=error):
+            with self.assertRaisesRegex(CloudflareWorkerError, r"Chat request failed validation.*invalid-message-content"):
+                self.provider().generate(system="System", messages=[])
+
     def test_http_error_detail_redacts_worker_token(self):
         body = json.dumps({"error": {"message": "bad token " + TOKEN}}).encode("utf-8")
         error = HTTPError(WORKER_URL + "/v1/chat/completions", 400, "Bad Request", {}, io.BytesIO(body))
