@@ -1,0 +1,112 @@
+name: Publish an independent STREAMIOV game
+
+on:
+  workflow_dispatch:
+    inputs:
+      game_id:
+        description: "Stable game ID from games/registry.json"
+        required: true
+        type: string
+      confirm_gameplay_verified:
+        description: "Confirm the real-device gameplay checklist is complete"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/streamiov-build-setup-clean' && inputs.confirm_gameplay_verified
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout default branch
+        uses: actions/checkout@v4
+        with:
+          ref: streamiov-build-setup-clean
+
+      - name: Validate game release gate
+        id: validate
+        env:
+          GAME_ID: ${{ inputs.game_id }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const id = process.env.GAME_ID || '';
+          if (!/^[a-z0-9-]{2,64}$/.test(id)) throw new Error('Invalid game ID.');
+          const root = process.cwd();
+          const registry = JSON.parse(fs.readFileSync(path.join(root, 'games/registry.json'), 'utf8'));
+          const entry = registry.games.find(game => game.id === id);
+          if (!entry || entry.independent !== true) throw new Error('Game is not registered as independent.');
+          const gamesRoot = path.join(root, 'games');
+          const directory = path.resolve(root, entry.path);
+          if (!directory.startsWith(gamesRoot + path.sep)) throw new Error('Game path escapes games directory.');
+          const manifestPath = path.join(directory, 'game.json');
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          if (manifest.id !== id) throw new Error('Manifest ID does not match registry.');
+          if (manifest.status !== 'gameplay_verified' || manifest.release?.gameplayVerified !== true) {
+            throw new Error('Release blocked: real gameplay verification is not recorded.');
+          }
+          if (manifest.release?.released === true || entry.released === true) throw new Error('Game is already released.');
+          if (!manifest.entry || !fs.existsSync(path.join(directory, manifest.entry)) || !fs.existsSync(path.join(directory, 'README.md'))) {
+            throw new Error('Game entry point or README is missing.');
+          }
+          if (!/^[0-9]+[.][0-9]+[.][0-9]+(?:-[0-9A-Za-z.-]+)?$/.test(manifest.version)) throw new Error('Invalid semantic game version.');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'game_name=' + manifest.name.replace(/[\r\n]/g, ' ') + '\n');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + manifest.version + '\n');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'directory=' + path.relative(root, directory) + '\n');
+          NODE
+
+      - name: Package independent game
+        env:
+          GAME_ID: ${{ inputs.game_id }}
+          GAME_VERSION: ${{ steps.validate.outputs.version }}
+          GAME_DIRECTORY: ${{ steps.validate.outputs.directory }}
+        run: |
+          mkdir -p release
+          zip -qr "release/$GAME_ID-v$GAME_VERSION.zip" "$GAME_DIRECTORY"
+          cd release
+          sha256sum *.zip > SHA256SUMS.txt
+
+      - name: Publish versioned game release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: game-${{ inputs.game_id }}-v${{ steps.validate.outputs.version }}
+          name: ${{ steps.validate.outputs.game_name }} ${{ steps.validate.outputs.version }}
+          target_commitish: streamiov-build-setup-clean
+          prerelease: false
+          make_latest: false
+          fail_on_unmatched_files: true
+          files: release/*
+
+      - name: Record released state in the game registry
+        env:
+          GAME_ID: ${{ inputs.game_id }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const id = process.env.GAME_ID;
+          const registryPath = 'games/registry.json';
+          const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+          const entry = registry.games.find(game => game.id === id);
+          if (!entry) throw new Error('Registry entry not found.');
+          const manifestPath = entry.path + '/game.json';
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          if (manifest.status !== 'gameplay_verified' || manifest.release?.gameplayVerified !== true) throw new Error('Gameplay verification changed.');
+          const releasedAt = new Date().toISOString();
+          manifest.status = 'released';
+          manifest.release.released = true;
+          manifest.release.releasedAt = releasedAt;
+          entry.status = 'released';
+          entry.released = true;
+          entry.releasedAt = releasedAt;
+          fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+          fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n');
+          NODE
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add games/registry.json "games/$GAME_ID/game.json"
+          git commit -m "Mark game $GAME_ID released"
+          git push origin HEAD:streamiov-build-setup-clean
