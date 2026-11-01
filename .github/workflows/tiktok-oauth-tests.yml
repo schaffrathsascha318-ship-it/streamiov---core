@@ -30,4 +30,7 @@ jobs:
       - name: Build active Studio UI entry point
         run: |
           python3 scripts/sync-studio-ui.py
+          python3 scripts/sync-studio-tiktok-oauth.py
           test -s dist/streamiov-studio-app/index.html
+          test -s dist/streamiov-studio-app/tiktok-oauth.js
+          cmp core/integration/tiktok-oauth.js dist/streamiov-studio-app/tiktok-oauth.js
