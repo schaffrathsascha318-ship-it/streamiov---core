@@ -88,3 +88,16 @@ python -m ai --plan-and-enqueue --queue-db data/ai-tasks.sqlite3 --task "Build a
 ```
 
 The planner returns a strict JSON task graph. The runtime validates role names, task limits, identifiers, dependencies and cycles before persisting anything. Plan IDs are namespaced to avoid collisions between separate plans. The planner does not execute tasks itself; supervised workers claim them through the queue. Invalid or ambiguous model output is rejected rather than guessed.
+
+## Verified learning memory
+
+An optional local SQLite lesson store can provide relevant, test-backed engineering notes to future specialist tasks:
+
+```bash
+python -m ai --specialist studio --learning-db data/ai-lessons.sqlite3 --task "Improve camera permission handling"
+python -m ai --worker-once --queue-db data/ai-tasks.sqlite3 --learning-db data/ai-lessons.sqlite3
+```
+
+Lessons can be recorded through `VerifiedLearningStore.record_verified_lesson` only with a passing test exit code, a regression-test path under `tests/`, and a verification reference. Credential-like content is rejected. Retrieval uses bounded keyword overlap and is scoped to the specialist plus Core lessons. Retrieved notes are inserted as untrusted reference context, never as instructions.
+
+This is an auditable retrieval memory, not model-weight training, autonomous self-modification, or proof that a lesson's source test is still passing today. Re-run regression tests before relying on a lesson after relevant code changes.
