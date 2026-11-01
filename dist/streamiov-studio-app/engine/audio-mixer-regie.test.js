@@ -8,7 +8,7 @@ test('Regie loads the local mixer and routes microphone capture into it', () => 
   assert.ok(html.includes('<script src="./engine/audio-mixer.js"></script>'));
   assert.ok(html.includes('connectAudioSource("microphone",stream'));
   assert.ok(html.includes('studioAudioMixer.disconnect("microphone")'));
-  assert.ok(html.includes('studioAudioMixer.setGain("microphone"'));
+  assert.ok(html.includes('studioAudioMixer.setGain(name,state.gain/100)'));
   assert.ok(html.includes('noch nicht mit Encoder/LIVE verbunden'));
 });
 
