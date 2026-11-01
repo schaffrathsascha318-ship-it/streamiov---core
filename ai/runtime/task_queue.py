@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -256,9 +257,9 @@ class SpecialistTaskQueue:
                 """
                 UPDATE specialist_tasks
                 SET status='succeeded', result=?, error='', worker_id='', lease_until=NULL, updated_at=?
-                WHERE task_id=? AND worker_id=? AND status='running'
+                WHERE task_id=? AND worker_id=? AND status='running' AND lease_until>?
                 """,
-                (result, time.time(), task_id, worker_id),
+                (result, time.time(), task_id, worker_id, time.time()),
             )
             if cursor.rowcount != 1:
                 raise TaskQueueError("Task is not running under this worker lease.")
