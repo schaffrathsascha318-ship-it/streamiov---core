@@ -78,3 +78,8 @@ test('desktop capture requests system audio and gracefully falls back to video-o
   assert.ok(html.includes('connectAudioSource("game",stream)'));
   assert.ok(html.includes('Diese Laufzeit unterstützt kein Desktop-Audio; Bild bleibt verfügbar.'));
 });
+
+test('stopping desktop capture disconnects its game-audio mixer input', () => {
+  assert.ok(html.includes('if(studioAudioMixer)studioAudioMixer.disconnect("game")'));
+  assert.ok(html.includes('renderAudioChannel("game")'));
+});
