@@ -16,9 +16,13 @@ test('desktop capture discovery is guarded by trusted Electron IPC', () => {
   assert.match(preload, /getCaptureSources: \(\) => ipcRenderer\.invoke\('studio:get-capture-sources'\)/);
 });
 
-test('Regie can preview a selected desktop/window stream locally', () => {
-  assert.match(regie, /chromeMediaSource:"desktop"/);
-  assert.match(regie, /chromeMediaSourceId:sourceId/);
+test('Electron grants only the selected desktop source through the standard display media API', () => {
+  assert.match(main, /setDisplayMediaRequestHandler\(/);
+  assert.match(main, /selectedDesktopCaptureSourceId/);
+  assert.match(main, /audio: 'loopback'/);
+  assert.match(main, /studio:select-capture-source/);
+  assert.match(preload, /selectCaptureSource: \(sourceId\) => ipcRenderer\.invoke\('studio:select-capture-source'/);
+  assert.match(regie, /navigator\.mediaDevices\.getDisplayMedia\(/);
   assert.match(regie, /desktopCaptureVideo\.srcObject=stream/);
   assert.match(regie, /track\.readyState!=="live"/);
   assert.match(regie, /stopCapture\("desktop"\)/);
