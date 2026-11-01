@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
   getStatus: () => ipcRenderer.invoke('studio:get-status'),
   getDisplays: () => ipcRenderer.invoke('studio:get-displays'),
   openProgramOutput: () => ipcRenderer.invoke('studio:open-program-output'),
+  moveRegieToDisplay: (displayId) => ipcRenderer.invoke('studio:move-regie-to-display', { displayId }),
   getRuntimeDiagnostics: () => ipcRenderer.invoke('studio:get-runtime-diagnostics'),
   runMediaTest: () => ipcRenderer.invoke('studio:run-media-test'),
   recordMusicTest: (payload) => ipcRenderer.invoke('studio:record-music-test', payload),
