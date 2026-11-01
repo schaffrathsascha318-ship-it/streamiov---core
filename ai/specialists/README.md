@@ -64,3 +64,17 @@ python -m ai --worker-once --queue-db data/ai-tasks.sqlite3 --worker-id studio-w
 ```
 
 An idle worker exits cleanly without loading a model. A worker claims one task with a time-limited lease, invokes the selected role through the shared provider, and records success or failure. Failed tasks are retried only within their configured retry budget. Run the one-shot command from a supervisor or scheduler if repeated processing is desired; this repository does not yet install or enable an always-on service automatically.
+
+## Supervised worker process
+
+Run a worker loop under a process supervisor:
+
+```bash
+python -m ai --worker-loop --queue-db data/ai-tasks.sqlite3 --worker-id streamiov-worker-01 --project-root . --poll-seconds 5
+```
+
+The loop processes tasks until it receives SIGINT/SIGTERM. `--max-tasks N` provides a bounded run for maintenance/testing; zero means supervisor-controlled. Each active task renews its lease while the model is working. Expired leases cannot be used to complete or fail a task.
+
+An example hardened systemd unit is provided at `infrastructure/systemd/streamiov-ai-worker.service.example`. It is deliberately not enabled by CI and is not a production deployment. Before installing it, provision a dedicated low-privilege `streamiov` user, review the filesystem paths and write access, install the project/virtual environment, configure the provider in `/etc/streamiov/ai-worker.env`, and keep that environment file outside Git with restrictive permissions. Do not place real tokens in the repository or unit file.
+
+The worker still needs an available configured provider and model. Local Ollama requires a local model runtime on the host. The authenticated Cloudflare Workers AI gateway must be provisioned separately and can stop when its free allocation is exhausted; no paid fallback is performed. A running service on a real cloud host remains a separate deployment and operations acceptance test.
