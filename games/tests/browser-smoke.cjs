@@ -46,6 +46,7 @@ test('three independent games load and complete core browser interactions', asyn
       assert.equal(observed.length, 1, 'first Echo Grid round must show exactly one tile');
       await page.locator('.tile').nth(observed[0]).click();
       await page.waitForFunction(() => document.querySelector('#level').textContent === '2', null, { timeout: 5000 });
+      await page.waitForFunction(() => document.querySelector('#status').textContent === 'Schau dir die Sequenz an …', null, { timeout: 5000 });
       assert.equal(await page.locator('#status').textContent(), 'Schau dir die Sequenz an …');
       await page.close();
     }
