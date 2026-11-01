@@ -48,7 +48,7 @@ dist/streamiov-studio-app/**/diagnose-*.cjs
 # Sensitive local credentials and private configuration (never commit)
 /secrets/
 /config/platforms/**/oauth*.json
- /config/**/*.secret.*
+/config/**/*.secret.*
 /config/**/*credentials*
 
 # Runtime state, private request data and historical deployment logs
