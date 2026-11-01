@@ -101,7 +101,8 @@ ipcMain.handle('studio:chat-action', async (event, payload = {}) => {
         tts: streamiovChatState.tts,
         tts_audio: new Uint8Array(stdout),
         tts_audio_mime: 'audio/wav',
-        tts_audio_verified: true
+        tts_audio_generated: true,
+        tts_audio_verified: false
       };
     } catch (error) {
       return {
