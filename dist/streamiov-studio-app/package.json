@@ -21,9 +21,6 @@
     "predist:linux": "python3 ../../scripts/sync-studio-ui.py && python3 ../../scripts/sync-studio-games.py",
     "predist:linux:arm64": "python3 ../../scripts/sync-studio-ui.py && python3 ../../scripts/sync-studio-games.py"
   },
-  "dependencies": {
-    "tiktok-live-connector": "2.5.0"
-  },
   "devDependencies": {
     "electron": "44.7.0",
     "electron-builder": "^26.0.12"
