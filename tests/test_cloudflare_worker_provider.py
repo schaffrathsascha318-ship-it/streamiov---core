@@ -9,6 +9,9 @@ from ai.providers.cloudflare_worker import (
     CloudflareWorkerError,
     CloudflareWorkersAIProvider,
     DEFAULT_MODEL,
+    MAX_MESSAGE_CHARS,
+    MAX_PROMPT_CHARS,
+    MAX_REQUEST_BYTES,
     _worker_url,
 )
 from ai.providers.local_http import provider_from_env
@@ -68,6 +71,36 @@ class CloudflareWorkerProviderTests(unittest.TestCase):
         sent = json.loads(request.data.decode("utf-8"))
         self.assertEqual(sent["model"], DEFAULT_MODEL)
         self.assertEqual(sent["messages"][0]["role"], "system")
+
+    def test_rejects_a_single_message_over_worker_character_limit_before_network(self):
+        with patch("ai.providers.cloudflare_worker.urlopen") as mocked:
+            with self.assertRaisesRegex(CloudflareWorkerError, "message exceeds the Worker limit"):
+                self.provider().generate(system="System", messages=[{"role": "user", "content": "x" * (MAX_MESSAGE_CHARS + 1)}])
+        mocked.assert_not_called()
+
+    def test_rejects_combined_prompt_over_worker_character_limit_before_network(self):
+        first = "a" * 24_001
+        second = "b" * 24_001
+        with patch("ai.providers.cloudflare_worker.urlopen") as mocked:
+            with self.assertRaisesRegex(CloudflareWorkerError, "Combined chat prompt exceeds"):
+                self.provider().generate(system="", messages=[
+                    {"role": "user", "content": first},
+                    {"role": "assistant", "content": second},
+                ])
+        mocked.assert_not_called()
+
+    def test_rejects_utf8_request_over_worker_body_limit_before_network(self):
+        content = "💜" * (MAX_REQUEST_BYTES // 4 + 1)
+        with patch("ai.providers.cloudflare_worker.urlopen") as mocked:
+            with self.assertRaisesRegex(CloudflareWorkerError, "Serialized chat request exceeds"):
+                self.provider().generate(system="", messages=[{"role": "user", "content": content}])
+        mocked.assert_not_called()
+
+    def test_rejects_malformed_message_shapes_before_network(self):
+        with patch("ai.providers.cloudflare_worker.urlopen") as mocked:
+            with self.assertRaisesRegex(CloudflareWorkerError, "Every chat message"):
+                self.provider().generate(system="System", messages=[{"role": "user", "content": None}])
+        mocked.assert_not_called()
 
     def test_doctor_uses_authenticated_health_endpoint(self):
         with patch(
