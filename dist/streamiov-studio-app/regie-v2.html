@@ -98,12 +98,28 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
  .right-stack{grid-column:1/-1;grid-template-columns:repeat(3,1fr)}
  .bottom{grid-template-columns:1fr 1fr}
 }
+#mobile-content-stage{display:none}
+#mobile-regie-toggle{display:none}
 @media(max-width:700px){
  header{height:auto;padding:12px;gap:10px;flex-wrap:wrap}
+ header .status{width:100%;justify-content:space-between;gap:6px;font-size:11px}
+ #mobile-content-stage{display:block;margin:8px 8px 0;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+ #mobile-content-stage .mobile-stage-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+ #mobile-content-stage .mobile-stage-head strong{font-size:11px;letter-spacing:1.2px}
+ #mobile-content-stage .mobile-game-view{position:relative;display:grid;place-items:center;min-height:190px;aspect-ratio:16/9;max-height:42svh;overflow:hidden;border:1px solid #334354;border-radius:9px;background:radial-gradient(ellipse at 50% 40%,#263d50 0,#131b2a 52%,#05080c 100%)}
+ #mobile-content-stage .mobile-game-view:after{content:"";position:absolute;inset:8px;border:1px solid #ffffff18;pointer-events:none}
+ #mobile-content-stage .mobile-stage-copy{position:relative;z-index:1;text-align:center;padding:12px}
+ #mobile-content-stage .mobile-stage-copy b{display:block;font-size:clamp(18px,6vw,28px);letter-spacing:2px}
+ #mobile-content-stage .mobile-stage-copy small{display:block;margin-top:8px;color:var(--cyan);font-size:11px}
+ #mobile-content-stage .mobile-stage-note{margin:8px 2px 0;color:var(--muted);font-size:11px;line-height:1.4}
+ #mobile-regie-toggle{display:block;width:calc(100% - 16px);margin:8px auto 0;min-height:44px;font-weight:800;border-color:var(--violet)}
  main{display:flex;flex-direction:column;padding:8px}
+ main.mobile-regie-collapsed{display:none}
  .monitors{grid-template-columns:1fr}
  .right-stack,.bottom{display:grid;grid-template-columns:1fr}
  .mixer{grid-template-columns:repeat(2,1fr)}
+ .panel{scroll-margin-top:8px}
+ button{min-height:40px}
 }
 </style>
 </head>
@@ -117,7 +133,22 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
  </div>
 </header>
 
-<main>
+<section id="mobile-content-stage" aria-label="Spiel und Inhalt">
+ <div class="mobile-stage-head">
+  <strong>SPIEL / INHALT</strong>
+  <span class="pill">MOBILANSICHT</span>
+ </div>
+ <div class="mobile-game-view" role="img" aria-label="Bereich für Spiel, Kamera oder laufenden Inhalt">
+  <div class="mobile-stage-copy">
+   <b>SPIEL · VIDEO · LIVE</b>
+   <small>INHALT BLEIBT OBEN · REGIE DARUNTER</small>
+  </div>
+ </div>
+ <p class="mobile-stage-note">Der Inhaltsbereich ist vom Studio getrennt. Die tatsächliche Spiel-/Bildschirmaufnahme hängt vom unterstützten Geräteadapter und der Medienpipeline ab.</p>
+</section>
+<button id="mobile-regie-toggle" type="button" aria-controls="studio-regie" aria-expanded="true">REGIE / STUDIO AUSBLENDEN</button>
+
+<main id="studio-regie">
  <section class="panel">
   <div class="panel-title">SZENEN / PRODUKTION</div>
   <div class="pad">
@@ -178,6 +209,7 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
     <button class="fade" id="fade">FADE</button>
     <span class="pill">ÜBERGANG: 300 MS</span>
     <button id="take">TAKE → PROGRAMM</button>
+    <button id="openProgramOutput" type="button">REGIE AUF 2. BILDSCHIRM</button>
    </div>
   </div>
   <div class="panel section">
@@ -322,6 +354,14 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
 
 <script>
 const $=id=>document.getElementById(id);
+const mobileRegieToggle=$("mobile-regie-toggle");
+if(mobileRegieToggle){
+ mobileRegieToggle.addEventListener("click",()=>{
+  const collapsed=$("studio-regie").classList.toggle("mobile-regie-collapsed");
+  mobileRegieToggle.setAttribute("aria-expanded",String(!collapsed));
+  mobileRegieToggle.textContent=collapsed?"REGIE / STUDIO EINBLENDEN":"REGIE / STUDIO AUSBLENDEN";
+ });
+}
 let selected="STARTING SOON";
 function log(message){
  const box=$("log");
@@ -380,6 +420,18 @@ async function createScene(){
  renderScenes(state.scenes,preview);
  log("Eigene Szene dauerhaft im Studio-Profil gespeichert: "+preview);
 }
+$("openProgramOutput").onclick=async()=>{
+ const button=$("openProgramOutput");button.disabled=true;
+ try{
+  if(!window.streamiovStudio?.moveRegieToDisplay)throw new Error("Display-Steuerung ist in diesem Build nicht verfügbar.");
+  const displays=await window.streamiovStudio.getDisplays();
+  const external=displays?.displays?.find(display=>!display.primary);
+  const result=await window.streamiovStudio.moveRegieToDisplay(external?.id);
+  if(!result?.ok)throw new Error(result?.error||"Regie konnte nicht auf den Bildschirm verschoben werden.");
+  log(result.primary?"Nur ein Bildschirm erkannt – Regie bleibt auf dem Hauptbildschirm.":"STREAMIOV-Regie läuft jetzt auf dem zweiten Bildschirm. Spiel und Inhalt bleiben auf Bildschirm 1 frei.");
+ }catch(error){log("Zweitbildschirm-Regie: "+String(error.message||error));}
+ finally{button.disabled=false;}
+};
 async function take(){
  if(window.streamiovStudio?.sceneAction){
   const result=await window.streamiovStudio.sceneAction({action:"take"});

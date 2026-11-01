@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, session, dialog, ipcMain, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { randomUUID } = require('node:crypto');
@@ -148,6 +148,10 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
   }
 
   if (!result.ok || action === 'load') return result;
+  if (action === 'take' && programOutputWindow && !programOutputWindow.isDestroyed()) {
+    const activeScene = result.state.scenes.find(scene => scene.id === result.state.programSceneId);
+    programOutputWindow.webContents.send('studio:program-scene', activeScene || { name: 'STREAMIOV' });
+  }
 
   const directory = path.dirname(file);
   await fs.mkdir(directory, { recursive: true });
@@ -727,6 +731,108 @@ ipcMain.handle('studio:ai-submit', async (event, payload = {}) => {
 
 
 let mainWindow = null;
+let programOutputWindow = null;
+function getExternalDisplay() {
+  const displays = screen.getAllDisplays();
+  const primary = screen.getPrimaryDisplay();
+  return displays.find(display => display.id !== primary.id) || null;
+}
+function openProgramOutput() {
+  if (programOutputWindow && !programOutputWindow.isDestroyed()) {
+    programOutputWindow.focus();
+    return { ok: true, alreadyOpen: true };
+  }
+  const display = getExternalDisplay();
+  const bounds = display ? display.bounds : { x: 140, y: 120, width: 1280, height: 720 };
+  programOutputWindow = new BrowserWindow({
+    ...bounds, title: 'STREAMIOV · Programmausgabe', backgroundColor: '#070914',
+    autoHideMenuBar: true, fullscreen: Boolean(display),
+    webPreferences: {
+      preload: path.join(__dirname, 'program-output-preload.js'),
+      nodeIntegration: false, contextIsolation: true, sandbox: true
+    }
+  });
+  programOutputWindow.setMenuBarVisibility(false);
+  programOutputWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  programOutputWindow.webContents.once('did-finish-load', async () => {
+    if (!programOutputWindow || programOutputWindow.isDestroyed()) return;
+    try {
+      const sceneFile = path.join(app.getPath('userData'), 'streamiov-scenes.json');
+      let savedState = {};
+      try {
+        savedState = JSON.parse(await fs.readFile(sceneFile, 'utf8'));
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+      const snapshot = new StudioSceneEngine(savedState).snapshot();
+      const activeScene = snapshot.scenes.find(scene => scene.id === snapshot.programSceneId);
+      programOutputWindow.webContents.send('studio:program-scene', activeScene || { name: 'STARTING SOON' });
+    } catch (error) {
+      console.error('[PROGRAM_OUTPUT] INITIAL_SCENE_FAILED', error);
+    }
+  });
+  programOutputWindow.loadFile(path.join(__dirname, 'program-output.html')).catch(error => console.error('[PROGRAM_OUTPUT] LOAD_FAILED', error));
+  programOutputWindow.on('closed', () => { programOutputWindow = null; });
+  return { ok: true, externalDisplay: Boolean(display), displayBounds: bounds, outputWindowOpened: true, renderedVideo: false };
+}
+ipcMain.handle('studio:get-displays', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  const primary = screen.getPrimaryDisplay();
+  return {
+    ok: true,
+    displays: screen.getAllDisplays().map(display => ({ id: display.id, bounds: display.bounds, scaleFactor: display.scaleFactor, primary: display.id === primary.id })),
+    externalDisplayAvailable: Boolean(getExternalDisplay())
+  };
+});
+ipcMain.handle('studio:open-program-output', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  return openProgramOutput();
+});
+
+let regieDisplayId = null;
+function placeRegieOnDisplay(displayId) {
+  if (!mainWindow || mainWindow.isDestroyed()) return { ok: false, error: 'Regie-Fenster ist noch nicht bereit.' };
+  const displays = screen.getAllDisplays();
+  const target = displays.find(display => String(display.id) === String(displayId))
+    || displays.find(display => display.id !== screen.getPrimaryDisplay().id)
+    || screen.getPrimaryDisplay();
+  if (!target) return { ok: false, error: 'Kein verwendbarer Bildschirm erkannt.' };
+  regieDisplayId = target.id;
+  const bounds = target.workArea || target.bounds;
+  const width = Math.max(800, Math.min(1600, bounds.width));
+  const height = Math.max(600, Math.min(1000, bounds.height));
+  mainWindow.setFullScreen(false);
+  mainWindow.setBounds({
+    x: bounds.x + Math.max(0, Math.floor((bounds.width - width) / 2)),
+    y: bounds.y + Math.max(0, Math.floor((bounds.height - height) / 2)),
+    width: Math.min(width, bounds.width),
+    height: Math.min(height, bounds.height)
+  });
+  mainWindow.show();
+  mainWindow.focus();
+  return {
+    ok: true,
+    displayId: target.id,
+    primary: target.id === screen.getPrimaryDisplay().id,
+    displayBounds: target.bounds,
+    regieWindowMoved: true
+  };
+}
+
+ipcMain.handle('studio:move-regie-to-display', async (event, payload = {}) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  return placeRegieOnDisplay(payload.displayId);
+});
+
+function reconcileRegieDisplay() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const displays = screen.getAllDisplays();
+  const selectedStillExists = displays.some(display => display.id === regieDisplayId);
+  if (selectedStillExists) return;
+  const fallback = displays.find(display => display.id !== screen.getPrimaryDisplay().id)
+    || screen.getPrimaryDisplay();
+  if (fallback) placeRegieOnDisplay(fallback.id);
+}
 
 app.whenReady().then(() => {
   const ses = session.defaultSession;
@@ -740,11 +846,14 @@ app.whenReady().then(() => {
     return permission === 'media' && webContents.getURL() === studioUrl;
   });
 
+  const initialRegieDisplay = getExternalDisplay() || screen.getPrimaryDisplay();
+  const initialRegieArea = initialRegieDisplay.workArea || initialRegieDisplay.bounds;
+  regieDisplayId = initialRegieDisplay.id;
   mainWindow = new BrowserWindow({
-    x: 100,
-    y: 80,
-    width: 1600,
-    height: 900,
+    x: initialRegieArea.x + Math.max(0, Math.floor((initialRegieArea.width - Math.min(1600, initialRegieArea.width)) / 2)),
+    y: initialRegieArea.y + Math.max(0, Math.floor((initialRegieArea.height - Math.min(900, initialRegieArea.height)) / 2)),
+    width: Math.min(1600, initialRegieArea.width),
+    height: Math.min(900, initialRegieArea.height),
     minWidth: 800,
     minHeight: 600,
     title: 'Streamiov Studio',
@@ -769,6 +878,10 @@ app.whenReady().then(() => {
   win.webContents.on('unresponsive', () => console.error('[TRACE] RENDER_UNRESPONSIVE'));
   win.webContents.on('did-fail-load', (_e, code, desc, url) => console.error('[TRACE] LOAD_FAILED', code, desc, url));
   win.loadFile(path.join(__dirname, 'index.html')).catch(e => console.error('[TRACE] LOAD_PROMISE_REJECTED', e));
+
+  screen.on('display-added', reconcileRegieDisplay);
+  screen.on('display-removed', reconcileRegieDisplay);
+  screen.on('display-metrics-changed', reconcileRegieDisplay);
 
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
