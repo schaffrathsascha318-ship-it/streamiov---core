@@ -94,6 +94,29 @@ class StudioAudioMixer {
     return destination.stream;
   }
 
+  async attachMonitor(element, { deviceId = '' } = {}) {
+    this.#assertOpen();
+    if (!element || typeof element !== 'object') throw new TypeError('An audio element is required.');
+    const stream = this.getOutputStream('monitor');
+    element.autoplay = true;
+    element.playsInline = true;
+    if (element.srcObject !== stream) element.srcObject = stream;
+    if (deviceId) {
+      if (typeof element.setSinkId !== 'function') throw new Error('Selecting a physical audio output is not supported by this runtime.');
+      await element.setSinkId(deviceId);
+    }
+    await this.resume();
+    await element.play();
+    return { connected: true, deviceId: typeof element.sinkId === 'string' ? element.sinkId : '' };
+  }
+
+  detachMonitor(element) {
+    if (!element || typeof element !== 'object') return false;
+    element.pause?.();
+    if ('srcObject' in element) element.srcObject = null;
+    return true;
+  }
+
   getBusNames() {
     this.#assertOpen();
     return [...this.buses.keys()];
