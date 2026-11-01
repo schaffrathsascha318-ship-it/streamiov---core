@@ -45,12 +45,22 @@ jobs:
             echo "No issue carries the agent-ready label."
             exit 0
           fi
-          issue_b64="$(jq -r '.[0] | @base64' <<< "$issue_json")"
           issue_number="$(jq -r '.[0].number' <<< "$issue_json")"
-          issue_title="$(jq -r '.[0].title' <<< "$issue_json")"
+          issue_author_association="$(gh api "repos/$GITHUB_REPOSITORY/issues/$issue_number" --jq '.author_association')"
           gh label create agent-in-progress --color 1D76DB --description "Being processed by the bounded STREAMIOV agent" --force >/dev/null
           gh label create agent-review --color 0E8A16 --description "Agent prepared a draft pull request for review" --force >/dev/null
           gh label create agent-blocked --color B60205 --description "Agent could not safely complete this task" --force >/dev/null
+          case "$issue_author_association" in
+            OWNER|MEMBER|COLLABORATOR) ;;
+            *)
+              gh issue edit "$issue_number" --remove-label agent-ready --add-label agent-blocked
+              gh issue comment "$issue_number" --body "Autonomous execution is limited to issues submitted by repository owners, members, or collaborators. This issue was not executed."
+              echo "Issue author is not an authorized repository collaborator; skipping execution."
+              exit 0
+              ;;
+          esac
+          issue_b64="$(jq -r '.[0] | @base64' <<< "$issue_json")"
+          issue_title="$(jq -r '.[0].title' <<< "$issue_json")"
           gh issue edit "$issue_number" --remove-label agent-ready --add-label agent-in-progress
           {
             echo "issue_number=$issue_number"
