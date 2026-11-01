@@ -182,3 +182,9 @@ Die KI ist ein zentrales Produkt- und Entwicklungsfundament, nicht nur ein Chatf
 - [ ] Echte Modellinferenz gegen einen tatsächlich laufenden lokalen oder autorisierten Streamiov-Provider nachweisen; die CI nutzt weiterhin Test-/Mock-Endpunkte und ersetzt keinen Hardware-/Provider-Test.
 - [ ] Sicheren Aufgaben-Orchestrator mit Warteschlange, Zustandsmodell, Retry-/Timeout-Grenzen, Spezialistenzuweisung, Branch-Isolation und Ergebnisprotokollen ergänzen.
 - [ ] Agentendienst mit sicherem Start/Stop, Wiederanlauf, Healthcheck und kontrollierter Ausführung bereitstellen; nicht als dauerhaft aktiv markieren, bevor real getestet.
+
+- [x] PR #74 zusammengeführt: synchroner, begrenzter DAG-Orchestrator mit Abhängigkeitsprüfung, stabiler Ausführungsreihenfolge, Fehlerisolierung und Überspringen abhängiger Aufgaben.
+- [x] PR #75 zusammengeführt: SQLite-Warteschlange mit transaktionalem Claim, Worker-Leases, Heartbeat-API, begrenzten Wiederholungen und einem One-Task-Worker; CI nach Korrektur der Reihenfolge-/Abhängigkeitstests erfolgreich.
+- [x] PR #76 zusammengeführt: CLI zum dauerhaften Einreihen und zum Ausführen genau eines Worker-Auftrags; ein leerer Worker beendet sich ohne Modellstart. Full AI/Cloudflare tests and secret scan passed.
+- [ ] Dauerhafter Worker-Dienst mit kontrolliertem Polling, sauberem SIGTERM/SIGINT-Stopp, Lease-Erneuerung während langer Inferenz und Supervisor-Konfiguration ergänzen und auf dem vorgesehenen Cloud-Host testen.
+- [ ] Echtes Ende-zu-Ende-Modell mit realer Inferenz und realer Agenten-Dateiänderung im isolierten Branch ausführen; bisherige Agenten-/Queue-Tests verwenden kontrollierte Testprovider.
