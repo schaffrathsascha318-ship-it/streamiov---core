@@ -34,7 +34,7 @@ def _strip_json_fence(content: str) -> str:
     if text.startswith("```") and text.endswith("```"):
         lines = text.splitlines()
         if len(lines) >= 3 and lines[0].strip().lower() in {"```", "```json"} and lines[-1].strip() == "```":
-            text = "\\n".join(lines[1:-1]).strip()
+            text = "\n".join(lines[1:-1]).strip()
     return text
 
 
@@ -153,12 +153,12 @@ class DevelopmentAgent:
                 if not isinstance(result, str):
                     result = str(result)
                 if len(result) > MAX_TOOL_RESULT_CHARS:
-                    result = result[:MAX_TOOL_RESULT_CHARS] + "\\n[tool output truncated at 12,000 characters]"
-                results.append(f"ACTION {index} ({tool}):\\n{result}")
+                    result = result[:MAX_TOOL_RESULT_CHARS] + "\n[tool output truncated at 12,000 characters]"
+                results.append(f"ACTION {index} ({tool}):\n{result}")
 
             messages.extend([
                 {"role": "assistant", "content": reply.content},
-                {"role": "user", "content": "\\n\\n".join(results)},
+                {"role": "user", "content": "\n\n".join(results)},
             ])
             messages = _trim_context(messages)
         raise AgentError(f"Agent reached the {self.max_steps}-step limit without a final response.")
