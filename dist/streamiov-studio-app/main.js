@@ -754,6 +754,23 @@ function openProgramOutput() {
   });
   programOutputWindow.setMenuBarVisibility(false);
   programOutputWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  programOutputWindow.webContents.once('did-finish-load', async () => {
+    if (!programOutputWindow || programOutputWindow.isDestroyed()) return;
+    try {
+      const sceneFile = path.join(app.getPath('userData'), 'streamiov-scenes.json');
+      let savedState = {};
+      try {
+        savedState = JSON.parse(await fs.readFile(sceneFile, 'utf8'));
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+      const snapshot = new StudioSceneEngine(savedState).snapshot();
+      const activeScene = snapshot.scenes.find(scene => scene.id === snapshot.programSceneId);
+      programOutputWindow.webContents.send('studio:program-scene', activeScene || { name: 'STARTING SOON' });
+    } catch (error) {
+      console.error('[PROGRAM_OUTPUT] INITIAL_SCENE_FAILED', error);
+    }
+  });
   programOutputWindow.loadFile(path.join(__dirname, 'program-output.html')).catch(error => console.error('[PROGRAM_OUTPUT] LOAD_FAILED', error));
   programOutputWindow.on('closed', () => { programOutputWindow = null; });
   return { ok: true, externalDisplay: Boolean(display), displayBounds: bounds, outputWindowOpened: true, renderedVideo: false };
