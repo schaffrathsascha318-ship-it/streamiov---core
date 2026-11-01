@@ -37,3 +37,11 @@ Implement this as a dedicated specialist under the shared AI runtime/provider ar
 ## Current status
 
 This file records the approved target architecture and acceptance criteria. The Game AI must modernize eligible 2D classics into genuine 3D experiences as well as create original 2D/3D games. It does not claim the specialist is registered, autonomous, connected to a rights database, or able to publish games yet. Those capabilities must be implemented and tested in the phases above.
+
+
+### G0 — Original idea and ownership foundation
+- Build a Streamiov-original idea pipeline that proposes, scores for feasibility/originality, versions, and records original mechanics, worlds, characters, stories, levels, and game concepts before implementation.
+- Maintain a provenance ledger from concept to release: dated briefs and versions, source commits, contributor/asset origins, AI tool/provider and applicable terms, third-party inputs, licences, and approvals.
+- Add a standard Streamiov intro and outro/closing credits to every Streamiov-created game, with configurable skip/short behavior, accessible presentation, and no disruptive gameplay interruption. Include an in-game credits/about screen and accurate Streamiov-original branding.
+- Gate “owned by Streamiov” claims on verified rights in all contributions and components, including contributor assignments/agreements, AI tool terms, fonts, music, middleware, assets, and open-source licences. Record exclusions, licence scope, attribution, and the actual rights holder.
+- Copyright notices, branding, intro/outro, hashes, and provenance are evidence/identification measures, not substitutes for ownership transfers or legal/technical copy protection. Never claim ownership of third-party or uncleared material.
