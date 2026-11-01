@@ -125,6 +125,7 @@ jobs:
           branch="agent/issue-${ISSUE_NUMBER}-run-${GITHUB_RUN_ID}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          gh auth setup-git
           git switch -c "$branch"
           git add -A -- ai tests
           if [[ -d docs/ai-development ]]; then git add -A -- docs/ai-development; fi
