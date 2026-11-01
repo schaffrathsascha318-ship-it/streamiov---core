@@ -14,6 +14,15 @@ contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
   sceneAction: (payload) => ipcRenderer.invoke('studio:scene-action', payload),
   aiLogin: (payload) => ipcRenderer.invoke('studio:ai-login', payload),
   aiLogout: () => ipcRenderer.invoke('studio:ai-logout'),
-  aiSubmit: (payload) => ipcRenderer.invoke('studio:ai-submit', payload)
+  aiSubmit: (payload) => ipcRenderer.invoke('studio:ai-submit', payload),
+  tiktokStatus: () => ipcRenderer.invoke('studio:tiktok-status'),
+  tiktokConnect: () => ipcRenderer.invoke('studio:tiktok-connect'),
+  tiktokDisconnect: () => ipcRenderer.invoke('studio:tiktok-disconnect'),
+  onTikTokAuthResult: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, result) => callback(result);
+    ipcRenderer.on('studio:tiktok-auth-result', listener);
+    return () => ipcRenderer.removeListener('studio:tiktok-auth-result', listener);
+  }
 }));
 
