@@ -7,7 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from ai.providers.local_http import (ProviderError, _local_url, OllamaProvider, LocalOpenAICompatibleProvider, provider_from_env)
 from ai.runtime.project_tools import ProjectTools, ToolError
-from ai.core.agent import DevelopmentAgent, AgentError
+from ai.core.agent import DevelopmentAgent, AgentError, MAX_CONTEXT_CHARS, MAX_TOOL_RESULT_CHARS, _trim_context
 from ai.__main__ import build_parser, main
 
 class FakeProvider:
@@ -122,6 +122,58 @@ class AgentTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             response = '{"tool":"read_file","arguments":{"path":"README.md"},"final":"fake"}'
             with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider([response]), tmp).run("Do task")
+
+
+    def test_tool_batch_is_fully_validated_before_first_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp, "ai", "must_not_exist.py")
+            p = FakeProvider([
+                '{"tool":"write_file","arguments":{"path":"ai/must_not_exist.py","content":"unsafe partial batch"}}'
+                '{"tool":"read_file","arguments":{"path":"README.md","unexpected":"extra"}}'
+            ])
+            with self.assertRaises(AgentError):
+                DevelopmentAgent(p, tmp).run("Do not partially execute invalid batches")
+            self.assertFalse(target.exists())
+
+    def test_tool_arguments_reject_non_string_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = FakeProvider(['{"tool":"read_file","arguments":{"path":42}}'])
+            with self.assertRaises(AgentError):
+                DevelopmentAgent(p, tmp).run("Reject malformed tool arguments")
+
+    def test_context_budget_preserves_original_task_and_newest_turn(self):
+        messages = [{"role": "user", "content": "ORIGINAL TASK"}]
+        for index in range(20):
+            messages.extend([
+                {"role": "assistant", "content": f"action-{index}-" + "a" * 3000},
+                {"role": "user", "content": f"result-{index}-" + "b" * 3000},
+            ])
+        trimmed = _trim_context(messages)
+        self.assertEqual(trimmed[0]["content"], "ORIGINAL TASK")
+        self.assertIn("result-19-", trimmed[-1]["content"])
+        self.assertLessEqual(sum(len(message["content"]) for message in trimmed), MAX_CONTEXT_CHARS)
+
+    def test_large_tool_output_is_truncated_before_next_model_call(self):
+        class CapturingProvider:
+            def __init__(self):
+                self.calls = 0
+                self.last_messages = None
+            def generate(self, **kwargs):
+                self.calls += 1
+                self.last_messages = kwargs["messages"]
+                class Reply:
+                    def __init__(self, content): self.content = content
+                if self.calls == 1:
+                    return Reply('{"tool":"read_file","arguments":{"path":"README.md"}}')
+                return Reply('{"final":"bounded output received"}')
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "README.md").write_text("x" * (MAX_TOOL_RESULT_CHARS + 1000), encoding="utf-8")
+            provider = CapturingProvider()
+            result = DevelopmentAgent(provider, tmp).run("Read the large file safely")
+            self.assertEqual(result, "bounded output received")
+            tool_context = provider.last_messages[-1]["content"]
+            self.assertIn("tool output truncated at 12,000 characters", tool_context)
+            self.assertLess(len(tool_context), MAX_TOOL_RESULT_CHARS + 200)
 
 
 class CliTests(unittest.TestCase):
