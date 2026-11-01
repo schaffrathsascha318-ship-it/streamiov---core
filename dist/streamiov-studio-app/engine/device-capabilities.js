@@ -38,7 +38,7 @@ function resolveDeviceCapabilities({ platform = 'unknown', architecture = 'unkno
   });
 }
 
-/** Select presentation density only; this never changes which Regie features exist. */
+/** Select presentation density only; this never changes the available feature model. */
 function resolveRegieLayout({ width = 1024, height = 768, coarsePointer = false } = {}) {
   const safeWidth = Number.isFinite(Number(width)) ? Math.max(0, Number(width)) : 1024;
   const safeHeight = Number.isFinite(Number(height)) ? Math.max(0, Number(height)) : 768;
@@ -50,7 +50,8 @@ function resolveRegieLayout({ width = 1024, height = 768, coarsePointer = false 
     inputMode: coarsePointer ? 'touch' : 'pointer',
     orientation: safeWidth >= safeHeight ? 'landscape' : 'portrait',
     navigation: formFactor === 'phone' ? 'compact' : 'expanded',
-    columns: formFactor === 'phone' ? 1 : formFactor === 'tablet' ? 2 : 3
+    columns: formFactor === 'phone' ? 1 : formFactor === 'tablet' ? 2 : 3,
+    contentRegieArrangement: formFactor === 'phone' ? 'stacked' : 'separate-surfaces'
   });
 }
 
