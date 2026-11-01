@@ -30,6 +30,7 @@ on:
       - "dist/streamiov-studio-app/**"
       - "scripts/sync-studio-ui.py"
       - "scripts/sync-studio-games.py"
+      - "scripts/test-studio-media-pipeline.cjs"
       - ".github/workflows/studio-build.yml"
 
 permissions:
