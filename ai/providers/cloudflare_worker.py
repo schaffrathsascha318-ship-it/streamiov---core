@@ -103,7 +103,7 @@ def _validated_payload(model: str, system: str, messages: list[dict[str, str]]) 
         "temperature": 0.1,
         "messages": all_messages,
     }
-    if len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > MAX_REQUEST_BYTES:
+    if len(json.dumps(payload).encode("utf-8")) > MAX_REQUEST_BYTES:
         raise CloudflareWorkerError(
             f"Serialized chat request exceeds the Worker limit of {MAX_REQUEST_BYTES} bytes."
         )
