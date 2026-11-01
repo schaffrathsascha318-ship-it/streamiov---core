@@ -173,3 +173,12 @@ Die KI ist ein zentrales Produkt- und Entwicklungsfundament, nicht nur ein Chatf
 
 ---
 **Arbeitsauftrag:** Den Repository-Bestand systematisch von den frühesten vorhandenen Issues/PRs aufwärts bis zu allen tatsächlich vorhandenen Einträgen prüfen. Aufgaben nicht allein nach Nummern vermuten. Sichere, klar abgegrenzte Arbeiten eigenständig umsetzen, testen und über nachvollziehbare Commits/PRs integrieren. Diesen Plan bei neuen Erkenntnissen aktualisieren.
+
+
+## Umsetzung gestartet – 2026-11-01
+
+- [x] PR #72 zusammengeführt: Gitleaks-Scan des aktuellen Arbeitsbaums in CI; fehlerhafte Secret-Ignore-Regel korrigiert. Der Scan lief erfolgreich. Git-Historie wurde damit nicht bereinigt; bestehende TikTok-Verbindungen/OAuth-Konfiguration wurden nicht verändert.
+- [x] PR #73 zusammengeführt: rollenbasierte KI-Spezialisten für Core, Code, Game, Design, Gifts, Testing, Repair, Integration, Studio, Server/Ops und General. Rollen haben eigene Missionsanweisungen und technisch erzwungene Schreibpfade; CLI-Auswahl über `python -m ai --specialist <rolle>`. Die vorhandenen Agenten- und Cloudflare-Worker-Tests sowie die neuen Spezialistentests liefen in GitHub Actions erfolgreich (Run 41278837404).
+- [ ] Echte Modellinferenz gegen einen tatsächlich laufenden lokalen oder autorisierten Streamiov-Provider nachweisen; die CI nutzt weiterhin Test-/Mock-Endpunkte und ersetzt keinen Hardware-/Provider-Test.
+- [ ] Sicheren Aufgaben-Orchestrator mit Warteschlange, Zustandsmodell, Retry-/Timeout-Grenzen, Spezialistenzuweisung, Branch-Isolation und Ergebnisprotokollen ergänzen.
+- [ ] Agentendienst mit sicherem Start/Stop, Wiederanlauf, Healthcheck und kontrollierter Ausführung bereitstellen; nicht als dauerhaft aktiv markieren, bevor real getestet.
