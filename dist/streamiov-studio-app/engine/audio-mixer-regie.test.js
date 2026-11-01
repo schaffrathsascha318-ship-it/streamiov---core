@@ -23,3 +23,15 @@ test('Regie exposes selectable local monitor output controls', () => {
   assert.ok(html.includes('studioAudioMixer.attachMonitor(monitorElement'));
   assert.ok(html.includes('studioAudioMixer.detachMonitor(monitorElement)'));
 });
+
+test('Regie connects local music and alert media files to their own mixer channels', () => {
+  assert.ok(html.includes('id="musicAudioFile"'));
+  assert.ok(html.includes('id="musicAudioPlayer"'));
+  assert.ok(html.includes('id="alertAudioFile"'));
+  assert.ok(html.includes('id="alertAudioPlayer"'));
+  assert.ok(html.includes('bindMediaFile("music"'));
+  assert.ok(html.includes('bindMediaFile("alerts"'));
+  assert.ok(html.includes('connectAudioSource(channel,binding.destination.stream)'));
+  assert.ok(html.includes('music:{gain:45,muted:false,routes:["stream","monitor","music_stem"]}'));
+  assert.ok(html.includes('alerts:{gain:80,muted:false,routes:["stream","monitor","alerts_stem"]}'));
+});
