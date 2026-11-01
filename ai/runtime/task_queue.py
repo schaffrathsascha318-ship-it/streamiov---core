@@ -243,8 +243,8 @@ class SpecialistTaskQueue:
         now = time.time()
         with self._connection() as connection:
             cursor = connection.execute(
-                "UPDATE specialist_tasks SET lease_until=?, updated_at=? WHERE task_id=? AND worker_id=? AND status='running'",
-                (now + lease_seconds, now, task_id, worker_id),
+                "UPDATE specialist_tasks SET lease_until=?, updated_at=? WHERE task_id=? AND worker_id=? AND status='running' AND lease_until>?",
+                (now + lease_seconds, now, task_id, worker_id, now),
             )
             if cursor.rowcount != 1:
                 raise TaskQueueError("Task is not running under this worker lease.")
@@ -252,7 +252,7 @@ class SpecialistTaskQueue:
     def complete(self, task_id: str, worker_id: str, result: str) -> None:
         if not isinstance(result, str) or len(result) > 12000:
             raise TaskQueueError("Task result must be text no longer than 12,000 characters.")
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute(
                 """
                 UPDATE specialist_tasks
@@ -266,10 +266,10 @@ class SpecialistTaskQueue:
 
     def fail(self, task_id: str, worker_id: str, error: str) -> QueueStatus:
         safe_error = str(error)[:1000]
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute(
-                "SELECT attempts, max_attempts FROM specialist_tasks WHERE task_id=? AND worker_id=? AND status='running'",
-                (task_id, worker_id),
+                "SELECT attempts, max_attempts FROM specialist_tasks WHERE task_id=? AND worker_id=? AND status='running' AND lease_until>?",
+                (task_id, worker_id, time.time()),
             ).fetchone()
             if row is None:
                 raise TaskQueueError("Task is not running under this worker lease.")
@@ -278,9 +278,9 @@ class SpecialistTaskQueue:
                 """
                 UPDATE specialist_tasks
                 SET status=?, error=?, worker_id='', lease_until=NULL, updated_at=?
-                WHERE task_id=? AND worker_id=? AND status='running'
+                WHERE task_id=? AND worker_id=? AND status='running' AND lease_until>?
                 """,
-                (status, safe_error, time.time(), task_id, worker_id),
+                (status, safe_error, time.time(), task_id, worker_id, time.time()),
             )
             return status
 
