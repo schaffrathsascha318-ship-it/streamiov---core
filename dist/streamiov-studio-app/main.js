@@ -6,6 +6,7 @@ const os = require('node:os');
 const http = require('node:http');
 const { pathToFileURL } = require('node:url');
 const { buildSyntheticAvPipelineArgs } = require('./media-pipeline');
+const { StudioSourceModel } = require('./engine/source-model');
 const { StudioSceneEngine } = require('./engine/scene-engine');
 
 const { execFile } = require('node:child_process');
@@ -156,6 +157,57 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
   await fs.rename(temporary, file);
   return { ok: true, state: engine.snapshot() };
 });
+
+// Dauerhafte Verwaltung von Quellen-Metadaten. Dies verbindet noch keine
+// Kamera-/Capture-Quelle mit der Encoder-Pipeline.
+ipcMain.handle('studio:source-action', async (event, payload = {}) => {
+  if (!isTrustedStudioSender(event)) {
+    throw new Error('Nicht autorisierter Studio-Aufruf');
+  }
+
+  const file = path.join(app.getPath('userData'), 'streamiov-sources.json');
+  let saved = { version: 1, sources: [] };
+  try {
+    saved = JSON.parse(await fs.readFile(file, 'utf8'));
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      return { ok: false, error: 'Quelldatei konnte nicht gelesen werden: ' + String(error.message || error).slice(0, 180) };
+    }
+  }
+
+  const model = new StudioSourceModel(saved);
+  const action = payload && payload.action;
+  if (action === 'load') {
+    return { ok: true, state: model.snapshot(), capture_pipeline_connected: false };
+  }
+
+  let result;
+  if (action === 'add') {
+    result = model.add(payload.source || {});
+  } else if (action === 'update') {
+    result = model.update(payload.id, payload.patch || {});
+  } else if (action === 'remove') {
+    result = model.remove(payload.id);
+  } else if (action === 'reorder') {
+    result = model.reorder(payload.ids);
+  } else {
+    return { ok: false, error: 'Unbekannte Quellenaktion.' };
+  }
+
+  if (!result.ok) return result;
+
+  try {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    const temporary = file + '.' + randomUUID() + '.tmp';
+    await fs.writeFile(temporary, JSON.stringify(model.toJSON(), null, 2), { mode: 0o600 });
+    await fs.rename(temporary, file);
+  } catch (error) {
+    return { ok: false, error: 'Quellen konnten nicht gespeichert werden: ' + String(error.message || error).slice(0, 180) };
+  }
+
+  return { ok: true, state: model.snapshot(), capture_pipeline_connected: false };
+});
+
 
 
 async function probeExecutable(command, args = ['--version']) {
