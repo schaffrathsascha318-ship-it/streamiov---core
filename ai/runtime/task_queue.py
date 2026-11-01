@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -57,8 +58,22 @@ class SpecialistTaskQueue:
         connection.execute("PRAGMA foreign_keys = ON")
         return connection
 
+    @contextmanager
+    def _connection(self):
+        connection = self._connect()
+        try:
+            yield connection
+            if connection.in_transaction:
+                connection.commit()
+        except Exception:
+            if connection.in_transaction:
+                connection.rollback()
+            raise
+        finally:
+            connection.close()
+
     def _initialize(self) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute("PRAGMA journal_mode = WAL")
             connection.execute(
                 """
@@ -217,7 +232,7 @@ class SpecialistTaskQueue:
         if not 10 <= lease_seconds <= 3600:
             raise TaskQueueError("lease_seconds must be between 10 and 3600.")
         now = time.time()
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute(
                 "UPDATE specialist_tasks SET lease_until=?, updated_at=? WHERE task_id=? AND worker_id=? AND status='running'",
                 (now + lease_seconds, now, task_id, worker_id),
