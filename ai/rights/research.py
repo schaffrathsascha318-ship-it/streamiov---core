@@ -26,6 +26,12 @@ ALLOWED_HOSTS = frozenset({
 class ResearchError(ValueError):
     pass
 
+class _OfficialRedirectHandler(HTTPRedirectHandler):
+    """Reject an unapproved redirect before making the redirected request."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        validate_official_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
 class _TextExtractor(HTMLParser):
     def __init__(self):
         super().__init__()
@@ -72,7 +78,7 @@ class OfficialSourceFetcher:
     """Fetch only curated official sources; redirects are checked before following."""
     def __init__(self, timeout: int = DEFAULT_TIMEOUT_SECONDS, opener=None):
         self.timeout = timeout
-        self.opener = opener or urlopen
+        self.opener = opener or build_opener(_OfficialRedirectHandler()).open
 
     def fetch(self, source: dict) -> SourceSnapshot:
         import hashlib
