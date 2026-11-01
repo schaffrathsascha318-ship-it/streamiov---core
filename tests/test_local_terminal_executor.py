@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -108,7 +109,8 @@ class LocalExecutorTests(unittest.TestCase):
         self.assertEqual(COMMAND_PROFILES, {"diagnostics", "git-status", "python-tests"})
 
     def test_executes_allowlisted_profile_and_records_digest(self):
-        envelope = signed_job()
+        now = int(time.time())
+        envelope = signed_job(issued_at=now, expires_at=now + 100)
         with patch.object(self.executor, "_request", side_effect=[envelope, {"ok": True}]) as request:
             result = self.executor.run_once()
         self.assertEqual(result["status"], "succeeded")
@@ -118,14 +120,16 @@ class LocalExecutorTests(unittest.TestCase):
         self.assertEqual(request.call_args_list[1].args[0], f"/v1/devices/{DEVICE}/jobs/job_12345678/complete")
 
     def test_refuses_replayed_job(self):
-        envelope = signed_job()
+        now = int(time.time())
+        envelope = signed_job(issued_at=now, expires_at=now + 100)
         with patch.object(self.executor, "_request", return_value=envelope):
             self.executor.run_once()
             with self.assertRaisesRegex(ExecutorError, "Duplicate"):
                 self.executor.run_once()
 
     def test_child_environment_does_not_include_device_credentials(self):
-        envelope = signed_job()
+        now = int(time.time())
+        envelope = signed_job(issued_at=now, expires_at=now + 100)
         captured = {}
         original_run = subprocess.run
 
