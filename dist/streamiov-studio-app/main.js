@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, session, dialog, ipcMain, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { randomUUID } = require('node:crypto');
@@ -148,6 +148,10 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
   }
 
   if (!result.ok || action === 'load') return result;
+  if (action === 'take' && programOutputWindow && !programOutputWindow.isDestroyed()) {
+    const activeScene = result.state.scenes.find(scene => scene.id === result.state.programSceneId);
+    programOutputWindow.webContents.send('studio:program-scene', activeScene || { name: 'STREAMIOV' });
+  }
 
   const directory = path.dirname(file);
   await fs.mkdir(directory, { recursive: true });
@@ -727,7 +731,46 @@ ipcMain.handle('studio:ai-submit', async (event, payload = {}) => {
 
 
 let mainWindow = null;
-
+let programOutputWindow = null;
+function getExternalDisplay() {
+  const displays = screen.getAllDisplays();
+  const primary = screen.getPrimaryDisplay();
+  return displays.find(display => display.id !== primary.id) || null;
+}
+function openProgramOutput() {
+  if (programOutputWindow && !programOutputWindow.isDestroyed()) {
+    programOutputWindow.focus();
+    return { ok: true, alreadyOpen: true };
+  }
+  const display = getExternalDisplay();
+  const bounds = display ? display.bounds : { x: 140, y: 120, width: 1280, height: 720 };
+  programOutputWindow = new BrowserWindow({
+    ...bounds, title: 'STREAMIOV · Programmausgabe', backgroundColor: '#070914',
+    autoHideMenuBar: true, fullscreen: Boolean(display),
+    webPreferences: {
+      preload: path.join(__dirname, 'program-output-preload.js'),
+      nodeIntegration: false, contextIsolation: true, sandbox: true
+    }
+  });
+  programOutputWindow.setMenuBarVisibility(false);
+  programOutputWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  programOutputWindow.loadFile(path.join(__dirname, 'program-output.html')).catch(error => console.error('[PROGRAM_OUTPUT] LOAD_FAILED', error));
+  programOutputWindow.on('closed', () => { programOutputWindow = null; });
+  return { ok: true, externalDisplay: Boolean(display), displayBounds: bounds, outputWindowOpened: true, renderedVideo: false };
+}
+ipcMain.handle('studio:get-displays', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  const primary = screen.getPrimaryDisplay();
+  return {
+    ok: true,
+    displays: screen.getAllDisplays().map(display => ({ id: display.id, bounds: display.bounds, scaleFactor: display.scaleFactor, primary: display.id === primary.id })),
+    externalDisplayAvailable: Boolean(getExternalDisplay())
+  };
+});
+ipcMain.handle('studio:open-program-output', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  return openProgramOutput();
+});
 app.whenReady().then(() => {
   const ses = session.defaultSession;
 
