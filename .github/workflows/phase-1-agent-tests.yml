@@ -38,5 +38,7 @@ jobs:
         run: bash -n scripts/deploy-streamiov-ai-worker.sh
       - name: Run Cloudflare AI Worker tests
         run: node --test tests/test_cloudflare_ai_worker.mjs
+      - name: Run Studio media runtime tests
+        run: node --test tests/studio-media-runtime.test.js
       - name: Run Phase 1 unit tests
         run: python -m unittest discover -s tests -v
