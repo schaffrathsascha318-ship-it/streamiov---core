@@ -82,5 +82,14 @@ class GiftCatalogTests(unittest.TestCase):
         self.assertEqual(catalog.released_gifts(), ())
 
 
+    def test_rejects_symlinked_asset(self):
+        outside = self.root / "outside.svg"
+        outside.write_text("<svg></svg>", encoding="utf-8")
+        (self.assets / "linked.svg").symlink_to(outside)
+        self.write_catalog([self.gift(svg="/assets/gifts/linked.svg")])
+        with self.assertRaisesRegex(GiftCatalogError, "symlink"):
+            GiftCatalog.load(self.catalog_file, asset_root=self.assets)
+
+
 if __name__ == "__main__":
     unittest.main()
