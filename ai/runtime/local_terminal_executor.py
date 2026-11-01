@@ -115,9 +115,13 @@ class LocalTerminalExecutor:
         self, *, workspace: Path, device_id: str, control_url: str, device_token: str,
         signing_key: bytes, audit_db: Path, timeout_seconds: int = 180,
     ) -> None:
-        self.workspace = workspace.resolve(strict=True)
-        if not self.workspace.is_dir() or self.workspace.name != "streamiov":
-            raise ExecutorError("Workspace must be the existing ~/streamiov directory.")
+        raw_workspace = Path(workspace).expanduser()
+        if raw_workspace.is_symlink():
+            raise ExecutorError("Workspace symlinks are not permitted.")
+        expected_workspace = (Path.home() / "streamiov").resolve()
+        self.workspace = raw_workspace.resolve(strict=True)
+        if self.workspace != expected_workspace or not self.workspace.is_dir():
+            raise ExecutorError("Workspace must be exactly the existing ~/streamiov directory.")
         self.device_id = device_id
         if not DEVICE_RE.fullmatch(device_id):
             raise ExecutorError("Invalid device identifier.")
@@ -129,7 +133,11 @@ class LocalTerminalExecutor:
         if not 10 <= timeout_seconds <= 900:
             raise ExecutorError("Timeout must be between 10 and 900 seconds.")
         self.timeout_seconds = timeout_seconds
-        self.audit_db = audit_db
+        self.audit_db = Path(audit_db).expanduser()
+        expected_audit_root = self.workspace / "data" / "ai-development"
+        resolved_parent = self.audit_db.parent.resolve()
+        if resolved_parent != expected_audit_root.resolve() or self.audit_db.is_symlink():
+            raise ExecutorError("Audit database must stay inside data/ai-development.")
         self.audit_db.parent.mkdir(parents=True, exist_ok=True)
         self._init_audit()
 
