@@ -7,7 +7,7 @@ function fixture(extra={}) {
  const store=new EncryptedTokenStore({filePath:path.join(dir,"sandbox.json"),encryptionKey:key,environment:"sandbox"});
  const calls=[];
  const oauth=new TikTokOAuth({environment:"sandbox",clientKey:"sandbox-key",clientSecret:"sandbox-secret",redirectUri:"http://127.0.0.1:3455/callback",store,clock:extra.clock||Date.now,
- fetch:extra.fetch||async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>({access_token:"access-secret",refresh_token:"refresh-secret",expires_in:3600,scope:"user.info.basic",open_id:"test"})};}});
+ fetch:extra.fetch || (async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>({access_token:"access-secret",refresh_token:"refresh-secret",expires_in:3600,scope:"user.info.basic",open_id:"test"})};})});
  return {oauth,store,calls,dir};
 }
 test("sandbox and production redirect validation",()=>{
