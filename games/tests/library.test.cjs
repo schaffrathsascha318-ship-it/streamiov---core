@@ -67,7 +67,7 @@ test('Pulse Defender has enemy waves, projectiles and player controls', () => {
 });
 
 test('independent game release workflow requires verified gameplay and explicit confirmation', () => {
-  const workflow = fs.readFileSync(path.join(root, '..', '..', '.github/workflows/release-game.yml'), 'utf8');
+  const workflow = fs.readFileSync(path.join(root, '..', '.github/workflows/release-game.yml'), 'utf8');
   assert.ok(workflow.includes('inputs.confirm_gameplay_verified'));
   assert.ok(workflow.includes("manifest.status !== 'gameplay_verified'"));
   assert.ok(workflow.includes('manifest.release?.gameplayVerified !== true'));
