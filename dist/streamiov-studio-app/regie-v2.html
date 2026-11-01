@@ -523,7 +523,7 @@ const audioChannelState=Object.fromEntries(Object.entries(audioChannelDefaults).
 const micMixGain=$("microphoneMixGain");
 function renderAudioChannel(name){
  const state=audioChannelState[name];if(!state)return;
- const gain=$("[data-mix-gain='"+name+"']"),mute=$("[data-mix-mute='"+name+"']"),label=$("[data-mix-state='"+name+"']");
+ const gain=document.querySelector("[data-mix-gain='"+name+"']"),mute=document.querySelector("[data-mix-mute='"+name+"']"),label=document.querySelector("[data-mix-state='"+name+"']");
  if(gain)gain.value=String(Math.round(state.gain));
  if(mute){mute.setAttribute("aria-pressed",String(state.muted));mute.textContent=state.muted?"TON AN":"STUMM";}
  if(label)label.textContent=studioAudioMixer?.snapshot(name)?"Verbunden · "+(state.muted?"stumm":"aktiv"):"Quelle noch nicht verbunden";
