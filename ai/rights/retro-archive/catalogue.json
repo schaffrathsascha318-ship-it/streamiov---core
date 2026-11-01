@@ -1,0 +1,19 @@
+{
+  "catalogue_version": 1,
+  "scope": {
+    "from_year": 1996,
+    "to_year": 2026,
+    "manufacturers": [
+      "SEGA",
+      "Nintendo",
+      "Sony",
+      "Microsoft",
+      "Atari",
+      "PC",
+      "Arcade",
+      "Handheld",
+      "Mobile"
+    ]
+  },
+  "entries": []
+}
