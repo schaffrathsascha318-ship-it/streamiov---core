@@ -1,0 +1,12 @@
+{
+  "id": "pulse-defender",
+  "name": "Pulse Defender",
+  "version": "0.1.0",
+  "description": "Ein eigenständiger Neon-Shooter: Verteidige den Kern gegen fallende Drohnen.",
+  "entry": "index.html",
+  "runtime": "browser",
+  "controls": {"keyboard": ["ArrowLeft", "ArrowRight", "A", "D", "Space"], "pointer": true, "touch": true},
+  "dependencies": [],
+  "status": "development",
+  "release": {"automatedTestsPassed": false, "gameplayVerified": false, "released": false}
+}

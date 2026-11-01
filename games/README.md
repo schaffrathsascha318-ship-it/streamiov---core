@@ -11,7 +11,21 @@ STREAMIOV games are independent products. Each game owns its source, manifest, t
 
 Automated tests alone never promote a game to gameplay_verified. A game can be released independently once its own release gates pass; the full STREAMIOV ecosystem launch remains a separate decision.
 
-## First game
-Neon Relay is the first independent arcade prototype. It is self-contained, has no external runtime dependencies and supports keyboard and pointer/touch input. It remains in development until real gameplay testing is recorded.
+## Initial game collection
 
-Every game must include a manifest, actual game implementation, rules and controls, verification checklist, and runtime-appropriate automated tests. Never mark a game released because its files merely exist or because CI passed.
+| Game | Genre | Status |
+|---|---|---|
+| Neon Relay | Reflex / collect-and-dodge arcade | Development |
+| Echo Grid | Memory / sequence puzzle | Development |
+| Pulse Defender | Arcade shooter / wave defence | Development |
+
+Each game is self-contained, uses its own manifest and has no runtime dependencies on another game. These are playable prototypes in development, not approved public releases.
+
+## Required per-game files
+Every game must include:
+- `game.json`: stable ID, version, entry point, controls, supported modes and release status.
+- `index.html` (or a documented native entry point): actual game implementation.
+- `README.md`: rules, controls, local run instructions and verification checklist.
+- automated tests appropriate to its runtime.
+
+Never mark a game released because its files merely exist or because CI passed.

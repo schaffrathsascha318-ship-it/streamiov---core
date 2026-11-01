@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080b18"><title>Echo Grid · STREAMIOV</title>
+<style>
+:root{color-scheme:dark;--cyan:#39f5e8;--violet:#7c70ff;--pink:#ff5d9e}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:18px;background:radial-gradient(ellipse at top,#24204b,#080b18 65%);color:#f4f6ff;font:16px system-ui}main{width:min(620px,100%);text-align:center}.brand{color:var(--cyan);font-weight:900;letter-spacing:.18em}.brand span{color:var(--violet)}h1{font-size:clamp(30px,7vw,54px);margin:12px 0 4px}.sub{color:#aeb7d4}.stats{display:flex;justify-content:center;gap:10px;margin:18px}.stat{background:#121a2d;border:1px solid #37436b;border-radius:12px;padding:9px 20px}.stat small{display:block;color:#aeb7d4;text-transform:uppercase;font-size:11px}.stat strong{font-size:22px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:440px;margin:18px auto}.tile{aspect-ratio:1;border-radius:18px;border:1px solid #4c5682;background:linear-gradient(145deg,#1b2940,#11182a);box-shadow:inset 0 0 25px #0005;cursor:pointer;transition:transform .12s,filter .12s}.tile:focus-visible{outline:3px solid white;outline-offset:3px}.tile.lit{background:linear-gradient(145deg,#a2fff5,var(--cyan));filter:drop-shadow(0 0 18px var(--cyan));transform:scale(.96)}.tile.wrong{background:linear-gradient(145deg,#ff9bbb,var(--pink))}.action{border:0;border-radius:999px;padding:13px 26px;background:linear-gradient(90deg,var(--cyan),#b4fff8);color:#07121b;font-weight:900;cursor:pointer}.status{min-height:28px;color:#c5cde6}
+</style></head><body><main><div class="brand">STREAMIOV <span>♥</span> ARCADE</div><h1>ECHO GRID</h1><p class="sub">Sieh dir die Sequenz an. Wiederhole sie. Bleib im Rhythmus.</p><div class="stats"><div class="stat"><small>Runde</small><strong id="level">0</strong></div><div class="stat"><small>Bestwert</small><strong id="best">0</strong></div></div><div class="grid" id="grid" aria-label="Neun Tasten"></div><p class="status" id="status" aria-live="polite">Bereit? Starte deine erste Sequenz.</p><button class="action" id="start">START</button></main>
+<script>
+(()=>{'use strict';
+const grid=document.getElementById('grid'),status=document.getElementById('status'),levelOut=document.getElementById('level'),bestOut=document.getElementById('best'),start=document.getElementById('start');
+let sequence=[],step=0,playing=false,accepting=false,best=0;
+try{best=Number(localStorage.getItem('streamiov.echo-grid.best')||0)||0}catch{}bestOut.textContent=best;
+const tiles=[];
+for(let i=0;i<9;i++){const b=document.createElement('button');b.className='tile';b.type='button';b.setAttribute('aria-label','Feld '+(i+1));b.addEventListener('click',()=>choose(i));grid.append(b);tiles.push(b)}
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function flash(index){tiles[index].classList.add('lit');await wait(360);tiles[index].classList.remove('lit');await wait(140)}
+async function showSequence(){accepting=false;playing=true;status.textContent='Schau genau hin …';for(const n of sequence){await flash(n)}playing=false;step=0;accepting=true;status.textContent='Jetzt bist du dran!';}
+async function nextRound(){sequence.push(Math.floor(Math.random()*9));levelOut.textContent=sequence.length;await wait(350);await showSequence()}
+function end(won){accepting=false;playing=false;if(won){status.textContent='Fantastisch! Du hast die Sequenz gemeistert.'}else{status.textContent='Vorbei! Richtige Felder: '+step+' von '+sequence.length+'.';start.textContent='NOCHMAL';}}
+async function choose(index){if(!accepting||playing)return;const expected=sequence[step];if(index!==expected){tiles[index].classList.add('wrong');setTimeout(()=>tiles[index].classList.remove('wrong'),240);end(false);return}await flash(index);if(!accepting)return;step++;if(step===sequence.length){best=Math.max(best,sequence.length);bestOut.textContent=best;try{localStorage.setItem('streamiov.echo-grid.best',String(best))}catch{}accepting=false;status.textContent='Richtig! Nächste Runde …';await wait(500);nextRound()}}
+function begin(){sequence=[];step=0;levelOut.textContent='0';start.textContent='NEUE RUNDE';nextRound()}
+window.addEventListener('keydown',e=>{if(/^[1-9]$/.test(e.key))choose(Number(e.key)-1)});
+start.addEventListener('click',begin);
+})();
+</script></body></html>
