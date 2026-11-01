@@ -3,14 +3,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import signal
 import sqlite3
 import sys
+import threading
 import uuid
 from pathlib import Path
 
 from ai.core.agent import AgentError, DevelopmentAgent
 from ai.providers.local_http import ProviderError, provider_from_env
 from ai.runtime.task_queue import SpecialistTaskQueue, SpecialistWorker, TaskQueueError
+from ai.runtime.worker_service import run_worker_loop
 from ai.core.orchestrator import SpecialistTask
 from ai.specialists import specialist_names
 
@@ -44,6 +47,9 @@ def build_parser() -> argparse.ArgumentParser:
     queue_mode = parser.add_mutually_exclusive_group()
     queue_mode.add_argument("--enqueue", action="store_true", help="Queue --task for the selected specialist instead of running immediately.")
     queue_mode.add_argument("--worker-once", action="store_true", help="Claim and execute at most one queued specialist task, then exit.")
+    queue_mode.add_argument("--worker-loop", action="store_true", help="Run a supervised worker until SIGINT/SIGTERM or --max-tasks.")
+    parser.add_argument("--poll-seconds", type=int, default=5, help="Idle polling interval for --worker-loop (1–60 seconds).")
+    parser.add_argument("--max-tasks", type=int, default=0, help="Stop --worker-loop after this many tasks; 0 means run until stopped.")
     parser.add_argument("--worker-id", default="local-worker", help="Worker identity used for queue leases.")
     parser.add_argument(
         "--max-steps",
@@ -60,11 +66,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.enqueue:
         if not args.task or not args.queue_db or args.doctor:
             parser.error("--enqueue requires --task and --queue-db and cannot be combined with --doctor")
-    elif args.worker_once:
+    elif args.worker_once or args.worker_loop:
+        mode = "--worker-loop" if args.worker_loop else "--worker-once"
         if not args.queue_db or args.task or args.doctor:
-            parser.error("--worker-once requires --queue-db and cannot be combined with --task or --doctor")
+            parser.error(f"{mode} requires --queue-db and cannot be combined with --task or --doctor")
         if not 1 <= args.max_steps <= 30:
             parser.error("--max-steps must be between 1 and 30")
+        if args.worker_loop and not 1 <= args.poll_seconds <= 60:
+            parser.error("--poll-seconds must be between 1 and 60")
+        if args.worker_loop and args.max_tasks < 0:
+            parser.error("--max-tasks must be zero or greater")
     elif not args.doctor and not args.task:
         parser.error("provide --task, use --doctor, or select a queue mode")
     if args.doctor and args.task:
@@ -99,6 +110,35 @@ def main(argv: list[str] | None = None) -> int:
                 "error": execution.error,
             }, ensure_ascii=False))
             return 0 if execution.status == "succeeded" else 1
+        if args.worker_loop:
+            queue = SpecialistTaskQueue(args.queue_db)
+            worker = SpecialistWorker(
+                queue,
+                args.worker_id,
+                lambda role: DevelopmentAgent(
+                    provider=provider_from_env(),
+                    project_root=Path(args.project_root),
+                    max_steps=args.max_steps,
+                    specialist=role,
+                ),
+            )
+            stop_event = threading.Event()
+            def request_stop(_signum, _frame):
+                stop_event.set()
+            watched_signals = (signal.SIGINT, signal.SIGTERM)
+            previous_handlers = {item: signal.getsignal(item) for item in watched_signals}
+            try:
+                for item in watched_signals:
+                    signal.signal(item, request_stop)
+                return run_worker_loop(
+                    worker,
+                    stop_event,
+                    poll_seconds=args.poll_seconds,
+                    max_tasks=args.max_tasks,
+                )
+            finally:
+                for item, handler in previous_handlers.items():
+                    signal.signal(item, handler)
         provider = provider_from_env()
         if args.doctor:
             result = provider.check_ready()
