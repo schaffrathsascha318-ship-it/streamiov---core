@@ -222,15 +222,27 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
   </div>
   <div class="panel section">
    <div class="panel-title">AUDIO-MIXER / LOKALE MISCHUNG</div>
-   <div class="pad mixer">
-    <div class="channel"><b>Mikrofon</b><div class="meter"><i></i></div>
-     <input id="microphoneMixGain" type="range" min="0" max="100" value="75"><small>MIC 1</small></div>
-    <div class="channel"><b>Musik</b><div class="meter"><i></i></div>
-     <input type="range" min="0" max="100" value="45"><small>MUSIC</small></div>
-    <div class="channel"><b>Spiel</b><div class="meter"><i></i></div>
-     <input type="range" min="0" max="100" value="65"><small>GAME</small></div>
-    <div class="channel"><b>Alerts</b><div class="meter"><i></i></div>
-     <input type="range" min="0" max="100" value="80"><small>ALERTS</small></div>
+   <div class="pad mixer" id="audioMixerControls">
+    <div class="channel" data-audio-channel="microphone"><b>Mikrofon</b><div class="meter"><i></i></div>
+     <input id="microphoneMixGain" data-mix-gain="microphone" type="range" min="0" max="100" value="75"><small>MIC · PROGRAMM + MONITOR</small><button type="button" data-mix-mute="microphone" aria-pressed="false">STUMM</button><small data-mix-state="microphone">Noch nicht verbunden</small></div>
+    <div class="channel" data-audio-channel="music"><b>Musik</b><div class="meter"><i></i></div>
+     <input id="musicMixGain" data-mix-gain="music" type="range" min="0" max="100" value="45"><small>MUSIC · PROGRAMM + MONITOR</small><button type="button" data-mix-mute="music" aria-pressed="false">STUMM</button><small data-mix-state="music">Quelle noch nicht verbunden</small>
+     <label for="musicAudioFile">Lokale Musikdatei</label><input id="musicAudioFile" type="file" accept="audio/*"><small id="musicAudioStatus" role="status">Keine Musikdatei geladen.</small><audio id="musicAudioPlayer" controls preload="metadata"></audio></div>
+    <div class="channel" data-audio-channel="game"><b>Spielton</b><div class="meter"><i></i></div>
+     <input id="gameMixGain" data-mix-gain="game" type="range" min="0" max="100" value="65"><small>GAME · PROGRAMM</small><button type="button" data-mix-mute="game" aria-pressed="false">STUMM</button><small data-mix-state="game">Quelle noch nicht verbunden</small></div>
+    <div class="channel" data-audio-channel="alerts"><b>Alerts</b><div class="meter"><i></i></div>
+     <input id="alertsMixGain" data-mix-gain="alerts" type="range" min="0" max="100" value="80"><small>ALERTS · PROGRAMM + MONITOR</small><button type="button" data-mix-mute="alerts" aria-pressed="false">STUMM</button><small data-mix-state="alerts">Quelle noch nicht verbunden</small>
+     <label for="alertAudioFile">Lokaler Alert-Sound</label><input id="alertAudioFile" type="file" accept="audio/*"><small id="alertAudioStatus" role="status">Kein Alert-Sound geladen.</small><audio id="alertAudioPlayer" controls preload="metadata"></audio></div>
+    <div class="channel" data-audio-channel="tts"><b>TTS / Sprache</b><div class="meter"><i></i></div>
+     <input id="ttsMixGain" data-mix-gain="tts" type="range" min="0" max="100" value="85"><small>TTS · PROGRAMM</small><button type="button" data-mix-mute="tts" aria-pressed="false">STUMM</button><small data-mix-state="tts">Quelle noch nicht verbunden</small><label for="ttsTestText">Sprachtest (Deutsch)</label><input id="ttsTestText" type="text" maxlength="1000" placeholder="Text für die Sprachausgabe"><button id="ttsTestSpeak" type="button">SPRACHE ÜBER MIXER TESTEN</button><small id="ttsTestStatus" role="status">TTS-Ausgabe noch nicht getestet.</small></div>
+   </div>
+   <div class="controls" id="audioMonitorControls">
+    <label for="audioMonitorDevice">Kopfhörer / Lautsprecher</label>
+    <select id="audioMonitorDevice"><option value="">Systemstandard</option></select>
+    <button id="audioMonitorConnect" type="button">MONITOR AKTIVIEREN</button>
+    <button id="audioMonitorDisconnect" type="button">MONITOR TRENNEN</button>
+    <small id="audioMonitorStatus" role="status">Monitor-Ausgang nicht verbunden.</small>
+    <audio id="audioMonitorElement" autoplay playsinline></audio>
    </div>
   </div>
  </section>
@@ -516,10 +528,117 @@ loadSources();
 const captureState={camera:null,microphone:null,desktop:null,audioContext:null,analyser:null,meterFrame:0};
 const studioAudioMixer=window.StreamiovAudioMixer?new window.StreamiovAudioMixer():null;
 if(studioAudioMixer){for(const bus of ["microphone_stem","music_stem","game_stem","alerts_stem","tts_stem"])studioAudioMixer.createBus(bus);}
+const audioChannelDefaults={microphone:{gain:75,muted:false,routes:["stream","monitor","microphone_stem"]},music:{gain:45,muted:false,routes:["stream","monitor","music_stem"]},game:{gain:65,muted:false,routes:["stream","monitor","game_stem"]},alerts:{gain:80,muted:false,routes:["stream","monitor","alerts_stem"]},tts:{gain:85,muted:false,routes:["stream","monitor","tts_stem"]}};
+const audioChannelState=Object.fromEntries(Object.entries(audioChannelDefaults).map(([name,value])=>[name,{...value}]));
 const micMixGain=$("microphoneMixGain");
-if(micMixGain)micMixGain.addEventListener("input",()=>{
- if(studioAudioMixer?.snapshot("microphone"))studioAudioMixer.setGain("microphone",Number(micMixGain.value)/100);
+function renderAudioChannel(name){
+ const state=audioChannelState[name];if(!state)return;
+ const gain=document.querySelector("[data-mix-gain='"+name+"']"),mute=document.querySelector("[data-mix-mute='"+name+"']"),label=document.querySelector("[data-mix-state='"+name+"']");
+ if(gain)gain.value=String(Math.round(state.gain));
+ if(mute){mute.setAttribute("aria-pressed",String(state.muted));mute.textContent=state.muted?"TON AN":"STUMM";}
+ if(label)label.textContent=studioAudioMixer?.snapshot(name)?"Verbunden · "+(state.muted?"stumm":"aktiv"):"Quelle noch nicht verbunden";
+}
+function connectAudioSource(name,stream){
+ const state=audioChannelState[name];if(!state||!studioAudioMixer)throw new Error("Unbekannter Audio-Mixer-Kanal.");
+ studioAudioMixer.connect(name,stream,{gain:state.gain/100,muted:state.muted,routes:state.routes});
+ renderAudioChannel(name);
+}
+window.streamiovAudioInputs={connect:connectAudioSource,disconnect:(name)=>{studioAudioMixer?.disconnect(name);renderAudioChannel(name);},getOutput:(bus="stream")=>studioAudioMixer?.getOutputStream(bus)};
+const mediaElementSources=new Map(),mediaObjectUrls=new Map();
+function bindMediaFile(channel,fileInput,player,status){
+ fileInput.addEventListener("change",()=>{
+  const file=fileInput.files?.[0];if(!file)return;
+  if(!file.type.startsWith("audio/")){
+   fileInput.value="";
+   status.textContent="Ungültige Datei. Bitte eine Audiodatei auswählen.";
+   return;
+  }
+  try{
+   let binding=mediaElementSources.get(channel);
+   if(!binding){
+    const source=studioAudioMixer.context.createMediaElementSource(player);
+    const destination=studioAudioMixer.context.createMediaStreamDestination();
+    source.connect(destination);
+    binding={source,destination};mediaElementSources.set(channel,binding);
+   }
+   const url=URL.createObjectURL(file);
+   const previousUrl=mediaObjectUrls.get(channel);
+   player.src=url;player.load();
+   mediaObjectUrls.set(channel,url);
+   if(previousUrl)URL.revokeObjectURL(previousUrl);
+   connectAudioSource(channel,binding.destination.stream);
+   status.textContent="Geladen: "+file.name+" · Wiedergabe über den "+(channel==="music"?"Musik":"Alerts")+"-Mixer-Kanal.";
+  }catch(error){
+   status.textContent="Audioquelle konnte nicht eingebunden werden: "+String(error.message||error).slice(0,160);
+  }
+ });
+}
+bindMediaFile("music",$("musicAudioFile"),$("musicAudioPlayer"),$("musicAudioStatus"));
+bindMediaFile("alerts",$("alertAudioFile"),$("alertAudioPlayer"),$("alertAudioStatus"));
+let ttsOutputDestination=null,activeTtsSource=null;
+$("ttsTestSpeak").addEventListener("click",async()=>{
+ const text=$("ttsTestText").value.trim(),status=$("ttsTestStatus"),button=$("ttsTestSpeak");
+ if(!text){status.textContent="Bitte einen Text eingeben.";return;}
+ if(!window.streamiovStudio?.chatAction){status.textContent="TTS-Schnittstelle ist in dieser Laufzeit nicht verfügbar.";return;}
+ button.disabled=true;status.textContent="Deutsche Sprachausgabe wird erzeugt …";
+ try{
+  await studioAudioMixer.resume();
+  const result=await window.streamiovStudio.chatAction({action:"speak",text});
+  if(!result?.ok)throw new Error(result?.error||"TTS fehlgeschlagen.");
+  const bytes=result.tts_audio instanceof Uint8Array?result.tts_audio:new Uint8Array(result.tts_audio||[]);
+  if(bytes.length<44)throw new Error("TTS hat keine gültige Audiodatei geliefert.");
+  const audioBuffer=await studioAudioMixer.context.decodeAudioData(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength));
+  if(!ttsOutputDestination)ttsOutputDestination=studioAudioMixer.context.createMediaStreamDestination();
+  if(activeTtsSource){try{activeTtsSource.stop();}catch{}try{activeTtsSource.disconnect();}catch{}}
+  const source=studioAudioMixer.context.createBufferSource();
+  activeTtsSource=source;
+  source.buffer=audioBuffer;
+  source.connect(ttsOutputDestination);
+  connectAudioSource("tts",ttsOutputDestination.stream);
+  source.onended=()=>{try{source.disconnect();}catch{}if(activeTtsSource===source)activeTtsSource=null;};
+  source.start();
+  status.textContent="TTS-Audio läuft über den separaten TTS-Mixer-Kanal.";
+ }catch(error){status.textContent="TTS nicht verfügbar: "+String(error.message||error).slice(0,180);}
+ finally{button.disabled=false;}
 });
+window.addEventListener("beforeunload",()=>{
+ for(const url of mediaObjectUrls.values())URL.revokeObjectURL(url);
+ mediaObjectUrls.clear();
+});
+document.querySelectorAll("[data-mix-gain]").forEach(control=>control.addEventListener("input",()=>{
+ const name=control.dataset.mixGain,state=audioChannelState[name];if(!state)return;
+ state.gain=Number(control.value);
+ if(studioAudioMixer?.snapshot(name))studioAudioMixer.setGain(name,state.gain/100);
+}));
+document.querySelectorAll("[data-mix-mute]").forEach(control=>control.addEventListener("click",()=>{
+ const name=control.dataset.mixMute,state=audioChannelState[name];if(!state)return;
+ state.muted=!state.muted;
+ if(studioAudioMixer?.snapshot(name))studioAudioMixer.setMuted(name,state.muted);
+ renderAudioChannel(name);
+}));
+Object.keys(audioChannelState).forEach(renderAudioChannel);
+const monitorElement=$("audioMonitorElement"),monitorDevice=$("audioMonitorDevice"),monitorStatus=$("audioMonitorStatus");
+async function refreshAudioOutputs(){
+ if(!navigator.mediaDevices?.enumerateDevices)return;
+ const devices=await navigator.mediaDevices.enumerateDevices(),selected=monitorDevice.value;
+ monitorDevice.replaceChildren();
+ const standard=document.createElement("option");standard.value="";standard.textContent="Systemstandard";monitorDevice.append(standard);
+ devices.filter(device=>device.kind==="audiooutput").forEach((device,index)=>{
+  const option=document.createElement("option");option.value=device.deviceId;option.textContent=device.label||"Audioausgang "+(index+1);monitorDevice.append(option);
+ });
+ if([...monitorDevice.options].some(option=>option.value===selected))monitorDevice.value=selected;
+}
+$("audioMonitorConnect").addEventListener("click",async()=>{
+ try{
+  const result=await studioAudioMixer.attachMonitor(monitorElement,{deviceId:monitorDevice.value});
+  monitorStatus.textContent="Monitor aktiv · "+(result.deviceId||"Systemstandard");
+ }catch(error){monitorStatus.textContent="Monitor nicht aktiviert: "+captureError(error);}
+});
+$("audioMonitorDisconnect").addEventListener("click",()=>{
+ studioAudioMixer.detachMonitor(monitorElement);monitorStatus.textContent="Monitor-Ausgang getrennt.";
+});
+refreshAudioOutputs().catch(error=>{monitorStatus.textContent="Audioausgänge nicht verfügbar.";});
+navigator.mediaDevices?.addEventListener?.("devicechange",()=>refreshAudioOutputs().catch(()=>{}));
 window.addEventListener("beforeunload",()=>{if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
 const cameraSelect=$("cameraDeviceSelect");
 const microphoneSelect=$("microphoneDeviceSelect");
@@ -531,6 +650,8 @@ function stopCapture(kind){
  if(stream){for(const track of stream.getTracks())track.stop();captureState[kind]=null;}
  if(kind==="camera"){cameraVideo.pause();cameraVideo.srcObject=null;cameraVideo.style.display="none";$("cameraStart").textContent="KAMERA TESTEN";}
  if(kind==="desktop"){
+  if(studioAudioMixer)studioAudioMixer.disconnect("game");
+  renderAudioChannel("game");
   desktopCaptureVideo.pause();desktopCaptureVideo.srcObject=null;desktopCaptureVideo.style.display="none";
   $("desktopCaptureStart").textContent="VORSCHAU STARTEN";
  }
@@ -609,7 +730,7 @@ $("microphoneStart").onclick=async()=>{
   captureState.microphone=stream;
   if(!studioAudioMixer)throw new Error("Der lokale Audio-Mixer ist in dieser Laufzeit nicht verfügbar.");
   await studioAudioMixer.resume();
-  studioAudioMixer.connect("microphone",stream,{gain:Number(micMixGain?.value??75)/100,routes:["stream","monitor","microphone_stem"]});
+  connectAudioSource("microphone",stream);
   const AudioContextClass=window.AudioContext||window.webkitAudioContext;
   if(!AudioContextClass)throw new Error("AudioContext ist in dieser Laufzeit nicht verfügbar.");
   const context=new AudioContextClass();
@@ -666,21 +787,36 @@ $("desktopCaptureStart").onclick=async()=>{
   const sourceId=desktopCaptureSelect.value;
   if(!sourceId)throw new Error("Bitte zuerst eine Bildschirm- oder Fensterquelle auswählen.");
   if(!navigator.mediaDevices?.getUserMedia)throw new Error("Desktop-Capture ist in dieser Laufzeit nicht verfügbar.");
-  const stream=await navigator.mediaDevices.getUserMedia({
-   audio:false,
-   video:{mandatory:{
-    chromeMediaSource:"desktop",
-    chromeMediaSourceId:sourceId,
-    maxWidth:1920,
-    maxHeight:1080,
-    maxFrameRate:30
-   }}
-  });
+  if(!navigator.mediaDevices?.getDisplayMedia)throw new Error("Die standardisierte Desktop-Capture-API ist in dieser Laufzeit nicht verfügbar.");
+  const selected=await window.streamiovStudio.selectCaptureSource(sourceId);
+  if(!selected?.ok)throw new Error(selected?.error||"Desktopquelle konnte nicht ausgewählt werden.");
+  let stream,audioCaptureUnavailable=false;
+  try{
+   stream=await navigator.mediaDevices.getDisplayMedia({
+    audio:true,
+    video:{width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30,max:30}}
+   });
+  }catch(captureError){
+   if(captureError?.name==="NotAllowedError"||captureError?.name==="NotFoundError")throw captureError;
+   audioCaptureUnavailable=true;
+   stream=await navigator.mediaDevices.getDisplayMedia({
+    audio:false,
+    video:{width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30,max:30}}
+   });
+  }
   captureState.desktop=stream;desktopCaptureVideo.srcObject=stream;desktopCaptureVideo.style.display="block";
   await desktopCaptureVideo.play();
   const track=stream.getVideoTracks()[0];
   if(!track||track.readyState!=="live")throw new Error("Die Bildschirm-/Fensterquelle liefert keinen aktiven Videostream.");
-  status.textContent="Lokale Vorschau aktiv: "+(track.label||"Desktopquelle")+". Noch nicht mit dem Encoder verbunden.";
+  const gameAudioTrack=stream.getAudioTracks()[0];
+  if(gameAudioTrack){
+   if(!studioAudioMixer)throw new Error("Der lokale Audio-Mixer ist nicht verfügbar.");
+   await studioAudioMixer.resume();
+   connectAudioSource("game",stream);
+  }
+  status.textContent="Lokale Vorschau aktiv: "+(track.label||"Desktopquelle")+". "+
+   (gameAudioTrack?"System-/Desktop-Audio ist mit dem Spielton-Mixer verbunden.":audioCaptureUnavailable?"Diese Laufzeit unterstützt kein Desktop-Audio; Bild bleibt verfügbar.":"Kein Desktop-Audiotrack geliefert; Bild bleibt verfügbar.")+
+   " Noch nicht mit dem Encoder verbunden.";
   button.textContent="VORSCHAU STOPPEN";
   log("Bildschirm-/Fensterquelle liefert einen lokalen Videostream.");
  }catch(error){stopCapture("desktop");status.textContent=captureError(error);log(status.textContent);}

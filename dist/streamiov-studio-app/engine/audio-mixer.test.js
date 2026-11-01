@@ -82,3 +82,23 @@ test('disconnect and close release graph nodes and prevent reuse', async () => {
   assert.equal(mixer.context.closed, true);
   assert.throws(() => mixer.getBusNames(), /closed/i);
 });
+
+test('monitor output attaches to a selected physical device and detaches cleanly', async () => {
+  const mixer = new StudioAudioMixer({ AudioContextClass: FakeContext });
+  const calls = [];
+  const element = {
+    autoplay: false, playsInline: false, srcObject: null, sinkId: 'default',
+    setSinkId: async id => { calls.push(['sink', id]); element.sinkId = id; },
+    play: async () => calls.push(['play']),
+    pause: () => calls.push(['pause'])
+  };
+  const result = await mixer.attachMonitor(element, { deviceId: 'headphones-1' });
+  assert.equal(result.connected, true);
+  assert.equal(result.deviceId, 'headphones-1');
+  assert.equal(element.srcObject, mixer.getOutputStream('monitor'));
+  assert.equal(element.autoplay, true);
+  assert.ok(calls.some(call => call[0] === 'sink' && call[1] === 'headphones-1'));
+  assert.equal(mixer.detachMonitor(element), true);
+  assert.equal(element.srcObject, null);
+  assert.ok(calls.some(call => call[0] === 'pause'));
+});
