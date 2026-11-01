@@ -785,21 +785,36 @@ $("desktopCaptureStart").onclick=async()=>{
   const sourceId=desktopCaptureSelect.value;
   if(!sourceId)throw new Error("Bitte zuerst eine Bildschirm- oder Fensterquelle auswählen.");
   if(!navigator.mediaDevices?.getUserMedia)throw new Error("Desktop-Capture ist in dieser Laufzeit nicht verfügbar.");
-  const stream=await navigator.mediaDevices.getUserMedia({
-   audio:false,
-   video:{mandatory:{
-    chromeMediaSource:"desktop",
-    chromeMediaSourceId:sourceId,
-    maxWidth:1920,
-    maxHeight:1080,
-    maxFrameRate:30
-   }}
-  });
+  const videoConstraints={mandatory:{
+   chromeMediaSource:"desktop",
+   chromeMediaSourceId:sourceId,
+   maxWidth:1920,
+   maxHeight:1080,
+   maxFrameRate:30
+  }};
+  let stream,audioCaptureUnavailable=false;
+  try{
+   stream=await navigator.mediaDevices.getUserMedia({
+    audio:{mandatory:{chromeMediaSource:"desktop",chromeMediaSourceId:sourceId}},
+    video:videoConstraints
+   });
+  }catch(audioError){
+   audioCaptureUnavailable=true;
+   stream=await navigator.mediaDevices.getUserMedia({audio:false,video:videoConstraints});
+  }
   captureState.desktop=stream;desktopCaptureVideo.srcObject=stream;desktopCaptureVideo.style.display="block";
   await desktopCaptureVideo.play();
   const track=stream.getVideoTracks()[0];
   if(!track||track.readyState!=="live")throw new Error("Die Bildschirm-/Fensterquelle liefert keinen aktiven Videostream.");
-  status.textContent="Lokale Vorschau aktiv: "+(track.label||"Desktopquelle")+". Noch nicht mit dem Encoder verbunden.";
+  const gameAudioTrack=stream.getAudioTracks()[0];
+  if(gameAudioTrack){
+   if(!studioAudioMixer)throw new Error("Der lokale Audio-Mixer ist nicht verfügbar.");
+   await studioAudioMixer.resume();
+   connectAudioSource("game",stream);
+  }
+  status.textContent="Lokale Vorschau aktiv: "+(track.label||"Desktopquelle")+". "+
+   (gameAudioTrack?"System-/Desktop-Audio ist mit dem Spielton-Mixer verbunden.":audioCaptureUnavailable?"Diese Laufzeit unterstützt kein Desktop-Audio; Bild bleibt verfügbar.":"Kein Desktop-Audiotrack geliefert; Bild bleibt verfügbar.")+
+   " Noch nicht mit dem Encoder verbunden.";
   button.textContent="VORSCHAU STOPPEN";
   log("Bildschirm-/Fensterquelle liefert einen lokalen Videostream.");
  }catch(error){stopCapture("desktop");status.textContent=captureError(error);log(status.textContent);}
