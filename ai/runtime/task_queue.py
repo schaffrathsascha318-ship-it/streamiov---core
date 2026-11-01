@@ -266,23 +266,34 @@ class SpecialistTaskQueue:
 
     def fail(self, task_id: str, worker_id: str, error: str) -> QueueStatus:
         safe_error = str(error)[:1000]
-        with self._connection() as connection:
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            now = time.time()
             row = connection.execute(
                 "SELECT attempts, max_attempts FROM specialist_tasks WHERE task_id=? AND worker_id=? AND status='running' AND lease_until>?",
-                (task_id, worker_id, time.time()),
+                (task_id, worker_id, now),
             ).fetchone()
             if row is None:
                 raise TaskQueueError("Task is not running under this worker lease.")
             status: QueueStatus = "queued" if row["attempts"] < row["max_attempts"] else "failed"
-            connection.execute(
+            cursor = connection.execute(
                 """
                 UPDATE specialist_tasks
                 SET status=?, error=?, worker_id='', lease_until=NULL, updated_at=?
                 WHERE task_id=? AND worker_id=? AND status='running' AND lease_until>?
                 """,
-                (status, safe_error, time.time(), task_id, worker_id, time.time()),
+                (status, safe_error, now, task_id, worker_id, now),
             )
+            if cursor.rowcount != 1:
+                raise TaskQueueError("Task lease expired before failure could be recorded.")
+            connection.commit()
             return status
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     def get(self, task_id: str) -> QueuedTask | None:
         with self._connect() as connection:
@@ -320,13 +331,42 @@ class SpecialistWorker:
         task = self.queue.claim_next(self.worker_id, lease_seconds=self.lease_seconds)
         if task is None:
             return None
+
+        stop_heartbeat = threading.Event()
+        heartbeat_errors: list[str] = []
+        interval = max(1.0, self.lease_seconds / 3)
+
+        def renew_lease() -> None:
+            while not stop_heartbeat.wait(interval):
+                try:
+                    self.queue.heartbeat(task.task_id, self.worker_id, lease_seconds=self.lease_seconds)
+                except Exception as exc:
+                    heartbeat_errors.append(f"{type(exc).__name__}: {str(exc)[:250]}")
+                    return
+
+        heartbeat_thread = threading.Thread(target=renew_lease, name=f"streamiov-lease-{task.task_id[:16]}", daemon=True)
+        heartbeat_thread.start()
         try:
             result = self.agent_factory(task.specialist).run(task.prompt)
             if not isinstance(result, str):
                 raise TypeError("Specialist agent returned a non-text result.")
         except Exception as exc:
+            stop_heartbeat.set()
+            heartbeat_thread.join(timeout=interval + 1)
             error = f"{type(exc).__name__}: {str(exc)[:500]}"
-            status = self.queue.fail(task.task_id, self.worker_id, error)
+            try:
+                status = self.queue.fail(task.task_id, self.worker_id, error)
+            except TaskQueueError as lease_error:
+                return WorkerExecution(task.task_id, "failed", error=f"{error}; lease update rejected: {lease_error}")
             return WorkerExecution(task.task_id, status, error=error)
-        self.queue.complete(task.task_id, self.worker_id, result)
+
+        stop_heartbeat.set()
+        heartbeat_thread.join(timeout=interval + 1)
+        try:
+            self.queue.complete(task.task_id, self.worker_id, result)
+        except TaskQueueError as exc:
+            detail = f"Task completion rejected: {exc}"
+            if heartbeat_errors:
+                detail += f"; heartbeat: {heartbeat_errors[-1]}"
+            return WorkerExecution(task.task_id, "failed", error=detail)
         return WorkerExecution(task.task_id, "succeeded", result=result)
