@@ -48,3 +48,19 @@ This is a synchronous, in-process plan runner. It is not yet a persistent queue,
 - The runner validates the complete dependency graph before starting any task.
 - Failed dependencies block their dependants, while unrelated tasks may continue.
 - No arbitrary shell, credential access, OAuth mutation, payment action, or production deployment is provided by this layer.
+
+## Persistent queue CLI
+
+Queue a task without loading a model provider:
+
+```bash
+python -m ai --enqueue --queue-db data/ai-tasks.sqlite3 --specialist game --task "Build an original game prototype"
+```
+
+Execute at most one queued task and exit:
+
+```bash
+python -m ai --worker-once --queue-db data/ai-tasks.sqlite3 --worker-id studio-worker
+```
+
+An idle worker exits cleanly without loading a model. A worker claims one task with a time-limited lease, invokes the selected role through the shared provider, and records success or failure. Failed tasks are retried only within their configured retry budget. Run the one-shot command from a supervisor or scheduler if repeated processing is desired; this repository does not yet install or enable an always-on service automatically.
