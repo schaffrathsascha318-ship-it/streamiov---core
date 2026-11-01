@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ai.core.agent import AgentError, DevelopmentAgent
 from ai.providers.local_http import ProviderError, provider_from_env
+from ai.specialists import specialist_names
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,6 +29,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--project-root",
         default=".",
         help="Project workspace root (default: current directory).",
+    )
+    parser.add_argument(
+        "--specialist",
+        choices=specialist_names(),
+        default="code",
+        help="Select the least-privilege STREAMIOV AI specialist role (default: code).",
     )
     parser.add_argument(
         "--max-steps",
@@ -55,6 +62,7 @@ def main(argv: list[str] | None = None) -> int:
             provider=provider,
             project_root=Path(args.project_root),
             max_steps=args.max_steps,
+            specialist=args.specialist,
         )
         print(agent.run(args.task))
         return 0
