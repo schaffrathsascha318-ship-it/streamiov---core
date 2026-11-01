@@ -60,5 +60,16 @@ class QueueCliTests(unittest.TestCase):
             main(["--enqueue", "--queue-db", "/tmp/unused-streamiov-queue.sqlite3"])
 
 
+    def test_worker_loop_cli_accepts_supervised_mode(self):
+        from ai.__main__ import build_parser
+        args = build_parser().parse_args([
+            "--worker-loop", "--queue-db", "/tmp/streamiov-queue.sqlite3",
+            "--worker-id", "service-worker", "--poll-seconds", "3", "--max-tasks", "4",
+        ])
+        self.assertTrue(args.worker_loop)
+        self.assertEqual(args.poll_seconds, 3)
+        self.assertEqual(args.max_tasks, 4)
+
+
 if __name__ == "__main__":
     unittest.main()
