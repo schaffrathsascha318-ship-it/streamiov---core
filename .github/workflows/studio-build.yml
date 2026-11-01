@@ -2,6 +2,22 @@ name: Streamiov Studio Builds
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Nach erfolgreichen Builds einen Release veröffentlichen"
+        required: true
+        type: boolean
+        default: false
+      release_version:
+        description: "Release-Version ohne studio-v-Präfix"
+        required: true
+        type: string
+        default: "1.0.1"
+      prerelease:
+        description: "Als Vorabversion kennzeichnen"
+        required: true
+        type: boolean
+        default: true
   push:
     paths:
       - "dist/streamiov-studio-app/**"
@@ -62,7 +78,7 @@ jobs:
           retention-days: 30
 
   publish-release:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/streamiov-build-setup-clean' && github.event_name == 'workflow_dispatch' && inputs.publish_release
     name: Installer dauerhaft veröffentlichen
     needs: build
     runs-on: ubuntu-latest
@@ -74,12 +90,19 @@ jobs:
           path: release
           merge-multiple: true
 
+      - name: Prüfsummen erzeugen
+        shell: bash
+        run: |
+          cd release
+          find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+
       - name: GitHub Release erstellen oder aktualisieren
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: studio-v1.0.0
-          name: Streamiov Studio 1.0.0
+          tag_name: studio-v${{ inputs.release_version }}
+          name: Streamiov Studio ${{ inputs.release_version }}
           target_commitish: ${{ github.sha }}
-          make_latest: true
+          prerelease: ${{ inputs.prerelease }}
+          make_latest: ${{ inputs.prerelease && 'false' || 'true' }}
           fail_on_unmatched_files: true
           files: release/*
