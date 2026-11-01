@@ -10,6 +10,17 @@ on:
       - "dist/streamiov-studio-app/preload.js"
       - "dist/streamiov-studio-app/regie-v2.html"
       - ".github/workflows/tiktok-oauth-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "core/integration/tiktok-oauth.js"
+      - "tests/tiktok-oauth.test.js"
+      - "config/platforms/tiktok/oauth.json"
+      - "docs/integrations/tiktok-oauth.md"
+      - "dist/streamiov-studio-app/main.js"
+      - "dist/streamiov-studio-app/preload.js"
+      - "dist/streamiov-studio-app/regie-v2.html"
+      - ".github/workflows/tiktok-oauth-tests.yml"
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
