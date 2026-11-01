@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, dialog, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, session, dialog, ipcMain, screen, shell } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { randomUUID } = require('node:crypto');
@@ -382,6 +382,122 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
     note: 'Dies ist eine Abhängigkeitsprüfung. Gerätezugriff, Encoder-Pipeline, Plattformautorisierung und Live-Ausgabe sind damit nicht getestet.'
   };
 });
+
+/**
+ * STREAMIOV_TIKTOK_STUDIO_BRIDGE
+ * Native Electron OAuth callback. Credentials are read only from process.env;
+ * tokens are handled by the encrypted OAuth service in the main process.
+ */
+const { shell } = require('electron');
+const { TikTokOAuth } = require('./tiktok-oauth.js');
+let tikTokOAuth = null;
+let tikTokCallbackServer = null;
+let tikTokConnectInProgress = false;
+
+function getTikTokOAuth() {
+  if (!tikTokOAuth) {
+    tikTokOAuth = new TikTokOAuth({
+      environment: 'sandbox',
+      env: process.env
+    });
+  }
+  return tikTokOAuth;
+}
+
+function sendTikTokAuthResult(result) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('studio:tiktok-auth-result', result);
+  }
+}
+
+ipcMain.handle('studio:tiktok-status', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  try {
+    return { ok: true, environment: 'sandbox', ...getTikTokOAuth().status() };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 'configuration_required',
+      environment: 'sandbox',
+      error: String(error.message || error)
+    };
+  }
+});
+
+ipcMain.handle('studio:tiktok-connect', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  if (tikTokConnectInProgress) return { ok: false, error: 'TikTok-Anmeldung läuft bereits.' };
+
+  let oauth;
+  try {
+    oauth = getTikTokOAuth();
+    const authorization = oauth.createAuthorizationUrl();
+    const redirect = new URL(process.env.STREAMIOV_TIKTOK_SANDBOX_REDIRECT_URI);
+    if (redirect.hostname !== '127.0.0.1' || redirect.protocol !== 'http:' ||
+        !redirect.port || redirect.pathname !== '/callback' || redirect.search || redirect.hash) {
+      throw new Error('TikTok-Sandbox-Callback muss exakt http://127.0.0.1:<Port>/callback sein.');
+    }
+
+    if (tikTokCallbackServer) {
+      await new Promise(resolve => tikTokCallbackServer.close(resolve));
+      tikTokCallbackServer = null;
+    }
+
+    tikTokConnectInProgress = true;
+    tikTokCallbackServer = http.createServer(async (request, response) => {
+      const callbackUrl = new URL(request.url, 'http://127.0.0.1');
+      if (request.method !== 'GET' || callbackUrl.pathname !== '/callback') {
+        response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        response.end('Nicht gefunden');
+        return;
+      }
+      try {
+        const result = await oauth.callback({
+          code: callbackUrl.searchParams.get('code'),
+          state: callbackUrl.searchParams.get('state'),
+          error: callbackUrl.searchParams.get('error')
+        });
+        response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+        response.end('<!doctype html><html lang="de"><meta charset="utf-8"><title>STREAMIOV</title><body><h1>TikTok verbunden</h1><p>Du kannst dieses Fenster schließen und zu STREAMIOV Studio zurückkehren.</p></body></html>');
+        sendTikTokAuthResult({ ok: true, ...result });
+      } catch (error) {
+        response.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+        response.end('<!doctype html><html lang="de"><meta charset="utf-8"><title>STREAMIOV</title><body><h1>Anmeldung fehlgeschlagen</h1><p>Bitte zu STREAMIOV Studio zurückkehren.</p></body></html>');
+        sendTikTokAuthResult({ ok: false, error: String(error.message || error) });
+      } finally {
+        tikTokConnectInProgress = false;
+        const server = tikTokCallbackServer;
+        tikTokCallbackServer = null;
+        if (server) server.close();
+      }
+    });
+    await new Promise((resolve, reject) => {
+      tikTokCallbackServer.once('error', reject);
+      tikTokCallbackServer.listen(Number(redirect.port), '127.0.0.1', resolve);
+    });
+    await shell.openExternal(authorization.url);
+    return { ok: true, status: 'authorization_opened', environment: 'sandbox' };
+  } catch (error) {
+    tikTokConnectInProgress = false;
+    if (tikTokCallbackServer) {
+      try { tikTokCallbackServer.close(); } catch {}
+      tikTokCallbackServer = null;
+    }
+    return { ok: false, error: String(error.message || error) };
+  }
+});
+
+ipcMain.handle('studio:tiktok-disconnect', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  try {
+    const result = await getTikTokOAuth().disconnect();
+    sendTikTokAuthResult({ ok: true, ...result });
+    return result;
+  } catch (error) {
+    return { ok: false, error: String(error.message || error) };
+  }
+});
+
 
 // Crostini-Kompatibilität: GPU-Beschleunigung vor app.whenReady deaktivieren.
 app.disableHardwareAcceleration();
