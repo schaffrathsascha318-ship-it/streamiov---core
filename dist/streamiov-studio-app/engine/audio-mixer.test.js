@@ -80,5 +80,5 @@ test('disconnect and close release graph nodes and prevent reuse', async () => {
   await mixer.close();
   assert.throws(() => mixer.getOutputStream(), /closed/i);
   assert.equal(mixer.context.closed, true);
-  assert.deepEqual(mixer.getBusNames, mixer.getBusNames); // method remains stable after teardown
+  assert.throws(() => mixer.getBusNames(), /closed/i);
 });
