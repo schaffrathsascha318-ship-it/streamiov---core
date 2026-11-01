@@ -178,6 +178,7 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
     <button class="fade" id="fade">FADE</button>
     <span class="pill">ÜBERGANG: 300 MS</span>
     <button id="take">TAKE → PROGRAMM</button>
+    <button id="openProgramOutput" type="button">2. BILDSCHIRM ÖFFNEN</button>
    </div>
   </div>
   <div class="panel section">
@@ -380,6 +381,16 @@ async function createScene(){
  renderScenes(state.scenes,preview);
  log("Eigene Szene dauerhaft im Studio-Profil gespeichert: "+preview);
 }
+$("openProgramOutput").onclick=async()=>{
+ const button=$("openProgramOutput");button.disabled=true;
+ try{
+  if(!window.streamiovStudio?.openProgramOutput)throw new Error("Zweitbildschirm-Funktion ist in diesem Build nicht verfügbar.");
+  const result=await window.streamiovStudio.openProgramOutput();
+  if(!result?.ok)throw new Error(result?.error||"Programmausgabe konnte nicht geöffnet werden.");
+  log(result.externalDisplay?"Programmausgabe auf externem Bildschirm geöffnet.":"Kein externer Bildschirm erkannt – separates Ausgabefenster geöffnet.");
+ }catch(error){log("Programmausgabe: "+String(error.message||error));}
+ finally{button.disabled=false;}
+};
 async function take(){
  if(window.streamiovStudio?.sceneAction){
   const result=await window.streamiovStudio.sceneAction({action:"take"});
