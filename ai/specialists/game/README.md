@@ -75,3 +75,31 @@ A green unit-test result is not gameplay verification. A build that compiles is 
 - Treat “Streamiov original” and “Streamiov-owned” as controlled claims: before release, verify contributor agreements/assignments or other applicable rights for employee/contractor contributions, permitted AI-tool terms, third-party assets, fonts, music, middleware, open-source components, and any source-game rights. Record the legal entity/person that holds each right and the scope. If ownership is shared, licensed, uncertain, or excluded, say so accurately.
 - Branding, intro/outro, credits, copyright notices, checksums, timestamps, and provenance records help identify and evidence a work; none alone creates ownership, replaces a valid rights transfer, or prevents copying. Do not describe an intro/outro as legal or technical copy protection.
 - Keep a clean separation between Streamiov-owned original elements and licensed/public-domain/third-party material. The release package must carry the applicable notices and preserve upstream licence obligations.
+
+
+## AI-operated legal and rights register
+
+The Game AI is responsible for performing and recording a structured preliminary rights investigation for every retro candidate and every release scope. It must not leave the rights work as an informal note or silently assume that a human has checked it.
+
+For each candidate, the AI must:
+1. Identify the relevant countries/territories, planned platforms, distribution method, commercial/non-commercial use, and each intended act (copying, porting, adapting, remastering, 2D-to-3D rebuilding, making a sequel, marketing, and distributing).
+2. Research primary sources first: official copyright/trademark/design/patent registers, statutes, court or authority material, official licence texts, rights-holder statements, and verifiable chain-of-title records. Record URLs, publisher/authority, access date, relevant extracts/sections, and confidence. Secondary sources may support discovery but must not be the sole basis for clearance.
+3. Identify each right and each component separately: game code, graphics, characters, story/dialogue, title/logo/marks, music/compositions/recordings, voice/performances, fonts, middleware, third-party assets, patents/designs, contracts, and platform-specific permissions.
+4. Determine whether a stated expiry refers to a copyright term, a trademark/design registration, a patent, a contract, a distribution licence, or a time-limited permission. Never treat these as interchangeable. A licence expiring usually means that licence no longer authorizes future acts unless its terms or applicable law provide otherwise; it does not mean the underlying copyright has expired.
+5. Where copyright may have expired, calculate the term using the applicable law and facts (authorship, co-authors, publication, work type, first lawful publication, transitional rules, and territory). Record the legal basis and calculation. Do not infer public-domain status from the game's release date alone.
+6. Check trademarks and other remaining rights independently, including current register status, goods/services, territory, renewal/grace periods, non-use/cancellation issues, and confusingly similar marks. An expired or cancelled mark does not itself clear copyright, and public-domain source material does not automatically clear a later brand/logo/character design.
+7. Produce an activity-by-activity decision matrix. A title may be clear for a new implementation using public-domain elements but not for using a still-protected name, logo, soundtrack, artwork, source code, later character design, or sequel elements.
+8. Save the result in the project's machine-readable rights record and human-readable dossier, with checked_at, next_review_at, territory, activity, evidence, status, reviewer/approver, restrictions, attribution, and expiry/review triggers. Re-check before each release and when facts or territories change.
+9. If evidence is incomplete, contradictory, or legally ambiguous, set RIGHTS_UNCLEAR / HUMAN_LEGAL_REVIEW_REQUIRED, block use of the affected material, and prepare a clean-room original alternative. The AI may research and organize evidence, but it must not present itself as a lawyer or issue a binding legal opinion.
+
+### When a protection period or licence has expired
+
+- If the copyright term itself has genuinely expired in the relevant territory, the AI may propose a new edition, port, remaster, remake, or new installment based on the elements that are actually in the public domain, subject to separate checks for trademarks, patents/designs, contracts, third-party components, later additions, and other applicable rights. It must not copy later protected versions or assume all parts of a franchise expired together.
+- If only a commercial licence or permission has expired, that is not permission to continue or restart exploitation. The AI must stop the affected use unless another valid licence, ownership right, statutory exception, or verified public-domain basis authorizes it.
+- If a trademark has expired or been cancelled, verify the official register and any remaining earlier/unregistered rights, reputation, passing-off/unfair-competition rules, and territory-specific issues before using the old title or branding. Prefer a distinct Streamiov title/brand where clearance is uncertain.
+- If rights are clear for the original work but not for sequel/derivative elements, the AI may build only from cleared public-domain or licensed material and must create new characters, stories, assets, music, and branding independently.
+- No release proceeds on an automated assumption. Where a decision depends on uncertain legal interpretation, require qualified human legal review and record that approval.
+
+### Example record fields
+
+candidate_id, work_title, original_release_date, territories, planned_activities, rights_components[], rights_holder, right_type, legal_basis, term_calculation, register_status, licence_start, licence_expiry, scope, source_urls[], source_accessed_at, decision_by_activity[], restrictions[], status, human_review_required, reviewed_at, next_review_at.
