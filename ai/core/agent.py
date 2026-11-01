@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 from ai.runtime.project_tools import ProjectTools, ToolError
 from ai.providers.base import ModelProvider
+from ai.specialists.registry import build_specialist_system_prompt, get_specialist
 
 SYSTEM = """You are Streamiov's coding agent. Work only on the supplied project task.
 You may request exactly one JSON object per response:
@@ -102,11 +103,14 @@ class AgentError(RuntimeError):
 
 
 class DevelopmentAgent:
-    def __init__(self, provider: ModelProvider, project_root: str | Path, max_steps: int = 12) -> None:
+    def __init__(self, provider: ModelProvider, project_root: str | Path, max_steps: int = 12, specialist: str = "code") -> None:
         if not 1 <= max_steps <= 30:
             raise ValueError("max_steps must be between 1 and 30")
+        definition = get_specialist(specialist)
         self.provider = provider
-        self.tools = ProjectTools(project_root)
+        self.specialist = definition.key
+        self.system_prompt = build_specialist_system_prompt(self.specialist, SYSTEM)
+        self.tools = ProjectTools(project_root, writable_prefixes=definition.writable_prefixes)
         self.max_steps = max_steps
 
     def run(self, task: str) -> str:
@@ -114,7 +118,7 @@ class DevelopmentAgent:
             raise ValueError("Task must contain 1–8000 characters.")
         messages = [{"role": "user", "content": task.strip()}]
         for _ in range(self.max_steps):
-            reply = self.provider.generate(system=SYSTEM, messages=messages)
+            reply = self.provider.generate(system=self.system_prompt, messages=messages)
             if not isinstance(reply.content, str) or len(reply.content) > MAX_MODEL_REPLY_CHARS:
                 raise AgentError("Model response is missing or exceeds the 24 KB limit.")
             try:
