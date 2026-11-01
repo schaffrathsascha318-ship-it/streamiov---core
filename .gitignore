@@ -44,3 +44,8 @@ dist/streamiov-studio-app/**/*.before_*
 dist/streamiov-studio-app/**/diagnose-*.cjs
 
 /android/backup/
+
+# Never commit credentials or secret material
+/secrets/*.env
+/secrets/*secret*
+/secrets/*key*
