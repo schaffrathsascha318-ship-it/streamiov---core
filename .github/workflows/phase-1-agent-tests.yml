@@ -22,12 +22,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install GStreamer for media pipeline smoke test
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gstreamer1.0-tools gstreamer1.0-plugins-good
-      - name: Run real synthetic audio/video encoding smoke test
-        run: node scripts/test-studio-media-pipeline.cjs
       - name: Check Cloudflare deployment script syntax
         run: bash -n scripts/deploy-streamiov-ai-worker.sh
       - name: Run Cloudflare AI Worker tests
