@@ -35,3 +35,6 @@ Tests use fake provider responses and temporary local files. They do not call Ti
 
 ## Permission matrix
 config/platforms/tiktok/oauth.json separately records requested, enabled, approved and verified states. Initially only user.info.basic is requested. Other products/scopes remain unrequested and unverified until visibly enabled and approved by TikTok.
+
+## Desktop sandbox boundary (important)
+The current Electron bridge is a sandbox integration harness only. Do not distribute a production TikTok client secret inside the desktop app or require end users to configure one locally. Before production, move authorization-code exchange, client-secret use, token refresh/revocation and durable token storage into the authenticated STREAMIOV Core service. The desktop app must receive only a short-lived, scoped connection result/session from Core. Production remains disabled until that server-side design and a real TikTok sandbox end-to-end test are complete.
