@@ -18,7 +18,7 @@ test('registry contains unique independent game entries with complete package fi
     assert.equal(game.status, 'development');
     assert.equal(game.gameplayVerified, false);
     assert.equal(game.released, false);
-    const directory = path.join(root, game.path.replace(/^games\\//, ''));
+    const directory = path.join(root, game.path.replace(/^games\//, ''));
     assert.ok(fs.existsSync(path.join(directory, 'game.json')));
     assert.ok(fs.existsSync(path.join(directory, 'README.md')));
     assert.ok(fs.existsSync(path.join(directory, 'index.html')));
@@ -27,7 +27,7 @@ test('registry contains unique independent game entries with complete package fi
 
 test('every registered browser game is self-contained and not falsely released', () => {
   for (const game of registry.games) {
-    const directory = path.join(root, game.path.replace(/^games\\//, ''));
+    const directory = path.join(root, game.path.replace(/^games\//, ''));
     const manifest = JSON.parse(fs.readFileSync(path.join(directory, 'game.json'), 'utf8'));
     const html = fs.readFileSync(path.join(directory, manifest.entry), 'utf8');
     assert.equal(manifest.id, game.id);
