@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs><radialGradient id="novaGlow"><stop offset="0" stop-color="#fff"/><stop offset=".35" stop-color="#35f2e5"/><stop offset="1" stop-color="#7c70ff"/></radialGradient></defs>
+  <path d="M128 8 151 76 216 35 181 100 248 128 181 151 221 218 151 181 128 248 105 181 35 221 76 151 8 128 76 105 35 38 105 76z" fill="url(#novaGlow)" stroke="#e8ffff" stroke-width="5" stroke-linejoin="round"/>
+  <circle cx="128" cy="128" r="31" fill="#fff" opacity=".9"/>
+</svg>
