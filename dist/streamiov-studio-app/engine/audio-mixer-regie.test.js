@@ -15,3 +15,11 @@ test('Regie loads the local mixer and routes microphone capture into it', () => 
 test('local mixer output is not falsely reported as a live encoder connection', () => {
   assert.ok(html.includes('Audio-Ausgang vorbereitet; noch nicht mit Encoder/LIVE verbunden'));
 });
+
+test('Regie exposes selectable local monitor output controls', () => {
+  assert.ok(html.includes('id="audioMonitorDevice"'));
+  assert.ok(html.includes('id="audioMonitorConnect"'));
+  assert.ok(html.includes('id="audioMonitorDisconnect"'));
+  assert.ok(html.includes('studioAudioMixer.attachMonitor(monitorElement'));
+  assert.ok(html.includes('studioAudioMixer.detachMonitor(monitorElement)'));
+});
