@@ -10,6 +10,7 @@ on:
       - ".github/workflows/mobile-pwa.yml"
   push:
     branches:
+      - main
       - streamiov-build-setup-clean
     paths:
       - "dist/streamiov-studio-app/regie-v2.html"
