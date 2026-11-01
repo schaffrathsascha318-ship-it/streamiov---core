@@ -92,3 +92,27 @@ test("stop shuts down adapters and returns to idle", async () => {
   assert.ok(calls.includes("compositor.stop"));
   assert.ok(calls.includes("mixer.stop"));
 });
+
+test("output startup failure cleans up every media adapter", async () => {
+  const calls = [];
+  const runtime = new MediaRuntime({
+    compositor: { async start() {}, async stop() { calls.push("compositor.stop"); } },
+    mixer: { async start() {}, async stop() { calls.push("mixer.stop"); } },
+    encoder: { async start() {}, async stop() { calls.push("encoder.stop"); } },
+    output: {
+      async connect() { throw new Error("private transport detail"); },
+      async isActive() { return false; },
+      async disconnect() { calls.push("output.disconnect"); },
+    },
+  });
+  await runtime.startPreview({});
+  await assert.rejects(runtime.startOutput({
+    destination: "rtmps://live.example.test/app",
+    streamKey: "12345678",
+    profile: {},
+  }), error => error.code === "OUTPUT_START_FAILED");
+  assert.deepEqual(calls.sort(), [
+    "compositor.stop", "encoder.stop", "mixer.stop", "output.disconnect"
+  ]);
+  assert.equal(runtime.snapshot().live, false);
+});
