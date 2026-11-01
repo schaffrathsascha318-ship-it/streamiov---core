@@ -79,5 +79,34 @@ class PersistentTaskQueueTests(unittest.TestCase):
             self.queue.enqueue_plan([SpecialistTask("bad", "core", "bad")], max_attempts=99)
 
 
+    def test_worker_executes_a_task_with_the_assigned_specialist(self):
+        from ai.runtime.task_queue import SpecialistWorker
+        self.queue.enqueue_plan([SpecialistTask("work", "game", "make original game")])
+        seen = []
+        class Agent:
+            def run(self, prompt):
+                seen.append(prompt)
+                return "game build prepared"
+        worker = SpecialistWorker(self.queue, "worker", lambda role: Agent() if role == "game" else None)
+        result = worker.run_once()
+        self.assertEqual(result.status, "succeeded")
+        self.assertEqual(seen, ["make original game"])
+        self.assertEqual(self.queue.get("work").result, "game build prepared")
+
+    def test_worker_records_failure_and_uses_retry_budget(self):
+        from ai.runtime.task_queue import SpecialistWorker
+        self.queue.enqueue_plan([SpecialistTask("work", "testing", "run test")], max_attempts=2)
+        class Agent:
+            def run(self, _prompt):
+                raise RuntimeError("test failed")
+        worker = SpecialistWorker(self.queue, "worker", lambda _role: Agent())
+        first = worker.run_once()
+        self.assertEqual(first.status, "queued")
+        self.assertEqual(self.queue.get("work").attempts, 1)
+        second = worker.run_once()
+        self.assertEqual(second.status, "failed")
+        self.assertEqual(self.queue.get("work").attempts, 2)
+
+
 if __name__ == "__main__":
     unittest.main()
