@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const html = fs.readFileSync(require.resolve('../regie-v2.html'), 'utf8');
 const main = fs.readFileSync(require.resolve('../main.js'), 'utf8');
 const preload = fs.readFileSync(require.resolve('../preload.js'), 'utf8');
+const main = fs.readFileSync(require.resolve('../main.js'), 'utf8');
 
 test('Regie loads the local mixer and routes microphone capture into it', () => {
   assert.ok(html.includes('<script src="./engine/audio-mixer.js"></script>'));
@@ -82,4 +83,19 @@ test('desktop capture requests system audio and gracefully falls back to video-o
 test('stopping desktop capture disconnects its game-audio mixer input', () => {
   assert.ok(html.includes('if(studioAudioMixer)studioAudioMixer.disconnect("game")'));
   assert.ok(html.includes('renderAudioChannel("game")'));
+});
+
+test('Electron main process uses the official display media request handler for selected desktop sources', () => {
+  assert.ok(main.includes("setDisplayMediaRequestHandler(async (request, callback)"));
+  assert.ok(main.includes("selectedDesktopCaptureSourceId"));
+  assert.ok(main.includes("audio: 'loopback'"));
+  assert.ok(main.includes("callback({\n        video: selectedSource"));
+  assert.ok(main.includes("ipcMain.handle('studio:select-capture-source'"));
+  assert.ok(preload.includes("selectCaptureSource: (sourceId) => ipcRenderer.invoke('studio:select-capture-source', { sourceId })"));
+});
+
+test('Regie uses standard getDisplayMedia instead of Chromium legacy chromeMediaSource constraints', () => {
+  assert.ok(html.includes('navigator.mediaDevices.getDisplayMedia({'));
+  assert.ok(html.includes('audio:true'));
+  assert.ok(!html.includes('chromeMediaSourceId:sourceId'));
 });
