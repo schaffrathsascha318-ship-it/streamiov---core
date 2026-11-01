@@ -86,10 +86,23 @@ ipcMain.handle('studio:chat-action', async (event, payload = {}) => {
       return { ok: false, error: 'TTS ist ausgeschaltet.' };
     }
     try {
-      await execFileAsync('espeak-ng', ['-v', 'de', text], {
+      const { stdout } = await execFileAsync('espeak-ng', ['-v', 'de', '--stdout', text], {
         timeout: 60000,
-        windowsHide: true
+        windowsHide: true,
+        encoding: 'buffer',
+        maxBuffer: 8 * 1024 * 1024
       });
+      if (!Buffer.isBuffer(stdout) || stdout.length < 44) {
+        return { ok: false, error: 'TTS hat keine gültige WAV-Audiodatei erzeugt.', tts_audio_verified: false };
+      }
+      return {
+        ok: true,
+        chat: streamiovChatState.chat,
+        tts: streamiovChatState.tts,
+        tts_audio: new Uint8Array(stdout),
+        tts_audio_mime: 'audio/wav',
+        tts_audio_verified: true
+      };
     } catch (error) {
       return {
         ok: false,
