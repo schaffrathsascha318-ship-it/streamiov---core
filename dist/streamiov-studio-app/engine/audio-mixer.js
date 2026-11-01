@@ -89,4 +89,5 @@ class StudioAudioMixer {
   }
 }
 
-module.exports = { StudioAudioMixer };
+if (typeof module !== 'undefined' && module.exports) module.exports = { StudioAudioMixer };
+if (typeof globalThis !== 'undefined') globalThis.StreamiovAudioMixer = StudioAudioMixer;
