@@ -19,7 +19,7 @@
     "pre-dist:linux:arm64": "python3 ../../scripts/sync-studio-ui.py",
     "test:engine": "node --test engine/*.test.js",
     "dist:win:arm64": "electron-builder --win nsis --arm64",
-    "pre-dist:win:arm64": "python ../../scripts/sync-studio-ui.py"
+    "pre-dist:win:arm64": "python3 ../../scripts/sync-studio-ui.py"
   },
   "dependencies": {
     "tiktok-live-connector": "2.5.0"
