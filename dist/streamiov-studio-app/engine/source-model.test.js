@@ -106,7 +106,7 @@ test('rejects invalid and cross-type source settings instead of persisting arbit
   }).ok, false);
   assert.equal(model.add({
     id: 'bad-text', type: 'text', name: 'Text',
-    settings: { text: 'hello\\u0000world' }
+    settings: { text: 'hello' + String.fromCharCode(0) + 'world' },
   }).ok, false);
   assert.equal(model.add({
     id: 'bad-color', type: 'color', name: 'Color',
