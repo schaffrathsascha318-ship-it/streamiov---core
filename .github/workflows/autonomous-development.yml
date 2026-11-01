@@ -1,0 +1,161 @@
+name: STREAMIOV autonomous development runner
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+
+concurrency:
+  group: streamiov-autonomous-development
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  agent:
+    if: github.event_name != 'issues' || github.event.label.name == 'agent-ready'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout trusted default-branch code
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Select one explicitly approved issue
+        id: pick
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh label create agent-ready --color 5319E7 --description "Eligible for bounded autonomous STREAMIOV development" --force >/dev/null
+          issue_json="$(gh issue list --state open --label agent-ready --limit 1 --json number,title,body)"
+          if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
+            echo "No issue carries the agent-ready label."
+            exit 0
+          fi
+          issue_number="$(jq -r '.[0].number' <<< "$issue_json")"
+          issue_author_association="$(gh api "repos/$GITHUB_REPOSITORY/issues/$issue_number" --jq '.author_association')"
+          gh label create agent-in-progress --color 1D76DB --description "Being processed by the bounded STREAMIOV agent" --force >/dev/null
+          gh label create agent-review --color 0E8A16 --description "Agent prepared a draft pull request for review" --force >/dev/null
+          gh label create agent-blocked --color B60205 --description "Agent could not safely complete this task" --force >/dev/null
+          case "$issue_author_association" in
+            OWNER|MEMBER|COLLABORATOR) ;;
+            *)
+              gh issue edit "$issue_number" --remove-label agent-ready --add-label agent-blocked
+              gh issue comment "$issue_number" --body "Autonomous execution is limited to issues submitted by repository owners, members, or collaborators. This issue was not executed."
+              echo "Issue author is not an authorized repository collaborator; skipping execution."
+              exit 0
+              ;;
+          esac
+          issue_b64="$(jq -r '.[0] | @base64' <<< "$issue_json")"
+          issue_title="$(jq -r '.[0].title' <<< "$issue_json")"
+          gh issue edit "$issue_number" --remove-label agent-ready --add-label agent-in-progress
+          {
+            echo "issue_number=$issue_number"
+            echo "issue_title=$issue_title"
+            echo "issue_b64=$issue_b64"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify Cloudflare AI gateway configuration
+        if: steps.pick.outputs.issue_number != ''
+        env:
+          STREAMIOV_AI_WORKER_TOKEN: ${{ secrets.STREAMIOV_AI_WORKER_TOKEN }}
+          STREAMIOV_MODEL_URL: ${{ vars.STREAMIOV_MODEL_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ${#STREAMIOV_AI_WORKER_TOKEN} -lt 32 || -z "$STREAMIOV_MODEL_URL" ]]; then
+            echo "::error::Configure repository secret STREAMIOV_AI_WORKER_TOKEN and repository variable STREAMIOV_MODEL_URL. Values are never printed."
+            exit 1
+          fi
+
+      - name: Execute bounded specialist plan
+        if: steps.pick.outputs.issue_number != ''
+        env:
+          STREAMIOV_AGENT_ISSUE_B64: ${{ steps.pick.outputs.issue_b64 }}
+          STREAMIOV_AI_WORKER_TOKEN: ${{ secrets.STREAMIOV_AI_WORKER_TOKEN }}
+          STREAMIOV_MODEL_URL: ${{ vars.STREAMIOV_MODEL_URL }}
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: python scripts/autonomous/run_issue.py
+
+      - name: Validate changed paths and run acceptance tests
+        if: steps.pick.outputs.issue_number != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)
+          if [[ ${#changed[@]} -eq 0 ]]; then
+            echo "::error::The agent produced no reviewable file changes."
+            exit 1
+          fi
+          for path in "${changed[@]}"; do
+            case "$path" in
+              ai/*|docs/ai-development/*|tests/*) ;;
+              *) echo "::error::Agent changed a path outside its allowlist: $path"; exit 1 ;;
+            esac
+          done
+          if [[ -n "$(git diff --diff-filter=D --name-only)" ]]; then
+            echo "::error::Autonomous deletion is not permitted."
+            exit 1
+          fi
+          git diff --check
+          python -m unittest discover -s tests -v
+
+      - name: Publish a draft pull request
+        if: steps.pick.outputs.issue_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.pick.outputs.issue_number }}
+          ISSUE_TITLE: ${{ steps.pick.outputs.issue_title }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="agent/issue-${ISSUE_NUMBER}-run-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          gh auth setup-git
+          git switch -c "$branch"
+          git add -A -- ai tests
+          if [[ -d docs/ai-development ]]; then git add -A -- docs/ai-development; fi
+          if git diff --cached --quiet; then
+            echo "::error::No staged changes remain after path validation."
+            exit 1
+          fi
+          git commit -m "agent: address issue #${ISSUE_NUMBER}"
+          git push origin "$branch"
+          gh pr create --draft --base main --head "$branch" \
+            --title "agent: ${ISSUE_TITLE}" \
+            --body "## Autonomous development result
+
+          Addresses #${ISSUE_NUMBER}.
+
+          - Generated by the bounded STREAMIOV specialist worker.
+          - Changes restricted to ai/, docs/ai-development/, and tests/.
+          - Python unit tests passed in GitHub Actions.
+          - This is a draft PR; no merge, deployment, credential change, OAuth change, or release was performed.
+
+          Please review the diff and CI evidence before acceptance."
+          gh issue edit "$ISSUE_NUMBER" --remove-label agent-in-progress --add-label agent-review
+
+      - name: Mark failed task as blocked
+        if: failure() && steps.pick.outputs.issue_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.pick.outputs.issue_number }}
+        shell: bash
+        run: |
+          gh issue edit "$ISSUE_NUMBER" --remove-label agent-in-progress --add-label agent-blocked || true
+          gh issue comment "$ISSUE_NUMBER" --body "The autonomous runner stopped safely. No pull request was published. Review the workflow log and correct the blocker before re-queueing this issue with the `agent-ready` label." || true
