@@ -234,7 +234,7 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
      <input id="alertsMixGain" data-mix-gain="alerts" type="range" min="0" max="100" value="80"><small>ALERTS · PROGRAMM + MONITOR</small><button type="button" data-mix-mute="alerts" aria-pressed="false">STUMM</button><small data-mix-state="alerts">Quelle noch nicht verbunden</small>
      <label for="alertAudioFile">Lokaler Alert-Sound</label><input id="alertAudioFile" type="file" accept="audio/*"><small id="alertAudioStatus" role="status">Kein Alert-Sound geladen.</small><audio id="alertAudioPlayer" controls preload="metadata"></audio></div>
     <div class="channel" data-audio-channel="tts"><b>TTS / Sprache</b><div class="meter"><i></i></div>
-     <input id="ttsMixGain" data-mix-gain="tts" type="range" min="0" max="100" value="85"><small>TTS · PROGRAMM</small><button type="button" data-mix-mute="tts" aria-pressed="false">STUMM</button><small data-mix-state="tts">Quelle noch nicht verbunden</small></div>
+     <input id="ttsMixGain" data-mix-gain="tts" type="range" min="0" max="100" value="85"><small>TTS · PROGRAMM</small><button type="button" data-mix-mute="tts" aria-pressed="false">STUMM</button><small data-mix-state="tts">Quelle noch nicht verbunden</small><label for="ttsTestText">Sprachtest (Deutsch)</label><input id="ttsTestText" type="text" maxlength="1000" placeholder="Text für die Sprachausgabe"><button id="ttsTestSpeak" type="button">SPRACHE ÜBER MIXER TESTEN</button><small id="ttsTestStatus" role="status">TTS-Ausgabe noch nicht getestet.</small></div>
    </div>
    <div class="controls" id="audioMonitorControls">
     <label for="audioMonitorDevice">Kopfhörer / Lautsprecher</label>
@@ -575,6 +575,31 @@ function bindMediaFile(channel,fileInput,player,status){
 }
 bindMediaFile("music",$("musicAudioFile"),$("musicAudioPlayer"),$("musicAudioStatus"));
 bindMediaFile("alerts",$("alertAudioFile"),$("alertAudioPlayer"),$("alertAudioStatus"));
+let ttsOutputDestination=null,activeTtsSource=null;
+$("ttsTestSpeak").addEventListener("click",async()=>{
+ const text=$("ttsTestText").value.trim(),status=$("ttsTestStatus"),button=$("ttsTestSpeak");
+ if(!text){status.textContent="Bitte einen Text eingeben.";return;}
+ if(!window.streamiovStudio?.chatAction){status.textContent="TTS-Schnittstelle ist in dieser Laufzeit nicht verfügbar.";return;}
+ button.disabled=true;status.textContent="Deutsche Sprachausgabe wird erzeugt …";
+ try{
+  await studioAudioMixer.resume();
+  const result=await window.streamiovStudio.chatAction({action:"speak",text});
+  if(!result?.ok)throw new Error(result?.error||"TTS fehlgeschlagen.");
+  const bytes=result.tts_audio instanceof Uint8Array?result.tts_audio:new Uint8Array(result.tts_audio||[]);
+  if(bytes.length<44)throw new Error("TTS hat keine gültige Audiodatei geliefert.");
+  const audioBuffer=await studioAudioMixer.context.decodeAudioData(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength));
+  if(!ttsOutputDestination)ttsOutputDestination=studioAudioMixer.context.createMediaStreamDestination();
+  if(activeTtsSource){try{activeTtsSource.stop();}catch{}try{activeTtsSource.disconnect();}catch{}}
+  activeTtsSource=studioAudioMixer.context.createBufferSource();
+  activeTtsSource.buffer=audioBuffer;
+  activeTtsSource.connect(ttsOutputDestination);
+  connectAudioSource("tts",ttsOutputDestination.stream);
+  activeTtsSource.onended=()=>{try{activeTtsSource?.disconnect();}catch{}activeTtsSource=null;};
+  activeTtsSource.start();
+  status.textContent="TTS-Audio läuft über den separaten TTS-Mixer-Kanal.";
+ }catch(error){status.textContent="TTS nicht verfügbar: "+String(error.message||error).slice(0,180);}
+ finally{button.disabled=false;}
+});
 window.addEventListener("beforeunload",()=>{
  for(const url of mediaObjectUrls.values())URL.revokeObjectURL(url);
  mediaObjectUrls.clear();
