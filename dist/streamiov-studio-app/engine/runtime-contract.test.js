@@ -12,7 +12,7 @@ test('packaged Studio does not call repository-only Python modules', () => {
 });
 
 test('runtime reports compositor, encoder and audio mixer as unfinished', () => {
-  assert.match(mainProcess, /compositor: 'not_implemented'/);
+  assert.match(mainProcess, /compositor: 'synthetic_graph_only'/);
   assert.match(mainProcess, /encoder: 'not_implemented'/);
   assert.match(mainProcess, /stage: 'not_implemented'/);
   assert.match(mainProcess, /live_stream_verified: false/);
