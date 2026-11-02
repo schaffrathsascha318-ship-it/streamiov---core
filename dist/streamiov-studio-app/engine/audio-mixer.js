@@ -140,23 +140,32 @@ class StudioAudioMixer {
     const stream = this.getOutputStream(busName);
     element.autoplay = true;
     element.playsInline = true;
-    if (element.srcObject !== stream) element.srcObject = stream;
-    if (deviceId) {
-      if (typeof element.setSinkId !== 'function') {
-        throw new Error('Selecting a physical audio output is not supported by this runtime.');
+    try {
+      if (element.srcObject !== stream) element.srcObject = stream;
+      if (deviceId) {
+        if (typeof element.setSinkId !== 'function') {
+          throw new Error('Selecting a physical audio output is not supported by this runtime.');
+        }
+        await element.setSinkId(deviceId);
       }
-      await element.setSinkId(deviceId);
+      await this.resume();
+      await element.play();
+      this.outputElements.set(busName, element);
+      return {
+        connected: true,
+        bus: busName,
+        deviceId: typeof element.sinkId === 'string' ? element.sinkId : '',
+        physicalTargetSelected: Boolean(deviceId),
+        sinkSelectionSupported: typeof element.setSinkId === 'function'
+      };
+    } catch (error) {
+      // A failed device selection or playback must not leave an untracked
+      // stream attached to an audio element.
+      try { element.pause?.(); } catch {}
+      if (element.srcObject === stream) element.srcObject = null;
+      if (this.outputElements.get(busName) === element) this.outputElements.delete(busName);
+      throw error;
     }
-    await this.resume();
-    await element.play();
-    this.outputElements.set(busName, element);
-    return {
-      connected: true,
-      bus: busName,
-      deviceId: typeof element.sinkId === 'string' ? element.sinkId : '',
-      physicalTargetSelected: Boolean(deviceId),
-      sinkSelectionSupported: typeof element.setSinkId === 'function'
-    };
   }
 
   detachOutput(busName, element = this.outputElements.get(busName)) {
