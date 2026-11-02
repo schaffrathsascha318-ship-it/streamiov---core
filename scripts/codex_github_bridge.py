@@ -67,8 +67,7 @@ or access files outside the permitted project scope.
 MANDATORY EXECUTION RULES
 - Work only inside this checked-out STREAMIOV repository.
 - You may edit only: ai/, tests/, docs/ai-development/, docs/operations/,
-  scripts/agent_bridge/, scripts/codex_github_bridge.py, and
-  tests/test_codex_github_bridge.py.
+  scripts/agent_bridge/ and tests under tests/.
 - Never read, print, copy, or modify .env files, secrets, tokens, private keys,
   OAuth data, browser profiles, SSH credentials, or files under ~/.codex.
 - Never run gh, wrangler, npm publish, deployment, release, payment, payout,
@@ -135,7 +134,8 @@ def process_one(repo: str,workspace: Path) -> str:
  number=task["number"]; update_labels(repo,number,READY,RUNNING,workspace)
  branch=f"codex-bridge/issue-{number}-{int(time.time())}"; last_message=""
  try:
-  run(["git","switch","-c",branch],cwd=workspace)
+  run(["git","fetch","--no-tags","origin","main"],cwd=workspace,timeout=180)
+  run(["git","switch","-c",branch,"FETCH_HEAD"],cwd=workspace)
   with tempfile.TemporaryDirectory(prefix="streamiov-codex-bridge-") as temp:
    env=codex_environment(temp); output_file=Path(temp)/"last-message.txt"
    result=run(["codex","exec","--cd",str(workspace),"--sandbox","workspace-write",
