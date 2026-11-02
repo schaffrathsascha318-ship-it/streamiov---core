@@ -8,6 +8,12 @@ const { pathToFileURL } = require('node:url');
 const { buildSyntheticAvPipelineArgs } = require('./media-pipeline');
 const { StudioSourceModel } = require('./engine/source-model');
 const { StudioSceneEngine } = require('./engine/scene-engine');
+const {
+  createAudioRoutingState,
+  updateOutput,
+  setSourceRoutes,
+  serializeAudioRoutingState
+} = require('./engine/audio-routing');
 
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
@@ -33,6 +39,45 @@ function isTrustedStudioSender(event) {
   return isStudioDocument(event.sender.getURL()) &&
     isStudioDocument(frame.url);
 }
+
+// Persistiert nur Routing-Konfiguration. Ohne nativen Adapter bleibt Audio explizit inaktiv.
+ipcMain.handle('studio:audio-routing-action', async (event, payload = {}) => {
+  if (!isTrustedStudioSender(event)) {
+    throw new Error('Nicht autorisierter Studio-Aufruf');
+  }
+
+  const file = path.join(app.getPath('userData'), 'streamiov-audio-routing.json');
+  let saved = {};
+  try {
+    saved = JSON.parse(await fs.readFile(file, 'utf8'));
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      return { ok: false, error: 'Audio-Konfiguration konnte nicht gelesen werden.' };
+    }
+  }
+
+  try {
+    let state = createAudioRoutingState(saved);
+    if (payload.action === 'load') {
+      return { ok: true, state };
+    }
+    if (payload.action === 'update-output') {
+      state = updateOutput(state, payload.outputId, payload.patch);
+    } else if (payload.action === 'set-source-routes') {
+      state = setSourceRoutes(state, payload.sourceId, payload.outputIds);
+    } else {
+      return { ok: false, error: 'Unbekannte Audio-Routing-Aktion.' };
+    }
+
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    const temporary = file + '.' + process.pid + '.tmp';
+    await fs.writeFile(temporary, JSON.stringify(serializeAudioRoutingState(state), null, 2), { mode: 0o600 });
+    await fs.rename(temporary, file);
+    return { ok: true, state };
+  } catch (error) {
+    return { ok: false, error: String(error.message || error).slice(0, 180) };
+  }
+});
 
 const streamiovChatState = {
   chat: 'offline',
