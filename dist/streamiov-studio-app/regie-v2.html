@@ -739,10 +739,10 @@ function renderAudioRouting(){
   const volumeLabel=audioElement("label",{}, "Lautstärke: "+config.volume+"%");
   volumeLabel.style.display="block";volumeLabel.style.marginTop="8px";
   const slider=audioElement("input",{type:"range",min:0,max:100,value:config.volume,"aria-label":output.label+" Lautstärke"});
-  slider.addEventListener("input",async()=>{
+  slider.addEventListener("input",()=>{
    volumeLabel.textContent="Lautstärke: "+slider.value+"%";
-   await updateAudioOutput(output.id,{volume:Number(slider.value)});
   });
+  slider.addEventListener("change",()=>updateAudioOutput(output.id,{volume:Number(slider.value)}));
   const muteLabel=audioElement("label");
   muteLabel.style.display="block";muteLabel.style.margin="8px 0";
   const mute=audioElement("input",{type:"checkbox"});
