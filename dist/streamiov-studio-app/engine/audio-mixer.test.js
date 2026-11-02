@@ -144,7 +144,7 @@ test('headphones and communications buses can attach independently', async () =>
   const mixer = new StudioAudioMixer({ AudioContextClass: FakeContext });
   const makeElement = () => ({
     srcObject: null, play: async () => {}, pause() {}, sinkId: 'default',
-    setSinkId: async id => { this.sinkId = id; }
+    setSinkId: async function (id) { this.sinkId = id; }
   });
   const headphones = makeElement();
   const communications = makeElement();
@@ -157,4 +157,17 @@ test('headphones and communications buses can attach independently', async () =>
   assert.notEqual(headphones.srcObject, communications.srcObject);
   assert.equal(mixer.getOutputSnapshot('headphones').playbackAttached, true);
   assert.equal(mixer.getOutputSnapshot('communications').playbackAttached, true);
+});
+
+test('failed output attachment cleans up the untracked media stream', async () => {
+  const mixer = new StudioAudioMixer({ AudioContextClass: FakeContext });
+  const element = {
+    srcObject: null,
+    pause() { this.paused = true; },
+    play: async () => { throw new Error('playback denied'); }
+  };
+  await assert.rejects(mixer.attachOutput('headphones', element), /playback denied/);
+  assert.equal(element.srcObject, null);
+  assert.equal(element.paused, true);
+  assert.equal(mixer.getOutputSnapshot('headphones').playbackAttached, false);
 });
