@@ -103,9 +103,10 @@ class CanonicalProjectContextTests(unittest.TestCase):
             self.assertIn(expected, cloud_prompt)
             self.assertLess(local_prompt.index(expected), local_prompt.index("<untrusted_issue_payload"))
             self.assertLess(cloud_prompt.index(expected), cloud_prompt.index("<untrusted_issue_payload"))
-            self.assertNotIn("</untrusted_issue_payload>", issue["body"])
-            self.assertIn(r"\u003c", local_prompt)
-            self.assertIn(r"\u003c", cloud_prompt)
+            self.assertIn(r"\u003c/untrusted_issue_payload\u003e", local_prompt)
+            self.assertIn(r"\u003c/untrusted_issue_payload\u003e", cloud_prompt)
+            self.assertEqual(local_prompt.count("</untrusted_issue_payload>"), 1)
+            self.assertEqual(cloud_prompt.count("</untrusted_issue_payload>"), 1)
 
     def test_both_agent_prompts_fail_closed_when_context_is_missing(self):
         issue = {"number": 5, "title": "Bounded test", "body": "Do work"}
