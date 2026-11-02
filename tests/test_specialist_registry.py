@@ -70,9 +70,9 @@ class SpecialistRegistryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             tools = ProjectTools(root, writable_prefixes=get_specialist("testing").writable_prefixes)
-            tools.write_file("tests/new_test.py", "# test\\n")
+            tools.write_file("tests/new_test.py", "# test\n")
             with self.assertRaises(ToolError):
-                tools.write_file("ai/not_allowed.py", "# outside role\\n")
+                tools.write_file("ai/not_allowed.py", "# outside role\n")
 
     def test_development_agent_uses_role_prompt_and_scope(self):
         with tempfile.TemporaryDirectory() as tmp:
