@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from scripts.codex_github_bridge import (
     ALLOWED_ASSOCIATIONS,
+    BridgeError,
     build_prompt,
     changed_paths,
     codex_environment,
@@ -120,21 +121,21 @@ class ChangedPathTests(unittest.TestCase):
             root=Path(temp); target=Path(outside)/"secret.py"
             target.write_text("secret",encoding="utf-8")
             (root/"ai").mkdir(); (root/"ai"/"linked.py").symlink_to(target)
-            with self.assertRaises(Exception): validate_changed_path(root,"ai/linked.py")
+            with self.assertRaises(BridgeError): validate_changed_path(root,"ai/linked.py")
 
     def test_rejects_symlink_parent_directory(self):
         with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as outside:
             root=Path(temp); target=Path(outside)/"secret.py"
             target.write_text("secret",encoding="utf-8")
             (root/"ai").mkdir(); (root/"ai"/"linked").symlink_to(outside,target_is_directory=True)
-            with self.assertRaises(Exception): validate_changed_path(root,"ai/linked/secret.py")
+            with self.assertRaises(BridgeError): validate_changed_path(root,"ai/linked/secret.py")
 
     def test_rejects_traversal_and_outside_workspace(self):
         with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as outside:
             root=Path(temp); (root/"ai").mkdir()
             (root/"ai"/"safe.py").write_text("ok",encoding="utf-8")
-            with self.assertRaises(Exception): validate_changed_path(root,"ai/../../outside.py")
-            with self.assertRaises(Exception): validate_changed_path(root,str(Path(outside)/"outside.py"))
+            with self.assertRaises(BridgeError): validate_changed_path(root,"ai/../../outside.py")
+            with self.assertRaises(BridgeError): validate_changed_path(root,str(Path(outside)/"outside.py"))
 
     def test_accepts_regular_file_inside_workspace(self):
         with tempfile.TemporaryDirectory() as temp:
