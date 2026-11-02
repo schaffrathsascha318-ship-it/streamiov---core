@@ -18,7 +18,8 @@ issues/comments are the message channel.
 - Existing ~/streamiov Git checkout with a clean working tree.
 - Python 3.10+, Git, GitHub CLI (gh) and Codex CLI installed.
 - gh auth status succeeds for the repository owner account.
-- Codex is already authenticated locally with codex login.
+- Codex CLI has a separate login under `~/.codex-streamiov-bridge`; the bridge
+  deliberately does not use the normal `~/.codex` login.
 - The local Git origin remote can push feature branches and create draft PRs.
 
 No Cloudflare Worker, D1 database, API token, new OAuth app, or TikTok setting
@@ -26,12 +27,40 @@ is required for this GitHub mailbox pilot.
 
 ## First local check
 
-From the repository root:
+Create the separate private Codex home and authenticate it once:
+
+~~~bash
+mkdir -m 700 -p ~/.codex-streamiov-bridge
+CODEX_HOME="$HOME/.codex-streamiov-bridge" codex login
+CODEX_HOME="$HOME/.codex-streamiov-bridge" codex login status
+~~~
+
+The bridge checks that login before it reads the issue queue. It creates or
+repairs the directory with owner-only permissions and stops if the isolated
+path is a symlink.
+
+From the repository root, run the focused checks first:
 
 ~~~bash
 cd ~/streamiov
 gh auth status
 codex --version
+python -m unittest discover -s tests -p 'test_codex_github_bridge.py' -v
+~~~
+
+For one local, non-publishing issue run:
+
+~~~bash
+python scripts/codex_github_bridge.py --once --test-mode
+~~~
+
+Test mode skips label changes, commits, pushes, pull requests and issue
+comments. It still reads queued issues from GitHub, runs Codex in the selected
+workspace and can leave local file changes for inspection. It is not a
+read-only or offline mode. Use the normal supervised mode only when ready to
+publish a draft PR:
+
+~~~bash
 python scripts/codex_github_bridge.py --once
 ~~~
 
@@ -66,15 +95,22 @@ private data, or secrets in issues.
 
 - Codex runs with the workspace-write sandbox; no approval/sandbox bypass flag
   is used.
-- The Codex child process does not inherit GitHub, Cloudflare, STREAMIOV,
-  AWS/Azure/Google, or common API-key environment variables. Its normal local
-  Codex authentication remains necessary to use the model.
+- The Codex child process starts from an empty environment and receives only
+  PATH, HOME, temporary-directory variables, locale, terminal, USER and LOGNAME
+  when present. GitHub, Cloudflare, STREAMIOV, cloud-provider, payment,
+  database, package-registry, unknown secrets and unreviewed CODEX_* variables
+  are not inherited. CODEX_HOME is set to the separate
+  `~/.codex-streamiov-bridge` directory. The bridge does not read, copy, print
+  or modify Codex authentication files.
 - The model is instructed not to access secrets, .env, OAuth data, browser
   profiles, SSH credentials or ~/.codex, and not to deploy, publish, install,
   change credentials, or use GitHub CLI.
-- Initial changed-path allowlist is deliberately narrow: ai/, tests/,
-  docs/ai-development/, docs/operations/, scripts/agent_bridge/, and the bridge
-  script/tests. Studio runtime, Core services, Cloudflare infrastructure,
+- Changed-path allowlist is deliberately narrow: ai/, tests/,
+  docs/ai-development/, docs/operations/, scripts/agent_bridge/, plus the
+  single exact self-update path scripts/codex_github_bridge.py. Every path
+  component is checked with lstat; symlinks, non-directory parents, special
+  files, traversal, unresolved paths and paths outside the resolved workspace
+  fail closed. Studio runtime, Core services, Cloudflare infrastructure,
   gifts, games and production files are not in scope yet.
 - Deletions, renames, copies, symlinks, out-of-scope changes, test failures and
   dirty starting workspaces block publication.
@@ -94,6 +130,10 @@ Run the focused tests:
 ~~~bash
 python -m unittest discover -s tests -p 'test_codex_github_bridge.py' -v
 ~~~
+
+Unit tests cover unknown credential environment variables, the minimal
+allowlist, symlink leaf and parent components, traversal and workspace
+containment.
 
 The local end-to-end acceptance test still requires a real queued issue,
 successful Codex execution on the Chromebook, and a resulting draft PR.
