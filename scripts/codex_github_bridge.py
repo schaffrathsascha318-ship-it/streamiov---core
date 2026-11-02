@@ -15,19 +15,19 @@ ALLOWED_EXACT={"scripts/codex_github_bridge.py","tests/test_codex_github_bridge.
 SECRET_ENV_PREFIXES=("STREAMIOV_","CLOUDFLARE_","CF_","AWS_","AZURE_","GOOGLE_")
 SECRET_ENV_NAMES={"GH_TOKEN","GITHUB_TOKEN","GITHUB_PAT","OPENAI_API_KEY","ANTHROPIC_API_KEY","GIT_ASKPASS","SSH_AUTH_SOCK"}
 SECRET_PATTERNS=(
- re.compile(r"(?i)(authorization\\s*[:=]\\s*bearer\\s+)\\S+"),
- re.compile(r"(?i)((?:token|secret|password|api[_-]?key)\\s*[=:]\\s*)[^\\s,;]+"),
+ re.compile(r"(?i)(authorization\s*[:=]\s*bearer\s+)\S+"),
+ re.compile(r"(?i)((?:token|secret|password|api[_-]?key)\s*[=:]\s*)[^\s,;]+"),
 )
 
 class BridgeError(RuntimeError): pass
 
 def redact(text: str, limit: int=5000) -> str:
  result=text
- for pattern in SECRET_PATTERNS: result=pattern.sub(r"\\1[REDACTED]",result)
+ for pattern in SECRET_PATTERNS: result=pattern.sub(r"\1[REDACTED]",result)
  return result[-limit:]
 
 def path_allowed(path: str) -> bool:
- normalized=path.replace("\\\\","/")
+ normalized=path.replace("\\","/")
  if normalized.startswith("/") or ".." in Path(normalized).parts: return False
  return normalized in ALLOWED_EXACT or any(normalized.startswith(p) for p in ALLOWED_PREFIXES)
 
@@ -48,7 +48,7 @@ def codex_environment(temp_home: str) -> dict[str,str]:
  return result
 
 def build_prompt(issue: dict[str,Any]) -> str:
- title=str(issue["title"]).replace("\\r"," ").replace("\\n"," ")[:200]
+ title=str(issue["title"]).replace("\r"," ").replace("\n"," ")[:200]
  body=str(issue.get("body") or "")[:20000]
  return f"""You are Luna, the local STREAMIOV engineering agent working in this repository.
 
@@ -120,10 +120,10 @@ def changed_paths(workspace: Path) -> tuple[list[str],list[str]]:
  paths:set[str]=set(); deleted:set[str]=set()
  for args in (["diff","--name-only","-z"],["diff","--cached","--name-only","-z"],
               ["ls-files","--others","--exclude-standard","-z"]):
-  paths.update(x for x in run(["git",*args],cwd=workspace).stdout.split("\\0") if x)
+  paths.update(x for x in run(["git",*args],cwd=workspace).stdout.split("\0") if x)
  for args in (["diff","--name-only","--diff-filter=D","-z"],
               ["diff","--cached","--name-only","--diff-filter=D","-z"]):
-  deleted.update(x for x in run(["git",*args],cwd=workspace).stdout.split("\\0") if x)
+  deleted.update(x for x in run(["git",*args],cwd=workspace).stdout.split("\0") if x)
  return sorted(paths),sorted(deleted)
 
 def process_one(repo: str,workspace: Path) -> str:
@@ -157,20 +157,20 @@ def process_one(repo: str,workspace: Path) -> str:
   run(["git","diff","--cached","--check"],cwd=workspace)
   run(["git","commit","-m",f"codex bridge: address issue #{number}"],cwd=workspace,timeout=180)
   run(["git","push","-u","origin",branch],cwd=workspace,timeout=180)
-  title=re.sub(r"\\s+"," ",task["title"]).strip()[:120]
+  title=re.sub(r"\s+"," ",task["title"]).strip()[:120]
   pr=run(["gh","pr","create","--draft","--repo",repo,"--base","main","--head",branch,
    "--title",f"Codex bridge: {title}","--body",
-   f"Addresses #{number}.\\n\\n- Produced by the local STREAMIOV Codex bridge.\\n- Changed paths passed the local allowlist.\\n- Full Python unittest suite passed locally.\\n- Draft only: no merge, deployment, release, OAuth or credential changes."],
+   f"Addresses #{number}.\n\n- Produced by the local STREAMIOV Codex bridge.\n- Changed paths passed the local allowlist.\n- Full Python unittest suite passed locally.\n- Draft only: no merge, deployment, release, OAuth or credential changes."],
    cwd=workspace,timeout=180).stdout.strip()
   update_labels(repo,number,RUNNING,REVIEW,workspace)
   summary=last_message[-2500:] if last_message else "Codex completed; see the draft pull request for the reviewed diff."
-  comment(repo,number,f"Local Codex run completed. Draft PR: {pr}\\n\\nSummary:\\n{summary}",workspace)
+  comment(repo,number,f"Local Codex run completed. Draft PR: {pr}\n\nSummary:\n{summary}",workspace)
   return f"review: issue #{number} -> {pr}"
  except Exception as exc:
   reason=redact(str(exc),1800)
   try:
    update_labels(repo,number,RUNNING,BLOCKED,workspace)
-   comment(repo,number,f"Local Codex bridge stopped safely. No merge or deployment was performed.\\n\\nReason: {reason}",workspace)
+   comment(repo,number,f"Local Codex bridge stopped safely. No merge or deployment was performed.\n\nReason: {reason}",workspace)
   except Exception: pass
   return f"blocked: issue #{number}: {reason}"
 
