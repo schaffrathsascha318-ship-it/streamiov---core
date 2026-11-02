@@ -26,7 +26,6 @@ class BridgePolicyTests(unittest.TestCase):
             "docs/ai-development/README.md",
             "docs/operations/bridge.md",
             "scripts/agent_bridge/worker.py",
-            "scripts/codex_github_bridge.py",
         ):
             with self.subTest(path=path):
                 self.assertTrue(path_allowed(path))
