@@ -52,9 +52,27 @@ def codex_environment(temp_home: str) -> dict[str,str]:
   if key in SECRET_ENV_NAMES or key.startswith(SECRET_ENV_PREFIXES): result.pop(key,None)
  result["GH_CONFIG_DIR"]=str(Path(temp_home)/"gh-empty")
  Path(result["GH_CONFIG_DIR"]).mkdir(mode=0o700,parents=True,exist_ok=True)
+ codex_home=Path(result.get("HOME") or Path.home())/".codex-streamiov-bridge"
+ codex_home.mkdir(mode=0o700,parents=True,exist_ok=True)
+ codex_home.chmod(0o700)
+ result["CODEX_HOME"]=str(codex_home)
  result["GIT_CONFIG_GLOBAL"]=os.devnull
  result["GIT_CONFIG_NOSYSTEM"]="1"
  return result
+
+def require_codex_login(env: dict[str,str]) -> None:
+ """Fail closed unless the isolated Codex home has its own valid login."""
+ try:
+  result=subprocess.run(["codex","login","status"],env=env,text=True,
+   stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=30,check=False)
+ except (FileNotFoundError,subprocess.TimeoutExpired) as exc:
+  raise BridgeError("Separate Codex login is unavailable; authenticate the isolated bridge Codex home first.") from exc
+ if result.returncode!=0:
+  raise BridgeError("Separate Codex login is missing; authenticate the isolated bridge Codex home first.")
+
+def codex_login_preflight() -> None:
+ with tempfile.TemporaryDirectory(prefix="streamiov-codex-bridge-preflight-") as temp:
+  require_codex_login(codex_environment(temp))
 
 def build_prompt(issue: dict[str,Any], project_root: Path|None=None) -> str:
  root = Path(project_root) if project_root is not None else REPOSITORY_ROOT
@@ -133,16 +151,21 @@ def changed_paths(workspace: Path) -> tuple[list[str],list[str]]:
   deleted.update(x for x in run(["git",*args],cwd=workspace).stdout.split("\0") if x)
  return sorted(paths),sorted(deleted)
 
-def process_one(repo: str,workspace: Path) -> str:
+def process_one(repo: str,workspace: Path,*,test_mode: bool=False,preflight_checked: bool=False) -> str:
+ if not preflight_checked: codex_login_preflight()
  task=next((x for x in list_ready_issues(repo,workspace) if eligible_issue(x)),None)
  if task is None: return "idle"
  dirty=run(["git","status","--porcelain","--untracked-files=all"],cwd=workspace).stdout
  if dirty.strip(): raise BridgeError("Workspace is not clean. Commit or safely stash existing work before starting.")
- number=task["number"]; update_labels(repo,number,READY,RUNNING,workspace)
+ number=task["number"]
+ if not test_mode: update_labels(repo,number,READY,RUNNING,workspace)
  branch=f"codex-bridge/issue-{number}-{int(time.time())}"; last_message=""
  try:
-  run(["git","fetch","--no-tags","origin","main"],cwd=workspace,timeout=180)
-  run(["git","switch","-c",branch,"FETCH_HEAD"],cwd=workspace)
+  if test_mode:
+   branch=None
+  else:
+   run(["git","fetch","--no-tags","origin","main"],cwd=workspace,timeout=180)
+   run(["git","switch","-c",branch,"FETCH_HEAD"],cwd=workspace)
   with tempfile.TemporaryDirectory(prefix="streamiov-codex-bridge-") as temp:
    env=codex_environment(temp); output_file=Path(temp)/"last-message.txt"
    result=run(["codex","exec","--cd",str(workspace),"--sandbox","workspace-write",
@@ -163,6 +186,8 @@ def process_one(repo: str,workspace: Path) -> str:
   run(["git","diff","--check"],cwd=workspace); run(["git","diff","--cached","--check"],cwd=workspace)
   tests=run([sys.executable,"-m","unittest","discover","-s","tests","-v"],cwd=workspace,timeout=900,check=False)
   if tests.returncode!=0: raise BridgeError("Repository unit tests failed. "+redact(tests.stderr or tests.stdout,1800))
+  if test_mode:
+   return f"test mode: issue #{number} changes validated locally; nothing published"
   run(["git","add","--",*paths],cwd=workspace)
   run(["git","diff","--cached","--check"],cwd=workspace)
   run(["git","commit","-m",f"codex bridge: address issue #{number}"],cwd=workspace,timeout=180)
@@ -177,10 +202,11 @@ def process_one(repo: str,workspace: Path) -> str:
   return f"review: issue #{number} -> {pr}"
  except Exception as exc:
   reason=redact(str(exc),1800)
-  try:
-   update_labels(repo,number,RUNNING,BLOCKED,workspace)
-   comment(repo,number,"Local Codex bridge stopped safely. No merge or deployment was performed. Inspect the local terminal output before re-queuing this task.",workspace)
-  except Exception: pass
+  if not test_mode:
+   try:
+    update_labels(repo,number,RUNNING,BLOCKED,workspace)
+    comment(repo,number,"Local Codex bridge stopped safely. No merge or deployment was performed. Inspect the local terminal output before re-queuing this task.",workspace)
+   except Exception: pass
   return f"blocked: issue #{number}: {reason}"
 
 def main(argv: list[str]|None=None) -> int:
@@ -189,6 +215,7 @@ def main(argv: list[str]|None=None) -> int:
  parser.add_argument("--workspace",default=str(Path.home()/"streamiov"))
  parser.add_argument("--once",action="store_true",help="Process at most one queued issue and exit")
  parser.add_argument("--loop",action="store_true",help="Poll continuously until Ctrl-C")
+ parser.add_argument("--test-mode",action="store_true",help="Validate a queued task locally without labels, commits, pushes, pull requests, or comments")
  parser.add_argument("--poll-seconds",type=int,default=30)
  args=parser.parse_args(argv)
  if args.once==args.loop: parser.error("Choose exactly one of --once or --loop.")
@@ -198,13 +225,14 @@ def main(argv: list[str]|None=None) -> int:
  try:
   root=Path(run(["git","rev-parse","--show-toplevel"],cwd=workspace).stdout.strip()).resolve()
   if root!=workspace: raise BridgeError(f"Workspace must be the repository root: {root}")
+  codex_login_preflight()
   repo=args.repo.strip()
   if not repo:
    repo=run(["gh","repo","view","--json","nameWithOwner","-q",".nameWithOwner"],cwd=workspace).stdout.strip()
   if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",repo): raise BridgeError("Invalid GitHub repository name.")
-  ensure_labels(repo,workspace)
+  if not args.test_mode: ensure_labels(repo,workspace)
   while True:
-   print(process_one(repo,workspace),flush=True)
+   print(process_one(repo,workspace,test_mode=args.test_mode,preflight_checked=True),flush=True)
    if args.once: return 0
    time.sleep(args.poll_seconds)
  except KeyboardInterrupt:
