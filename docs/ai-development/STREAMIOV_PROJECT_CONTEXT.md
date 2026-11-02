@@ -21,11 +21,12 @@ Status: Current agreed product and engineering constraints
 
 ## Platform scope
 
-- TikTok LIVE is the only external live platform in the initial scope.
-- Do not add Twitch, YouTube, Kick, or Facebook adapters unless the product owner explicitly changes scope.
+- TikTok LIVE is the only required external live-platform integration for the initial product scope.
+- No other external live platform is mandatory for the initial scope. Do not build Twitch, YouTube, Kick, or Facebook adapters as part of this requirement.
+- Any additional external platform is optional future scope and requires a separate explicit product decision; it must not delay the TikTok LIVE implementation.
 - Windows 11 x64 is the primary desktop target; do not target Windows ARM as the primary build.
 - Linux, ChromeOS/Chromebook, and mobile usage must remain architectural targets. Do not assume an APK is the only or already-approved mobile delivery route.
-- The intended creator flow is install/download, sign in, connect the supported platform, and go live. Do not expose RTMP/server configuration to creators as a normal setup requirement.
+- The intended creator flow is install/download, sign in, connect TikTok, and go live. Do not expose RTMP/server configuration to creators as a normal setup requirement.
 
 ## Agent collaboration protocol
 
