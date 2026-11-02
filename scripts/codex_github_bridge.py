@@ -149,6 +149,9 @@ def process_one(repo: str,workspace: Path) -> str:
   if deleted: raise BridgeError("Deletion detected; publication blocked: "+", ".join(deleted[:10]))
   rejected=[p for p in paths if not path_allowed(p)]
   if rejected: raise BridgeError("Changes outside the bridge allowlist; publication blocked: "+", ".join(rejected[:10]))
+  if any((workspace / p).is_symlink() for p in paths): raise BridgeError("Symlink changes are not permitted.")
+  rename_lines=(run(["git","diff","--name-status","-M"],cwd=workspace).stdout + run(["git","diff","--cached","--name-status","-M"],cwd=workspace).stdout).splitlines()
+  if any(line.startswith(("R","C")) for line in rename_lines): raise BridgeError("File renames or copies are not permitted.")
   if not paths: raise BridgeError("Codex produced no repository changes.")
   run(["git","diff","--check"],cwd=workspace); run(["git","diff","--cached","--check"],cwd=workspace)
   tests=run([sys.executable,"-m","unittest","discover","-s","tests","-v"],cwd=workspace,timeout=900,check=False)
