@@ -66,15 +66,21 @@ private data, or secrets in issues.
 
 - Codex runs with the workspace-write sandbox; no approval/sandbox bypass flag
   is used.
-- The Codex child process does not inherit GitHub, Cloudflare, STREAMIOV,
-  AWS/Azure/Google, or common API-key environment variables. Its normal local
-  Codex authentication remains necessary to use the model.
+- The Codex child process starts from an empty environment and receives only
+  PATH, HOME, temporary-directory variables, locale, terminal, USER and LOGNAME
+  when present. GitHub, Cloudflare, STREAMIOV, cloud-provider, payment,
+  database, package-registry, unknown secrets and unreviewed CODEX_* variables
+  are not inherited. HOME lets Codex use its existing local login; the bridge
+  does not read, copy, print or modify Codex authentication files.
 - The model is instructed not to access secrets, .env, OAuth data, browser
   profiles, SSH credentials or ~/.codex, and not to deploy, publish, install,
   change credentials, or use GitHub CLI.
-- Initial changed-path allowlist is deliberately narrow: ai/, tests/,
-  docs/ai-development/, docs/operations/, scripts/agent_bridge/, and the bridge
-  script/tests. Studio runtime, Core services, Cloudflare infrastructure,
+- Changed-path allowlist is deliberately narrow: ai/, tests/,
+  docs/ai-development/, docs/operations/, scripts/agent_bridge/, plus the
+  single exact self-update path scripts/codex_github_bridge.py. Every path
+  component is checked with lstat; symlinks, non-directory parents, special
+  files, traversal, unresolved paths and paths outside the resolved workspace
+  fail closed. Studio runtime, Core services, Cloudflare infrastructure,
   gifts, games and production files are not in scope yet.
 - Deletions, renames, copies, symlinks, out-of-scope changes, test failures and
   dirty starting workspaces block publication.
@@ -94,6 +100,10 @@ Run the focused tests:
 ~~~bash
 python -m unittest discover -s tests -p 'test_codex_github_bridge.py' -v
 ~~~
+
+Unit tests cover unknown credential environment variables, the minimal
+allowlist, symlink leaf and parent components, traversal and workspace
+containment.
 
 The local end-to-end acceptance test still requires a real queued issue,
 successful Codex execution on the Chromebook, and a resulting draft PR.
