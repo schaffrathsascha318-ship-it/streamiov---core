@@ -240,3 +240,111 @@ test("completion rejects an invalid output digest", async () => {
   }), env);
   assert.equal(bad.status, 400);
 });
+
+
+test("pause blocks device requests and resume restores only the same device", async () => {
+  const { env } = runtime();
+  const enroll = await worker.fetch(request("/v1/admin/devices/enroll", {
+    method: "POST", token: ADMIN, body: { label: "pause-resume-test" }
+  }), env);
+  const device = await enroll.json();
+  const pause = await worker.fetch(request("/v1/admin/devices/" + device.device_id + "/pause", {
+    method: "POST", token: ADMIN
+  }), env);
+  assert.equal(pause.status, 200);
+  assert.equal((await pause.json()).status, "paused");
+
+  const blocked = await worker.fetch(request("/v1/devices/" + device.device_id + "/jobs/claim", {
+    method: "POST", token: device.device_token, body: { device_id: device.device_id }
+  }), env);
+  assert.equal(blocked.status, 403);
+  assert.equal((await blocked.json()).error, "device_not_active");
+
+  const resume = await worker.fetch(request("/v1/admin/devices/" + device.device_id + "/resume", {
+    method: "POST", token: ADMIN
+  }), env);
+  assert.equal(resume.status, 200);
+  assert.equal((await resume.json()).status, "active");
+  const allowed = await worker.fetch(request("/v1/devices/" + device.device_id + "/jobs/claim", {
+    method: "POST", token: device.device_token, body: { device_id: device.device_id }
+  }), env);
+  assert.equal(allowed.status, 200);
+  assert.equal((await allowed.json()).status, "idle");
+});
+
+test("device credentials cannot claim or complete another device's job", async () => {
+  const { env } = runtime();
+  const enroll = async (label) => {
+    const response = await worker.fetch(request("/v1/admin/devices/enroll", {
+      method: "POST", token: ADMIN, body: { label }
+    }), env);
+    return response.json();
+  };
+  const deviceA = await enroll("device-a");
+  const deviceB = await enroll("device-b");
+  const created = await worker.fetch(request("/v1/admin/jobs", {
+    method: "POST", token: ADMIN, body: {
+      device_id: deviceA.device_id, profile: "diagnostics",
+      idempotency_key: "cross-device-job-0001", reason: "device isolation test"
+    }
+  }), env);
+  assert.equal(created.status, 201);
+  const job = (await created.json()).job;
+
+  const wrongClaim = await worker.fetch(request("/v1/devices/" + deviceA.device_id + "/jobs/claim", {
+    method: "POST", token: deviceB.device_token, body: { device_id: deviceA.device_id }
+  }), env);
+  assert.equal(wrongClaim.status, 401);
+
+  const correctClaim = await worker.fetch(request("/v1/devices/" + deviceA.device_id + "/jobs/claim", {
+    method: "POST", token: deviceA.device_token, body: { device_id: deviceA.device_id }
+  }), env);
+  assert.equal(correctClaim.status, 200);
+  const envelope = await correctClaim.json();
+  const output = "isolated";
+  const completion = {
+    job_id: job.id, device_id: deviceA.device_id, profile: "diagnostics",
+    status: "succeeded", exit_code: 0, started_at: envelope.job.issued_at,
+    finished_at: envelope.job.issued_at + 1, duration_seconds: 1,
+    result_sha256: await __test.sha256Hex(output), output
+  };
+  const wrongComplete = await worker.fetch(request(
+    "/v1/devices/" + deviceA.device_id + "/jobs/" + job.id + "/complete",
+    { method: "POST", token: deviceB.device_token, body: completion }
+  ), env);
+  assert.equal(wrongComplete.status, 401);
+
+  const validComplete = await worker.fetch(request(
+    "/v1/devices/" + deviceA.device_id + "/jobs/" + job.id + "/complete",
+    { method: "POST", token: deviceA.device_token, body: completion }
+  ), env);
+  assert.equal(validComplete.status, 200);
+});
+
+test("expired claim becomes uncertain and is never automatically requeued", async () => {
+  const { db, env } = runtime();
+  const enroll = await worker.fetch(request("/v1/admin/devices/enroll", {
+    method: "POST", token: ADMIN, body: { label: "lease-expiry-test" }
+  }), env);
+  const device = await enroll.json();
+  const created = await worker.fetch(request("/v1/admin/jobs", {
+    method: "POST", token: ADMIN, body: {
+      device_id: device.device_id, profile: "git-status",
+      idempotency_key: "lease-expiry-job-0001", reason: "lease recovery test"
+    }
+  }), env);
+  const job = (await created.json()).job;
+  const claimed = await worker.fetch(request("/v1/devices/" + device.device_id + "/jobs/claim", {
+    method: "POST", token: device.device_token, body: { device_id: device.device_id }
+  }), env);
+  assert.equal(claimed.status, 200);
+  assert.equal((await claimed.json()).job.id, job.id);
+
+  db.jobs.get(job.id).lease_expires_at = Math.floor(Date.now() / 1000) - 1;
+  const nextClaim = await worker.fetch(request("/v1/devices/" + device.device_id + "/jobs/claim", {
+    method: "POST", token: device.device_token, body: { device_id: device.device_id }
+  }), env);
+  assert.equal(nextClaim.status, 200);
+  assert.equal((await nextClaim.json()).status, "idle");
+  assert.equal(db.jobs.get(job.id).status, "uncertain");
+});
