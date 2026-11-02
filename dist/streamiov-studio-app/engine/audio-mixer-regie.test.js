@@ -18,13 +18,24 @@ test('local mixer output is not falsely reported as a live encoder connection', 
   assert.ok(html.includes('Audio-Ausgang vorbereitet; noch nicht mit Encoder/LIVE verbunden'));
 });
 
-test('Regie exposes selectable local monitor output controls', () => {
-  assert.ok(html.includes('id="audioMonitorDevice"'));
-  assert.ok(html.includes('id="audioMonitorConnect"'));
-  assert.ok(html.includes('id="audioMonitorDisconnect"'));
-  assert.ok(html.includes('studioAudioMixer.attachMonitor(monitorElement'));
-  assert.ok(html.includes('studioAudioMixer.detachMonitor(monitorElement)'));
+test('Regie exposes independent stream, monitor, headphones and communications outputs', () => {
+  for (const name of ['stream', 'monitor', 'headphones', 'communications']) {
+    assert.ok(html.includes('data-output="'+name+'"'));
+    assert.ok(html.includes('data-output-gain="'+name+'"'));
+    assert.ok(html.includes('data-output-mute="'+name+'"'));
+    assert.ok(html.includes('data-output-status="'+name+'"'));
+  }
+  for (const name of ['monitor', 'headphones', 'communications']) {
+    assert.ok(html.includes('data-output-device="'+name+'"'));
+    assert.ok(html.includes('data-output-connect="'+name+'"'));
+    assert.ok(html.includes('data-output-disconnect="'+name+'"'));
+  }
+  assert.ok(html.includes('studioAudioMixer.attachOutput(name,element'));
+  assert.ok(html.includes('studioAudioMixer.detachOutput(name,outputElements[name])'));
+  assert.ok(html.includes('studioAudioMixer.setOutputGain(name,state.gain/100)'));
+  assert.ok(html.includes('studioAudioMixer.setOutputMuted(name,state.muted)'));
 });
+
 
 test('Regie connects local music and alert media files to their own mixer channels', () => {
   assert.ok(html.includes('id="musicAudioFile"'));
@@ -34,8 +45,8 @@ test('Regie connects local music and alert media files to their own mixer channe
   assert.ok(html.includes('bindMediaFile("music"'));
   assert.ok(html.includes('bindMediaFile("alerts"'));
   assert.ok(html.includes('connectAudioSource(channel,binding.destination.stream)'));
-  assert.ok(html.includes('music:{gain:45,muted:false,routes:["stream","monitor","music_stem"]}'));
-  assert.ok(html.includes('alerts:{gain:80,muted:false,routes:["stream","monitor","alerts_stem"]}'));
+  assert.ok(html.includes('music:{gain:45,muted:false,routes:["stream","monitor","headphones","communications","music_stem"]}'));
+  assert.ok(html.includes('alerts:{gain:80,muted:false,routes:["stream","monitor","headphones","communications","alerts_stem"]}'));
 });
 
 test('invalid media files report a visible status without throwing from the event handler', () => {
