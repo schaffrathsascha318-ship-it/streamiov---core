@@ -73,6 +73,16 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
 .meter{height:5px;background:#263543;border-radius:5px;margin:9px 0}
 .meter i{display:block;height:100%;width:65%;background:var(--green)}
 .channel small{display:block;color:var(--muted)}
+ .audio-output-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:9px;margin-top:10px}
+ .audio-output{padding:10px;background:#0c131b;border:1px solid var(--line);border-radius:8px;min-width:0}
+ .audio-output h3{margin:0 0 8px;font-size:13px;color:var(--text)}
+ .audio-output label,.audio-output small{display:block;color:var(--muted);font-size:11px;margin:5px 0}
+ .audio-output select,.audio-output input[type=range]{width:100%;min-width:0}
+ .audio-output audio{display:none}
+ .audio-output .output-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+ .audio-output .output-actions button{flex:1;min-width:92px}
+ .audio-output [data-output-status]{display:block;min-height:30px;margin-top:7px;color:var(--muted)}
+
 .right-stack{display:grid;gap:12px;align-content:start}
 .metric{display:flex;justify-content:space-between;padding:8px 0;
  border-bottom:1px solid #23313d}
@@ -236,13 +246,30 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
     <div class="channel" data-audio-channel="tts"><b>TTS / Sprache</b><div class="meter"><i></i></div>
      <input id="ttsMixGain" data-mix-gain="tts" type="range" min="0" max="100" value="85"><small>TTS · PROGRAMM</small><button type="button" data-mix-mute="tts" aria-pressed="false">STUMM</button><small data-mix-state="tts">Quelle noch nicht verbunden</small><label for="ttsTestText">Sprachtest (Deutsch)</label><input id="ttsTestText" type="text" maxlength="1000" placeholder="Text für die Sprachausgabe"><button id="ttsTestSpeak" type="button">SPRACHE ÜBER MIXER TESTEN</button><small id="ttsTestStatus" role="status">TTS-Ausgabe noch nicht getestet.</small></div>
    </div>
-   <div class="controls" id="audioMonitorControls">
-    <label for="audioMonitorDevice">Kopfhörer / Lautsprecher</label>
-    <select id="audioMonitorDevice"><option value="">Systemstandard</option></select>
-    <button id="audioMonitorConnect" type="button">MONITOR AKTIVIEREN</button>
-    <button id="audioMonitorDisconnect" type="button">MONITOR TRENNEN</button>
-    <small id="audioMonitorStatus" role="status">Monitor-Ausgang nicht verbunden.</small>
-    <audio id="audioMonitorElement" autoplay playsinline></audio>
+   <div class="audio-output-grid" id="audioOutputControls" aria-label="Getrennte Audioausgänge">
+    <article class="audio-output" data-output="stream"><h3>STREAM / PROGRAMM</h3>
+     <label for="streamOutputGain">Ausgangslautstärke</label><input id="streamOutputGain" data-output-gain="stream" type="range" min="0" max="100" value="100">
+     <div class="output-actions"><button type="button" data-output-mute="stream" aria-pressed="false">STUMM</button></div>
+     <small data-output-status="stream" role="status">Programm-Bus · Encoder-Verbindung separat erforderlich.</small>
+    </article>
+    <article class="audio-output" data-output="monitor"><h3>MONITOR</h3><label for="monitorOutputDevice">Wiedergabegerät</label>
+     <select id="monitorOutputDevice" data-output-device="monitor"><option value="">Systemstandard</option></select>
+     <label for="monitorOutputGain">Ausgangslautstärke</label><input id="monitorOutputGain" data-output-gain="monitor" type="range" min="0" max="100" value="100">
+     <div class="output-actions"><button type="button" data-output-connect="monitor">AKTIVIEREN</button><button type="button" data-output-disconnect="monitor">TRENNEN</button><button type="button" data-output-mute="monitor" aria-pressed="false">STUMM</button></div>
+     <small data-output-status="monitor" role="status">Monitor nicht verbunden.</small><audio id="monitorOutputElement" autoplay playsinline></audio>
+    </article>
+    <article class="audio-output" data-output="headphones"><h3>KOPFHÖRER</h3><label for="headphonesOutputDevice">Wiedergabegerät</label>
+     <select id="headphonesOutputDevice" data-output-device="headphones"><option value="">Systemstandard</option></select>
+     <label for="headphonesOutputGain">Ausgangslautstärke</label><input id="headphonesOutputGain" data-output-gain="headphones" type="range" min="0" max="100" value="100">
+     <div class="output-actions"><button type="button" data-output-connect="headphones">AKTIVIEREN</button><button type="button" data-output-disconnect="headphones">TRENNEN</button><button type="button" data-output-mute="headphones" aria-pressed="false">STUMM</button></div>
+     <small data-output-status="headphones" role="status">Kopfhörer nicht verbunden.</small><audio id="headphonesOutputElement" autoplay playsinline></audio>
+    </article>
+    <article class="audio-output" data-output="communications"><h3>KOMMUNIKATION</h3><label for="communicationsOutputDevice">Wiedergabegerät</label>
+     <select id="communicationsOutputDevice" data-output-device="communications"><option value="">Systemstandard</option></select>
+     <label for="communicationsOutputGain">Ausgangslautstärke</label><input id="communicationsOutputGain" data-output-gain="communications" type="range" min="0" max="100" value="100">
+     <div class="output-actions"><button type="button" data-output-connect="communications">AKTIVIEREN</button><button type="button" data-output-disconnect="communications">TRENNEN</button><button type="button" data-output-mute="communications" aria-pressed="false">STUMM</button></div>
+     <small data-output-status="communications" role="status">Kommunikationsausgang nicht verbunden.</small><audio id="communicationsOutputElement" autoplay playsinline></audio>
+    </article>
    </div>
   </div>
  </section>
@@ -528,7 +555,7 @@ loadSources();
 const captureState={camera:null,microphone:null,desktop:null,audioContext:null,analyser:null,meterFrame:0};
 const studioAudioMixer=window.StreamiovAudioMixer?new window.StreamiovAudioMixer():null;
 if(studioAudioMixer){for(const bus of ["microphone_stem","music_stem","game_stem","alerts_stem","tts_stem"])studioAudioMixer.createBus(bus);}
-const audioChannelDefaults={microphone:{gain:75,muted:false,routes:["stream","monitor","microphone_stem"]},music:{gain:45,muted:false,routes:["stream","monitor","music_stem"]},game:{gain:65,muted:false,routes:["stream","monitor","game_stem"]},alerts:{gain:80,muted:false,routes:["stream","monitor","alerts_stem"]},tts:{gain:85,muted:false,routes:["stream","monitor","tts_stem"]}};
+const audioChannelDefaults={microphone:{gain:75,muted:false,routes:["stream","monitor","headphones","communications","microphone_stem"]},music:{gain:45,muted:false,routes:["stream","monitor","headphones","communications","music_stem"]},game:{gain:65,muted:false,routes:["stream","monitor","headphones","communications","game_stem"]},alerts:{gain:80,muted:false,routes:["stream","monitor","headphones","communications","alerts_stem"]},tts:{gain:85,muted:false,routes:["stream","monitor","headphones","communications","tts_stem"]}};
 const audioChannelState=Object.fromEntries(Object.entries(audioChannelDefaults).map(([name,value])=>[name,{...value}]));
 const micMixGain=$("microphoneMixGain");
 function renderAudioChannel(name){
@@ -617,29 +644,45 @@ document.querySelectorAll("[data-mix-mute]").forEach(control=>control.addEventLi
  renderAudioChannel(name);
 }));
 Object.keys(audioChannelState).forEach(renderAudioChannel);
-const monitorElement=$("audioMonitorElement"),monitorDevice=$("audioMonitorDevice"),monitorStatus=$("audioMonitorStatus");
-async function refreshAudioOutputs(){
- if(!navigator.mediaDevices?.enumerateDevices)return;
- const devices=await navigator.mediaDevices.enumerateDevices(),selected=monitorDevice.value;
- monitorDevice.replaceChildren();
- const standard=document.createElement("option");standard.value="";standard.textContent="Systemstandard";monitorDevice.append(standard);
- devices.filter(device=>device.kind==="audiooutput").forEach((device,index)=>{
-  const option=document.createElement("option");option.value=device.deviceId;option.textContent=device.label||"Audioausgang "+(index+1);monitorDevice.append(option);
- });
- if([...monitorDevice.options].some(option=>option.value===selected))monitorDevice.value=selected;
+const outputBusNames=["stream","monitor","headphones","communications"];
+const outputElements={monitor:$("monitorOutputElement"),headphones:$("headphonesOutputElement"),communications:$("communicationsOutputElement")};
+const outputStates=Object.fromEntries(outputBusNames.map(name=>[name,{gain:100,muted:false,connected:false}]));
+function renderAudioOutput(name){
+ const state=outputStates[name];if(!state)return;
+ const gain=document.querySelector("[data-output-gain='"+name+"']"),mute=document.querySelector("[data-output-mute='"+name+"']"),status=document.querySelector("[data-output-status='"+name+"']");
+ if(gain)gain.value=String(state.gain);
+ if(mute){mute.setAttribute("aria-pressed",String(state.muted));mute.textContent=state.muted?"TON AN":"STUMM";}
+ if(status)status.textContent=name==="stream"?"Programm-Bus "+(state.muted?"stumm":"aktiv")+" · Encoder-Verbindung separat erforderlich.":state.connected?"Ausgang aktiv · "+(outputElements[name]?.sinkId||"Systemstandard"):"Ausgang nicht verbunden.";
 }
-$("audioMonitorConnect").addEventListener("click",async()=>{
- try{
-  const result=await studioAudioMixer.attachMonitor(monitorElement,{deviceId:monitorDevice.value});
-  monitorStatus.textContent="Monitor aktiv · "+(result.deviceId||"Systemstandard");
- }catch(error){monitorStatus.textContent="Monitor nicht aktiviert: "+captureError(error);}
-});
-$("audioMonitorDisconnect").addEventListener("click",()=>{
- studioAudioMixer.detachMonitor(monitorElement);monitorStatus.textContent="Monitor-Ausgang getrennt.";
-});
-refreshAudioOutputs().catch(error=>{monitorStatus.textContent="Audioausgänge nicht verfügbar.";});
+document.querySelectorAll("[data-output-gain]").forEach(control=>control.addEventListener("input",()=>{
+ const name=control.dataset.outputGain,state=outputStates[name];if(!state)return;state.gain=Number(control.value);
+ if(studioAudioMixer)studioAudioMixer.setOutputGain(name,state.gain/100);renderAudioOutput(name);
+}));
+document.querySelectorAll("[data-output-mute]").forEach(control=>control.addEventListener("click",()=>{
+ const name=control.dataset.outputMute,state=outputStates[name];if(!state)return;state.muted=!state.muted;
+ if(studioAudioMixer)studioAudioMixer.setOutputMuted(name,state.muted);renderAudioOutput(name);
+}));
+document.querySelectorAll("[data-output-connect]").forEach(button=>button.addEventListener("click",async()=>{
+ const name=button.dataset.outputConnect,element=outputElements[name],select=document.querySelector("[data-output-device='"+name+"']"),status=document.querySelector("[data-output-status='"+name+"']");
+ if(!studioAudioMixer||!element||!select||!status)return;button.disabled=true;status.textContent="Ausgang wird verbunden …";
+ try{const result=await studioAudioMixer.attachOutput(name,element,{deviceId:select.value});outputStates[name].connected=true;status.textContent="Verbunden · "+(result.deviceId||"Systemstandard");}
+ catch(error){outputStates[name].connected=false;status.textContent="Verbindung fehlgeschlagen: "+captureError(error);}
+ finally{button.disabled=false;renderAudioOutput(name);}
+}));
+document.querySelectorAll("[data-output-disconnect]").forEach(button=>button.addEventListener("click",()=>{
+ const name=button.dataset.outputDisconnect;if(studioAudioMixer)studioAudioMixer.detachOutput(name,outputElements[name]);outputStates[name].connected=false;renderAudioOutput(name);
+}));
+async function refreshAudioOutputs(){
+ if(!navigator.mediaDevices?.enumerateDevices)return;const devices=await navigator.mediaDevices.enumerateDevices();
+ document.querySelectorAll("[data-output-device]").forEach(select=>{
+  const selected=select.value;select.replaceChildren();const standard=document.createElement("option");standard.value="";standard.textContent="Systemstandard";select.append(standard);
+  devices.filter(device=>device.kind==="audiooutput").forEach((device,index)=>{const option=document.createElement("option");option.value=device.deviceId;option.textContent=device.label||"Audioausgang "+(index+1);select.append(option);});
+  if([...select.options].some(option=>option.value===selected))select.value=selected;
+ });
+}
+outputBusNames.forEach(renderAudioOutput);
+refreshAudioOutputs().catch(()=>{document.querySelectorAll("[data-output-status]").forEach(el=>{if(el.dataset.outputStatus!=="stream")el.textContent="Audioausgänge konnten nicht geladen werden.";});});
 navigator.mediaDevices?.addEventListener?.("devicechange",()=>refreshAudioOutputs().catch(()=>{}));
-window.addEventListener("beforeunload",()=>{if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
 const cameraSelect=$("cameraDeviceSelect");
 const microphoneSelect=$("microphoneDeviceSelect");
 const cameraVideo=$("cameraPreview");
