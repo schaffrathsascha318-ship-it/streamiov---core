@@ -181,7 +181,15 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
      <div class="meter" style="margin-top:12px"><i id="microphoneLevel" style="width:0%"></i></div>
      <p id="microphoneCaptureStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Mikrofon noch nicht geprüft.</p>
      <button id="refreshDevices" type="button" style="width:100%;margin-top:8px">GERÄTELISTE AKTUALISIEREN</button>
-     <small style="display:block;color:var(--muted);margin-top:8px">Die Tests fragen beim Start die Geräteberechtigung ab. Kamera- und Mikrofonaufnahme bleiben lokal; zum Beenden erneut auf den jeweiligen Testknopf klicken.</small>
+     <div class="panel-title" style="margin:14px -12px 8px">BILDSCHIRM / FENSTER</div>
+     <label for="desktopCaptureSelect">Bildschirm oder Fenster auswählen</label>
+     <select id="desktopCaptureSelect" style="width:100%;margin:6px 0 10px"><option value="">Quelle suchen</option></select>
+     <button id="refreshCaptureSources" type="button" style="width:100%">BILDSCHIRM-/FENSTERQUELLEN SUCHEN</button>
+     <button id="desktopCaptureStart" type="button" style="width:100%;margin-top:8px">VORSCHAU STARTEN</button>
+     <video id="desktopCapturePreview" autoplay muted playsinline style="display:none;width:100%;margin-top:8px;border-radius:8px;background:#05080c;aspect-ratio:16/9"></video>
+     <p id="desktopCaptureStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Noch keine Bildschirm- oder Fenstervorschau aktiv.</p>
+     <small style="display:block;color:var(--muted);margin-top:8px">Bildschirm- und Fensteraufnahme bleibt lokal in der Vorschau. Sie wird noch nicht in die Program-/Encoder-Pipeline übertragen.</small>
+     <small style="display:block;color:var(--muted);margin-top:8px">Kamera-, Mikrofon- und Bildschirmtests fragen beim Start die erforderlichen Berechtigungen ab. Alle lokalen Tracks enden beim Stoppen oder Schließen.</small>
     </div>
    </section>
   </div>
@@ -213,10 +221,10 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
    </div>
   </div>
   <div class="panel section">
-   <div class="panel-title">AUDIO-MIXER / LOKALE REGLER</div>
+   <div class="panel-title">AUDIO-MIXER / LOKALE MISCHUNG</div>
    <div class="pad mixer">
     <div class="channel"><b>Mikrofon</b><div class="meter"><i></i></div>
-     <input type="range" min="0" max="100" value="75"><small>MIC 1</small></div>
+     <input id="microphoneMixGain" type="range" min="0" max="100" value="75"><small>MIC 1</small></div>
     <div class="channel"><b>Musik</b><div class="meter"><i></i></div>
      <input type="range" min="0" max="100" value="45"><small>MUSIC</small></div>
     <div class="channel"><b>Spiel</b><div class="meter"><i></i></div>
@@ -355,6 +363,7 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
 
  </main>
 
+<script src="./engine/audio-mixer.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const mobileRegieToggle=$("mobile-regie-toggle");
@@ -504,18 +513,31 @@ loadSources();
 
 // Reale lokale Kamera- und Mikrofonaufnahme über Chromium/Electron MediaDevices.
 // Es wird nichts übertragen oder gespeichert; Tracks enden beim erneuten Klick bzw. Schließen.
-const captureState={camera:null,microphone:null,audioContext:null,analyser:null,meterFrame:0};
+const captureState={camera:null,microphone:null,desktop:null,audioContext:null,analyser:null,meterFrame:0};
+const studioAudioMixer=window.StreamiovAudioMixer?new window.StreamiovAudioMixer():null;
+const micMixGain=$("microphoneMixGain");
+if(micMixGain)micMixGain.addEventListener("input",()=>{
+ if(studioAudioMixer?.snapshot("microphone"))studioAudioMixer.setGain("microphone",Number(micMixGain.value)/100);
+});
+window.addEventListener("beforeunload",()=>{if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
 const cameraSelect=$("cameraDeviceSelect");
 const microphoneSelect=$("microphoneDeviceSelect");
 const cameraVideo=$("cameraPreview");
+const desktopCaptureSelect=$("desktopCaptureSelect");
+const desktopCaptureVideo=$("desktopCapturePreview");
 function stopCapture(kind){
  const stream=captureState[kind];
  if(stream){for(const track of stream.getTracks())track.stop();captureState[kind]=null;}
  if(kind==="camera"){cameraVideo.pause();cameraVideo.srcObject=null;cameraVideo.style.display="none";$("cameraStart").textContent="KAMERA TESTEN";}
+ if(kind==="desktop"){
+  desktopCaptureVideo.pause();desktopCaptureVideo.srcObject=null;desktopCaptureVideo.style.display="none";
+  $("desktopCaptureStart").textContent="VORSCHAU STARTEN";
+ }
  if(kind==="microphone"){
   if(captureState.meterFrame)cancelAnimationFrame(captureState.meterFrame);
   captureState.meterFrame=0;
   if(captureState.audioContext){captureState.audioContext.close().catch(()=>{});captureState.audioContext=null;}
+  if(studioAudioMixer)studioAudioMixer.disconnect("microphone");
   captureState.analyser=null;
   $("microphoneLevel").style.width="0%";
   $("microphoneStart").textContent="MIKROFON TESTEN";
@@ -584,6 +606,9 @@ $("microphoneStart").onclick=async()=>{
   const deviceId=microphoneSelect.value;
   const stream=await navigator.mediaDevices.getUserMedia({video:false,audio:deviceId?{deviceId:{exact:deviceId}}:true});
   captureState.microphone=stream;
+  if(!studioAudioMixer)throw new Error("Der lokale Audio-Mixer ist in dieser Laufzeit nicht verfügbar.");
+  await studioAudioMixer.resume();
+  studioAudioMixer.connect("microphone",stream,{gain:Number(micMixGain?.value??75)/100});
   const AudioContextClass=window.AudioContext||window.webkitAudioContext;
   if(!AudioContextClass)throw new Error("AudioContext ist in dieser Laufzeit nicht verfügbar.");
   const context=new AudioContextClass();
@@ -603,15 +628,65 @@ $("microphoneStart").onclick=async()=>{
   draw();
   const track=stream.getAudioTracks()[0];
   if(!track||track.readyState!=="live")throw new Error("Mikrofon liefert keinen aktiven Audiostream.");
-  status.textContent="Mikrofon aktiv: "+(track.label||"Audiogerät")+". Pegelanzeige lokal – kein Ton wird übertragen.";
+  status.textContent="Mikrofon aktiv und lokal gemischt. Audio-Ausgang vorbereitet; noch nicht mit Encoder/LIVE verbunden.";
   button.textContent="MIKROFON STOPPEN";
   await refreshCaptureDevices();
   log("Echtes Mikrofon liefert einen lokalen Audiostream.");
  }catch(error){stopCapture("microphone");status.textContent=captureError(error);log(status.textContent);}
  finally{button.disabled=false;}
 };
+async function refreshDesktopCaptureSources(){
+ const status=$("desktopCaptureStatus");
+ status.textContent="Suche Bildschirme und Fenster …";
+ if(!window.streamiovStudio?.getCaptureSources)throw new Error("Bildschirmaufnahme ist in dieser Laufzeit nicht verfügbar.");
+ const result=await window.streamiovStudio.getCaptureSources();
+ if(!result?.ok)throw new Error(result?.error||"Quellen konnten nicht ermittelt werden.");
+ const previous=desktopCaptureSelect.value;
+ desktopCaptureSelect.replaceChildren();
+ const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Quelle auswählen";desktopCaptureSelect.append(placeholder);
+ for(const source of result.sources||[]){
+  const option=document.createElement("option");option.value=source.id;
+  option.textContent=(source.type==="screen"?"Bildschirm · ":"Fenster · ")+source.name;
+  desktopCaptureSelect.append(option);
+ }
+ if([...desktopCaptureSelect.options].some(option=>option.value===previous))desktopCaptureSelect.value=previous;
+ status.textContent=(result.sources||[]).length+" Bildschirm-/Fensterquelle(n) gefunden. Noch keine Aufnahme aktiv.";
+ return result.sources||[];
+}
+$("refreshCaptureSources").onclick=async()=>{
+ try{const sources=await refreshDesktopCaptureSources();log("Desktop-Capture-Quellen erkannt: "+sources.length+".");}
+ catch(error){$("desktopCaptureStatus").textContent=captureError(error);}
+};
+$("desktopCaptureStart").onclick=async()=>{
+ if(captureState.desktop){stopCapture("desktop");$("desktopCaptureStatus").textContent="Bildschirm-/Fensteraufnahme gestoppt.";return;}
+ const button=$("desktopCaptureStart"),status=$("desktopCaptureStatus");button.disabled=true;
+ status.textContent="Fordere Bildschirm-/Fensterzugriff an …";
+ try{
+  const sourceId=desktopCaptureSelect.value;
+  if(!sourceId)throw new Error("Bitte zuerst eine Bildschirm- oder Fensterquelle auswählen.");
+  if(!navigator.mediaDevices?.getUserMedia)throw new Error("Desktop-Capture ist in dieser Laufzeit nicht verfügbar.");
+  const stream=await navigator.mediaDevices.getUserMedia({
+   audio:false,
+   video:{mandatory:{
+    chromeMediaSource:"desktop",
+    chromeMediaSourceId:sourceId,
+    maxWidth:1920,
+    maxHeight:1080,
+    maxFrameRate:30
+   }}
+  });
+  captureState.desktop=stream;desktopCaptureVideo.srcObject=stream;desktopCaptureVideo.style.display="block";
+  await desktopCaptureVideo.play();
+  const track=stream.getVideoTracks()[0];
+  if(!track||track.readyState!=="live")throw new Error("Die Bildschirm-/Fensterquelle liefert keinen aktiven Videostream.");
+  status.textContent="Lokale Vorschau aktiv: "+(track.label||"Desktopquelle")+". Noch nicht mit dem Encoder verbunden.";
+  button.textContent="VORSCHAU STOPPEN";
+  log("Bildschirm-/Fensterquelle liefert einen lokalen Videostream.");
+ }catch(error){stopCapture("desktop");status.textContent=captureError(error);log(status.textContent);}
+ finally{button.disabled=false;}
+};
 if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener("devicechange",()=>refreshCaptureDevices().catch(()=>{}));
-window.addEventListener("beforeunload",()=>{stopCapture("camera");stopCapture("microphone");});
+window.addEventListener("beforeunload",()=>{stopCapture("camera");stopCapture("microphone");stopCapture("desktop");});
 $("refreshDevices").click();
 $("runtimeCheck").onclick=async()=>{
  const output=$("runtimeDiagnostics");

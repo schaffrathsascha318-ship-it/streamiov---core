@@ -95,6 +95,8 @@ jobs:
 
       - name: Eigene Regie-Engine testen
         run: npm run test:engine
+      - name: Electron- und Regie-JavaScript-Syntax prüfen
+        run: python ../../tests/test_studio_js_syntax.py
 
       - name: Studio bauen
         run: npm run ${{ matrix.command }}

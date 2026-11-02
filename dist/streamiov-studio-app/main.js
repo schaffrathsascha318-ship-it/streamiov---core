@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, dialog, ipcMain, screen, shell } = require('electron');
+const { app, BrowserWindow, session, dialog, ipcMain, screen, shell, desktopCapturer } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { randomUUID } = require('node:crypto');
@@ -716,6 +716,35 @@ ipcMain.handle('studio:get-network-status', async (event) => {
         error: String(error.message || error).slice(0, 200)
       },
       internetProbe: null
+    };
+  }
+});
+
+ipcMain.handle('studio:get-capture-sources', async (event) => {
+  if (!isTrustedStudioSender(event)) {
+    throw new Error('Nicht autorisierter Studio-Aufruf');
+  }
+  try {
+    const sources = await desktopCapturer.getSources({
+      types: ['screen', 'window'],
+      thumbnailSize: { width: 0, height: 0 },
+      fetchWindowIcons: false
+    });
+    return {
+      ok: true,
+      sources: sources.map(source => ({
+        id: source.id,
+        name: String(source.name || 'Unbenannte Quelle').slice(0, 120),
+        type: String(source.id || '').startsWith('screen:') ? 'screen' : 'window',
+        displayId: source.display_id || null
+      }))
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      sources: [],
+      error: 'Bildschirm-/Fensterquellen konnten nicht ermittelt werden: ' +
+        String(error.message || error).slice(0, 180)
     };
   }
 });
