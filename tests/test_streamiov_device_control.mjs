@@ -18,8 +18,7 @@ class MemoryD1 {
           async run() { return db.run(sql, values); }
         };
       },
-      async all() { return db.all(sql, []);
-      }
+      async all() { return db.all(sql, []); }
     };
   }
   async first(sql, v) {
