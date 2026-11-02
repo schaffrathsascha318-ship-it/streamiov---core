@@ -253,7 +253,6 @@ async function adminRoute(request, env, url, segments) {
     };
     let signingKey;
     try { signingKey = await decryptSigningKey(device, env); } catch { return json({ error: "device_key_unavailable" }, 503); }
-    const signature = await signJob(job, signingKey);
     try {
       await env.DB.prepare(
         "INSERT INTO jobs (id, device_id, profile, status, idempotency_key, reason, issued_at, expires_at, nonce) VALUES (?, ?, ?, 'queued', ?, ?, ?, ?, ?)"
@@ -287,13 +286,18 @@ async function deviceRoute(request, env, segments) {
     try { body = await readJsonLimited(request); } catch { return json({ error: "invalid_request" }, 400); }
     if (!exactKeys(body, ["device_id"]) || body.device_id !== deviceId) return json({ error: "invalid_request" }, 400);
     const now = Math.floor(Date.now() / 1000);
-    // Expired claims become uncertain. They are deliberately never requeued.
+    let signingKey;
+    try { signingKey = await decryptSigningKey(auth.device, env); } catch { return json({ error: "device_key_unavailable" }, 503); }
+    // Expired claims become uncertain and expired queued jobs are never run.
     await env.DB.prepare(
       "UPDATE jobs SET status = 'uncertain' WHERE device_id = ? AND status = 'claimed' AND lease_expires_at < ?"
     ).bind(deviceId, now).run();
+    await env.DB.prepare(
+      "UPDATE jobs SET status = 'expired' WHERE device_id = ? AND status = 'queued' AND expires_at < ?"
+    ).bind(deviceId, now).run();
     const row = await env.DB.prepare(
-      "UPDATE jobs SET status = 'claimed', claimed_at = ?, lease_expires_at = ? WHERE id = (SELECT id FROM jobs WHERE device_id = ? AND status = 'queued' ORDER BY issued_at ASC LIMIT 1) AND status = 'queued' RETURNING *"
-    ).bind(now, now + CLAIM_LEASE_SECONDS, deviceId).first();
+      "UPDATE jobs SET status = 'claimed', claimed_at = ?, lease_expires_at = ? WHERE id = (SELECT id FROM jobs WHERE device_id = ? AND status = 'queued' AND expires_at >= ? ORDER BY issued_at ASC LIMIT 1) AND status = 'queued' RETURNING *"
+    ).bind(now, now + CLAIM_LEASE_SECONDS, deviceId, now).first();
     if (!row) {
       await env.DB.prepare("UPDATE devices SET last_seen_at = ? WHERE id = ?").bind(now, deviceId).run();
       return json({ status: "idle" });
@@ -302,12 +306,11 @@ async function deviceRoute(request, env, segments) {
       id: row.id, device_id: row.device_id, profile: row.profile,
       issued_at: row.issued_at, expires_at: row.expires_at, nonce: row.nonce, args: {}
     };
-    const signingKey = await decryptSigningKey(auth.device, env);
     return json({ job, signature: await signJob(job, signingKey) });
   }
 
-  if (segments[4] === "complete" && segments.length === 6 && request.method === "POST") {
-    const jobId = segments[5];
+  if (segments[5] === "complete" && segments.length === 6 && request.method === "POST") {
+    const jobId = segments[4];
     if (!validId(jobId)) return json({ error: "not_found" }, 404);
     let body;
     try { body = await readJsonLimited(request); } catch { return json({ error: "invalid_request" }, 400); }
@@ -316,7 +319,10 @@ async function deviceRoute(request, env, segments) {
         !PROFILES.has(body.profile) || !["succeeded", "failed"].includes(body.status) ||
         !Number.isInteger(body.exit_code) || !Number.isInteger(body.started_at) ||
         !Number.isInteger(body.finished_at) || !Number.isInteger(body.duration_seconds) ||
-        body.duration_seconds < 0 || typeof body.output !== "string" ||
+        body.duration_seconds < 0 || body.finished_at < body.started_at ||
+        (body.status === "succeeded" && body.exit_code !== 0) ||
+        (body.status === "failed" && body.exit_code === 0) ||
+        typeof body.output !== "string" ||
         encoder.encode(body.output).byteLength > MAX_OUTPUT_BYTES ||
         typeof body.result_sha256 !== "string" || !/^[a-f0-9]{64}$/.test(body.result_sha256)) {
       return json({ error: "invalid_request" }, 400);
@@ -339,9 +345,20 @@ async function deviceRoute(request, env, segments) {
       return json({ error: "job_not_completable" }, 409);
     }
     if (body.profile !== row.profile) return json({ error: "profile_mismatch" }, 400);
-    await env.DB.prepare(
-      "UPDATE jobs SET status = ?, completed_at = ?, exit_code = ?, duration_seconds = ?, result_sha256 = ?, output = ?, completion_digest = ? WHERE id = ? AND device_id = ? AND status = 'claimed'"
-    ).bind(body.status, now, body.exit_code, body.duration_seconds, body.result_sha256, body.output, completionDigest, jobId, deviceId).run();
+    const safeOutput = body.output
+      .replace(/(authorization\\s*[:=]\\s*bearer\\s+)\\S+/gi, "$1[REDACTED]")
+      .replace(/((?:token|secret|password|api[_-]?key)\\s*[=:]\\s*)[^\\s,;]+/gi, "$1[REDACTED]");
+    const updated = await env.DB.prepare(
+      "UPDATE jobs SET status = ?, completed_at = ?, exit_code = ?, duration_seconds = ?, result_sha256 = ?, output = ?, completion_digest = ? WHERE id = ? AND device_id = ? AND status = 'claimed' RETURNING id"
+    ).bind(body.status, now, body.exit_code, body.duration_seconds, body.result_sha256, safeOutput, completionDigest, jobId, deviceId).first();
+    if (!updated) {
+      const current = await env.DB.prepare("SELECT * FROM jobs WHERE id = ? AND device_id = ?").bind(jobId, deviceId).first();
+      if (current && ["succeeded", "failed"].includes(current.status) && current.completion_digest &&
+          constantTimeEqual(current.completion_digest, completionDigest)) {
+        return json({ status: "completed", duplicate: true });
+      }
+      return json({ error: "completion_conflict" }, 409);
+    }
     return json({ status: "completed", duplicate: false });
   }
   return json({ error: "not_found" }, 404);
