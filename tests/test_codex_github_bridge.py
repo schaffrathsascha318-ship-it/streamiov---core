@@ -94,12 +94,23 @@ class BridgePolicyTests(unittest.TestCase):
                 "STREAMIOV_DEVICE_TOKEN": "device-secret",
                 "CLOUDFLARE_API_TOKEN": "cf-secret",
                 "OPENAI_API_KEY": "api-secret",
+                "AWS_ACCESS_KEY_ID": "aws-secret",
+                "AZURE_CLIENT_SECRET": "azure-secret",
+                "GOOGLE_APPLICATION_CREDENTIALS": "/tmp/google-secret.json",
+                "CF_ACCOUNT_TOKEN": "cf-prefix-secret",
+                "SSH_AUTH_SOCK": "/tmp/ssh-agent.sock",
+                "GIT_ASKPASS": "/tmp/askpass",
                 "PATH": "/usr/bin",
                 "HOME": temp,
             }, clear=True):
                 env = codex_environment(temp)
-        for key in ("GH_TOKEN", "GITHUB_TOKEN", "STREAMIOV_DEVICE_TOKEN",
-                    "CLOUDFLARE_API_TOKEN", "OPENAI_API_KEY"):
+        for key in (
+            "GH_TOKEN", "GITHUB_TOKEN", "STREAMIOV_DEVICE_TOKEN",
+            "CLOUDFLARE_API_TOKEN", "OPENAI_API_KEY",
+            "AWS_ACCESS_KEY_ID", "AZURE_CLIENT_SECRET",
+            "GOOGLE_APPLICATION_CREDENTIALS", "CF_ACCOUNT_TOKEN",
+            "SSH_AUTH_SOCK", "GIT_ASKPASS",
+        ):
             self.assertNotIn(key, env)
         self.assertEqual(env["PATH"], "/usr/bin")
         self.assertEqual(env["GIT_CONFIG_NOSYSTEM"], "1")
