@@ -47,9 +47,9 @@ class SpecialistRegistryTests(unittest.TestCase):
                 for prefix in definition.writable_prefixes:
                     self.assertIsInstance(prefix, str)
                     self.assertTrue(prefix.endswith("/"))
-                    self.assertFalse(prefix.startswith(("/", "\\\\")))
+                    self.assertFalse(prefix.startswith("/"))
                     self.assertNotIn("..", prefix.split("/"))
-                    self.assertNotIn("\\\\", prefix)
+                    self.assertNotIn(chr(92), prefix)
 
     def test_every_role_prompt_contains_its_mission_and_write_boundaries(self):
         for key, definition in SPECIALISTS.items():
