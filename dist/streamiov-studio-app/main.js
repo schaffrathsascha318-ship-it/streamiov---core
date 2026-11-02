@@ -41,42 +41,54 @@ function isTrustedStudioSender(event) {
 }
 
 // Persistiert nur Routing-Konfiguration. Ohne nativen Adapter bleibt Audio explizit inaktiv.
+// IPC-Aufrufe werden serialisiert, damit schnelle Reglerbewegungen keine Schreibvorgänge überholen.
+let audioRoutingQueue = Promise.resolve();
 ipcMain.handle('studio:audio-routing-action', async (event, payload = {}) => {
   if (!isTrustedStudioSender(event)) {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
 
-  const file = path.join(app.getPath('userData'), 'streamiov-audio-routing.json');
-  let saved = {};
-  try {
-    saved = JSON.parse(await fs.readFile(file, 'utf8'));
-  } catch (error) {
-    if (error.code !== 'ENOENT') {
-      return { ok: false, error: 'Audio-Konfiguration konnte nicht gelesen werden.' };
+  const operation = audioRoutingQueue.then(async () => {
+    const file = path.join(app.getPath('userData'), 'streamiov-audio-routing.json');
+    let saved = {};
+    try {
+      saved = JSON.parse(await fs.readFile(file, 'utf8'));
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        return { ok: false, error: 'Audio-Konfiguration konnte nicht gelesen werden.' };
+      }
     }
-  }
 
-  try {
-    let state = createAudioRoutingState(saved);
-    if (payload.action === 'load') {
+    try {
+      let state = createAudioRoutingState(saved);
+      if (payload.action === 'load') {
+        return { ok: true, state };
+      }
+      if (payload.action === 'update-output') {
+        state = updateOutput(state, payload.outputId, payload.patch);
+      } else if (payload.action === 'set-source-routes') {
+        state = setSourceRoutes(state, payload.sourceId, payload.outputIds);
+      } else {
+        return { ok: false, error: 'Unbekannte Audio-Routing-Aktion.' };
+      }
+
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      const temporary = file + '.' + randomUUID() + '.tmp';
+      try {
+        await fs.writeFile(temporary, JSON.stringify(serializeAudioRoutingState(state), null, 2), { mode: 0o600 });
+        await fs.rename(temporary, file);
+      } catch (error) {
+        await fs.rm(temporary, { force: true }).catch(() => {});
+        throw error;
+      }
       return { ok: true, state };
+    } catch (error) {
+      return { ok: false, error: String(error.message || error).slice(0, 180) };
     }
-    if (payload.action === 'update-output') {
-      state = updateOutput(state, payload.outputId, payload.patch);
-    } else if (payload.action === 'set-source-routes') {
-      state = setSourceRoutes(state, payload.sourceId, payload.outputIds);
-    } else {
-      return { ok: false, error: 'Unbekannte Audio-Routing-Aktion.' };
-    }
+  });
 
-    await fs.mkdir(path.dirname(file), { recursive: true });
-    const temporary = file + '.' + process.pid + '.tmp';
-    await fs.writeFile(temporary, JSON.stringify(serializeAudioRoutingState(state), null, 2), { mode: 0o600 });
-    await fs.rename(temporary, file);
-    return { ok: true, state };
-  } catch (error) {
-    return { ok: false, error: String(error.message || error).slice(0, 180) };
-  }
+  audioRoutingQueue = operation.catch(() => {});
+  return operation;
 });
 
 const streamiovChatState = {
