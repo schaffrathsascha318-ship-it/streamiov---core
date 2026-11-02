@@ -127,6 +127,26 @@ class LocalExecutorTests(unittest.TestCase):
             with self.assertRaisesRegex(ExecutorError, "Duplicate"):
                 self.executor.run_once()
 
+    def test_git_status_ignores_inherited_path_shim(self):
+        fake_bin = self.home / "fake-bin"
+        fake_bin.mkdir()
+        marker = self.home / "fake-git-was-run"
+        fake_git = fake_bin / "git"
+        fake_git.write_text(f"#!/bin/sh\\nprintf 'shim invoked' > '{marker}'\\nexit 99\\n")
+        fake_git.chmod(0o755)
+
+        with patch.dict(os.environ, {"PATH": str(fake_bin)}):
+            exit_code, output = self.executor._execute_profile("git-status")
+
+        self.assertEqual(exit_code, 0, output)
+        self.assertFalse(marker.exists(), "user-controlled git shim must never execute")
+        self.assertIn("/usr/bin", output)
+
+    def test_git_resolution_fails_closed_when_system_git_is_missing(self):
+        with patch("ai.runtime.local_terminal_executor.shutil.which", return_value=None):
+            with self.assertRaisesRegex(ExecutorError, "Trusted system Git"):
+                self.executor._execute_profile("git-status")
+
     def test_child_environment_does_not_include_device_credentials(self):
         now = int(time.time())
         envelope = signed_job(issued_at=now, expires_at=now + 100)
