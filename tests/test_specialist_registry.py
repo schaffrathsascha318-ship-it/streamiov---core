@@ -5,7 +5,13 @@ from pathlib import Path
 from ai.core.agent import DevelopmentAgent
 from ai.runtime.project_tools import ProjectTools, ToolError
 from ai.specialists import get_specialist, specialist_names
-from ai.specialists.registry import build_specialist_system_prompt
+from ai.specialists.registry import SPECIALISTS, build_specialist_system_prompt
+
+
+EXPECTED_SPECIALISTS = {
+    "core", "code", "game", "design", "gifts", "testing",
+    "repair", "integration", "studio", "server", "general",
+}
 
 
 class FakeProvider:
@@ -14,26 +20,51 @@ class FakeProvider:
 
     def generate(self, *, system, messages):
         self.system = system
+
         class Reply:
             content = '{"final":"role prompt received"}'
+
         return Reply()
 
 
 class SpecialistRegistryTests(unittest.TestCase):
-    def test_all_required_specialist_roles_are_registered(self):
-        expected = {"core", "code", "game", "design", "gifts", "testing", "repair", "integration", "studio", "server", "general"}
-        self.assertTrue(expected.issubset(set(specialist_names())))
+    def test_registry_contains_exactly_the_eleven_existing_roles(self):
+        self.assertEqual(set(specialist_names()), EXPECTED_SPECIALISTS)
+        self.assertEqual(set(SPECIALISTS), EXPECTED_SPECIALISTS)
+
+    def test_role_ids_are_unique_and_match_the_registry_keys(self):
+        keys = list(SPECIALISTS)
+        self.assertEqual(len(keys), len(set(keys)))
+        for key, definition in SPECIALISTS.items():
+            with self.subTest(role=key):
+                self.assertEqual(definition.key, key)
+
+    def test_every_role_has_valid_nonempty_relative_write_prefixes(self):
+        for key, definition in SPECIALISTS.items():
+            with self.subTest(role=key):
+                self.assertTrue(definition.writable_prefixes)
+                self.assertEqual(len(definition.writable_prefixes), len(set(definition.writable_prefixes)))
+                for prefix in definition.writable_prefixes:
+                    self.assertIsInstance(prefix, str)
+                    self.assertTrue(prefix.endswith("/"))
+                    self.assertFalse(prefix.startswith("/"))
+                    self.assertNotIn("..", prefix.split("/"))
+                    self.assertNotIn(chr(92), prefix)
+
+    def test_every_role_prompt_contains_its_mission_and_write_boundaries(self):
+        for key, definition in SPECIALISTS.items():
+            with self.subTest(role=key):
+                prompt = build_specialist_system_prompt(key, "Base instructions")
+                self.assertIn(f"{definition.title} ({key})", prompt)
+                self.assertIn(f"MISSION: {definition.mission}", prompt)
+                self.assertIn("WRITE SCOPE:", prompt)
+                for prefix in definition.writable_prefixes:
+                    self.assertIn(prefix, prompt)
+                self.assertIn("runtime enforces this scope independently", prompt)
 
     def test_unknown_specialist_is_rejected(self):
         with self.assertRaises(ValueError):
             get_specialist("superuser")
-
-    def test_specialist_prompt_contains_mission_and_write_scope(self):
-        prompt = build_specialist_system_prompt("game", "Base instructions")
-        self.assertIn("Game Developer", prompt)
-        self.assertIn("original games", prompt)
-        self.assertIn("games/", prompt)
-        self.assertIn("runtime enforces this scope", prompt)
 
     def test_project_tools_enforce_role_specific_write_scope(self):
         with tempfile.TemporaryDirectory() as tmp:
