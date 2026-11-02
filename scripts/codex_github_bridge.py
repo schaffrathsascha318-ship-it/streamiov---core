@@ -166,14 +166,13 @@ def process_one(repo: str,workspace: Path) -> str:
    f"Addresses #{number}.\n\n- Produced by the local STREAMIOV Codex bridge.\n- Changed paths passed the local allowlist.\n- Full Python unittest suite passed locally.\n- Draft only: no merge, deployment, release, OAuth or credential changes."],
    cwd=workspace,timeout=180).stdout.strip()
   update_labels(repo,number,RUNNING,REVIEW,workspace)
-  summary=last_message[-2500:] if last_message else "Codex completed; see the draft pull request for the reviewed diff."
-  comment(repo,number,f"Local Codex run completed. Draft PR: {pr}\n\nSummary:\n{summary}",workspace)
+  comment(repo,number,f"Local Codex run completed. Draft PR: {pr}\n\nThe changed-path allowlist and full Python unittest suite passed.",workspace)
   return f"review: issue #{number} -> {pr}"
  except Exception as exc:
   reason=redact(str(exc),1800)
   try:
    update_labels(repo,number,RUNNING,BLOCKED,workspace)
-   comment(repo,number,f"Local Codex bridge stopped safely. No merge or deployment was performed.\n\nReason: {reason}",workspace)
+   comment(repo,number,"Local Codex bridge stopped safely. No merge or deployment was performed. Inspect the local terminal output before re-queuing this task.",workspace)
   except Exception: pass
   return f"blocked: issue #{number}: {reason}"
 
