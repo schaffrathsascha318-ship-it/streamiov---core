@@ -126,7 +126,6 @@ def changed_paths(workspace: Path) -> tuple[list[str],list[str]]:
  return sorted(paths),sorted(deleted)
 
 def process_one(repo: str,workspace: Path) -> str:
- ensure_labels(repo,workspace)
  task=next((x for x in list_ready_issues(repo,workspace) if eligible_issue(x)),None)
  if task is None: return "idle"
  dirty=run(["git","status","--porcelain","--untracked-files=all"],cwd=workspace).stdout
@@ -195,6 +194,7 @@ def main(argv: list[str]|None=None) -> int:
   if not repo:
    repo=run(["gh","repo","view","--json","nameWithOwner","-q",".nameWithOwner"],cwd=workspace).stdout.strip()
   if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",repo): raise BridgeError("Invalid GitHub repository name.")
+  ensure_labels(repo,workspace)
   while True:
    print(process_one(repo,workspace),flush=True)
    if args.once: return 0
