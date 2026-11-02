@@ -346,8 +346,8 @@ async function deviceRoute(request, env, segments) {
     }
     if (body.profile !== row.profile) return json({ error: "profile_mismatch" }, 400);
     const safeOutput = body.output
-      .replace(/(authorization\\s*[:=]\\s*bearer\\s+)\\S+/gi, "$1[REDACTED]")
-      .replace(/((?:token|secret|password|api[_-]?key)\\s*[=:]\\s*)[^\\s,;]+/gi, "$1[REDACTED]");
+      .replace(/(authorization\s*[:=]\s*bearer\s+)\S+/gi, "$1[REDACTED]")
+      .replace(/((?:token|secret|password|api[_-]?key)\s*[=:]\s*)[^\s,;]+/gi, "$1[REDACTED]");
     const updated = await env.DB.prepare(
       "UPDATE jobs SET status = ?, completed_at = ?, exit_code = ?, duration_seconds = ?, result_sha256 = ?, output = ?, completion_digest = ? WHERE id = ? AND device_id = ? AND status = 'claimed' RETURNING id"
     ).bind(body.status, now, body.exit_code, body.duration_seconds, body.result_sha256, safeOutput, completionDigest, jobId, deviceId).first();
