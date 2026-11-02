@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, session, dialog, ipcMain, desktopCapturer } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { randomUUID } = require('node:crypto');
@@ -7,11 +7,159 @@ const http = require('node:http');
 const { pathToFileURL } = require('node:url');
 const { buildSyntheticAvPipelineArgs } = require('./media-pipeline');
 
-const { execFile } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
 const execFileAsync = promisify(execFile);
 const projectRoot = path.resolve(__dirname, '..', '..');
-const studioUrl = pathToFileURL(path.join(__dirname, 'index.html')).href;
+const studioUrl = pathToFileURL(path.join(__dirname, 'regie-v2.html')).href;
+let liveStreamProcess = null;
+let liveStreamState = 'offline';
+let selectedDisplaySourceId = null;
+
+ipcMain.handle('studio:list-display-sources', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  const sources = await desktopCapturer.getSources({
+    types: ['screen', 'window'],
+    thumbnailSize: { width: 320, height: 180 },
+    fetchWindowIcons: true
+  });
+  return sources.map((source) => ({
+    id: source.id,
+    name: source.name,
+    thumbnail: source.thumbnail.toDataURL(),
+    icon: source.appIcon ? source.appIcon.toDataURL() : null
+  }));
+});
+
+ipcMain.on('studio:select-display-source', (event, sourceId) => {
+  if (!isTrustedStudioSender(event) || typeof sourceId !== 'string' || sourceId.length > 500) {
+    event.returnValue = false;
+    return;
+  }
+  selectedDisplaySourceId = sourceId;
+  event.returnValue = true;
+});
+
+function publishStreamStatus(status, detail = '') {
+  liveStreamState = status;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('studio:stream-status', { status, detail });
+  }
+}
+
+function normalizeRtmpDestination(value) {
+  if (typeof value !== 'string' || value.trim().length > 2048) return null;
+  try {
+    const url = new URL(value.trim());
+    if (!['rtmp:', 'rtmps:'].includes(url.protocol) || !url.hostname || !url.pathname ||
+        url.username || url.password || url.hash) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+ipcMain.handle('studio:start-stream', async (event, payload = {}) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  if (liveStreamProcess) return { ok: false, error: 'Ein Stream läuft bereits.' };
+
+  const destination = normalizeRtmpDestination(payload.destination);
+  const resolution = ['720p', '1080p', '1440p'].includes(payload.resolution) ? payload.resolution : '1080p';
+  const fps = Number(payload.fps);
+  const bitrate = Number(payload.bitrate);
+  if (!destination) return { ok: false, error: 'Bitte eine gültige rtmp://- oder rtmps://-Adresse ohne Benutzername und Passwort eingeben.' };
+  if (![30, 60].includes(fps) || !Number.isInteger(bitrate) || bitrate < 500 || bitrate > 20000) {
+    return { ok: false, error: 'Stream-Einstellungen sind ungültig.' };
+  }
+  const encoder = await probeFfmpegRtmp();
+  if (!encoder.available) {
+    return {
+      ok: false,
+      error: 'RTMP-Streaming benötigt FFmpeg mit libx264, AAC und RTMP/RTMPS. Fehlend: ' + encoder.missing.join(', ') + '.'
+    };
+  }
+
+  const dimensions = { '720p': [1280, 720], '1080p': [1920, 1080], '1440p': [2560, 1440] }[resolution];
+  const args = [
+    '-hide_banner', '-loglevel', 'info', '-f', 'webm', '-i', 'pipe:0',
+    '-map', '0:v:0', '-map', '0:a:0?', '-vf', `scale=${dimensions[0]}:${dimensions[1]}:force_original_aspect_ratio=decrease,pad=${dimensions[0]}:${dimensions[1]}:(ow-iw)/2:(oh-ih)/2`,
+    '-r', String(fps), '-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'zerolatency',
+    '-pix_fmt', 'yuv420p', '-b:v', `${bitrate}k`, '-maxrate', `${bitrate}k`, '-bufsize', `${bitrate * 2}k`,
+    '-c:a', 'aac', '-b:a', '128k', '-ar', '48000', '-ac', '2', '-f', 'flv', destination
+  ];
+
+  try {
+    const child = spawn('ffmpeg', args, { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
+    liveStreamProcess = child;
+    publishStreamStatus('connecting');
+
+    child.once('error', (error) => {
+      if (liveStreamProcess === child) liveStreamProcess = null;
+      publishStreamStatus('error', error.code === 'ENOENT'
+        ? 'FFmpeg wurde nicht gefunden. Installiere FFmpeg mit libx264 und RTMP-Unterstützung.'
+        : 'Der Encoder konnte nicht gestartet werden.');
+    });
+    let diagnosticBuffer = '';
+    child.stderr.on('data', (data) => {
+      // Encoder diagnostics can contain the RTMP destination and stream key.
+      // Never forward or persist raw FFmpeg output.
+      diagnosticBuffer = (diagnosticBuffer + data.toString('utf8')).slice(-8192);
+      if (diagnosticBuffer.includes('Output #0, flv')) {
+        publishStreamStatus('live');
+        diagnosticBuffer = '';
+      }
+    });
+    child.once('close', (code, signal) => {
+      if (liveStreamProcess === child) liveStreamProcess = null;
+      if (liveStreamState !== 'stopping') {
+        publishStreamStatus(code === 0 ? 'offline' : 'error',
+          code === 0 ? 'Stream beendet.' : 'Stream-Verbindung beendet. Prüfe Zieladresse, Stream-Key und Encoder.');
+      } else {
+        publishStreamStatus('offline');
+      }
+    });
+    child.once('spawn', () => publishStreamStatus('connecting'));
+    return { ok: true, status: 'connecting' };
+  } catch (error) {
+    publishStreamStatus('error', 'FFmpeg konnte nicht gestartet werden.');
+    return { ok: false, error: error.code === 'ENOENT'
+      ? 'FFmpeg wurde nicht gefunden. Installiere FFmpeg mit libx264 und RTMP-Unterstützung.'
+      : 'Der Encoder konnte nicht gestartet werden.' };
+  }
+});
+
+ipcMain.handle('studio:write-stream-chunk', async (event, chunk) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  if (!liveStreamProcess || liveStreamState === 'stopping') return { ok: false, error: 'Kein aktiver Stream.' };
+  if (!(chunk instanceof ArrayBuffer) || chunk.byteLength > 4 * 1024 * 1024) {
+    return { ok: false, error: 'Ungültiger Medienblock.' };
+  }
+  const input = liveStreamProcess.stdin;
+  if (!input || input.destroyed || input.writableLength > 8 *  1024 * 1024) {
+    return { ok: false, error: 'Der Encoder kann die Medien nicht schnell genug verarbeiten.' };
+  }
+  return new Promise((resolve) => {
+    input.write(Buffer.from(chunk), (error) => resolve(error
+      ? { ok: false, error: 'Medien konnten nicht an den Encoder gesendet werden.' }
+      : { ok: true }));
+  });
+});
+
+ipcMain.handle('studio:stop-stream', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  if (!liveStreamProcess) {
+    publishStreamStatus('offline');
+    return { ok: true, status: 'offline' };
+  }
+  const child = liveStreamProcess;
+  liveStreamState = 'stopping';
+  publishStreamStatus('stopping');
+  child.stdin?.end();
+  setTimeout(() => {
+    if (liveStreamProcess === child) child.kill('SIGINT');
+  }, 3000).unref();
+  return { ok: true, status: 'stopping' };
+});
 
 function isTrustedStudioSender(event) {
   const frame = event.senderFrame;
@@ -248,6 +396,43 @@ async function probeGStreamerPlugin(plugin) {
   }
 }
 
+async function probeFfmpegRtmp() {
+  try {
+    const [{ stdout: encoders }, { stdout: protocols }] = await Promise.all([
+      execFileAsync('ffmpeg', ['-hide_banner', '-encoders'], {
+        timeout: 10000, windowsHide: true, maxBuffer: 1024 * 1024
+      }),
+      execFileAsync('ffmpeg', ['-hide_banner', '-protocols'], {
+        timeout: 10000, windowsHide: true, maxBuffer: 1024 * 1024
+      })
+    ]);
+    const video = /\blibx264\b/.test(encoders);
+    const audio = /\baac\b/.test(encoders);
+    const rtmp = /(?:^|\s)rtmp(?:s)?(?:\s|$)/m.test(protocols);
+    return {
+      available: video && audio && rtmp,
+      ffmpeg_available: true,
+      video_encoder_available: video,
+      audio_encoder_available: audio,
+      rtmp_protocol_available: rtmp,
+      missing: [
+        ...(!video ? ['libx264'] : []),
+        ...(!audio ? ['AAC'] : []),
+        ...(!rtmp ? ['RTMP/RTMPS'] : [])
+      ]
+    };
+  } catch (error) {
+    return {
+      available: false,
+      ffmpeg_available: false,
+      video_encoder_available: false,
+      audio_encoder_available: false,
+      rtmp_protocol_available: false,
+      missing: [error.code === 'ENOENT' ? 'FFmpeg' : 'FFmpeg-Prüfung fehlgeschlagen']
+    };
+  }
+}
+
 ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
   if (!isTrustedStudioSender(event)) {
     throw new Error('Nicht autorisierter Studio-Aufruf');
@@ -258,6 +443,7 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
     probeExecutable('gst-launch-1.0'),
     probeExecutable('ffmpeg')
   ]);
+  const rtmp = await probeFfmpegRtmp();
 
   let plugins = {};
   if (gstInspect.available) {
@@ -265,12 +451,6 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
     const results = await Promise.all(names.map(async name => [name, await probeGStreamerPlugin(name)]));
     plugins = Object.fromEntries(results);
   }
-
-  const missingForRtmp = [
-    ...(!gstLaunch.available ? ['gst-launch-1.0'] : []),
-    ...(!plugins.x264enc?.available ? ['x264enc'] : []),
-    ...(!plugins.rtmpsink?.available ? ['rtmpsink'] : [])
-  ];
 
   return {
     ok: true,
@@ -283,8 +463,12 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
     plugins,
     local_test_sources_available: Boolean(plugins.videotestsrc?.available && plugins.audiotestsrc?.available),
     media_test_pipeline_available: Boolean(plugins.videotestsrc?.available && plugins.audiotestsrc?.available && plugins.vp8enc?.available && plugins.vorbisenc?.available && plugins.webmmux?.available),
-    rtmp_pipeline_dependencies_available: missingForRtmp.length === 0,
-    missing_rtmp_dependencies: missingForRtmp,
+    ffmpeg_rtmp: rtmp,
+    rtmp_pipeline_dependencies_available: rtmp.available,
+    missing_rtmp_dependencies: rtmp.missing,
+    camera_screen_rtmp_implemented: true,
+    screen_camera_compositing_implemented: true,
+    named_scene_switching_implemented: false,
     live_stream_verified: false,
     note: 'Dies ist eine Abhängigkeitsprüfung. Gerätezugriff, Encoder-Pipeline, Plattformautorisierung und Live-Ausgabe sind damit nicht getestet.'
   };
@@ -713,11 +897,34 @@ app.whenReady().then(() => {
 
   ses.setPermissionRequestHandler((webContents, permission, callback) => {
     const trusted = webContents.getURL() === studioUrl;
-    callback(permission === 'media' && trusted);
+    callback(['media', 'display-capture'].includes(permission) && trusted);
   });
 
   ses.setPermissionCheckHandler((webContents, permission) => {
-    return permission === 'media' && webContents.getURL() === studioUrl;
+    return ['media', 'display-capture'].includes(permission) && webContents.getURL() === studioUrl;
+  });
+
+  ses.setDisplayMediaRequestHandler((request, callback) => {
+    const frame = request.frame;
+    const sourceId = selectedDisplaySourceId;
+    selectedDisplaySourceId = null;
+    if (!frame || frame.parent !== null || frame.url !== studioUrl || !sourceId) {
+      callback(null);
+      return;
+    }
+    desktopCapturer.getSources({
+      types: ['screen', 'window'],
+      thumbnailSize: { width: 0, height: 0 }
+    }).then((sources) => {
+      const source = sources.find((item) => item.id === sourceId);
+      if (!source) {
+        callback(null);
+        return;
+      }
+      const media = { video: source };
+      if (request.audioRequested && process.platform === 'win32') media.audio = 'loopback';
+      callback(media);
+    }).catch(() => callback(null));
   });
 
   mainWindow = new BrowserWindow({
@@ -748,7 +955,7 @@ app.whenReady().then(() => {
   win.webContents.on('render-process-gone', (_e, details) => console.error('[TRACE] RENDER_GONE', details));
   win.webContents.on('unresponsive', () => console.error('[TRACE] RENDER_UNRESPONSIVE'));
   win.webContents.on('did-fail-load', (_e, code, desc, url) => console.error('[TRACE] LOAD_FAILED', code, desc, url));
-  win.loadFile(path.join(__dirname, 'index.html')).catch(e => console.error('[TRACE] LOAD_PROMISE_REJECTED', e));
+  win.loadFile(path.join(__dirname, 'regie-v2.html')).catch(e => console.error('[TRACE] LOAD_PROMISE_REJECTED', e));
 
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
@@ -776,7 +983,10 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('before-quit', () => console.error('[TRACE] BEFORE_QUIT', new Error('before-quit-stack').stack));
+app.on('before-quit', () => {
+  if (liveStreamProcess) liveStreamProcess.kill('SIGINT');
+  console.error('[TRACE] BEFORE_QUIT', new Error('before-quit-stack').stack);
+});
 app.on('will-quit', () => console.error('[TRACE] WILL_QUIT'));
 
 app.on('window-all-closed', () => {

@@ -70,6 +70,7 @@ test("chat endpoint supports legacy response shape and returns OpenAI shape", as
   assert.equal(body.choices[0].message.content, '{"final":"completed"}');
   assert.equal(receivedModel, MODEL);
   assert.equal(receivedOptions.max_tokens, 4096);
+  assert.deepEqual(receivedOptions.chat_template_kwargs, { enable_thinking: false });
 });
 
 test("chat endpoint extracts OpenAI-style choices returned by Workers AI", async () => {
