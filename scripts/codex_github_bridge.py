@@ -57,7 +57,7 @@ def codex_environment(temp_home: str) -> dict[str,str]:
  return result
 
 def validate_changed_path(workspace: Path, path: str) -> Path:
- normalized=path.replace("\\\\","/")
+ normalized=path.replace("\\","/")
  if not path_allowed(normalized):
   raise BridgeError(f"Changed path is outside the allowlist: {path}")
  root=workspace.resolve(strict=True)
