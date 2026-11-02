@@ -132,7 +132,9 @@ class LocalExecutorTests(unittest.TestCase):
         fake_bin.mkdir()
         marker = self.home / "fake-git-was-run"
         fake_git = fake_bin / "git"
-        fake_git.write_text(f"#!/bin/sh\\nprintf 'shim invoked' > '{marker}'\\nexit 99\\n")
+        fake_git.write_text(
+            f"#!/bin/sh\nprintf 'shim invoked' > '{marker}'\nexit 99\n"
+        )
         fake_git.chmod(0o755)
 
         with patch.dict(os.environ, {"PATH": str(fake_bin)}):
