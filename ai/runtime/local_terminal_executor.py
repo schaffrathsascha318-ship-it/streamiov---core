@@ -94,15 +94,33 @@ def verify_signed_job(envelope: dict, signing_key: bytes, device_id: str, now: i
     return job
 
 
+TRUSTED_CHILD_PATH = "/usr/bin:/bin"
+
+
+def _trusted_git_executable() -> str:
+    """Resolve Git only from root-owned system directories; never from inherited PATH."""
+    candidate = shutil.which("git", path=TRUSTED_CHILD_PATH)
+    if candidate is None:
+        raise ExecutorError("Trusted system Git executable is unavailable.")
+    try:
+        resolved = Path(candidate).resolve(strict=True)
+    except OSError as exc:
+        raise ExecutorError("Trusted system Git executable could not be resolved.") from exc
+    if not resolved.is_file() or not os.access(resolved, os.X_OK):
+        raise ExecutorError("Trusted system Git executable is not executable.")
+    return str(resolved)
+
+
 def _commands(root: Path) -> dict[str, tuple[str, ...]]:
     python = sys.executable
+    git = _trusted_git_executable()
     return {
         "diagnostics": (
             (python, "--version"),
-            ("git", "--version"),
-            ("git", "status", "--short", "--branch"),
+            (git, "--version"),
+            (git, "status", "--short", "--branch"),
         ),
-        "git-status": (("git", "status", "--short", "--branch"),),
+        "git-status": ((git, "status", "--short", "--branch"),),
         "python-tests": ((python, "-m", "unittest", "discover", "-s", "tests", "-v"),),
     }
 
@@ -195,7 +213,9 @@ class LocalTerminalExecutor:
         self._resource_check()
         started = time.monotonic()
         outputs = []
-        child_env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(Path.home())}
+        # Keep subprocess lookup away from user-writable venv/project directories.
+        # Git is also invoked by its resolved absolute system path in _commands().
+        child_env = {"PATH": TRUSTED_CHILD_PATH, "HOME": str(Path.home())}
         for argv in _commands(self.workspace)[profile]:
             remaining = self.timeout_seconds - (time.monotonic() - started)
             if remaining <= 0:
