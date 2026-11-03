@@ -17,6 +17,7 @@
 | Homepage | `tests/test_streamiov_host.py`: every local homepage link resolves; downloads, forum, account, and honest AI/game/music status are linked |
 | Cloudflare config | `scripts/verify-cloudflare-config.py`, `tests/test_cloudflare_config.py`: assets-only homepage Worker, AI binding, pinned model, bearer auth, deploy script, security headers, and download checksums are consistent offline |
 | AI worker | `node --test tests/test_cloudflare_ai_worker.mjs` (12 tests) |
+| Cloudflare live inference | On 2026-11-03 the already-deployed AI Worker answered a minimal authenticated request with HTTP 200 and `STREAMIOV_AI_OK` using `@cf/zai-org/glm-4.7-flash`; `python -m ai --doctor` exited 0 with the owner env |
 | AI specialists | `tests/test_specialist_registry.py`: all 11 roles, CLI choices, mission/scope text, unique per-role scopes, and enforced write boundaries |
 | AI queue and agent | `tests/test_persistent_task_queue.py`, `tests/test_worker_service.py`, `tests/test_phase1_agent.py`, `tests/test_agent_response_parsing.py`, `tests/test_ai_queue_cli.py` |
 | Music rights | `tests/test_music_library.py`, `tests/test_music_research.py` |
@@ -33,10 +34,11 @@ python3 scripts/verify-cloudflare-config.py
 ## Cloudflare and GitHub deployment state
 
 - `.github/workflows/cloudflare-checks.yml` verifies the checked-in homepage Worker, AI Worker, deploy script, security headers, and download checksums offline on pull requests and pushes to `main`.
-- `.github/workflows/cloudflare-deploy.yml` is a manual, owner-approved workflow. It requires the GitHub `production` environment secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. It never runs on push or pull request.
-- The AI Worker still needs the Cloudflare secret `STREAMIOV_AI_WORKER_TOKEN` and an enabled Workers AI binding. The deploy workflow checks that the secret exists after deployment, but it cannot prove quota, model availability, or a successful inference.
-- A successful Wrangler command is not proof that `streamiov.pages.dev`, a custom domain, or every asset is publicly reachable. DNS, routes, cache propagation, and the public URL must be verified separately by the owner.
-- This checkout has no Cloudflare credentials, so no deployment was performed and no live service is claimed.
+- `.github/workflows/cloudflare-deploy.yml` is a manual, owner-approved workflow. It requires the GitHub `production` environment secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. It never runs on push or pull request. The homepage target deploys the `streamiov` Pages project, which serves `streamiov.pages.dev`.
+- The AI Worker is already deployed at `https://streamiov-ai-worker.schaffrathsascha318.workers.dev`. Its bearer secret is configured, `python -m ai --doctor` exits 0, and a minimal authenticated inference returned `STREAMIOV_AI_OK` on 2026-11-03. The credentials used for that check live in the owner's local `~/.config/streamiov/ai-worker.env`, not in this repository.
+- The static homepage is published to the `streamiov` Pages project. A custom domain is not configured; `streamiov.pages.dev` is the public URL. Each deployment is versioned and can be rolled back in Cloudflare.
+- A successful Wrangler command alone is not proof that every asset is publicly reachable. The live URL, the download page, and the checksum files are checked separately after each deployment.
+- CI deployment still needs the GitHub environment secrets above. The repository contains no Cloudflare credentials and no bearer token.
 
 ## Built, but not verified on real target hardware
 
@@ -51,9 +53,9 @@ python3 scripts/verify-cloudflare-config.py
 - **Live broadcast:** a real stream received and published by TikTok, YouTube, Twitch, or another service.
 - **Mobile:** a tested Android or iOS build. The unlinked stale APK was removed from the public download directory.
 - **ChromeOS:** install and start behaviour on real Chromebook hardware.
-- **Local model:** inference on a machine with enough memory for the selected model. The current host has about 213 MiB available RAM, which is not enough for the intended model.
+- **Local model:** local-only inference on a machine with enough memory for the selected model. The current host has about 213 MiB available RAM, which is not enough for the intended model. Cloudflare inference is available and verified separately.
 - **Code signing:** Windows/macOS signing certificates and notarisation.
-- **Public hosting:** an owner-controlled, continuously reachable host with a trusted certificate.
+- **Custom domain:** a StreamioV-controlled domain with its own DNS and certificate. The public `streamiov.pages.dev` site is reachable, but a custom domain is not configured.
 - **Legal review:** music rights, privacy, and platform terms for a public release.
 
 ## Known limitations

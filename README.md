@@ -38,7 +38,9 @@ python3 scripts/verify-cloudflare-config.py
 
 They cover the local host, accounts, the read-only raw-data catalog, the 11 AI specialist roles and task queue, AI-worker contract, Studio source and inline-script syntax, scene model, UI wiring, download-part sizes and SHA-256 checksums, game-prototype checksums, music rights, game packaging, and agent behaviour. These are automated checks, not real-device or live-platform evidence.
 
-Cloudflare and GitHub automation is split into a read-only check workflow (`.github/workflows/cloudflare-checks.yml`) and a manual, owner-approved deployment workflow (`.github/workflows/cloudflare-deploy.yml`). The deployment workflow requires the `production` environment secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the AI Worker additionally needs the Cloudflare secret `STREAMIOV_AI_WORKER_TOKEN` and an enabled Workers AI binding. No deployment is performed or claimed by this checkout.
+Cloudflare and GitHub automation is split into a read-only check workflow (`.github/workflows/cloudflare-checks.yml`) and a manual, owner-approved deployment workflow (`.github/workflows/cloudflare-deploy.yml`). The deployment workflow requires the `production` environment secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the AI Worker additionally needs the Cloudflare secret `STREAMIOV_AI_WORKER_TOKEN` and an enabled Workers AI binding.
+
+The static site is published to the `streamiov` Pages project at `https://streamiov.pages.dev/`. The AI Worker is deployed at `https://streamiov-ai-worker.schaffrathsascha318.workers.dev`; on 2026-11-03 `python -m ai --doctor` exited 0 and a minimal authenticated inference returned `STREAMIOV_AI_OK`. Those credentials live in the owner's local environment, not in this repository.
 
 Still externally gated: TikTok app review/scopes, a real live broadcast received by a streaming service, hardware verification on Windows/Chromebook/Android/iOS, local model inference on a machine with sufficient memory, code signing, public hosting, and legal rights review.
 

@@ -73,14 +73,19 @@ jobs:
             exit 1
           fi
 
-      - name: Deploy homepage assets Worker
-        run: npx --yes wrangler@4 deploy --config dist/streamiov-homepage-worker/wrangler.jsonc
+      - name: Deploy the public site to the streamiov Pages project
+        run: >-
+          npx --yes wrangler@4 pages deploy dist/streamiov-homepage-worker/public
+          --project-name streamiov
+          --branch main
+          --commit-dirty=true
 
       - name: Record honest deployment boundary
         run: |
-          echo "Wrangler accepted the homepage deployment command."
-          echo "This is not proof that streamiov.pages.dev, a custom domain, or every asset is live."
-          echo "Verify the public URL manually after DNS and route propagation."
+          echo "Wrangler accepted the Pages deployment command."
+          echo "This is not proof that every asset, cache entry, or a custom domain is live."
+          echo "Verify https://streamiov.pages.dev/ and /download/ after propagation."
+          echo "The assets-only Worker config remains an alternative deployment target and is not used by this job."
 
   deploy-ai-worker:
     needs: verify

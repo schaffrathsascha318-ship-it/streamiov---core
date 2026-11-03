@@ -1,11 +1,11 @@
 # StreamioV Studio source snapshot 2026-11-03
 # Verify a part with: sha256sum -c SHA256SUMS.txt
 # Verify the assembled archive with: sha256sum streamiov-studio-source-20261103.zip
-# assembled archive: 44f7f81a63300c5d44456cb7a05109ea33557ba68081aab72d1c67e9c876aa79  streamiov-studio-source-20261103.zip
-7802bd78bbaa1fccbef5aab81980c039db4afc75bbc4f616397591372d66e1e7  streamiov-studio-part-00.bin
-0cfab36086ebe4dfa1ea2c720d5e1a9d12507c2cf7b09ebfb5982ddb251fd58b  streamiov-studio-part-01.bin
-22c408f68c447af0915e62af4f100757305ae5f38db031028f541e4a657b4dc0  streamiov-studio-part-02.bin
-4a5d9c516604801f99f1bc15c615b35e96897739d602f1bbf50d604925bbae22  streamiov-studio-part-03.bin
-1081de21ee3f53634e42d72db2ef7b52a54c36ea813fcb99495ddda9db74cf52  streamiov-studio-part-04.bin
-2e73b8608707b1ab62afe79a395de6b47e3c705a975b6b1e2727ef927c624166  streamiov-studio-part-05.bin
-c85af47bbe70c5f97e352df5bb9eb070605fca9237f71de53b8f7cf65f54ab5b  streamiov-studio-part-06.bin
+# assembled archive: af97d095b280fd16a3fd69e67a0de5815f8402d3cf3c460a77f1e43a59670bfd  streamiov-studio-source-20261103.zip
+28808f10458a249a0dff98f293a1d9521e8a10c0d21dfe8d6e7437707c65741f  streamiov-studio-part-00.bin
+889ecf2bd580ea077d24f32fc32a2648481e3692bd5fed2b5c51e40e17253f2b  streamiov-studio-part-01.bin
+42f59a75649658ee96f9c71d5e0626f5fea2e4d698fbe660f5c0cf114492d0f2  streamiov-studio-part-02.bin
+24fea902e1f6f0423b49507167d296d6834f6589625e1498aa6d3e4bf7bc89c3  streamiov-studio-part-03.bin
+7cc44f200cd812f0bd3afecab7e794c11fa42ed30d1a2e26b44e5d7bd60662bc  streamiov-studio-part-04.bin
+c767704b7094f35a8ffd55c55105cb22ef5bf81aedcc569b78b7b71781623a5d  streamiov-studio-part-05.bin
+4d6890a9d4a58ce3a2bee1228d0ff1bd2782abb17732e9f4553db70c59063a2d  streamiov-studio-part-06.bin

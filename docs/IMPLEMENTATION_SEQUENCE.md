@@ -158,9 +158,10 @@ This pass closed the internally implementable gaps and kept every external gate 
 
 - The homepage now has a central downloads section linking the installer, source snapshot, PWA, five game prototypes, account/forum, and the honest verification table. AI, game, and music cards distinguish implemented/tested work from externally blocked inference, unreleased prototypes, and read-only test catalog data.
 - The download hub centralizes all local artifacts: three Studio installer families, the seven-part source snapshot, the Web-Regie/PWA, five checksummed game-prototype ZIPs, account/forum links, and a built/verified/prototype/blocked table.
-- `public/_headers` declares baseline security headers and a one-hour cache for `/downloads/` assets. It is consumed by Cloudflare Workers static assets; the local Python host does not interpret it.
-- `scripts/verify-cloudflare-config.py` validates the assets-only homepage Worker, the AI Worker binding and pinned model, bearer authentication, deploy-script contents, public entry points, security headers, and all download checksums without contacting Cloudflare.
-- `.github/workflows/cloudflare-checks.yml` runs those checks and the Worker contract tests on pull requests and `main` pushes. `.github/workflows/cloudflare-deploy.yml` is manual, requires the `production` environment and owner-provided secrets, and makes no deployment claim by itself.
+- `public/_headers` declares baseline security headers and a one-hour cache for `/downloads/` assets. It is consumed by Cloudflare Pages/Workers static assets; the local Python host does not interpret it.
+- `scripts/verify-cloudflare-config.py` validates the assets-only homepage Worker, the AI Worker binding and pinned model, bearer authentication, deploy-script contents, the manual Pages deployment workflow, public entry points, security headers, and all download checksums without contacting Cloudflare.
+- `.github/workflows/cloudflare-checks.yml` runs those checks and the Worker contract tests on pull requests and `main` pushes. `.github/workflows/cloudflare-deploy.yml` is manual, requires the `production` environment and owner-provided secrets, and deploys the public site to the `streamiov` Pages project plus the AI Worker.
+- On 2026-11-03 the already-deployed AI Worker at `https://streamiov-ai-worker.schaffrathsascha318.workers.dev` passed `python -m ai --doctor` with the owner env and answered a minimal authenticated inference with HTTP 200 and `STREAMIOV_AI_OK`. The public site was deployed to `https://streamiov.pages.dev/` from the `streamiov` Pages project.
 - `release-game.yml` now targets `main` instead of the deleted `streamiov-build-setup-clean` branch.
 
 ### Verification
@@ -176,7 +177,7 @@ This pass closed the internally implementable gaps and kept every external gate 
 - The published download parts are assembled and hashed in a Node check that mirrors `combine.js`, and `sha256sum -c SHA256SUMS.txt` passes for all seven parts.
 - Publicly served backup files and unlinked stale archives were removed from the site root; a host test fails if backup, secret, or unexpected download files reappear.
 - The Studio declares no runtime npm dependencies; the unofficial `tiktok-live-connector` package was removed from `package.json` and the lockfile.
-- `python3 -m ai --doctor` exits 3 in this environment because no local model is reachable. That is an honest external limit, not a passing inference test.
+- `python3 -m ai --doctor` exits 0 with the owner's `~/.config/streamiov/ai-worker.env` and reports the deployed Cloudflare Worker as ready. Without that env file it exits 3 because no local Ollama model is reachable; local inference remains an honest external limit.
 
 ### Still externally gated
 

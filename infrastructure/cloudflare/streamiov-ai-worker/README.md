@@ -67,6 +67,13 @@ Two workflows cover this Worker:
 
 ## Verification status
 
-The Worker source and tests can be validated in GitHub Actions. This repository change does not deploy the Worker, create the Cloudflare secret, or prove that the user's Cloudflare account has the Workers AI binding enabled. A successful deployment and a real `--doctor` check are required before calling the service online.
+The Worker source and tests are validated in GitHub Actions. The Worker is also deployed in the owner's Cloudflare account at `https://streamiov-ai-worker.schaffrathsascha318.workers.dev`.
 
-The current development host reports `python -m ai --doctor` as not ready because no local Ollama endpoint is reachable and only about 213 MiB RAM is available. That is an honest external limit, not a passing inference test.
+Verified on 2026-11-03 with the owner's local `~/.config/streamiov/ai-worker.env`:
+
+- `python -m ai --doctor` exits 0 with `ready: true`, `reachable: true`, and `model_available: true`.
+- A minimal authenticated `POST /v1/chat/completions` returned HTTP 200 with `STREAMIOV_AI_OK` from `@cf/zai-org/glm-4.7-flash`.
+
+Those credentials are not in this repository. A fresh checkout still needs the owner's environment or the GitHub `production` environment secrets before it can deploy or call the Worker.
+
+The current development host cannot run the local Ollama fallback because only about 213 MiB RAM is available. That limit applies to local inference only; the deployed Cloudflare Worker is reachable.

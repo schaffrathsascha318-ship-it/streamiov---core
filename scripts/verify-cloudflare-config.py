@@ -21,6 +21,8 @@ HOMEPAGE_PUBLIC = ROOT / "dist" / "streamiov-homepage-worker" / "public"
 AI_CONFIG = ROOT / "infrastructure" / "cloudflare" / "streamiov-ai-worker" / "wrangler.jsonc"
 AI_SOURCE = ROOT / "infrastructure" / "cloudflare" / "streamiov-ai-worker" / "src" / "index.mjs"
 DEPLOY_SCRIPT = ROOT / "scripts" / "deploy-streamiov-ai-worker.sh"
+DEPLOY_WORKFLOW = ROOT / ".github" / "workflows" / "cloudflare-deploy.yml"
+CHECKS_WORKFLOW = ROOT / ".github" / "workflows" / "cloudflare-checks.yml"
 DOWNLOAD_PAGE = HOMEPAGE_PUBLIC / "download" / "index.html"
 DOWNLOADS = HOMEPAGE_PUBLIC / "downloads"
 PINNED_MODEL = "@cf/zai-org/glm-4.7-flash"
@@ -91,7 +93,7 @@ def verify() -> dict[str, Any]:
     errors: list[str] = []
     checks: list[str] = []
 
-    for path in (HOMEPAGE_CONFIG, AI_CONFIG, AI_SOURCE, DEPLOY_SCRIPT):
+    for path in (HOMEPAGE_CONFIG, AI_CONFIG, AI_SOURCE, DEPLOY_SCRIPT, DEPLOY_WORKFLOW, CHECKS_WORKFLOW):
         if not path.is_file():
             errors.append(f"missing required Cloudflare file: {path.relative_to(ROOT)}")
     if errors:
@@ -173,6 +175,30 @@ def verify() -> dict[str, Any]:
         if required not in deploy_text:
             errors.append(f"AI deploy script is missing: {required}")
     checks.append("AI deploy script sets the provider and stores the token as a secret")
+
+    workflow_text = DEPLOY_WORKFLOW.read_text(encoding="utf-8")
+    for required in (
+        "workflow_dispatch:",
+        "environment: production",
+        "inputs.confirm",
+        "pages deploy",
+        "--project-name streamiov",
+        "wrangler@4 deploy --config infrastructure/cloudflare/streamiov-ai-worker/wrangler.jsonc",
+    ):
+        if required not in workflow_text:
+            errors.append(f"cloudflare-deploy.yml is missing: {required}")
+    if re.search(r"^  (push|pull_request):", workflow_text, flags=re.M):
+        errors.append("cloudflare-deploy.yml must stay manual and must not run on push or pull_request")
+    if "Deploy homepage assets Worker" in workflow_text:
+        errors.append("cloudflare-deploy.yml still deploys the homepage Worker instead of the Pages project")
+    checks.append("manual deploy workflow targets the streamiov Pages project and the AI Worker")
+
+    checks_text = CHECKS_WORKFLOW.read_text(encoding="utf-8")
+    if "python scripts/verify-cloudflare-config.py" not in checks_text:
+        errors.append("cloudflare-checks.yml does not run the offline verifier")
+    if "contents: read" not in checks_text:
+        errors.append("cloudflare-checks.yml must declare read-only contents permission")
+    checks.append("read-only Cloudflare workflow runs the offline verifier")
 
     if DOWNLOAD_PAGE.is_file():
         markup = DOWNLOAD_PAGE.read_text(encoding="utf-8")
