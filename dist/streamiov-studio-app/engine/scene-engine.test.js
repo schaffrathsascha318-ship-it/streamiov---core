@@ -19,6 +19,16 @@ test('TAKE switches program only to the selected preview', () => {
   assert.equal(result.state.programSceneId, 'gameplay');
   assert.equal(result.state.liveConfirmed, false);
 });
+test('setProgramScene switches only the program and keeps the preview', () => {
+  const engine = new StudioSceneEngine();
+  engine.selectPreview('GAMEPLAY');
+  const result = engine.setProgramScene('PAUSE');
+  assert.equal(result.ok, true);
+  assert.equal(result.state.programSceneId, 'pause');
+  assert.equal(result.state.previewSceneId, 'gameplay');
+  assert.equal(engine.setProgramScene('missing').ok, false);
+  assert.equal(engine.snapshot().programSceneId, 'pause');
+});
 test('custom scenes are validated and selected for preview', () => {
   const engine = new StudioSceneEngine();
   const result = engine.createScene('Community');

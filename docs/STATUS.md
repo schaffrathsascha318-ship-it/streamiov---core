@@ -11,6 +11,7 @@
 | Community forum | `tests/test_forum.py`: public read, session-gated same-origin writes, validation, per-IP rate limits, replies, locking, soft deletes, moderation CLI |
 | Raw-data catalog | `tests/test_data_store.py`, `tests/test_streamiov_host.py`: 18 gifts, 2 games, 3 actions, 1 playlist, 5 templates seeded into a separate read-only SQLite catalog; legacy `data/db` databases untouched |
 | Studio source | `tests/test_studio_scene_ui.py`, `tests/test_studio_js_syntax.py`: Electron entry points, inline scripts, scene model, UI wiring |
+| Schutzregie / Privacy Shield | `engine/privacy-shield.js` and `engine/privacy-shield.test.js`; hotkey switches the program scene to PAUSE and the local mic mix to 0 %, restores both on exit, persists its own restore state, and states that the encoder, recording, and platform privacy are not stopped |
 | Scene renderer | Preview, program, and stream output all call `drawSceneToCanvas`; source layout persists in scene v2 |
 | Local tools | Chat, TTS, gifts, alerts, music, games list, AI login/submit, and diagnostics are wired; gift/game/music panels load the host's read-only raw-data catalog; local-only boundaries are stated in the UI |
 | Download hub | `tests/test_streamiov_host.py`: every local download link resolves; source parts and five game-prototype ZIPs match their SHA-256 files |
@@ -46,6 +47,7 @@ python3 scripts/verify-cloudflare-config.py
 - The RTMP path requires a separately installed FFmpeg with `libx264`, AAC, and RTMP support. A local encoder start is not proof that a streaming service received or published the broadcast.
 - Camera, screen, and microphone capture use real Chromium media APIs, but this environment cannot prove behaviour on every camera, capture card, or operating system.
 - The 2026-11-03 source snapshot is newer than the published installers. It is source code, not an installer.
+- The Schutzregie / Privacy Shield is local UI state. It switches the program scene to PAUSE and the local microphone mixer to 0 %, then restores both values. It does not stop the encoder or a running recording, and it does not guarantee platform-side privacy. The published installers from 2026-11-02 do not contain it yet.
 
 ## Externally gated
 

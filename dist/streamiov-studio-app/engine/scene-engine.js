@@ -180,6 +180,16 @@ class StudioSceneEngine {
     this.programSceneId = this.previewSceneId;
     return this._result();
   }
+  // Directly switch the program scene without changing the preview. Used by
+  // Schutzregie and future emergency actions; TAKE remains the normal path.
+  setProgramScene(sceneNameOrId) {
+    const value = typeof sceneNameOrId === 'string' ? sceneNameOrId.trim() : '';
+    const scene = this.scenes.find(item => item.name === value) ||
+      this.scenes.find(item => item.id === value);
+    if (!scene) return { ok: false, error: 'Szene wurde nicht gefunden.' };
+    this.programSceneId = scene.id;
+    return this._result();
+  }
   addSource(input = {}) {
     const scene = this._preview();
     if (!scene) return { ok: false, error: 'Vorschauszene wurde nicht gefunden.' };

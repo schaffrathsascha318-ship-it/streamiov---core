@@ -6,7 +6,7 @@ Streamiov is a downloadable desktop studio for streamers. The goal is to give cr
 
 ## Current state
 
-The desktop shell is an Electron app in `dist/streamiov-studio-app/`. Its build workflow targets Windows x64, Linux x64, and Linux ARM64. The Studio currently includes local camera and microphone previews, a persistent scene and source model, system diagnostics, and a synthetic audio/video encoding check.
+The desktop shell is an Electron app in `dist/streamiov-studio-app/`. Its build workflow targets Windows x64, Linux x64, and Linux ARM64. The Studio currently includes local camera and microphone previews, a persistent scene and source model, system diagnostics, and a synthetic audio/video encoding check. The current source also includes the **Schutzregie / Privacy Shield**: `Ctrl+Shift+P` switches the program to PAUSE and the local microphone mix to 0 %, then restores both values when deactivated. It is local and free, but it does not stop the encoder or recording and does not guarantee platform-side privacy. The published 2026-11-02 installers do not contain it yet.
 
 The current Studio is an early foundation, not a finished live-streaming product. Its platform selector saves a preference but does not sign in to a service. The chat and TTS controls are local demonstrations; gift and alert buttons trigger local, free canvas effects only. Scenes now have a real source list (camera, screen, title card, text) with position, visibility, layer order, and a background colour. The preview monitor, program monitor, and stream encoder use the same canvas renderer, so a user-created layout is what the stream output draws. The media check uses generated test signals, not a creator's full live setup.
 

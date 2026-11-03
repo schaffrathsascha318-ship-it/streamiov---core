@@ -18,7 +18,8 @@ DOWNLOADS = ROOT / "dist" / "streamiov-homepage-worker" / "public" / "downloads"
 @unittest.skipUnless(shutil.which("node"), "Node.js is required for JavaScript syntax checks")
 class StudioJavaScriptSyntaxTests(unittest.TestCase):
     def test_electron_main_and_preload_parse(self):
-        for filename in ("main.js", "preload.js", "media-pipeline.js"):
+        for filename in ("main.js", "preload.js", "media-pipeline.js",
+                         "engine/privacy-shield.js", "engine/scene-engine.js"):
             with self.subTest(filename=filename):
                 result = subprocess.run(
                     ["node", "--check", str(STUDIO / filename)],
@@ -83,7 +84,7 @@ class HomepageDownloadPageTests(unittest.TestCase):
         self.assertEqual(len(names), 7)
         self.assertEqual(len(sizes), 7)
         self.assertEqual(len(hashes), 7)
-        self.assertEqual(sum(sizes), 870283)
+        self.assertEqual(sum(sizes), 876770)
         if not (DOWNLOADS / names[0]).is_file():
             self.skipTest("download parts are release artifacts and are not part of the source tree")
 
@@ -99,7 +100,7 @@ class HomepageDownloadPageTests(unittest.TestCase):
 
         self.assertEqual(
             hashlib.sha256(assembled).hexdigest(),
-            "af97d095b280fd16a3fd69e67a0de5815f8402d3cf3c460a77f1e43a59670bfd",
+            "41ac99ddf344c3c851bbebe824512854784689242662b0b34c237bf464702066",
         )
         with zipfile.ZipFile(io.BytesIO(assembled)) as archive:
             names_in_zip = set(archive.namelist())
@@ -119,8 +120,8 @@ class HomepageDownloadPageTests(unittest.TestCase):
         html = (HOMEPAGE / "index.html").read_text(encoding="utf-8")
         self.assertIn("Quellcode-Snapshot", html)
         self.assertIn("kein Installer", html)
-        self.assertIn("870.283 Bytes", html)
-        self.assertIn("af97d095b280fd16a3fd69e67a0de5815f8402d3cf3c460a77f1e43a59670bfd", html)
+        self.assertIn("876.770 Bytes", html)
+        self.assertIn("41ac99ddf344c3c851bbebe824512854784689242662b0b34c237bf464702066", html)
         self.assertIn('href="/downloads/SHA256SUMS.txt"', html)
         self.assertIn("noch nicht in den Installern vom 2.11.", html)
 

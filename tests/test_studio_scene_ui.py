@@ -7,6 +7,7 @@ MAIN = ROOT / "dist" / "streamiov-studio-app" / "main.js"
 UI = ROOT / "dist" / "streamiov-studio-app" / "regie-v2.html"
 PRELOAD = ROOT / "dist" / "streamiov-studio-app" / "preload.js"
 ENGINE = ROOT / "dist" / "streamiov-studio-app" / "engine" / "scene-engine.js"
+SHIELD = ROOT / "dist" / "streamiov-studio-app" / "engine" / "privacy-shield.js"
 
 
 class StudioRuntimeBridgeTests(unittest.TestCase):
@@ -98,14 +99,15 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         )[0]
         for action in ("select", "take", "create", "rename-scene", "delete-scene",
                        "add-source", "update-source", "remove-source",
-                       "move-source", "set-background"):
+                       "move-source", "set-background", "set-program"):
             with self.subTest(action=action):
                 self.assertIn(f"action === '{action}'", handler)
         for method in ("selectPreview", "take", "createScene", "renameScene",
                        "deleteScene", "addSource", "updateSource", "removeSource",
-                       "moveSource", "setBackground"):
+                       "moveSource", "setBackground", "setProgramScene"):
             with self.subTest(method=method):
                 self.assertIn(f"engine.{method}(", handler)
+        self.assertIn("action === 'take' || action === 'set-program'", handler)
 
 
     def test_media_test_uses_native_gstreamer_pipeline_not_missing_python_module(self):
@@ -225,6 +227,46 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("entry.gain.gain.setTargetAtTime(target,now,0.02)", self.ui)
         self.assertIn("broadcastMasterGain.gain.setTargetAtTime(mixerValue(\"mixerMaster\"),now,0.02)", self.ui)
         self.assertIn("localStorage.setItem(mixerStorageKey", self.ui)
+
+    def test_privacy_shield_module_is_local_and_honest_about_its_limits(self):
+        shield = SHIELD.read_text(encoding="utf-8")
+        self.assertIn("class PrivacyShield", shield)
+        for method in ("activate(", "deactivate(", "restore(", "snapshot("):
+            with self.subTest(method=method):
+                self.assertIn(f"  {method}", shield)
+        self.assertIn("root.StreamioVPrivacyShield = factory();", shield)
+        self.assertIn("stopsEncoder: false", shield)
+        self.assertIn("stopsRecording: false", shield)
+        self.assertIn("guaranteesPlatformPrivacy: false", shield)
+        self.assertIn("program-scene-and-local-mic-mix", shield)
+        self.assertTrue((SHIELD.parent / "privacy-shield.test.js").is_file())
+
+    def test_regie_wires_the_privacy_shield_to_scene_and_microphone_mix(self):
+        self.assertIn('id="privacyShield"', self.ui)
+        self.assertIn('id="privacyBanner"', self.ui)
+        self.assertIn('src="engine/privacy-shield.js"', self.ui)
+        self.assertIn("new PrivacyShieldClass(", self.ui)
+        self.assertIn("streamiov.studio.privacy-shield.v1", self.ui)
+        self.assertIn("privacyShield.activate({programSceneId:programSceneId,micPercent:mixerPercent(\"mixerMic\")})", self.ui)
+        self.assertIn("sceneCommand({action:\"set-program\",id:target.programSceneId})", self.ui)
+        self.assertIn("setMixerPercent(\"mixerMic\",target?.micPercent??0)", self.ui)
+        self.assertIn("setMixerPercent(\"mixerMic\",restore.micPercent)", self.ui)
+        self.assertIn("event.shiftKey&&String(event.key).toLowerCase()===\"p\"", self.ui)
+        self.assertIn("if(mic)mic.disabled=active;", self.ui)
+        self.assertIn("Schutzregie aktiv: TAKE ist gesperrt.", self.ui)
+        self.assertIn("Stoppt den Encoder nicht. Plattform- und Aufnahme-Privatsphäre separat prüfen.", self.ui)
+        self.assertIn("Der Encoder läuft weiter", self.ui)
+        self.assertIn("guaranteesPlatformPrivacy", SHIELD.read_text(encoding="utf-8"))
+
+    def test_privacy_shield_does_not_persist_the_muted_mixer_as_the_saved_level(self):
+        # The shield sets the mic slider directly and only persists its own restore
+        # state. It must not call saveMixerSettings with the temporary 0 % value.
+        shield_block = self.ui.split("function setMixerPercent(id,percent)", 1)[1].split(
+            "function savePrivacyShield", 1
+        )[0]
+        self.assertNotIn("saveMixerSettings()", shield_block)
+        self.assertIn("applyMixerGains()", shield_block)
+        self.assertIn("localStorage.setItem(shieldStorageKey", self.ui)
 
     def test_build_configuration_requires_node_22_and_syncs_generated_studio_assets(self):
         package = (ROOT / "dist" / "streamiov-studio-app" / "package.json").read_text(encoding="utf-8")

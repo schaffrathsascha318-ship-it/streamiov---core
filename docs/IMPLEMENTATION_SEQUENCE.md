@@ -144,6 +144,7 @@ This pass closed the internally implementable gaps and kept every external gate 
 - Actions cover adding, updating, removing, reordering, and hiding sources, changing the background, and deleting or renaming custom scenes. Version 1 scene files migrate automatically.
 - One canvas renderer draws the preview monitor, the program monitor, and the encoded stream output. Gifts and alerts are drawn into the same program canvas, so they appear in the stream output rather than only in the UI.
 - The source dialog, source list, background picker, and scene controls are wired to the persistent model.
+- Schutzregie / Privacy Shield: `engine/privacy-shield.js` stores the current program scene and local microphone level, switches the program to the built-in PAUSE scene, and sets the microphone mixer to 0 %. Deactivation restores the exact previous scene and level. The shield persists only its own restore state, locks the microphone slider while active, blocks TAKE, and explicitly does not stop the encoder, recording, or platform-side capture. The Regie exposes a button and the `Ctrl+Shift+P` hotkey; the scene engine has a dedicated `setProgramScene` action so the preview is untouched.
 - Tool panels are wired: local chat, local TTS via `espeak-ng`, free local gift effects, local alerts, local audio-file playback, prototype game list, local-host AI login/submit, and read-only device/module diagnostics. Panels state clearly when a capability is local-only, unavailable, or externally gated.
 
 ### Raw-data catalog
@@ -166,14 +167,14 @@ This pass closed the internally implementable gaps and kept every external gate 
 
 ### Verification
 
-- `python3 -m unittest discover -s tests -p 'test_*.py'`: 253 tests pass.
+- `python3 -m unittest discover -s tests -p 'test_*.py'`: 256 tests pass.
 - `node --test tests/test_cloudflare_ai_worker.mjs`: 12 tests pass.
 - `node --test tests/tiktok-oauth.test.js`: 8 tests pass.
 - `node --test games/tests/library.test.cjs`: 6 tests pass.
 - Prototype game tests: Echo Grid 1, Neon Relay 1, Pulse Defender 1, Signal Weave 5, Star Defender engine 5.
-- `node --test engine/*.test.js` in the Studio: 27 tests pass.
+- `node --test engine/*.test.js` in the Studio: 35 tests pass, including the Schutzregie state machine.
 - `python3 scripts/verify-cloudflare-config.py`: all offline config, link, header, and checksum checks pass.
-- `node --check` passes for `main.js`, `preload.js`, `media-pipeline.js`, `combine.js`, and every inline Regie script.
+- `node --check` passes for `main.js`, `preload.js`, `media-pipeline.js`, `engine/scene-engine.js`, `engine/privacy-shield.js`, `combine.js`, and every inline Regie script.
 - The published download parts are assembled and hashed in a Node check that mirrors `combine.js`, and `sha256sum -c SHA256SUMS.txt` passes for all seven parts.
 - Publicly served backup files and unlinked stale archives were removed from the site root; a host test fails if backup, secret, or unexpected download files reappear.
 - The Studio declares no runtime npm dependencies; the unofficial `tiktok-live-connector` package was removed from `package.json` and the lockfile.

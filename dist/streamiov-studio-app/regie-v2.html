@@ -61,6 +61,16 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
 .cut{background:#6b2638;border-color:#a73b55}
 .fade{background:#28305e;border-color:#656ce0}
 .go-live{background:#622638;border-color:var(--red);font-weight:900}
+.privacy-banner{position:absolute;left:10px;right:10px;bottom:10px;z-index:2;
+ display:grid;gap:3px;padding:10px 12px;border:1px solid var(--red);border-radius:8px;
+ background:#2a0e18ee;color:var(--text);text-align:left;box-shadow:0 6px 24px #0009}
+.privacy-banner[hidden]{display:none}
+.privacy-banner strong{font-size:12px;letter-spacing:1.5px;color:var(--red)}
+.privacy-banner span{font-size:12px}
+.privacy-banner small{color:#ffc2cf;font-size:10px;line-height:1.4}
+#privacyShield.active{background:#4a1622;border-color:var(--red);color:#ffd7df;font-weight:800}
+body.privacy-shield-active header{box-shadow:inset 0 -2px 0 var(--red)}
+body.privacy-shield-active .monitor.program{border-color:var(--red);box-shadow:0 0 0 1px var(--red)}
 .section{margin-top:12px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .source{padding:10px;background:#17222d;border:1px solid var(--line);
@@ -301,7 +311,13 @@ dialog::backdrop{background:#000b}
    </div>
    <div class="monitor program">
     <div class="monitor-head"><span>PROGRAMM / AUSGABE</span><span class="pill" id="programBadge">NICHT LIVE</span></div>
-    <div class="screen"><canvas id="programCanvas" width="1280" height="720" aria-label="Programmausgabe"></canvas></div>
+    <div class="screen"><canvas id="programCanvas" width="1280" height="720" aria-label="Programmausgabe"></canvas>
+     <div id="privacyBanner" class="privacy-banner" role="status" aria-live="assertive" hidden>
+      <strong>SCHUTZREGIE AKTIV</strong>
+      <span>Programm: PAUSE · Mikrofon-Mix: 0 %</span>
+      <small>Stoppt den Encoder nicht. Plattform- und Aufnahme-Privatsphäre separat prüfen.</small>
+     </div>
+    </div>
     <div class="screen-name" id="programName">STARTING SOON</div>
    </div>
   </div>
@@ -312,6 +328,7 @@ dialog::backdrop{background:#000b}
     <button class="fade" id="fade">FADE</button>
     <span class="pill">ÜBERGANG: 300 MS</span>
     <button id="take">TAKE → PROGRAMM</button>
+    <button id="privacyShield" type="button" aria-pressed="false" title="Schaltet das Programm auf PAUSE und den Mikrofon-Mix auf 0 % (Ctrl+Shift+P)">SCHUTZREGIE (Ctrl+Shift+P)</button>
     <button id="openProgramOutput" type="button">REGIE AUF 2. BILDSCHIRM</button>
    </div>
   </div>
@@ -470,6 +487,7 @@ dialog::backdrop{background:#000b}
 
  </main>
 
+<script src="engine/privacy-shield.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const mobileRegieToggle=$("mobile-regie-toggle");
@@ -577,6 +595,7 @@ $("openProgramOutput").onclick=async()=>{
  finally{button.disabled=false;}
 };
 async function take(){
+ if(privacyShield?.snapshot().active){log("Schutzregie aktiv: TAKE ist gesperrt. Erst Schutzregie aufheben.");return;}
  const state=await sceneCommand({action:"take"});
  if(!state)return;
  $("programName").textContent=sceneName(state.programSceneId);
@@ -1054,6 +1073,100 @@ function applyMixerGains(){
   entry.gain.gain.setTargetAtTime(target,now,0.02);
  }
  if(broadcastMasterGain)broadcastMasterGain.gain.setTargetAtTime(mixerValue("mixerMaster"),now,0.02);
+}
+// Schutzregie / Privacy Shield: lokal, kostenlos und ehrlich begrenzt.
+// Sie schaltet die Programmszene auf PAUSE und den lokalen Mikrofon-Mix auf 0 %.
+// Sie stoppt weder Encoder noch Aufnahme noch plattformseitige Erfassung.
+const shieldStorageKey="streamiov.studio.privacy-shield.v1";
+const PrivacyShieldClass=window.StreamioVPrivacyShield?.PrivacyShield||null;
+let privacyShield=PrivacyShieldClass?new PrivacyShieldClass():null;
+let privacyShieldBusy=false;
+function setMixerPercent(id,percent){
+ const input=$(id);
+ if(!input)return;
+ input.value=String(Math.max(0,Math.min(100,Math.round(Number(percent)||0))));
+ updateMixerLabels();
+ applyMixerGains();
+}
+function savePrivacyShield(){
+ if(!privacyShield)return;
+ try{
+  const snapshot=privacyShield.snapshot();
+  localStorage.setItem(shieldStorageKey,JSON.stringify({
+   active:snapshot.active,
+   restoreState:snapshot.restoreState,
+   activationCount:snapshot.activationCount,
+   lastActivatedAt:snapshot.lastActivatedAt
+  }));
+ }catch(_){/* local storage is optional */}
+}
+function renderPrivacyShield(){
+ const active=privacyShield?.snapshot().active===true;
+ const banner=$("privacyBanner");
+ if(banner)banner.hidden=!active;
+ document.body.classList.toggle("privacy-shield-active",active);
+ const button=$("privacyShield");
+ if(button){
+  button.classList.toggle("active",active);
+  button.setAttribute("aria-pressed",active?"true":"false");
+  button.textContent=active?"SCHUTZREGIE AUFHEBEN (Ctrl+Shift+P)":"SCHUTZREGIE (Ctrl+Shift+P)";
+ }
+ const mic=$("mixerMic");
+ if(mic)mic.disabled=active;
+ const status=$("mixerStatus");
+ if(status)status.textContent=active
+  ?"Schutzregie aktiv: Mikrofon-Mix 0 %. Der Encoder läuft weiter; Plattform- und Aufnahme-Privatsphäre separat prüfen."
+  :"Lokaler Mix: Mikrofon "+mixerPercent("mixerMic")+" %, System "+mixerPercent("mixerSystem")+" %, Master "+mixerPercent("mixerMaster")+" %.";
+}
+async function applyPrivacyShieldOn(){
+ const target=privacyShield?.snapshot().target;
+ if(target?.programSceneId){
+  const state=await sceneCommand({action:"set-program",id:target.programSceneId});
+  if(!state)log("Schutzregie: Programmszene konnte lokal nicht umgeschaltet werden. Mikrofon-Mix wird trotzdem auf 0 % gesetzt.");
+ }
+ setMixerPercent("mixerMic",target?.micPercent??0);
+ renderPrivacyShield();
+}
+async function togglePrivacyShield(){
+ if(!privacyShield||privacyShieldBusy)return;
+ privacyShieldBusy=true;
+ try{
+  const snapshot=privacyShield.snapshot();
+  if(!snapshot.active){
+   const result=privacyShield.activate({programSceneId:programSceneId,micPercent:mixerPercent("mixerMic")});
+   if(!result.changed)return;
+   await applyPrivacyShieldOn();
+   savePrivacyShield();
+   log("Schutzregie aktiv: Programm auf PAUSE, Mikrofon-Mix auf 0 %. Encoder und Aufnahme laufen weiter.");
+  }else{
+   const result=privacyShield.deactivate();
+   if(!result.changed)return;
+   const restore=result.restore||{};
+   if(restore.programSceneId){
+    const state=await sceneCommand({action:"set-program",id:restore.programSceneId});
+    if(!state)log("Schutzregie: vorherige Programmszene konnte nicht wiederhergestellt werden.");
+   }
+   if(Number.isFinite(restore.micPercent))setMixerPercent("mixerMic",restore.micPercent);
+   renderPrivacyShield();
+   savePrivacyShield();
+   log("Schutzregie aufgehoben: Programmszene und Mikrofon-Mix wiederhergestellt.");
+  }
+ }finally{privacyShieldBusy=false;}
+}
+function hydratePrivacyShield(){
+ if(!privacyShield)return;
+ try{
+  const saved=JSON.parse(localStorage.getItem(shieldStorageKey)||"{}");
+  if(saved?.active===true&&saved.restoreState){
+   privacyShield=new PrivacyShieldClass({...saved,active:true});
+   applyPrivacyShieldOn().then(()=>{
+    savePrivacyShield();
+    log("Schutzregie aus der letzten Sitzung wiederhergestellt: Programm PAUSE, Mikrofon-Mix 0 %.");
+   });
+   return;
+  }
+ }catch(_){/* corrupt local state is ignored */}
+ renderPrivacyShield();
 }
 let lastStreamError="";
 function setSourceControlsLocked(locked){
@@ -1581,7 +1694,12 @@ async function openTool(name){
 }
 $("closeTool").onclick=()=>$("toolDialog").close();
 document.querySelectorAll("[data-tool]").forEach(b=>b.onclick=()=>openTool(b.dataset.tool));
-loadScenes();
+async function initSceneUi(){
+ try{await loadScenes();}
+ catch(error){log("Szenen konnten nicht geladen werden: "+String(error.message||error));}
+ hydratePrivacyShield();
+}
+initSceneUi();
 requestAnimationFrame(renderMonitors);
 try{
  const saved=JSON.parse(localStorage.getItem(mixerStorageKey)||"{}");
@@ -1600,6 +1718,14 @@ for(const id of Object.keys(mixerDefaults)){
   if(status)status.textContent="Lokaler Mix: Mikrofon "+mixerPercent("mixerMic")+" %, System "+mixerPercent("mixerSystem")+" %, Master "+mixerPercent("mixerMaster")+" %.";
  });
 }
+$("privacyShield")?.addEventListener("click",togglePrivacyShield);
+document.addEventListener("keydown",event=>{
+ if(event.repeat)return;
+ if((event.ctrlKey||event.metaKey)&&event.shiftKey&&String(event.key).toLowerCase()==="p"){
+  event.preventDefault();
+  togglePrivacyShield();
+ }
+});
 async function loadGameLibrary(){
  const list=$("gameLibraryList"),status=$("gameLibraryStatus");
  list.replaceChildren();status.textContent="Lade lokale Spielepakete …";

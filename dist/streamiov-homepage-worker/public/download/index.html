@@ -142,7 +142,7 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
               <li><a href="/downloads/streamiov-studio-part-05.bin">Teil 6 von 7</a></li>
               <li><a href="/downloads/streamiov-studio-part-06.bin">Teil 7 von 7</a></li>
             </ul>
-            <small>Gesamtgröße: 870.283 Bytes. SHA-256 des zusammengefügten ZIPs: <code>af97d095b280fd16a3fd69e67a0de5815f8402d3cf3c460a77f1e43a59670bfd</code>. Prüfsummen aller Teile: <a href="/downloads/SHA256SUMS.txt">SHA256SUMS.txt</a>. Nach dem Zusammenfügen ZIP-Datei vor der Nutzung entpacken und prüfen.</small>
+            <small>Gesamtgröße: 876.770 Bytes. SHA-256 des zusammengefügten ZIPs: <code>41ac99ddf344c3c851bbebe824512854784689242662b0b34c237bf464702066</code>. Prüfsummen aller Teile: <a href="/downloads/SHA256SUMS.txt">SHA256SUMS.txt</a>. Nach dem Zusammenfügen ZIP-Datei vor der Nutzung entpacken und prüfen.</small>
           </div>
         </details>
       </div>
@@ -254,9 +254,10 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
         <div class="section-head">
           <div class="kicker">Streaming-Funktion</div>
           <h2>Regie-Oberfläche enthalten, Encoder noch extern.</h2>
-          <p>Die Installer enthalten Kamera-, Bildschirm- und Mikrofonauswahl sowie ein RTMP-Ziel. Der Quellcode-Snapshot ergänzt den Szenen-/Quellen-Editor mit gemeinsamem Vorschau-, Programm- und Stream-Renderer; dieser Stand ist noch nicht in den Installern vom 2.11. enthalten. Für eine echte Live-Ausgabe muss FFmpeg mit libx264, AAC und RTMP-Unterstützung auf dem Computer installiert sein; der Encoder ist noch nicht Teil der Installer.</p>
+          <p>Die Installer enthalten Kamera-, Bildschirm- und Mikrofonauswahl sowie ein RTMP-Ziel. Der Quellcode-Snapshot ergänzt den Szenen-/Quellen-Editor mit gemeinsamem Vorschau-, Programm- und Stream-Renderer sowie der Schutzregie: Ein Hotkey schaltet das Programm auf PAUSE und den lokalen Mikrofon-Mix auf 0 %, beim Aufheben werden beide Werte wiederhergestellt. Dieser Stand ist noch nicht in den Installern vom 2.11. enthalten. Für eine echte Live-Ausgabe muss FFmpeg mit libx264, AAC und RTMP-Unterstützung auf dem Computer installiert sein; der Encoder ist noch nicht Teil der Installer.</p>
         </div>
         <div class="notice"><strong>Kein Live-Nachweis:</strong> Eine erfolgreiche RTMP-Verbindung ersetzt keine Anmeldung bei TikTok, YouTube, Twitch oder einem anderen Dienst. Ein Encoder-Start beweist nicht, dass ein Dienst den Stream empfangen oder veröffentlicht hat. Offizielle Plattform-Anmeldungen und TikTok-Geschenke bleiben von einer Freigabe durch TikTok abhängig.</div>
+        <div class="notice"><strong>Grenze der Schutzregie:</strong> Sie stoppt weder den Encoder noch eine laufende Aufnahme und garantiert keine Plattform-Privatsphäre. Sie schaltet nur die Programmszene und den lokalen Mikrofon-Mix; Plattform- und Aufnahme-Privatsphäre müssen separat geprüft werden.</div>
       </div>
     </section>
 
@@ -271,6 +272,7 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
           <thead><tr><th>Bereich</th><th>Stand</th><th>Beleg / offene Grenze</th></tr></thead>
           <tbody>
             <tr><td>Studio-Installer</td><td>Gebaut und veröffentlicht</td><td>Build 2026-11-02; Erststart und Funktionen auf Zielgeräten nicht vollständig geprüft.</td></tr>
+            <tr><td>Schutzregie / Privacy Shield</td><td>Im Quellcode · Engine getestet</td><td>Programm auf PAUSE und lokaler Mikrofon-Mix auf 0 % per Hotkey, inklusive Wiederherstellung. Stoppt keinen Encoder und garantiert keine Plattform-Privatsphäre; noch nicht in den Installern vom 2.11.</td></tr>
             <tr><td>Quellcode-Snapshot</td><td>Sieben Teile mit SHA-256</td><td>Quellpaket, kein Installer; Größe und Prüfsummen werden vor dem Speichern geprüft.</td></tr>
             <tr><td>Web-Regie / PWA</td><td>Vorbereitet</td><td>Kein APK/App-Store-Paket; Kamera-, Mikrofon-, GPU- und Live-Verhalten nicht auf jedem Gerät verifiziert.</td></tr>
             <tr><td>Spiel-Prototypen</td><td>Fünf checksumierte ZIPs</td><td>Automatisierte Quelltests vorhanden; menschliche Spielbarkeit, Barrierefreiheit, Rechte und Zielgeräte offen.</td></tr>

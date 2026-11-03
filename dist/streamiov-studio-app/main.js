@@ -293,6 +293,8 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
     result = engine.selectPreview(payload.id || payload.name);
   } else if (action === 'take') {
     result = engine.take();
+  } else if (action === 'set-program') {
+    result = engine.setProgramScene(payload.id || payload.name);
   } else if (action === 'create') {
     result = engine.createScene(payload.name);
   } else if (action === 'rename-scene') {
@@ -314,7 +316,7 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
   }
 
   if (!result.ok) return result;
-  if (action === 'take' && programOutputWindow && !programOutputWindow.isDestroyed()) {
+  if ((action === 'take' || action === 'set-program') && programOutputWindow && !programOutputWindow.isDestroyed()) {
     const activeScene = result.state.scenes.find(scene => scene.id === result.state.programSceneId);
     programOutputWindow.webContents.send('studio:program-scene', activeScene || { name: 'STREAMIOV' });
   }
