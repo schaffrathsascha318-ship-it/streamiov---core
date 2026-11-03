@@ -21,6 +21,8 @@
 **/*.tar
 **/*.tar.gz
 **/*.zip
+# Audited game release candidates are small artifacts named by their manifests.
+!games/releases/*.zip
 .venv/
 dist/streamiov-studio-app/electron
 dist/streamiov-studio-app/streamiov-studio@1.0.0
