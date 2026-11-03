@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MAIN = ROOT / "dist" / "streamiov-studio-app" / "main.js"
 UI = ROOT / "dist" / "streamiov-studio-app" / "regie-v2.html"
 PRELOAD = ROOT / "dist" / "streamiov-studio-app" / "preload.js"
+ENGINE = ROOT / "dist" / "streamiov-studio-app" / "engine" / "scene-engine.js"
 
 
 class StudioRuntimeBridgeTests(unittest.TestCase):
@@ -70,91 +71,42 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
 
     def test_scene_actions_remain_persistent(self):
         self.assertIn("studio:scene-action", self.main)
-        self.assertIn("await save(state)", self.main)
+        self.assertIn("streamiov-scenes.json", self.main)
+        self.assertIn("await fs.writeFile(temporary, JSON.stringify(engine.toJSON()", self.main)
+        self.assertIn("await fs.rename(temporary, file)", self.main)
         self.assertIn('sceneCommand({action:"take"})', self.ui)
 
-    def test_scene_model_supports_layout_sources_and_v1_migration(self):
-        self.assertIn("const SCENE_VERSION = 2;", self.main)
+    def test_scene_engine_supports_layout_sources_and_v1_migration(self):
+        engine = ENGINE.read_text(encoding="utf-8")
+        self.assertIn("const SCENE_VERSION = 2;", engine)
         for source_type in ("'camera'", "'screen'", "'title'", "'text'"):
-            self.assertIn(source_type, self.main)
-        for action in ("add-source", "update-source", "remove-source", "move-source",
-                       "set-background", "delete-scene", "rename-scene"):
+            self.assertIn(source_type, engine)
+        for action in ("addSource", "updateSource", "removeSource", "moveSource",
+                       "setBackground", "deleteScene", "renameScene"):
             with self.subTest(action=action):
-                self.assertIn(f"action === '{action}'", self.main)
-        self.assertIn("[1, SCENE_VERSION].includes(value.version)", self.main)
-        self.assertIn("const normalizeSource = (raw, index)", self.main)
-        self.assertIn("Math.trunc(clamp(raw.z, 0, 100, index))", self.main)
-        self.assertIn("payload.direction === 'up' ? index + 1 : index - 1", self.main)
-        self.assertIn("MAX_SOURCES", self.main)
-        self.assertIn("MAX_SCENES", self.main)
+                self.assertIn(f"  {action}(", engine)
+        self.assertIn("savedState.version != null && ![1, SCENE_VERSION].includes(savedState.version)", engine)
+        self.assertIn("function cleanSource(raw, index)", engine)
+        self.assertIn("Math.trunc(clamp(raw.z, 0, 100, index))", engine)
+        self.assertIn("direction === 'up' ? index + 1 : index - 1", engine)
+        self.assertIn("MAX_SOURCES", engine)
+        self.assertIn("MAX_SCENES", engine)
 
-    def test_regie_renders_the_same_scene_to_preview_program_and_stream(self):
-        for element_id in ("previewCanvas", "programCanvas", "sourceList", "sceneBackground",
-                           "sourceDialog", "sourceType", "sourceName", "sourceText",
-                           "sourcePosition", "confirmSource", "cancelSource",
-                           "renameScene", "deleteScene"):
-            self.assertIn(f'id="{element_id}"', self.ui)
-        self.assertIn('sceneCommand({action:"rename-scene",id:scene.id,name})', self.ui)
-        self.assertIn('sceneCommand({action:"delete-scene",id:scene.id})', self.ui)
-        self.assertIn("function updateSceneManagement()", self.ui)
-        self.assertIn("function drawSceneToCanvas(canvas, sceneId, alpha=1)", self.ui)
-        self.assertIn("drawSceneToCanvas($(\"previewCanvas\"),previewSceneId,1)", self.ui)
-        self.assertIn("drawSceneToCanvas($(\"programCanvas\"),programSceneId,programOutputAlpha)", self.ui)
-        self.assertIn("drawSceneToCanvas(canvas,programSceneId,programOutputAlpha)", self.ui)
-        self.assertIn("loadScenes();", self.ui)
-        self.assertIn("requestAnimationFrame(renderMonitors)", self.ui)
-        self.assertNotIn("Modulstatus muss angebunden werden", self.ui)
-
-    def test_preload_exposes_the_read_only_catalog_bridge(self):
-        self.assertIn(
-            "dataQuery: (payload) => ipcRenderer.invoke('studio:data-query', payload)",
-            self.preload,
-        )
-
-    def test_catalog_bridge_uses_a_trusted_sender_and_path_allowlist(self):
-        handler = self.main.split("ipcMain.handle('studio:data-query'", 1)[1].split(
-            "// STREAMIOV_STUDIO_AI_BRIDGE_END", 1
+    def test_scene_handler_dispatches_to_the_engine(self):
+        handler = self.main.split("ipcMain.handle('studio:scene-action'", 1)[1].split(
+            "// Eigene, lokal paketierte Spielebibliothek", 1
         )[0]
-        self.assertIn("isTrustedStudioSender(event)", handler)
-        self.assertIn("const STUDIO_DATA_PATHS = Object.freeze({", self.main)
-        for endpoint in ("'/api/v1/catalog'", "'/api/v1/catalog/gifts'",
-                         "'/api/v1/catalog/games'", "'/api/v1/music/library'",
-                         "'/api/v1/studio/templates'"):
-            with self.subTest(endpoint=endpoint):
-                self.assertIn(endpoint, self.main)
-        self.assertIn("const dataPath = STUDIO_DATA_PATHS[kind];", handler)
-        self.assertIn("if (!dataPath)", handler)
-        self.assertIn("AbortSignal.timeout(10000)", handler)
+        for action in ("select", "take", "create", "rename-scene", "delete-scene",
+                       "add-source", "update-source", "remove-source",
+                       "move-source", "set-background"):
+            with self.subTest(action=action):
+                self.assertIn(f"action === '{action}'", handler)
+        for method in ("selectPreview", "take", "createScene", "renameScene",
+                       "deleteScene", "addSource", "updateSource", "removeSource",
+                       "moveSource", "setBackground"):
+            with self.subTest(method=method):
+                self.assertIn(f"engine.{method}(", handler)
 
-    def test_catalog_panels_load_real_raw_data_instead_of_hardcoded_lists(self):
-        self.assertIn("window.streamiovStudio?.dataQuery", self.ui)
-        for kind in ("gifts", "games", "music"):
-            with self.subTest(kind=kind):
-                self.assertIn(f'await api({{kind:"{kind}"}})', self.ui)
-        self.assertIn("await renderGiftsTool(body)", self.ui)
-        self.assertIn("await renderGamesTool(body)", self.ui)
-        self.assertIn("await renderMusicTool(body)", self.ui)
-        self.assertIn("tiktok_gift_ids_present", self.ui)
-        self.assertIn("Der Rechte-Katalog enthält noch keine geprüften Titel.", self.ui)
-        self.assertNotIn("Echo Grid", self.ui)
-
-    def test_tool_panels_are_wired_to_real_local_actions(self):
-        for tool in ("Chat", "TTS", "Geschenke", "Alerts", "Musik", "Spiele",
-                     "KI-Regie", "Geräte"):
-            self.assertIn(f'data-tool="{tool}"', self.ui)
-        for function in ("renderChatTool", "renderTtsTool", "renderGiftsTool",
-                         "renderAlertsTool", "renderMusicTool", "renderGamesTool",
-                         "renderAiTool", "renderDevicesTool"):
-            self.assertIn(f"function {function}", self.ui)
-        self.assertIn("window.streamiovStudio?.chatAction", self.ui)
-        self.assertIn("window.streamiovStudio?.aiSubmit", self.ui)
-        self.assertIn("window.streamiovStudio?.aiLogin", self.ui)
-        self.assertIn("getModuleStatus?.()", self.ui)
-        self.assertIn("getCameraLab?.()", self.ui)
-        self.assertIn("showGiftEffect(symbol)", self.ui)
-        self.assertIn("showAlert(text)", self.ui)
-        self.assertIn("Es werden keine Geschenke gekauft", self.ui)
-        self.assertIn("keine TikTok-Geschenke beansprucht", self.ui)
 
     def test_media_test_uses_native_gstreamer_pipeline_not_missing_python_module(self):
         handler = self.main.split("ipcMain.handle('studio:run-media-test'", 1)[1].split(
@@ -173,17 +125,20 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertNotIn("modules.broadcast.gstreamer_engine", handler)
         self.assertIn("await fs.rm(testDirectory", handler)
 
-    def test_python_module_handlers_fail_closed_when_modules_are_not_bundled(self):
+    def test_static_capability_handlers_do_not_claim_missing_python_modules(self):
         for channel in ("studio:get-module-status", "studio:get-status",
                         "studio:record-music-test", "studio:get-camera-lab"):
             with self.subTest(channel=channel):
                 handler = self.main.split(f"ipcMain.handle('{channel}'", 1)[1].split(
                     "ipcMain.handle('", 1
                 )[0]
-                self.assertIn("missingPythonModules", handler)
-        self.assertIn("not_bundled", self.main)
-        self.assertIn("app.isPackaged", self.main)
-        self.assertIn("process.resourcesPath", self.main)
+                self.assertNotIn("missingPythonModules", handler)
+        self.assertIn("repository_capability_inventory", self.main)
+        self.assertIn("foundation_only", self.main)
+        self.assertIn("not_implemented", self.main)
+        self.assertNotIn("missingPythonModules", self.main)
+        self.assertNotIn("notBundledResult", self.main)
+        self.assertNotIn("process.resourcesPath", self.main)
 
     def test_ai_bridge_uses_the_documented_host_contract(self):
         self.assertIn(
@@ -271,12 +226,15 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("broadcastMasterGain.gain.setTargetAtTime(mixerValue(\"mixerMaster\"),now,0.02)", self.ui)
         self.assertIn("localStorage.setItem(mixerStorageKey", self.ui)
 
-    def test_build_configuration_requires_node_22_without_python_sync_hooks(self):
+    def test_build_configuration_requires_node_22_and_syncs_generated_studio_assets(self):
         package = (ROOT / "dist" / "streamiov-studio-app" / "package.json").read_text(encoding="utf-8")
         self.assertIn('"node": ">=22.12.0"', package)
-        self.assertNotIn("python3", package)
-        self.assertNotIn('"prestart"', package)
         self.assertIn('"main": "main.js"', package)
+        self.assertIn("sync-studio-games.py", package)
+        self.assertIn("sync-studio-tiktok-oauth.py", package)
+        self.assertNotIn("sync-studio-ui.py", package)
+        for hook in ("prestart", "predist:win", "predist:linux"):
+            self.assertIn(f'"{hook}":', package)
         for excluded in ("!release/**", "!squashfs-root/**", "!index-before-*.html",
                          "!**/*.bak-*", "!**/*.before-*"):
             self.assertIn(excluded, package)

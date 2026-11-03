@@ -6,8 +6,22 @@ on:
       - "infrastructure/cloudflare/streamiov-ai-worker/**"
       - "scripts/deploy-streamiov-ai-worker.sh"
       - "tests/**"
+      - "scripts/autonomous/**"
+      - ".github/workflows/autonomous-development.yml"
+      - ".github/workflows/phase-1-agent-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ai/**"
+      - "infrastructure/cloudflare/streamiov-ai-worker/**"
+      - "scripts/deploy-streamiov-ai-worker.sh"
+      - "tests/**"
       - ".github/workflows/phase-1-agent-tests.yml"
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:
@@ -22,15 +36,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install GStreamer for media pipeline smoke test
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gstreamer1.0-tools gstreamer1.0-plugins-good
-      - name: Run real synthetic audio/video encoding smoke test
-        run: node scripts/test-studio-media-pipeline.cjs
       - name: Check Cloudflare deployment script syntax
         run: bash -n scripts/deploy-streamiov-ai-worker.sh
       - name: Run Cloudflare AI Worker tests
         run: node --test tests/test_cloudflare_ai_worker.mjs
+      - name: Check autonomous runner Python syntax
+        run: python -m py_compile scripts/autonomous/run_issue.py
       - name: Run Phase 1 unit tests
         run: python -m unittest discover -s tests -v

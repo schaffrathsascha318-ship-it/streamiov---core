@@ -61,3 +61,9 @@ dist/streamiov-studio-app/**/diagnose-*.cjs
 /modules/**/*.bak-*
 /modules/**/*.save
 /modules/**/*.before-*
+
+# Runtime state, private request data and historical deployment logs
+/.testdir/
+/logs/
+/storage/
+*.pid

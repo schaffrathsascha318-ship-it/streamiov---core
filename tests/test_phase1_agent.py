@@ -7,7 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from ai.providers.local_http import (ProviderError, _local_url, OllamaProvider, LocalOpenAICompatibleProvider, provider_from_env)
 from ai.runtime.project_tools import ProjectTools, ToolError
-from ai.core.agent import DevelopmentAgent, AgentError
+from ai.core.agent import DevelopmentAgent, AgentError, MAX_CONTEXT_CHARS, MAX_TOOL_RESULT_CHARS, _trim_context
 from ai.__main__ import build_parser, main
 
 class FakeProvider:
@@ -30,6 +30,24 @@ class ProjectToolTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.tools = ProjectTools(self.root)
     def tearDown(self): self.tmp.cleanup()
+    def test_list_files_is_bounded_and_skips_protected_entries(self):
+        (self.root / "README.md").write_text("hello", encoding="utf-8")
+        (self.root / ".env").write_text("never list", encoding="utf-8")
+        (self.root / "secrets").mkdir()
+        (self.root / "src").mkdir()
+        listing = self.tools.list_files(".")
+        self.assertIn("file README.md", listing)
+        self.assertIn("dir src", listing)
+        self.assertNotIn(".env", listing)
+        self.assertNotIn("secrets", listing)
+
+    def test_list_files_rejects_traversal_and_non_directories(self):
+        (self.root / "README.md").write_text("hello", encoding="utf-8")
+        with self.assertRaises(ToolError):
+            self.tools.list_files("../")
+        with self.assertRaises(ToolError):
+            self.tools.list_files("README.md")
+
     def test_read_create(self):
         (self.root / "README.md").write_text("hello", encoding="utf-8")
         self.assertEqual(self.tools.read_file("README.md"), "hello")
@@ -79,6 +97,15 @@ class AgentTests(unittest.TestCase):
             Path(tmp, "README.md").write_text("Streamiov")
             p = FakeProvider(['{"tool":"read_file","arguments":{"path":"README.md"}}', '{"final":"Read complete."}'])
             self.assertEqual(DevelopmentAgent(p, tmp).run("Inspect README"), "Read complete.")
+    def test_agent_lists_project_files_then_finishes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "README.md").write_text("Streamiov")
+            p = FakeProvider([
+                '{"tool":"list_files","arguments":{"path":"."}}',
+                '{"final":"Project listing complete."}',
+            ])
+            self.assertEqual(DevelopmentAgent(p, tmp).run("Inspect project structure"), "Project listing complete.")
+
     def test_agent_performs_real_existing_file_edit(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp, "ai", "agent.py")
@@ -113,9 +140,9 @@ class AgentTests(unittest.TestCase):
                     self.system = kwargs["system"]
                     return super().generate(**kwargs)
             provider = CapturingProvider(['{"final":"Review complete."}'])
-            agent = DevelopmentAgent(provider, tmp, specialist="games")
+            agent = DevelopmentAgent(provider, tmp, specialist="game")
             self.assertEqual(agent.run("Plan an original puzzle game."), "Review complete.")
-            self.assertIn("SPECIALIST ROLE: games", provider.system)
+            self.assertIn("SPECIALIST ROLE: Game Developer (game)", provider.system)
             agent.tools.write_file("games/sample.py", "print('original')\n")
             with self.assertRaises(ToolError):
                 agent.tools.write_file("dist/streamiov-studio-app/sample.js", "unsafe scope")
@@ -127,7 +154,7 @@ class AgentTests(unittest.TestCase):
             agent = DevelopmentAgent(
                 FakeProvider(['{"tool":"run_game_checks","arguments":{}}', '{"final":"Checks complete."}']),
                 tmp,
-                specialist="games",
+                specialist="game",
             )
             # No manifests is a safe, surfaced tool error rather than executing arbitrary commands.
             self.assertEqual(agent.run("Check the game projects."), "Checks complete.")
@@ -137,7 +164,7 @@ class AgentTests(unittest.TestCase):
     def test_non_game_agent_cannot_request_game_check_tool(self):
         with tempfile.TemporaryDirectory() as tmp:
             agent = DevelopmentAgent(
-                FakeProvider(['{"tool":"run_game_checks","arguments":{}}']), tmp, specialist="software"
+                FakeProvider(['{"tool":"run_game_checks","arguments":{}}']), tmp, specialist="code"
             )
             with self.assertRaises(AgentError):
                 agent.run("Run game checks.")
@@ -148,6 +175,58 @@ class AgentTests(unittest.TestCase):
             tools.write_file("dist/streamiov-studio-app/new-module.js", "module.exports = {};\n")
             with self.assertRaises(ToolError):
                 tools.write_file("dist/streamiov-studio-app/secrets/token.json", "secret")
+
+
+    def test_tool_batch_is_fully_validated_before_first_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp, "ai", "must_not_exist.py")
+            p = FakeProvider([
+                '{"tool":"write_file","arguments":{"path":"ai/must_not_exist.py","content":"unsafe partial batch"}}'
+                '{"tool":"read_file","arguments":{"path":"README.md","unexpected":"extra"}}'
+            ])
+            with self.assertRaises(AgentError):
+                DevelopmentAgent(p, tmp).run("Do not partially execute invalid batches")
+            self.assertFalse(target.exists())
+
+    def test_tool_arguments_reject_non_string_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = FakeProvider(['{"tool":"read_file","arguments":{"path":42}}'])
+            with self.assertRaises(AgentError):
+                DevelopmentAgent(p, tmp).run("Reject malformed tool arguments")
+
+    def test_context_budget_preserves_original_task_and_newest_turn(self):
+        messages = [{"role": "user", "content": "ORIGINAL TASK"}]
+        for index in range(20):
+            messages.extend([
+                {"role": "assistant", "content": f"action-{index}-" + "a" * 3000},
+                {"role": "user", "content": f"result-{index}-" + "b" * 3000},
+            ])
+        trimmed = _trim_context(messages)
+        self.assertEqual(trimmed[0]["content"], "ORIGINAL TASK")
+        self.assertIn("result-19-", trimmed[-1]["content"])
+        self.assertLessEqual(sum(len(message["content"]) for message in trimmed), MAX_CONTEXT_CHARS)
+
+    def test_large_tool_output_is_truncated_before_next_model_call(self):
+        class CapturingProvider:
+            def __init__(self):
+                self.calls = 0
+                self.last_messages = None
+            def generate(self, **kwargs):
+                self.calls += 1
+                self.last_messages = kwargs["messages"]
+                class Reply:
+                    def __init__(self, content): self.content = content
+                if self.calls == 1:
+                    return Reply('{"tool":"read_file","arguments":{"path":"README.md"}}')
+                return Reply('{"final":"bounded output received"}')
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "README.md").write_text("x" * (MAX_TOOL_RESULT_CHARS + 1000), encoding="utf-8")
+            provider = CapturingProvider()
+            result = DevelopmentAgent(provider, tmp).run("Read the large file safely")
+            self.assertEqual(result, "bounded output received")
+            tool_context = provider.last_messages[-1]["content"]
+            self.assertIn("tool output truncated at 12,000 characters", tool_context)
+            self.assertLess(len(tool_context), MAX_TOOL_RESULT_CHARS + 200)
 
 
 class CliTests(unittest.TestCase):
@@ -165,8 +244,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.task, "inspect the project")
         self.assertEqual(args.project_root, "/tmp/streamiov")
         self.assertEqual(args.max_steps, 5)
-        self.assertEqual(args.role, "software")
-        self.assertEqual(parser.parse_args(["--task", "design a game", "--role", "games"]).role, "games")
+        self.assertEqual(args.specialist, "code")
+        self.assertEqual(parser.parse_args(["--task", "design a game", "--specialist", "game"]).specialist, "game")
 
     def test_doctor_cli_returns_success_only_when_provider_is_ready(self):
         from unittest.mock import patch

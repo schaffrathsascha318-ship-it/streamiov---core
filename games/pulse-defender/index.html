@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080b18"><title>Pulse Defender · STREAMIOV</title>
+<style>
+:root{color-scheme:dark;--cyan:#39f5e8;--violet:#7c70ff;--red:#ff557e}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:16px;background:radial-gradient(ellipse at top,#20224c,#080b18 68%);color:#f4f6ff;font:16px system-ui}main{width:min(900px,100%)}header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}.brand{color:var(--cyan);font-weight:900;letter-spacing:.16em}.brand span{color:var(--violet)}.stats{display:flex;gap:8px}.stat{background:#121a2d;border:1px solid #37436b;border-radius:10px;padding:8px 14px}.stat small{display:block;color:#aeb7d4;font-size:10px;text-transform:uppercase}.stat strong{font-size:20px}.stage{position:relative;border:1px solid #3b4770;border-radius:18px;overflow:hidden;background:#080d20;box-shadow:0 18px 70px #0009}canvas{display:block;width:100%;height:min(66vh,560px);min-height:340px;touch-action:none}.overlay{position:absolute;inset:0;display:grid;place-items:center;background:#080b18b9;text-align:center;padding:20px}.overlay[hidden]{display:none}.dialog{max-width:440px;background:#121a2df2;border:1px solid #535b91;border-radius:18px;padding:24px}.dialog h1{font-size:clamp(28px,6vw,44px);margin:0}.dialog p{color:#c3cbe4;line-height:1.5}.action{border:0;border-radius:999px;padding:13px 24px;background:linear-gradient(90deg,var(--cyan),#a0fff4);color:#07121b;font-weight:900;cursor:pointer}.hint{text-align:center;color:#aeb7d4;font-size:13px}
+</style></head><body><main><header><div class="brand">STREAMIOV <span>♥</span> ARCADE</div><div class="stats"><div class="stat"><small>Score</small><strong id="score">0</strong></div><div class="stat"><small>Schild</small><strong id="shield">5</strong></div><div class="stat"><small>Welle</small><strong id="wave">1</strong></div></div></header><section class="stage"><canvas id="field" width="900" height="560" aria-label="Verteidige den Kern gegen Drohnen"></canvas><div class="overlay" id="overlay"><div class="dialog"><h1>PULSE DEFENDER</h1><p>Schütze den Energiekern. Schieße die roten Drohnen ab, bevor sie durchbrechen.</p><button class="action" id="start">VERTEIDIGEN</button></div></div></section><p class="hint">← → / A-D bewegen · Leertaste schießen · Ziehen oder Touch zum Bewegen · Schuss automatisch bei Touch</p></main>
+<script>
+(()=>{'use strict';
+const canvas=document.getElementById('field'),ctx=canvas.getContext('2d'),$=id=>document.getElementById(id),W=900,H=560;
+let running=false,score=0,shield=5,wave=1,last=0,spawn=0,shot=0,raf=0,keys=new Set(),pointer=null,player={x:W/2,y:H-58},enemies=[],bullets=[];
+function reset(){score=0;shield=5;wave=1;spawn=0;shot=0;player.x=W/2;enemies=[];bullets=[];ui();}
+function ui(){$('score').textContent=score;$('shield').textContent=shield;$('wave').textContent=wave;}
+function fire(){bullets.push({x:player.x,y:player.y-22,vy:-520});}
+function addEnemy(){enemies.push({x:30+Math.random()*(W-60),y:-20,r:15+Math.random()*7,vy:75+wave*13,hp:1});}
+function draw(){ctx.fillStyle='#080d20';ctx.fillRect(0,0,W,H);for(let i=0;i<90;i++){ctx.globalAlpha=.18;ctx.fillStyle='#b6c7ff';ctx.fillRect((i*97)%W,(i*59+performance.now()*.009)%H,2,2)}ctx.globalAlpha=1;
+ctx.strokeStyle='#7c70ff';ctx.globalAlpha=.35;ctx.beginPath();ctx.arc(W/2,H+120,190,Math.PI,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
+ctx.save();ctx.translate(player.x,player.y);ctx.shadowBlur=22;ctx.shadowColor='#39f5e8';ctx.fillStyle='#39f5e8';ctx.beginPath();ctx.moveTo(0,-22);ctx.lineTo(22,18);ctx.lineTo(0,10);ctx.lineTo(-22,18);ctx.closePath();ctx.fill();ctx.restore();
+for(const b of bullets){ctx.fillStyle='#a6fff7';ctx.shadowBlur=12;ctx.shadowColor='#39f5e8';ctx.fillRect(b.x-3,b.y-12,6,18)}ctx.shadowBlur=0;
+for(const e of enemies){ctx.save();ctx.translate(e.x,e.y);ctx.shadowBlur=18;ctx.shadowColor='#ff557e';ctx.fillStyle='#ff557e';ctx.beginPath();ctx.moveTo(0,-e.r);ctx.lineTo(e.r,e.r);ctx.lineTo(-e.r,e.r);ctx.closePath();ctx.fill();ctx.restore();}
+ctx.fillStyle='#7c70ff';ctx.fillRect(W/2-60,H-8,120,3);
+}
+function end(){running=false;cancelAnimationFrame(raf);$('overlay').hidden=false;$('overlay').querySelector('h1').textContent='KERN VERLOREN';$('overlay').querySelector('p').textContent='Du hast '+score+' Punkte erreicht. Erreiche die nächste Welle und verteidige länger.';$('start').textContent='NEU STARTEN';}
+function tick(now){if(!running)return;const dt=Math.min((now-last)/1000,.04);last=now;
+if(keys.has('ArrowLeft')||keys.has('a')||keys.has('A'))player.x-=440*dt;if(keys.has('ArrowRight')||keys.has('d')||keys.has('D'))player.x+=440*dt;if(pointer!==null)player.x+=(pointer-player.x)*Math.min(1,dt*12);player.x=Math.max(22,Math.min(W-22,player.x));
+shot-=dt;if(keys.has(' ')&&shot<=0){fire();shot=.22}
+spawn-=dt;if(spawn<=0){addEnemy();spawn=Math.max(.28,1.15-wave*.07)}
+for(let i=bullets.length-1;i>=0;i--){const b=bullets[i];b.y+=b.vy*dt;if(b.y<-20)bullets.splice(i,1)}
+for(let i=enemies.length-1;i>=0;i--){const e=enemies[i];e.y+=e.vy*dt;if(e.y>H-40){enemies.splice(i,1);shield--;continue}for(let k=bullets.length-1;k>=0;k--){const b=bullets[k];if(Math.hypot(e.x-b.x,e.y-b.y)<e.r+8){enemies.splice(i,1);bullets.splice(k,1);score+=10;break}}}
+const nextWave=Math.floor(score/100)+1;if(nextWave>wave)wave=nextWave;ui();draw();if(shield<=0){end();return}raf=requestAnimationFrame(tick)}
+function start(){cancelAnimationFrame(raf);reset();$('overlay').hidden=true;running=true;last=performance.now();raf=requestAnimationFrame(tick)}
+$('start').addEventListener('click',start);window.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();keys.add(e.key)});window.addEventListener('keyup',e=>keys.delete(e.key));
+function aim(e){const r=canvas.getBoundingClientRect();pointer=(e.clientX-r.left)/r.width*W}canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);aim(e);if(e.pointerType!=='mouse')fire()});canvas.addEventListener('pointermove',e=>{if(e.buttons||e.pointerType==='touch')aim(e)});canvas.addEventListener('pointerup',()=>pointer=null);canvas.addEventListener('pointercancel',()=>pointer=null);reset();draw();
+})();
+</script></body></html>

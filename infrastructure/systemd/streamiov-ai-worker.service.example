@@ -1,0 +1,27 @@
+# Example only: review paths, service user and provider configuration before installation.
+# This file is not installed or enabled by CI.
+[Unit]
+Description=STREAMIOV AI Specialist Worker
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=streamiov
+Group=streamiov
+WorkingDirectory=/opt/streamiov
+EnvironmentFile=-/etc/streamiov/ai-worker.env
+ExecStart=/opt/streamiov/.venv/bin/python -m ai --worker-loop --queue-db /var/lib/streamiov/ai-tasks.sqlite3 --worker-id %H --project-root /opt/streamiov --poll-seconds 5
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=60
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/streamiov /var/lib/streamiov
+
+[Install]
+WantedBy=multi-user.target

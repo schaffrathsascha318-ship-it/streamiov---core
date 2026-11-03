@@ -1,7 +1,9 @@
 const MODEL_ID = "@cf/zai-org/glm-4.7-flash";
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_MESSAGES = 24;
-const MAX_MESSAGE_CHARS = 12_000;
+// Allow the agent to return several bounded file-read results in one tool reply.
+// The total prompt and request-body limits below remain the outer safeguards.
+const MAX_MESSAGE_CHARS = 32_000;
 const MAX_TOTAL_CHARS = 48_000;
 const MAX_OUTPUT_TOKENS = 4096;
 

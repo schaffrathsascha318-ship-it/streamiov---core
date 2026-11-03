@@ -43,6 +43,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from host.auth import AuthError, AuthStore, RequestRateLimiter
 from host.data_store import DataStore
+from host.forum import ForumError, ForumStore
 
 
 def local_ai_status() -> dict:
@@ -155,7 +156,10 @@ class StreamioVHTTPServer(ThreadingHTTPServer):
         self.site_root = site_root.resolve()
         self.auth_store = AuthStore(data_dir)
         self.data_store = DataStore(data_dir, raw_data_root)
+        self.forum_store = ForumStore(data_dir)
         self.auth_limiter = RequestRateLimiter()
+        self.forum_thread_limiter = RequestRateLimiter(limit=5, window_seconds=600)
+        self.forum_reply_limiter = RequestRateLimiter(limit=20, window_seconds=600)
         self.auth_work_slots = threading.BoundedSemaphore(4)
         self.tls_enabled = tls_enabled
         self.trust_loopback_proxy = trust_loopback_proxy
@@ -422,11 +426,90 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, payload)
         return True
 
+    def _forum_request(self, path: str) -> bool:
+        """Public forum reads; authenticated, same-origin, rate-limited writes."""
+        if path != "/api/forum/threads" and not path.startswith("/api/forum/threads/"):
+            return False
+
+        if self.command == "GET":
+            if path == "/api/forum/threads":
+                threads = self.server.forum_store.list_threads()
+                self._json(200, {"ok": True, "threads": threads})
+                return True
+            thread_id = path[len("/api/forum/threads/"):]
+            thread = self.server.forum_store.get_thread(thread_id)
+            if thread is None:
+                self._json(404, {"error": "thread_not_found"})
+            else:
+                self._json(200, {"ok": True, "thread": thread})
+            return True
+
+        if self.command != "POST":
+            self._json(405, {"error": "method_not_allowed"})
+            return True
+
+        if not self._request_origin_allowed():
+            self._json(403, {"error": "request_origin_not_allowed"})
+            return True
+        user = self.server.auth_store.user_for_token(self._auth_cookie_token())
+        if user is None:
+            self._json(401, {"error": "authentication_required"})
+            return True
+
+        if path == "/api/forum/threads":
+            if not self.server.forum_thread_limiter.allow("forum_thread", self._client_address()):
+                self._json_with_headers(429, {"error": "too_many_attempts"}, (("Retry-After", "600"),))
+                return True
+            try:
+                payload = self._read_json_object(max_bytes=16384)
+            except AuthError as exc:
+                self._json(400, {"error": str(exc)})
+                return True
+            if set(payload) != {"title", "body"}:
+                self._json(400, {"error": "Request must contain only title and body."})
+                return True
+            try:
+                thread = self.server.forum_store.create_thread(user, payload["title"], payload["body"])
+            except ForumError as exc:
+                self._json(400, {"error": str(exc)})
+                return True
+            self._json(201, {"ok": True, "thread": thread})
+            return True
+
+        prefix = "/api/forum/threads/"
+        if path.startswith(prefix) and path.endswith("/replies"):
+            thread_id = path[len(prefix):-len("/replies")]
+            if not self.server.forum_reply_limiter.allow("forum_reply", self._client_address()):
+                self._json_with_headers(429, {"error": "too_many_attempts"}, (("Retry-After", "600"),))
+                return True
+            try:
+                payload = self._read_json_object(max_bytes=8192)
+            except AuthError as exc:
+                self._json(400, {"error": str(exc)})
+                return True
+            if set(payload) != {"body"}:
+                self._json(400, {"error": "Request must contain only body."})
+                return True
+            try:
+                reply = self.server.forum_store.create_reply(user, thread_id, payload["body"])
+            except ForumError as exc:
+                message = str(exc)
+                status = 404 if message == "Thema wurde nicht gefunden." else 423 if "gesperrt" in message else 400
+                self._json(status, {"error": message})
+                return True
+            self._json(201, {"ok": True, "reply": reply})
+            return True
+
+        self._json(404, {"error": "not_found"})
+        return True
+
     def do_GET(self) -> None:
         path = urlsplit(self.path).path
         if self._auth_request(path):
             return
         if self._catalog_request(path):
+            return
+        if self._forum_request(path):
             return
         if path == "/healthz":
             self._json(200, {
@@ -449,6 +532,9 @@ class Handler(BaseHTTPRequestHandler):
                 "catalog_ready": data_summary["ok"],
                 "catalog_read_only": True,
                 "catalog_counts": data_summary["counts"],
+                "forum_ready": True,
+                "forum_read_only": False,
+                "forum_writes_require_session": True,
                 "data_store": {
                     "ok": data_summary["ok"],
                     "read_only": True,
@@ -488,6 +574,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/v1/ai/tasks":
             self._ai_task_request()
             return
+        if self._forum_request(path):
+            return
         if self._auth_request(path):
             return
         self._json(405, {"error": "method_not_allowed"})
@@ -518,6 +606,16 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Create the first/local account interactively; requires an owner terminal and does not start the server.")
     parser.add_argument("--enable-registration", action="store_true",
                         help="Enable web self-registration (keep off until remote host security review is complete).")
+    parser.add_argument("--forum-list", action="store_true",
+                        help="List recent forum threads and replies for moderation; does not start the server.")
+    parser.add_argument("--forum-lock", metavar="THREAD_ID",
+                        help="Lock a forum thread; does not start the server.")
+    parser.add_argument("--forum-unlock", metavar="THREAD_ID",
+                        help="Unlock a forum thread; does not start the server.")
+    parser.add_argument("--forum-delete-thread", metavar="THREAD_ID",
+                        help="Soft-delete a forum thread; does not start the server.")
+    parser.add_argument("--forum-delete-reply", metavar="REPLY_ID",
+                        help="Soft-delete a forum reply; does not start the server.")
     return parser
 
 
@@ -525,6 +623,9 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.reset_password and args.create_account:
         raise SystemExit("Choose either --reset-password or --create-account.")
+    if (args.forum_list or args.forum_lock or args.forum_unlock
+            or args.forum_delete_thread or args.forum_delete_reply) and (args.reset_password or args.create_account):
+        raise SystemExit("Forum moderation cannot be combined with account maintenance.")
     if args.reset_password or args.create_account:
         if not sys.stdin.isatty():
             raise SystemExit("Account create/reset requires an interactive local terminal.")
@@ -545,6 +646,36 @@ def main(argv: list[str] | None = None) -> int:
         if not updated:
             raise SystemExit("Account not found; no change made.")
         print("Password updated; all existing sessions were revoked.")
+        return 0
+    forum_actions = [
+        args.forum_list, args.forum_lock, args.forum_unlock,
+        args.forum_delete_thread, args.forum_delete_reply,
+    ]
+    if any(forum_actions):
+        if sum(1 for action in forum_actions if action) != 1:
+            raise SystemExit("Choose exactly one forum moderation action.")
+        if args.reset_password or args.create_account:
+            raise SystemExit("Forum moderation cannot be combined with account maintenance.")
+        store = ForumStore(args.data_dir)
+        if args.forum_list:
+            for item in store.moderation_snapshot():
+                print(json.dumps(item, ensure_ascii=False))
+            return 0
+        if args.forum_lock:
+            changed = store.set_locked(args.forum_lock, True)
+            action = "locked"
+        elif args.forum_unlock:
+            changed = store.set_locked(args.forum_unlock, False)
+            action = "unlocked"
+        elif args.forum_delete_thread:
+            changed = store.delete_thread(args.forum_delete_thread)
+            action = "deleted"
+        else:
+            changed = store.delete_reply(args.forum_delete_reply)
+            action = "deleted"
+        if not changed:
+            raise SystemExit("Forum entry not found or already changed; no change made.")
+        print(f"Forum entry {action}.")
         return 0
     if not 1024 <= args.port <= 65535:
         raise SystemExit("Port must be between 1024 and 65535.")

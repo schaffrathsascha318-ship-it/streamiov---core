@@ -2,6 +2,8 @@
 
 Streamiov is a downloadable desktop studio for streamers. The goal is to give creators one place to prepare a broadcast, manage its sources and scenes, and send it to the streaming service they use.
 
+**Von Streamern für Streamer. Zum Nulltarif.**
+
 ## Current state
 
 The desktop shell is an Electron app in `dist/streamiov-studio-app/`. Its build workflow targets Windows x64, Linux x64, and Linux ARM64. The Studio currently includes local camera and microphone previews, a persistent scene and source model, system diagnostics, and a synthetic audio/video encoding check.
@@ -15,6 +17,7 @@ The download page is maintained at `dist/streamiov-homepage-worker/public/downlo
 The packaged Electron app does not include the optional Python `modules/` tree. Features that need it report `not_bundled` with a clear explanation instead of failing with an import error. The same guard applies in a repository checkout when those optional modules are absent; if they are present, the handlers use them.
 
 The local host also builds a **read-only catalog** from the JSON files under `data/` (`game_actions/`, `music/`, `overlays/`, `stickers/`, and game preparation specs). It stores that catalog in its own SQLite database under the host data directory and never opens the legacy `data/db/*.sqlite3` account databases. The Studio gift, game, and music panels load this catalog from the host. The catalog contains 18 free StreamioV gift previews, 2 locally registered test games, 3 test actions, 1 test playlist, and 5 local template specifications. It contains no TikTok gift IDs, no purchased gifts, and no platform credentials.
+
 ## Product milestones
 
 1. **Reliable downloadable app** — make a clean install and first launch work on each advertised operating system, bundle the media encoder with license notices/source where required, show useful setup guidance, and publish versioned installers.
@@ -46,7 +49,7 @@ npm ci
 npm start
 ```
 
-Electron loads `regie-v2.html` directly, so no prestart copy step is required. Creating installers uses the platform-specific scripts in the same package:
+Electron loads `regie-v2.html` directly, so no UI copy step is required. The npm scripts still use Python to sync the packaged game library and the canonical TikTok OAuth service before launch and packaging. Creating installers uses the platform-specific scripts in the same package:
 
 ```sh
 npm run dist:win
@@ -66,7 +69,32 @@ Installer builds are also configured in `.github/workflows/studio-build.yml`.
 - `ai/` and `infrastructure/cloudflare/streamiov-ai-worker/` — AI agent foundation and optional model worker.
 - `tests/` — automated checks and media pipeline smoke test.
 
+## Projektbereiche
+
+- **Studio:** Electron-Desktop-Regie und Geräte-/Medienintegration.
+- **Mobile und Chromebook:** gemeinsame installierbare Web-Regie/PWA unter `/app/`.
+- **Core:** Plattformdienste, sichere Konten und Cloud-Anbindung.
+- **Geschenke:** STREAMIOV-native Geschenklogik und getrennte Ledger-Basis.
+- **Spiele:** eigenständige Spielebibliothek und kontrollierte Veröffentlichungen.
+
+## Verbindliche Statusregeln
+
+Ein grüner Build beweist nur, dass der Build erfolgreich war. Er beweist nicht automatisch, dass ein Paket auf echter Hardware installiert wurde, dass Mediengeräte funktionieren oder dass ein Live-Stream produktiv läuft. Solche Abnahmen werden separat dokumentiert.
+
+Eine installierbare PWA ist keine native Android-APK oder iOS-App. Ein TikTok-Sandbox-OAuth-Test ist keine echte TikTok-Autorisierung. Ein Geschenk-Ledger ist keine Zahlungsanbieter- oder Auszahlungslösung.
+
+Keine Zugangsdaten, Tokens oder privaten Schlüssel in Issues, Commits oder Chatnachrichten einfügen.
+
 ## Development notes
 
 Do not describe a platform as connected, a broadcast as live, or a feature as verified unless the real integration has been exercised. Keep streaming credentials out of source files and logs. Platform-specific sign-in must use the platform's official flow.
 
+## Sicherheit und Laufzeitdaten
+
+Lokale Secrets, Token-Dateien, Wunschbox-Anfragen, Laufzeitprotokolle und PID-Dateien gehören nicht in das öffentliche Repository. Die Ignore-Regeln sind dafür eingerichtet. Bereits historisch eingecheckte Geheimnisse müssen unabhängig davon widerrufen/rotiert und ihre Historie gesondert bereinigt werden.
+
+## Gesamtprojekt und Abnahme
+
+Der verbindliche Fertigstellungs- und Abnahmestand wird in
+[Issue #3](https://github.com/schaffrathsascha318-ship-it/streamiov---core/issues/3) geführt.
+Die verbleibenden Integrations- und Sicherheitsarbeiten sind dort einzeln dokumentiert.

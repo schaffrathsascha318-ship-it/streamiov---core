@@ -1,0 +1,30 @@
+{
+  "id": "echo-grid",
+  "name": "Echo Grid",
+  "version": "0.1.0",
+  "description": "Ein eigenständiges Muster- und Gedächtnisspiel mit wachsender Neon-Sequenz.",
+  "entry": "index.html",
+  "runtime": "browser",
+  "controls": {
+    "keyboard": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9"
+    ],
+    "pointer": true,
+    "touch": true
+  },
+  "dependencies": [],
+  "status": "development",
+  "release": {
+    "automatedTestsPassed": true,
+    "gameplayVerified": false,
+    "released": false
+  }
+}

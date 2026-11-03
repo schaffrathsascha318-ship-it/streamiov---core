@@ -83,7 +83,7 @@ class HomepageDownloadPageTests(unittest.TestCase):
         self.assertEqual(len(names), 7)
         self.assertEqual(len(sizes), 7)
         self.assertEqual(len(hashes), 7)
-        self.assertEqual(sum(sizes), 723390)
+        self.assertEqual(sum(sizes), 852067)
         if not (DOWNLOADS / names[0]).is_file():
             self.skipTest("download parts are release artifacts and are not part of the source tree")
 
@@ -99,7 +99,7 @@ class HomepageDownloadPageTests(unittest.TestCase):
 
         self.assertEqual(
             hashlib.sha256(assembled).hexdigest(),
-            "e0206821b9f3e015c765c6aa9c07f6677390bbfe5d56aaa67ab1832fbad295ba",
+            "70acd025f9be01b0e4a5e74a735a88f12b208290b69ce084550d721716de1a3c",
         )
         with zipfile.ZipFile(io.BytesIO(assembled)) as archive:
             names_in_zip = set(archive.namelist())
@@ -119,8 +119,8 @@ class HomepageDownloadPageTests(unittest.TestCase):
         html = (HOMEPAGE / "index.html").read_text(encoding="utf-8")
         self.assertIn("Quellcode-Snapshot", html)
         self.assertIn("kein Installer", html)
-        self.assertIn("723.390 Bytes", html)
-        self.assertIn("e0206821b9f3e015c765c6aa9c07f6677390bbfe5d56aaa67ab1832fbad295ba", html)
+        self.assertIn("852.067 Bytes", html)
+        self.assertIn("70acd025f9be01b0e4a5e74a735a88f12b208290b69ce084550d721716de1a3c", html)
         self.assertIn('href="/downloads/SHA256SUMS.txt"', html)
         self.assertIn("noch nicht in den Installern vom 2.11.", html)
 

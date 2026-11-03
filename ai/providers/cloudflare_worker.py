@@ -18,6 +18,9 @@ class CloudflareWorkerError(ProviderError):
 
 
 DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash"
+MAX_MESSAGE_CHARS = 32_000
+MAX_PROMPT_CHARS = 48_000
+MAX_REQUEST_BYTES = 64 * 1024
 
 
 def _worker_url(value: str) -> str:
@@ -60,7 +63,11 @@ def _http_error_detail(exc: HTTPError, token: str) -> str:
         if isinstance(body, dict):
             error = body.get("error")
             if isinstance(error, dict):
-                detail = str(error.get("message") or error.get("detail") or error.get("code") or "")
+                message = error.get("message") or error.get("detail") or ""
+                code = error.get("code") or ""
+                # Keep the machine-readable code: Workers often return a generic
+                # message such as "Chat request failed validation." for every 400.
+                detail = f"{message} (code: {code})" if message and code else str(message or code)
             elif isinstance(error, str):
                 detail = error
             if not detail:
@@ -69,6 +76,38 @@ def _http_error_detail(exc: HTTPError, token: str) -> str:
     if token:
         detail = detail.replace(token, "[redacted]")
     return detail[:500]
+
+
+def _validated_payload(model: str, system: str, messages: list[dict[str, str]]) -> dict:
+    """Validate the Worker request limits before sending any prompt data."""
+    if not isinstance(system, str) or not isinstance(messages, list):
+        raise CloudflareWorkerError("System prompt and messages must be text and a message list.")
+    all_messages = [{"role": "system", "content": system}, *messages]
+    total_chars = 0
+    for message in all_messages:
+        if not isinstance(message, dict) or not isinstance(message.get("role"), str) or not isinstance(message.get("content"), str):
+            raise CloudflareWorkerError("Every chat message must contain text role and content fields.")
+        content_length = len(message["content"])
+        if content_length > MAX_MESSAGE_CHARS:
+            raise CloudflareWorkerError(
+                f"Chat message exceeds the Worker limit of {MAX_MESSAGE_CHARS} characters."
+            )
+        total_chars += content_length
+    if total_chars > MAX_PROMPT_CHARS:
+        raise CloudflareWorkerError(
+            f"Combined chat prompt exceeds the Worker limit of {MAX_PROMPT_CHARS} characters."
+        )
+    payload = {
+        "model": model,
+        "stream": False,
+        "temperature": 0.1,
+        "messages": all_messages,
+    }
+    if len(json.dumps(payload).encode("utf-8")) > MAX_REQUEST_BYTES:
+        raise CloudflareWorkerError(
+            f"Serialized chat request exceeds the Worker limit of {MAX_REQUEST_BYTES} bytes."
+        )
+    return payload
 
 
 class CloudflareWorkersAIProvider:
@@ -106,12 +145,7 @@ class CloudflareWorkersAIProvider:
             }
 
     def generate(self, *, system: str, messages: list[dict[str, str]]) -> ModelReply:
-        payload = {
-            "model": self.model,
-            "stream": False,
-            "temperature": 0.1,
-            "messages": [{"role": "system", "content": system}, *messages],
-        }
+        payload = _validated_payload(self.model, system, messages)
         data = self._request("POST", "/v1/chat/completions", payload)
         try:
             content = data["choices"][0]["message"]["content"]

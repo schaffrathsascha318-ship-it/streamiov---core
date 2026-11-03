@@ -1,0 +1,21 @@
+{
+  "id": "/app/",
+  "name": "STREAMIOV – Mobile Regie",
+  "short_name": "STREAMIOV",
+  "description": "Die geräteübergreifende STREAMIOV Regie als installierbare Web-App.",
+  "lang": "de",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#090d13",
+  "theme_color": "#090d13",
+  "icons": [
+    {
+      "src": "/app/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

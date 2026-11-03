@@ -1,0 +1,40 @@
+name: STREAMIOV Game Library Checks
+
+on:
+  pull_request:
+    paths:
+      - "games/**"
+      - ".github/workflows/game-library.yml"
+      - ".github/workflows/release-game.yml"
+  push:
+    branches: [main, streamiov-build-setup-clean]
+    paths:
+      - "games/**"
+      - ".github/workflows/game-library.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  game-manifest-and-source-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate independent game registry and source packages
+        run: node --test games/tests/library.test.cjs
+
+      - name: Install Playwright for real browser smoke tests
+        run: npm install --prefix /tmp/streamiov-playwright playwright@1.57.0
+
+      - name: Install Chromium
+        run: /tmp/streamiov-playwright/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Run gameplay browser smoke tests
+        env:
+          NODE_PATH: /tmp/streamiov-playwright/node_modules
+        run: node --test games/tests/browser-smoke.cjs

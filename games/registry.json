@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "games": [
+    {
+      "id": "neon-relay",
+      "name": "Neon Relay",
+      "version": "0.1.0",
+      "path": "games/neon-relay",
+      "status": "development",
+      "independent": true,
+      "automatedTestsPassed": true,
+      "gameplayVerified": false,
+      "released": false
+    },
+    {
+      "id": "echo-grid",
+      "name": "Echo Grid",
+      "version": "0.1.0",
+      "path": "games/echo-grid",
+      "status": "development",
+      "independent": true,
+      "automatedTestsPassed": true,
+      "gameplayVerified": false,
+      "released": false
+    },
+    {
+      "id": "pulse-defender",
+      "name": "Pulse Defender",
+      "version": "0.1.0",
+      "path": "games/pulse-defender",
+      "status": "development",
+      "independent": true,
+      "automatedTestsPassed": true,
+      "gameplayVerified": false,
+      "released": false
+    }
+  ]
+}

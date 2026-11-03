@@ -83,6 +83,14 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
  line-height:1.8;background:#0b1118;padding:9px;border-radius:7px}
 .bottom{grid-column:1/-1;display:grid;grid-template-columns:1.3fr 1fr 1fr;
  gap:12px}
+#game-library-panel[hidden]{display:none}
+.game-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.game-card{background:#0c131b;border:1px solid var(--line);border-radius:9px;padding:12px;min-width:0}
+.game-card h3{margin:0 0 6px;font-size:16px;color:var(--text)}
+.game-card p{min-height:44px;color:var(--muted);font-size:12px;line-height:1.45}
+.game-status{display:inline-block;border:1px solid #695c35;border-radius:20px;padding:4px 8px;color:var(--amber);font-size:10px;letter-spacing:.08em}
+.game-card button{width:100%;margin-top:10px}
+@media(max-width:700px){.game-list{grid-template-columns:1fr}}
 .pill{font-size:10px;border:1px solid var(--line);border-radius:20px;
  padding:4px 8px;color:var(--muted)}
 dialog{width:min(900px,calc(100vw - 32px));max-height:85vh;overflow:auto;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px}
@@ -136,12 +144,29 @@ dialog::backdrop{background:#000b}
  to{transform:translateY(105vh) rotate(320deg);opacity:0}}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
  clip:rect(0,0,0,0);white-space:nowrap;border:0}
+#mobile-content-stage{display:none}
+#mobile-regie-toggle{display:none}
+
 @media(max-width:700px){
  header{height:auto;padding:12px;gap:10px;flex-wrap:wrap}
+ header .status{width:100%;justify-content:space-between;gap:6px;font-size:11px}
+ #mobile-content-stage{display:block;margin:8px 8px 0;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+ #mobile-content-stage .mobile-stage-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+ #mobile-content-stage .mobile-stage-head strong{font-size:11px;letter-spacing:1.2px}
+ #mobile-content-stage .mobile-game-view{position:relative;display:grid;place-items:center;min-height:190px;aspect-ratio:16/9;max-height:42svh;overflow:hidden;border:1px solid #334354;border-radius:9px;background:radial-gradient(ellipse at 50% 40%,#263d50 0,#131b2a 52%,#05080c 100%)}
+ #mobile-content-stage .mobile-game-view:after{content:"";position:absolute;inset:8px;border:1px solid #ffffff18;pointer-events:none}
+ #mobile-content-stage .mobile-stage-copy{position:relative;z-index:1;text-align:center;padding:12px}
+ #mobile-content-stage .mobile-stage-copy b{display:block;font-size:clamp(18px,6vw,28px);letter-spacing:2px}
+ #mobile-content-stage .mobile-stage-copy small{display:block;margin-top:8px;color:var(--cyan);font-size:11px}
+ #mobile-content-stage .mobile-stage-note{margin:8px 2px 0;color:var(--muted);font-size:11px;line-height:1.4}
+ #mobile-regie-toggle{display:block;width:calc(100% - 16px);margin:8px auto 0;min-height:44px;font-weight:800;border-color:var(--violet)}
  main{display:flex;flex-direction:column;padding:8px}
+ main.mobile-regie-collapsed{display:none}
  .monitors{grid-template-columns:1fr}
  .right-stack,.bottom{display:grid;grid-template-columns:1fr}
  .mixer{grid-template-columns:repeat(2,1fr)}
+ .panel{scroll-margin-top:8px}
+ button{min-height:40px}
 }
 </style>
 </head>
@@ -201,7 +226,23 @@ dialog::backdrop{background:#000b}
 
 <div class="gift-overlay" id="giftOverlay" aria-hidden="true"></div>
 
-<main>
+<section id="mobile-content-stage" aria-label="Spiel und Inhalt">
+ <div class="mobile-stage-head">
+  <strong>SPIEL / INHALT</strong>
+  <span class="pill">MOBILANSICHT</span>
+ </div>
+ <div class="mobile-game-view" role="img" aria-label="Bereich für Spiel, Kamera oder laufenden Inhalt">
+  <div class="mobile-stage-copy">
+   <b>SPIEL · VIDEO · LIVE</b>
+   <small>INHALT BLEIBT OBEN · REGIE DARUNTER</small>
+  </div>
+ </div>
+ <p class="mobile-stage-note">Der Inhaltsbereich ist vom Studio getrennt. Die tatsächliche Spiel-/Bildschirmaufnahme hängt vom unterstützten Geräteadapter und der Medienpipeline ab.</p>
+</section>
+<button id="mobile-regie-toggle" type="button" aria-controls="studio-regie" aria-expanded="true">REGIE / STUDIO AUSBLENDEN</button>
+
+<main id="studio-regie">
+
  <section class="panel">
   <div class="panel-title">SZENEN / PRODUKTION</div>
   <div class="pad">
@@ -225,6 +266,8 @@ dialog::backdrop{background:#000b}
    <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12px;color:var(--muted)">
     Hintergrund <input id="sceneBackground" type="color" value="#10151e" style="width:42px;height:28px;background:none;border:1px solid var(--line);border-radius:6px">
    </label>
+   <small style="display:block;color:var(--muted);margin-top:7px">Quellen und Layout werden pro Szene lokal gespeichert. Aufnahme, Compositing und Encoder-Anbindung sind davon getrennte Entwicklungsschritte.</small>
+
    <section class="panel section" id="deviceCapturePanel">
     <div class="panel-title">ECHTE GERÄTE / KAMERA & MIKROFON</div>
     <div class="pad">
@@ -269,6 +312,7 @@ dialog::backdrop{background:#000b}
     <button class="fade" id="fade">FADE</button>
     <span class="pill">ÜBERGANG: 300 MS</span>
     <button id="take">TAKE → PROGRAMM</button>
+    <button id="openProgramOutput" type="button">REGIE AUF 2. BILDSCHIRM</button>
    </div>
   </div>
   <div class="panel section">
@@ -370,15 +414,16 @@ dialog::backdrop{background:#000b}
    <div class="panel">
     <div class="panel-title">3 · PLATTFORM</div>
     <div class="pad">
-     <label for="platformSelect">Streaming-Plattform</label>
+     <label for="platformSelect">Einzige Streaming-Plattform</label>
      <select id="platformSelect">
-      <option value="tiktok">TikTok LIVE</option><option value="youtube">YouTube</option>
-      <option value="twitch">Twitch</option><option value="kick">Kick</option>
-      <option value="facebook">Facebook</option><option value="streamiov">Streamiov</option>
+      <option value="tiktok">TikTok LIVE</option>
      </select>
      <p id="platformConnectionState" class="pill" role="status">Nicht verbunden</p>
-     <button id="platformConnectInfo" type="button">Verbindungsstatus prüfen</button>
-     <small>Die Auswahl speichert nur deine bevorzugte Plattform. Eine echte Anmeldung erfolgt erst über den jeweiligen offiziellen OAuth-Flow.</small>
+     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button id="platformConnectInfo" type="button">TikTok-Konto verbinden</button>
+      <button id="platformDisconnect" type="button" hidden>Verbindung trennen</button>
+     </div>
+     <small id="platformHelp">TikTok wird über den offiziellen Login sicher mit STREAMIOV Studio verbunden. Andere Plattformen bleiben getrennt, bis ihre eigenen Freigaben und Integrationen fertig sind.</small>
     </div>
    </div>
    <div class="panel">
@@ -409,10 +454,32 @@ dialog::backdrop{background:#000b}
    </div>
   </section>
 
+  <section class="bottom" id="game-library-panel" hidden>
+   <div class="panel" style="grid-column:1/-1">
+    <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center">
+     <span>STREAMIOV SPIELEBIBLIOTHEK</span>
+     <button id="closeGameLibrary" type="button">SCHLIESSEN</button>
+    </div>
+    <div class="pad">
+     <p style="color:var(--muted);margin-top:0">Eigenständige STREAMIOV-Spiele. Entwicklungsstände sind als Testversion gekennzeichnet; nur separat geprüfte Spiele werden veröffentlicht.</p>
+     <div id="gameLibraryList" class="game-list" aria-live="polite"></div>
+     <p id="gameLibraryStatus" role="status" aria-live="polite" style="color:var(--muted);font-size:12px">Spielebibliothek wird geladen …</p>
+    </div>
+   </div>
+  </section>
+
  </main>
 
 <script>
 const $=id=>document.getElementById(id);
+const mobileRegieToggle=$("mobile-regie-toggle");
+if(mobileRegieToggle){
+ mobileRegieToggle.addEventListener("click",()=>{
+  const collapsed=$("studio-regie").classList.toggle("mobile-regie-collapsed");
+  mobileRegieToggle.setAttribute("aria-expanded",String(!collapsed));
+  mobileRegieToggle.textContent=collapsed?"REGIE / STUDIO EINBLENDEN":"REGIE / STUDIO AUSBLENDEN";
+ });
+}
 let selected="STARTING SOON";
 let programOutputAlpha=1;
 let sceneState=null;
@@ -497,6 +564,18 @@ async function createScene(){
  const state=await sceneCommand({action:"create",name});
  if(state)log("Eigene Szene dauerhaft im Studio-Profil gespeichert: "+sceneName(state.previewSceneId));
 }
+$("openProgramOutput").onclick=async()=>{
+ const button=$("openProgramOutput");button.disabled=true;
+ try{
+  if(!window.streamiovStudio?.moveRegieToDisplay)throw new Error("Display-Steuerung ist in diesem Build nicht verfügbar.");
+  const displays=await window.streamiovStudio.getDisplays();
+  const external=displays?.displays?.find(display=>!display.primary);
+  const result=await window.streamiovStudio.moveRegieToDisplay(external?.id);
+  if(!result?.ok)throw new Error(result?.error||"Regie konnte nicht auf den Bildschirm verschoben werden.");
+  log(result.primary?"Nur ein Bildschirm erkannt – Regie bleibt auf dem Hauptbildschirm.":"STREAMIOV-Regie läuft jetzt auf dem zweiten Bildschirm. Spiel und Inhalt bleiben auf Bildschirm 1 frei.");
+ }catch(error){log("Zweitbildschirm-Regie: "+String(error.message||error));}
+ finally{button.disabled=false;}
+};
 async function take(){
  const state=await sceneCommand({action:"take"});
  if(!state)return;
@@ -721,6 +800,7 @@ $("sceneBackground").onchange=async event=>{
  await sceneCommand({action:"set-background",color:event.target.value});
  log("Szenenhintergrund gespeichert: "+event.target.value);
 };
+
 
 // Reale lokale Kamera- und Mikrofonaufnahme über Chromium/Electron MediaDevices.
 // Vorschautests bleiben lokal; die Tracks werden nur beim ausdrücklichen Streamstart übertragen.
@@ -1403,6 +1483,10 @@ async function renderGamesTool(body){
   }
   grid.append(card);
  }
+ body.append(toolButton("Lokale Spielebibliothek öffnen",()=>{
+  $("toolDialog").close();
+  toggleGameLibrary();
+ }));
 }
 async function renderAiTool(body){
  const loginApi=window.streamiovStudio?.aiLogin;
@@ -1516,6 +1600,41 @@ for(const id of Object.keys(mixerDefaults)){
   if(status)status.textContent="Lokaler Mix: Mikrofon "+mixerPercent("mixerMic")+" %, System "+mixerPercent("mixerSystem")+" %, Master "+mixerPercent("mixerMaster")+" %.";
  });
 }
+async function loadGameLibrary(){
+ const list=$("gameLibraryList"),status=$("gameLibraryStatus");
+ list.replaceChildren();status.textContent="Lade lokale Spielepakete …";
+ if(!window.streamiovStudio?.listGames){status.textContent="Spielebibliothek ist in dieser Laufzeit nicht verfügbar. Desktop-Paket neu erstellen.";return;}
+ try{
+  const result=await window.streamiovStudio.listGames();
+  if(!result?.ok)throw new Error(result?.error||"Unbekannter Fehler");
+  if(!result.games.length){status.textContent="Noch keine Spiele im lokalen Paket.";return;}
+  for(const game of result.games){
+   const card=document.createElement("article");card.className="game-card";
+   const title=document.createElement("h3");title.textContent=game.name;
+   const description=document.createElement("p");description.textContent=game.description||"Eigenständiges STREAMIOV-Spiel.";
+   const badge=document.createElement("span");badge.className="game-status";
+   badge.textContent=game.released?"VERÖFFENTLICHT":game.gameplayVerified?"SPIELPRÜFUNG ERFOLGT":"TESTVERSION · ENTWICKLUNG";
+   const button=document.createElement("button");button.type="button";button.textContent="SPIEL ÖFFNEN";
+   button.addEventListener("click",async()=>{
+    button.disabled=true;
+    try{
+     const opened=await window.streamiovStudio.openGame(game.id);
+     if(!opened?.ok)throw new Error(opened?.error||"Spiel konnte nicht geöffnet werden");
+     log("Spiel geöffnet: "+game.name+" ("+(opened.status||"Status unbekannt")+")");
+    }catch(error){status.textContent=String(error.message||error);log(status.textContent);}
+    finally{button.disabled=false;}
+   });
+   card.append(title,description,badge,button);list.append(card);
+  }
+  status.textContent=result.games.length+" eigenständige Spiele geladen. Testversionen sind noch keine öffentlichen Releases.";
+ }catch(error){status.textContent="Spielebibliothek konnte nicht geladen werden: "+String(error.message||error).slice(0,180);}
+}
+function toggleGameLibrary(){
+ const panel=$("game-library-panel");panel.hidden=!panel.hidden;
+ if(!panel.hidden)loadGameLibrary();
+}
+$("closeGameLibrary").onclick=()=>{$("game-library-panel").hidden=true;};
+
 document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("input",()=>{
  r.closest(".channel").querySelector(".meter i").style.width=r.value+"%";
 }));
@@ -1531,6 +1650,7 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
  try {
   const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
   for (const id of ids) if (byId(id)) byId(id).value = String(saved[id] ?? defaults[id] ?? '');
+  byId('platformSelect').value = 'tiktok';
  } catch (_) { status.textContent = 'Gespeicherte Einstellungen konnten nicht gelesen werden.'; }
  byId('saveCreatorSettings').addEventListener('click', () => {
   const name = byId('streamerName').value.trim();
@@ -1548,10 +1668,90 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
    status.textContent = 'Einstellungen lokal gespeichert. Noch nicht an einen Streamingdienst übertragen.';
   } catch (_) { status.textContent = 'Speichern fehlgeschlagen – lokaler Speicher nicht verfügbar.'; }
  });
- byId('platformConnectInfo').addEventListener('click', () => {
-  const platform = byId('platformSelect').selectedOptions[0].textContent;
-  byId('platformConnectionState').textContent = platform + ': nicht verbunden – offizieller Login/OAuth erforderlich.';
+ const connection = byId('platformConnectionState');
+ const connectButton = byId('platformConnectInfo');
+ const disconnectButton = byId('platformDisconnect');
+ const platformHelp = byId('platformHelp');
+ let tiktokConnected = false;
+
+ function renderTikTokStatus(result) {
+  tiktokConnected = result?.status === 'connected';
+  connection.textContent = result?.ok === false
+   ? 'Konfiguration fehlt: ' + (result.error || 'Sandbox-Zugangsdaten fehlen.')
+   : tiktokConnected
+    ? 'TikTok-Konto verbunden · Sandbox · ' + (result.openIdPresent ? 'Konto bestätigt' : 'Token gespeichert')
+    : result?.status === 'token_expired'
+     ? 'Token abgelaufen · bitte erneut verbinden'
+     : 'Nicht verbunden · TikTok-Login erforderlich';
+  connectButton.textContent = tiktokConnected ? 'Verbindung aktualisieren' : 'Mit TikTok verbinden';
+  disconnectButton.hidden = !tiktokConnected;
+  if (result?.status === 'configuration_required') {
+   platformHelp.textContent = 'Im sicheren App-/Server-Secret-Speicher fehlen STREAMIOV_TIKTOK_SANDBOX_CLIENT_KEY, CLIENT_SECRET, REDIRECT_URI oder TOKEN_ENCRYPTION_KEY.';
+  } else {
+   platformHelp.textContent = 'Die Anmeldung läuft über TikTok. Streamiov speichert Tokens verschlüsselt lokal im geschützten App-Datenbereich.';
+  }
+ }
+
+ async function refreshTikTokStatus() {
+  if (!window.streamiovStudio?.tiktokStatus) {
+   renderTikTokStatus({ok:false,status:'configuration_required',error:'Electron-Schnittstelle nicht verfügbar.'});
+   return;
+  }
+  try { renderTikTokStatus(await window.streamiovStudio.tiktokStatus()); }
+  catch (error) { connection.textContent = 'Status konnte nicht geladen werden: ' + error.message; }
+ }
+
+ byId('platformSelect').addEventListener('change', () => {
+  const platform = byId('platformSelect').value;
+  const isTikTok = platform === 'tiktok';
+  connectButton.disabled = !isTikTok;
+  disconnectButton.hidden = !isTikTok || !tiktokConnected;
+  connection.textContent = isTikTok
+   ? 'TikTok-Verbindungsstatus wird geladen …'
+   : byId('platformSelect').selectedOptions[0].textContent + ': Integration noch nicht aktiviert.';
+  if (isTikTok) refreshTikTokStatus();
  });
+
+ connectButton.addEventListener('click', async () => {
+  if (byId('platformSelect').value !== 'tiktok') return;
+  connectButton.disabled = true;
+  connection.textContent = 'TikTok-Anmeldung wird vorbereitet …';
+  try {
+   const result = await window.streamiovStudio.tiktokConnect();
+   if (result.ok) {
+    connection.textContent = 'TikTok-Login im Browser geöffnet. Anmeldung dort abschließen …';
+    log('TikTok-OAuth-Anmeldung im Browser geöffnet.');
+   } else {
+    connection.textContent = 'Anmeldung nicht gestartet: ' + result.error;
+    log('TikTok-Verbindung fehlgeschlagen: ' + result.error);
+   }
+  } catch (error) {
+   connection.textContent = 'TikTok-Verbindung fehlgeschlagen: ' + error.message;
+  } finally { connectButton.disabled = false; }
+ });
+
+ disconnectButton.addEventListener('click', async () => {
+  disconnectButton.disabled = true;
+  try {
+   const result = await window.streamiovStudio.tiktokDisconnect();
+   if (result.ok) { renderTikTokStatus({ok:true,status:'not_connected'}); log('TikTok-Verbindung getrennt.'); }
+   else connection.textContent = 'Trennen fehlgeschlagen: ' + result.error;
+  } catch (error) { connection.textContent = 'Trennen fehlgeschlagen: ' + error.message; }
+  finally { disconnectButton.disabled = false; }
+ });
+
+ if (window.streamiovStudio?.onTikTokAuthResult) {
+  window.streamiovStudio.onTikTokAuthResult(result => {
+   if (result.ok) {
+    log('TikTok-Konto erfolgreich autorisiert.');
+    refreshTikTokStatus();
+   } else {
+    connection.textContent = 'TikTok-Anmeldung fehlgeschlagen: ' + result.error;
+    log('TikTok-OAuth-Fehler: ' + result.error);
+   }
+  });
+ }
+ refreshTikTokStatus();
 })();
 </script>
 

@@ -1,0 +1,288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Streamiov Retro Archive Catalogue Entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "title",
+    "release_year",
+    "platforms",
+    "discovery_sources",
+    "components",
+    "territories",
+    "activities",
+    "rights_status",
+    "archive_status",
+    "remake_plan",
+    "last_reviewed"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "release_year": {
+      "type": "integer",
+      "minimum": 1996,
+      "maximum": 2026
+    },
+    "platforms": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "publisher": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "developer": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "project_status": {
+      "enum": [
+        "active",
+        "inactive",
+        "archived",
+        "unknown"
+      ]
+    },
+    "discovery_sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "url",
+          "source_type",
+          "accessed_at"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          },
+          "source_type": {
+            "type": "string"
+          },
+          "accessed_at": {
+            "type": "string",
+            "format": "date"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "component",
+          "rights_basis",
+          "evidence_urls",
+          "status"
+        ],
+        "properties": {
+          "component": {
+            "enum": [
+              "code",
+              "engine",
+              "art",
+              "characters",
+              "animation",
+              "music",
+              "sound",
+              "voice",
+              "text",
+              "manuals",
+              "trademarks",
+              "middleware",
+              "other"
+            ]
+          },
+          "rights_basis": {
+            "enum": [
+              "public_domain",
+              "license",
+              "permission",
+              "not_cleared",
+              "unknown"
+            ]
+          },
+          "license_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "license_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "evidence_urls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https://"
+            }
+          },
+          "status": {
+            "enum": [
+              "verified",
+              "partial",
+              "blocked",
+              "unknown"
+            ]
+          },
+          "restrictions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "territories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "activities": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "download",
+          "preserve",
+          "copy",
+          "modify",
+          "port",
+          "remaster",
+          "remake",
+          "commercial_distribution",
+          "marketing",
+          "trademark_use"
+        ]
+      }
+    },
+    "rights_status": {
+      "enum": [
+        "DISCOVERY",
+        "SOURCE_VERIFIED",
+        "CODE_LICENSE_VERIFIED",
+        "ASSET_LICENSE_VERIFIED",
+        "PUBLIC_DOMAIN_VERIFIED",
+        "RIGHTS_CLEARED",
+        "PARTIAL_CLEARANCE",
+        "BLOCKED"
+      ]
+    },
+    "archive_status": {
+      "enum": [
+        "NOT_ACQUIRED",
+        "ACQUISITION_ALLOWED",
+        "ARCHIVED",
+        "HASH_VERIFIED"
+      ]
+    },
+    "archive_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "relative_path",
+          "sha256",
+          "source_url",
+          "acquired_at"
+        ],
+        "properties": {
+          "relative_path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{64}$"
+          },
+          "source_url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          },
+          "acquired_at": {
+            "type": "string",
+            "format": "date"
+          },
+          "license_evidence": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "remake_plan": {
+      "type": "object",
+      "required": [
+        "status",
+        "types"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "NOT_REVIEWED",
+            "CANDIDATE",
+            "APPROVED",
+            "BLOCKED"
+          ]
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "restoration",
+              "port",
+              "remaster",
+              "remake",
+              "sequel",
+              "2d_to_3d",
+              "clean_room_reinterpretation"
+            ]
+          }
+        },
+        "notes": {
+          "type": "string"
+        },
+        "blocked_components": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "last_reviewed": {
+      "type": "string",
+      "format": "date"
+    },
+    "reviewer_notes": {
+      "type": "string"
+    }
+  }
+}

@@ -8,15 +8,16 @@
 | Area | Evidence |
 | --- | --- |
 | Local host | `tests/test_streamiov_host.py`: static site, directory indexes, link integrity, accounts, TLS gate, AI-task placeholder |
+| Community forum | `tests/test_forum.py`: public read, session-gated same-origin writes, validation, per-IP rate limits, replies, locking, soft deletes, moderation CLI |
 | Raw-data catalog | `tests/test_data_store.py`, `tests/test_streamiov_host.py`: 18 gifts, 2 games, 3 actions, 1 playlist, 5 templates seeded into a separate read-only SQLite catalog; legacy `data/db` databases untouched |
 | Studio source | `tests/test_studio_scene_ui.py`, `tests/test_studio_js_syntax.py`: Electron entry points, inline scripts, scene model, UI wiring |
 | Scene renderer | Preview, program, and stream output all call `drawSceneToCanvas`; source layout persists in scene v2 |
 | Local tools | Chat, TTS, gifts, alerts, music, games list, AI login/submit, and diagnostics are wired; gift/game/music panels load the host's read-only raw-data catalog; local-only boundaries are stated in the UI |
 | Download package | Seven parts with fixed sizes and per-part SHA-256; archive SHA-256 is shown on the page and in `SHA256SUMS.txt` |
-| AI worker | `node --test tests/test_cloudflare_ai_worker.mjs` (10 tests) |
+| AI worker | `node --test tests/test_cloudflare_ai_worker.mjs` (12 tests) |
 | Music rights | `tests/test_music_library.py`, `tests/test_music_research.py` |
 | Games | `tests/test_game_*.py` package, catalog, preflight, and AI checks |
-| Agent | `tests/test_phase1_agent.py`, `tests/test_agent_response_parsing.py`, `tests/test_coordinator.py` |
+| Agent | `tests/test_phase1_agent.py`, `tests/test_agent_response_parsing.py` |
 
 Run everything:
 
@@ -53,7 +54,7 @@ node --test tests/test_cloudflare_ai_worker.mjs
 - StreamioV-native gifts are free local effects. TikTok gifts remain in TikTok's own purchase and reward systems.
 - The old `dist/streamiov-homepage` copy is not used by the host; the complete site is `dist/streamiov-homepage-worker/public`.
 - The Studio declares no runtime npm dependencies. The unofficial `tiktok-live-connector` package was removed; any TikTok integration must use an officially approved interface.
-- The public community forum is a prepared UI only. `/api/forum/threads` is not implemented, so the page keeps its form disabled and says that the server connection is missing. A real forum needs an authenticated server-side store, moderation, abuse reporting, data-retention rules, and spam controls; it is not part of the local read-only catalog.
+- The public community forum is real but local-first. Threads and replies are stored in a separate `forum.sqlite3`; anyone can read, and writes require a host session, an exact same-origin request, JSON bodies, length validation, and per-IP rate limits. Operators can lock, unlock, and soft-delete entries with the host CLI. It does not yet provide abuse reporting, per-user post history, automatic spam detection, email notifications, or a documented data-retention policy.
 - Password recovery by email is not implemented. The operator can create or reset a local account with the host CLI; there is no email delivery service.
 - The source snapshot is a point-in-time copy. Its internal `combine.js` and download page can name the checksums of the immediately preceding archive, because editing them changes the archive that contains them. The live site under `dist/streamiov-homepage-worker/public/download/` is authoritative for the published parts; `tests/test_studio_js_syntax.py` verifies those live files byte-for-byte.
 

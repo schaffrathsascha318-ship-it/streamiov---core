@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta name="theme-color" content="#090d13"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="STREAMIOV"><link rel="manifest" href="/app/manifest.webmanifest"><link rel="icon" href="/app/icon.svg" type="image/svg+xml">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>STREAMIOV STUDIO — Broadcast Regie</title>
+<style>
+:root{
+ --bg:#090d13;--panel:#111923;--panel2:#172330;--line:#263747;
+ --text:#edf6fb;--muted:#8195a6;--cyan:#35e0d0;--violet:#9275ff;
+ --red:#ff496c;--green:#43dda0;--amber:#ffc66d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+ font:14px Inter,system-ui,Arial,sans-serif}
+button,select{font:inherit}
+button{cursor:pointer;color:var(--text);background:#202d3b;
+ border:1px solid #344657;border-radius:7px;padding:9px 13px}
+button:hover{border-color:var(--cyan);background:#263b49}
+button.active{background:#123c40;border-color:var(--cyan);color:var(--cyan)}
+header{height:62px;display:flex;align-items:center;justify-content:space-between;
+ padding:0 20px;border-bottom:1px solid var(--line);background:#0d141d}
+.brand{font-size:20px;font-weight:900;letter-spacing:3px}
+.brand span{color:var(--cyan)}
+.status{display:flex;gap:16px;align-items:center;color:var(--muted)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+ background:var(--amber);margin-right:6px}
+main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290px;
+ gap:12px;max-width:1900px;margin:auto}
+.panel{background:var(--panel);border:1px solid var(--line);
+ border-radius:10px;overflow:hidden;min-width:0}
+.panel-title{padding:12px 14px;border-bottom:1px solid var(--line);
+ font-size:11px;font-weight:800;letter-spacing:1.5px;color:var(--muted)}
+.pad{padding:12px}
+.scene{width:100%;display:flex;align-items:center;justify-content:space-between;
+ margin:5px 0;text-align:left;background:#17222d}
+.scene small{color:var(--muted)}
+.scene.active{border-color:var(--cyan);background:#123139}
+.scene-preview{height:110px;border:1px solid var(--line);border-radius:8px;
+ background:linear-gradient(135deg,#182a39,#10151e 60%,#292044);
+ display:grid;place-items:center;margin-bottom:10px;color:#a9c4d4;
+ font-size:20px;font-weight:900;letter-spacing:3px}
+.scene-preview span{color:var(--cyan)}
+.monitors{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.monitor{background:#05080c;border:1px solid #334354;border-radius:9px;
+ padding:8px;min-width:0}
+.monitor-head{display:flex;justify-content:space-between;
+ font-size:11px;font-weight:900;letter-spacing:1.2px;margin-bottom:8px}
+.screen{aspect-ratio:16/9;background:
+ radial-gradient(ellipse at 50% 45%,#233a49 0,#111923 48%,#05080c 100%);
+ display:grid;place-items:center;position:relative;overflow:hidden}
+.screen:after{content:"";position:absolute;inset:8px;border:1px solid #ffffff18}
+.screen-content{text-align:center;z-index:1}
+.screen-content strong{display:block;font-size:clamp(20px,3vw,38px);
+ letter-spacing:5px}
+.screen-content small{color:var(--cyan);letter-spacing:3px}
+.monitor.program .screen{background:
+ radial-gradient(ellipse at 50% 45%,#26354b 0,#121321 50%,#05080c 100%)}
+.controls{display:flex;justify-content:center;align-items:center;
+ gap:9px;padding:13px;flex-wrap:wrap}
+.cut{background:#6b2638;border-color:#a73b55}
+.fade{background:#28305e;border-color:#656ce0}
+.go-live{background:#622638;border-color:var(--red);font-weight:900}
+.section{margin-top:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.source{padding:10px;background:#17222d;border:1px solid var(--line);
+ border-radius:7px;color:var(--muted)}
+.source b{display:block;color:var(--text);margin-bottom:5px}
+.mixer{display:grid;grid-template-columns:repeat(4,minmax(75px,1fr));gap:8px}
+.channel{padding:10px 7px;background:#0c131b;border:1px solid var(--line);
+ border-radius:8px;text-align:center}
+.channel input{width:100%;accent-color:var(--cyan)}
+.meter{height:5px;background:#263543;border-radius:5px;margin:9px 0}
+.meter i{display:block;height:100%;width:65%;background:var(--green)}
+.channel small{display:block;color:var(--muted)}
+.right-stack{display:grid;gap:12px;align-content:start}
+.metric{display:flex;justify-content:space-between;padding:8px 0;
+ border-bottom:1px solid #23313d}
+.metric span{color:var(--muted)}
+.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.tool-grid button{text-align:left}
+.log{height:115px;overflow:auto;color:var(--muted);font-size:12px;
+ line-height:1.8;background:#0b1118;padding:9px;border-radius:7px}
+.bottom{grid-column:1/-1;display:grid;grid-template-columns:1.3fr 1fr 1fr;
+ gap:12px}
+#game-library-panel[hidden]{display:none}
+.game-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.game-card{background:#0c131b;border:1px solid var(--line);border-radius:9px;padding:12px;min-width:0}
+.game-card h3{margin:0 0 6px;font-size:16px;color:var(--text)}
+.game-card p{min-height:44px;color:var(--muted);font-size:12px;line-height:1.45}
+.game-status{display:inline-block;border:1px solid #695c35;border-radius:20px;padding:4px 8px;color:var(--amber);font-size:10px;letter-spacing:.08em}
+.game-card button{width:100%;margin-top:10px}
+@media(max-width:700px){.game-list{grid-template-columns:1fr}}
+.pill{font-size:10px;border:1px solid var(--line);border-radius:20px;
+ padding:4px 8px;color:var(--muted)}
+@media(max-width:1100px){
+ main{grid-template-columns:190px minmax(350px,1fr)}
+ .right-stack{grid-column:1/-1;grid-template-columns:repeat(3,1fr)}
+ .bottom{grid-template-columns:1fr 1fr}
+}
+#mobile-content-stage{display:none}
+#mobile-regie-toggle{display:none}
+@media(max-width:700px){
+ header{height:auto;padding:12px;gap:10px;flex-wrap:wrap}
+ header .status{width:100%;justify-content:space-between;gap:6px;font-size:11px}
+ #mobile-content-stage{display:block;margin:8px 8px 0;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+ #mobile-content-stage .mobile-stage-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+ #mobile-content-stage .mobile-stage-head strong{font-size:11px;letter-spacing:1.2px}
+ #mobile-content-stage .mobile-game-view{position:relative;display:grid;place-items:center;min-height:190px;aspect-ratio:16/9;max-height:42svh;overflow:hidden;border:1px solid #334354;border-radius:9px;background:radial-gradient(ellipse at 50% 40%,#263d50 0,#131b2a 52%,#05080c 100%)}
+ #mobile-content-stage .mobile-game-view:after{content:"";position:absolute;inset:8px;border:1px solid #ffffff18;pointer-events:none}
+ #mobile-content-stage .mobile-stage-copy{position:relative;z-index:1;text-align:center;padding:12px}
+ #mobile-content-stage .mobile-stage-copy b{display:block;font-size:clamp(18px,6vw,28px);letter-spacing:2px}
+ #mobile-content-stage .mobile-stage-copy small{display:block;margin-top:8px;color:var(--cyan);font-size:11px}
+ #mobile-content-stage .mobile-stage-note{margin:8px 2px 0;color:var(--muted);font-size:11px;line-height:1.4}
+ #mobile-regie-toggle{display:block;width:calc(100% - 16px);margin:8px auto 0;min-height:44px;font-weight:800;border-color:var(--violet)}
+ main{display:flex;flex-direction:column;padding:8px}
+ main.mobile-regie-collapsed{display:none}
+ .monitors{grid-template-columns:1fr}
+ .right-stack,.bottom{display:grid;grid-template-columns:1fr}
+ .mixer{grid-template-columns:repeat(2,1fr)}
+ .panel{scroll-margin-top:8px}
+ button{min-height:40px}
+}
+</style>
+</head>
+<body>
+<header>
+ <div class="brand">STREAM<span>IOV</span> <small style="font-size:10px;color:#8296a6">STUDIO / REGIE</small></div>
+ <div class="status">
+  <span><i class="dot"></i>LOKALER REGIE-MODUS</span>
+  <span class="pill" id="connection">NICHT VERBUNDEN</span>
+  <span class="pill">ZUM NULLTARIF</span>
+ </div>
+</header>
+
+<section id="mobile-content-stage" aria-label="Spiel und Inhalt">
+ <div class="mobile-stage-head">
+  <strong>SPIEL / INHALT</strong>
+  <span class="pill">MOBILANSICHT</span>
+ </div>
+ <div class="mobile-game-view" role="img" aria-label="Bereich für Spiel, Kamera oder laufenden Inhalt">
+  <div class="mobile-stage-copy">
+   <b>SPIEL · VIDEO · LIVE</b>
+   <small>INHALT BLEIBT OBEN · REGIE DARUNTER</small>
+  </div>
+ </div>
+ <p class="mobile-stage-note">Der Inhaltsbereich ist vom Studio getrennt. Die tatsächliche Spiel-/Bildschirmaufnahme hängt vom unterstützten Geräteadapter und der Medienpipeline ab.</p>
+</section>
+<button id="mobile-regie-toggle" type="button" aria-controls="studio-regie" aria-expanded="true">REGIE / STUDIO AUSBLENDEN</button>
+
+<main id="studio-regie">
+ <section class="panel">
+  <div class="panel-title">SZENEN / PRODUKTION</div>
+  <div class="pad">
+   <div class="scene-preview">STREAM<span>IOV</span></div>
+   <div id="scenes">
+    <button class="scene active" data-scene="STARTING SOON">STARTING SOON <small>01</small></button>
+    <button class="scene" data-scene="LIVE">LIVE <small>02</small></button>
+    <button class="scene" data-scene="PAUSE">PAUSE <small>03</small></button>
+    <button class="scene" data-scene="ENDING">ENDING <small>04</small></button>
+    <button class="scene" data-scene="GAMEPLAY">GAMEPLAY <small>05</small></button>
+    <button class="scene" data-scene="JUST CHATTING">JUST CHATTING <small>06</small></button>
+   </div>
+   <button id="createScene" type="button" style="width:100%;margin-top:6px">＋ Eigene Szene</button>
+   <div class="panel-title" style="margin:12px -12px">QUELLEN / LOKALE VERWALTUNG</div>
+   <div id="sourceList" aria-live="polite"><div class="source"><b>Quellen werden geladen …</b></div></div>
+   <button style="width:100%;margin-top:8px" id="addSource" type="button">＋ Quelle hinzufügen</button>
+   <small style="display:block;color:var(--muted);margin-top:7px">Quellenliste und Einstellungen werden lokal gespeichert. Aufnahme, Compositing und Encoder-Anbindung sind davon getrennte nächste Entwicklungsschritte.</small>
+   <section class="panel section" id="deviceCapturePanel">
+    <div class="panel-title">ECHTE GERÄTE / KAMERA & MIKROFON</div>
+    <div class="pad">
+     <label for="cameraDeviceSelect">Kamera auswählen</label>
+     <select id="cameraDeviceSelect" style="width:100%;margin:6px 0 10px"><option value="">Standardkamera</option></select>
+     <button id="cameraStart" type="button" style="width:100%">KAMERA TESTEN</button>
+     <video id="cameraPreview" autoplay muted playsinline style="display:none;width:100%;margin-top:8px;border-radius:8px;background:#05080c;aspect-ratio:16/9"></video>
+     <p id="cameraCaptureStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Kamera noch nicht geprüft.</p>
+     <div class="panel-title" style="margin:12px -12px">MIKROFON</div>
+     <label for="microphoneDeviceSelect">Mikrofon auswählen</label>
+     <select id="microphoneDeviceSelect" style="width:100%;margin:6px 0 10px"><option value="">Standardmikrofon</option></select>
+     <button id="microphoneStart" type="button" style="width:100%">MIKROFON TESTEN</button>
+     <div class="meter" style="margin-top:12px"><i id="microphoneLevel" style="width:0%"></i></div>
+     <p id="microphoneCaptureStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Mikrofon noch nicht geprüft.</p>
+     <button id="refreshDevices" type="button" style="width:100%;margin-top:8px">GERÄTELISTE AKTUALISIEREN</button>
+     <small style="display:block;color:var(--muted);margin-top:8px">Die Tests fragen beim Start die Geräteberechtigung ab. Kamera- und Mikrofonaufnahme bleiben lokal; zum Beenden erneut auf den jeweiligen Testknopf klicken.</small>
+    </div>
+   </section>
+  </div>
+ </section>
+
+ <section>
+  <div class="monitors">
+   <div class="monitor">
+    <div class="monitor-head"><span>PREVIEW / VORSCHAU</span><span class="pill">LOCAL</span></div>
+    <div class="screen"><div class="screen-content">
+     <small>STREAMIOV STUDIO</small><strong id="previewName">STARTING SOON</strong>
+     <small>VORSCHAU</small></div></div>
+   </div>
+   <div class="monitor program">
+    <div class="monitor-head"><span>PROGRAMM / AUSGABE</span><span class="pill">NICHT LIVE</span></div>
+    <div class="screen"><div class="screen-content">
+     <small>STREAMIOV STUDIO</small><strong id="programName">STARTING SOON</strong>
+     <small>PROGRAMM-MONITOR</small></div></div>
+   </div>
+  </div>
+  <div class="panel section">
+   <div class="panel-title">ÜBERGANGSSTEUERUNG</div>
+   <div class="controls">
+    <button class="cut" id="cut">CUT</button>
+    <button class="fade" id="fade">FADE</button>
+    <span class="pill">ÜBERGANG: 300 MS</span>
+    <button id="take">TAKE → PROGRAMM</button>
+    <button id="openProgramOutput" type="button">REGIE AUF 2. BILDSCHIRM</button>
+   </div>
+  </div>
+  <div class="panel section">
+   <div class="panel-title">AUDIO-MIXER / LOKALE REGLER</div>
+   <div class="pad mixer">
+    <div class="channel"><b>Mikrofon</b><div class="meter"><i></i></div>
+     <input type="range" min="0" max="100" value="75"><small>MIC 1</small></div>
+    <div class="channel"><b>Musik</b><div class="meter"><i></i></div>
+     <input type="range" min="0" max="100" value="45"><small>MUSIC</small></div>
+    <div class="channel"><b>Spiel</b><div class="meter"><i></i></div>
+     <input type="range" min="0" max="100" value="65"><small>GAME</small></div>
+    <div class="channel"><b>Alerts</b><div class="meter"><i></i></div>
+     <input type="range" min="0" max="100" value="80"><small>ALERTS</small></div>
+   </div>
+  </div>
+ </section>
+
+ <aside class="right-stack">
+  <section class="panel">
+   <div class="panel-title">LIVE / VERBINDUNGEN</div>
+   <div class="pad">
+    <div class="metric"><span>TikTok</span><b style="color:var(--amber)">OFFLINE</b></div>
+    <div class="metric"><span>Kamera</span><b>NICHT VERBUNDEN</b></div>
+    <div class="metric"><span>Mikrofon</span><b>NICHT VERBUNDEN</b></div>
+    <div class="metric"><span>Netzwerk</span><b>LOKAL</b></div>
+    <button id="runtimeCheck" type="button" style="width:100%;margin-top:12px">TECHNIK / ENCODER PRÜFEN</button>
+    <p id="runtimeDiagnostics" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Systemprüfung noch nicht ausgeführt.</p>
+    <button id="mediaTest" type="button" style="width:100%;margin-top:8px">LOKALEN AUDIO-/VIDEO-TEST STARTEN</button>
+    <p id="mediaTestResult" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Erzeugt einen kurzen lokalen Testclip aus Bild- und Tonsignalen.</p>
+    <button class="go-live" style="width:100%;margin-top:12px" id="live">● LIVE VERBINDUNG PRÜFEN</button>
+   </div>
+  </section>
+  <section class="panel">
+   <div class="panel-title">CREATOR-WERKZEUGE</div>
+   <div class="pad tool-grid">
+    <button data-tool="Chat">▤ Chat</button>
+    <button data-tool="Geschenke">💜 Geschenke</button>
+    <button data-tool="Alerts">⚡ Alerts</button>
+    <button data-tool="TTS">◖ TTS</button>
+    <button data-tool="Spiele">♧ Spiele</button>
+    <button data-tool="Musik">♫ Musik</button>
+    <button data-tool="KI-Regie">✧ KI-Regie</button>
+    <button data-tool="Geräte">▦ Geräte</button>
+   </div>
+  </section>
+  <section class="panel">
+   <div class="panel-title">EREIGNISPROTOKOLL</div>
+   <div class="pad"><div class="log" id="log">Regie gestartet.<br>Lokaler Demo-Modus aktiv.</div></div>
+  </section>
+ </aside>
+
+ <section class="bottom">
+  <div class="panel">
+   <div class="panel-title">CHAT / COMMUNITY</div>
+   <div class="pad"><div class="log">Noch keine Chat-Verbindung.<br>Chat wird nach Plattformverbindung verfügbar.</div></div>
+  </div>
+  <div class="panel">
+   <div class="panel-title">GESCHENKE / GALERIEBOX</div>
+   <div class="pad"><div class="log">Warte auf Live-Geschenkereignisse.<br>Keine TikTok-Verbindung aktiv.</div></div>
+  </div>
+  <div class="panel">
+   <div class="panel-title">KI-REGIE / AUTOMATION</div>
+   <div class="pad"><div class="log">Bereit für lokale Regieaktionen.<br>Keine externe Aktion wird ohne Verbindung ausgeführt.</div></div>
+  </div>
+ </section>
+
+  <section class="bottom" id="creator-settings">
+   <div class="panel">
+    <div class="panel-title">1 · STREAMER-PROFIL</div>
+    <div class="pad grid2">
+     <label>Streamername
+      <input id="streamerName" type="text" maxlength="40" autocomplete="nickname" placeholder="Dein Streamername" required>
+     </label>
+     <label>Profilname (optional)
+      <input id="profileName" type="text" maxlength="60" placeholder="Name dieses Studio-Profils">
+     </label>
+    </div>
+   </div>
+   <div class="panel">
+    <div class="panel-title">2 · KONTOZUORDNUNG</div>
+    <div class="pad">
+     <label for="accountEmail">Konto-E-Mail (optional)</label>
+     <input id="accountEmail" type="email" maxlength="254" autocomplete="email" placeholder="name@beispiel.de">
+     <small class="pill">Nur Profilzuordnung – kein Passwort wird hier abgefragt oder gespeichert.</small>
+    </div>
+   </div>
+   <div class="panel">
+    <div class="panel-title">3 · PLATTFORM</div>
+    <div class="pad">
+     <label for="platformSelect">Einzige Streaming-Plattform</label>
+     <select id="platformSelect">
+      <option value="tiktok">TikTok LIVE</option>
+     </select>
+     <p id="platformConnectionState" class="pill" role="status">Nicht verbunden</p>
+     <button id="platformConnectInfo" type="button">Verbindungsstatus prüfen</button>
+     <small>STREAMIOV Studio ist zum Start ausschließlich für TikTok LIVE ausgelegt. Die Verbindung erfolgt über den offiziellen TikTok-OAuth-/LIVE-Berechtigungsumfang; nicht freigegebene Funktionen bleiben deaktiviert.</small>
+    </div>
+   </div>
+   <div class="panel">
+    <div class="panel-title">4 · STREAM-EINSTELLUNGEN</div>
+    <div class="pad grid2">
+     <label>Auflösung
+      <select id="streamResolution"><option value="720p">720p</option><option value="1080p" selected>1080p</option><option value="1440p">1440p</option>
+      </select>
+     </label>
+     <label>Bildrate
+      <select id="streamFps"><option value="30">30 FPS</option><option value="60" selected>60 FPS</option>
+      </select>
+     </label>
+     <label>Bitrate (kbit/s)
+      <input id="streamBitrate" type="number" min="500" max="20000" step="500" value="4500" required>
+     </label>
+     <label>Audio-Modus
+      <select id="streamAudio"><option value="mic-system">Mikrofon + System</option><option value="mic">Nur Mikrofon</option><option value="system">Nur System</option></select>
+     </label>
+     <label>Overlay
+      <select id="streamOverlay"><option value="standard">Streamiov Standard</option><option value="custom">Eigenes Overlay</option><option value="none">Kein Overlay</option></select>
+     </label>
+     <div>
+      <button id="saveCreatorSettings" type="button">Einstellungen speichern</button>
+      <p id="creatorSettingsStatus" role="status" aria-live="polite">Noch nicht gespeichert.</p>
+     </div>
+    </div>
+   </div>
+  </section>
+
+  <section class="bottom" id="game-library-panel" hidden>
+   <div class="panel" style="grid-column:1/-1">
+    <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center">
+     <span>STREAMIOV SPIELEBIBLIOTHEK</span>
+     <button id="closeGameLibrary" type="button">SCHLIESSEN</button>
+    </div>
+    <div class="pad">
+     <p style="color:var(--muted);margin-top:0">Eigenständige STREAMIOV-Spiele. Entwicklungsstände sind als Testversion gekennzeichnet; nur separat geprüfte Spiele werden veröffentlicht.</p>
+     <div id="gameLibraryList" class="game-list" aria-live="polite"></div>
+     <p id="gameLibraryStatus" role="status" aria-live="polite" style="color:var(--muted);font-size:12px">Spielebibliothek wird geladen …</p>
+    </div>
+   </div>
+  </section>
+
+ </main>
+
+<script>
+const $=id=>document.getElementById(id);
+const mobileRegieToggle=$("mobile-regie-toggle");
+if(mobileRegieToggle){
+ mobileRegieToggle.addEventListener("click",()=>{
+  const collapsed=$("studio-regie").classList.toggle("mobile-regie-collapsed");
+  mobileRegieToggle.setAttribute("aria-expanded",String(!collapsed));
+  mobileRegieToggle.textContent=collapsed?"REGIE / STUDIO EINBLENDEN":"REGIE / STUDIO AUSBLENDEN";
+ });
+}
+let selected="STARTING SOON";
+function log(message){
+ const box=$("log");
+ box.innerHTML += "<br>"+new Date().toLocaleTimeString()+" — "+
+  message.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+ box.scrollTop=box.scrollHeight;
+}
+function renderScenes(scenes, previewName){
+ const host=$("scenes");
+ host.replaceChildren();
+ for(const scene of scenes){
+  const button=document.createElement("button");
+  button.className="scene"+(scene.name===previewName?" active":"");
+  button.dataset.scene=scene.name;
+  button.append(document.createTextNode(scene.name));
+  const small=document.createElement("small");
+  small.textContent=String(scenes.indexOf(scene)+1).padStart(2,"0");
+  button.append(small);
+  button.addEventListener("click",()=>selectScene(scene.name));
+  host.append(button);
+ }
+}
+async function selectScene(name){
+ selected=name;
+ $("previewName").textContent=name;
+ document.querySelectorAll(".scene").forEach(b=>b.classList.toggle("active",b.dataset.scene===name));
+ if(window.streamiovStudio?.sceneAction){
+  const result=await window.streamiovStudio.sceneAction({action:"select",name});
+  if(!result?.ok){log("Szene konnte nicht gespeichert werden: "+(result?.error||"unbekannter Fehler"));return;}
+ }
+ log("Vorschau gewählt und lokal gespeichert: "+name);
+}
+async function loadScenes(){
+ if(!window.streamiovStudio?.sceneAction){log("Szenenverwaltung läuft im Demo-Modus.");return;}
+ const result=await window.streamiovStudio.sceneAction({action:"load"});
+ if(!result?.ok){log("Szenen konnten nicht geladen werden: "+(result?.error||"unbekannter Fehler"));return;}
+ const state=result.state;
+ const preview=state.scenes.find(s=>s.id===state.previewSceneId)?.name||state.scenes[0].name;
+ const program=state.scenes.find(s=>s.id===state.programSceneId)?.name||preview;
+ selected=preview;
+ $("previewName").textContent=preview;
+ $("programName").textContent=program;
+ renderScenes(state.scenes,preview);
+ log("Szenen aus lokalem Studio-Profil geladen.");
+}
+async function createScene(){
+ const name=window.prompt("Name der neuen Szene (max. 60 Zeichen):");
+ if(name===null)return;
+ if(!window.streamiovStudio?.sceneAction){log("Eigene Szenen benötigen die installierte Desktop-App.");return;}
+ const result=await window.streamiovStudio.sceneAction({action:"create",name});
+ if(!result?.ok){log("Szene nicht erstellt: "+(result?.error||"unbekannter Fehler"));return;}
+ const state=result.state;
+ const preview=state.scenes.find(s=>s.id===state.previewSceneId)?.name||name.trim();
+ selected=preview;
+ $("previewName").textContent=preview;
+ renderScenes(state.scenes,preview);
+ log("Eigene Szene dauerhaft im Studio-Profil gespeichert: "+preview);
+}
+$("openProgramOutput").onclick=async()=>{
+ const button=$("openProgramOutput");button.disabled=true;
+ try{
+  if(!window.streamiovStudio?.moveRegieToDisplay)throw new Error("Display-Steuerung ist in diesem Build nicht verfügbar.");
+  const displays=await window.streamiovStudio.getDisplays();
+  const external=displays?.displays?.find(display=>!display.primary);
+  const result=await window.streamiovStudio.moveRegieToDisplay(external?.id);
+  if(!result?.ok)throw new Error(result?.error||"Regie konnte nicht auf den Bildschirm verschoben werden.");
+  log(result.primary?"Nur ein Bildschirm erkannt – Regie bleibt auf dem Hauptbildschirm.":"STREAMIOV-Regie läuft jetzt auf dem zweiten Bildschirm. Spiel und Inhalt bleiben auf Bildschirm 1 frei.");
+ }catch(error){log("Zweitbildschirm-Regie: "+String(error.message||error));}
+ finally{button.disabled=false;}
+};
+async function take(){
+ if(window.streamiovStudio?.sceneAction){
+  const result=await window.streamiovStudio.sceneAction({action:"take"});
+  if(!result?.ok){log("Programmumschaltung nicht gespeichert: "+(result?.error||"unbekannter Fehler"));return;}
+ }
+ $("programName").textContent=selected;
+ log("Programm lokal umgeschaltet: "+selected+" (keine Live-Ausgabe).");
+}
+$("createScene").onclick=createScene;
+loadScenes();
+$("cut").onclick=take;
+$("take").onclick=take;
+$("fade").onclick=()=>{
+ const screen=document.querySelector(".program .screen");
+ screen.style.opacity=".25";
+ setTimeout(()=>{take();screen.style.opacity="1"},180);
+ log("Lokaler Fade-Übergang ausgeführt.");
+};
+let sourceState=[];
+function renderSources(sources){
+ const host=$("sourceList");
+ host.replaceChildren();
+ if(!sources.length){
+  const empty=document.createElement("div");empty.className="source";
+  const label=document.createElement("small");label.textContent="Noch keine Quellen angelegt.";
+  empty.append(label);host.append(empty);return;
+ }
+ for(const source of sources){
+  const card=document.createElement("div");card.className="source";card.style.margin="6px 0";
+  const title=document.createElement("b");title.textContent=source.name;
+  const detail=document.createElement("small");
+  detail.textContent=source.type.toUpperCase()+" · "+(source.enabled?"aktiv":"deaktiviert")+(source.muted?" · stumm":"")+" · "+Math.round(source.volume*100)+" %";
+  const controls=document.createElement("div");controls.style.display="flex";controls.style.gap="5px";controls.style.marginTop="7px";
+  const enabled=document.createElement("button");enabled.type="button";enabled.textContent=source.enabled?"Deaktivieren":"Aktivieren";
+  enabled.addEventListener("click",()=>changeSource(source.id,{enabled:!source.enabled}));
+  const mute=document.createElement("button");mute.type="button";mute.textContent=source.muted?"Ton an":"Stumm";
+  mute.addEventListener("click",()=>changeSource(source.id,{muted:!source.muted}));
+  const remove=document.createElement("button");remove.type="button";remove.textContent="Entfernen";
+  remove.addEventListener("click",()=>removeSource(source.id));
+  controls.append(enabled,mute,remove);card.append(title,detail,controls);host.append(card);
+ }
+}
+async function callSource(action){
+ if(!window.streamiovStudio?.sourceAction){log("Quellenverwaltung benötigt die installierte Desktop-App.");return null;}
+ const result=await window.streamiovStudio.sourceAction(action);
+ if(!result?.ok){log("Quellenaktion fehlgeschlagen: "+(result?.error||"unbekannter Fehler"));return null;}
+ sourceState=result.state.sources||[];renderSources(sourceState);return result;
+}
+async function loadSources(){
+ const result=await callSource({action:"load"});
+ if(result)log("Gespeicherte Quellen-Metadaten geladen. Encoder-Anbindung ist noch nicht aktiv.");
+}
+async function changeSource(id,patch){await callSource({action:"update",id,patch});}
+async function removeSource(id){
+ if(!window.confirm("Diese Quelle aus der lokalen Liste entfernen?"))return;
+ await callSource({action:"remove",id});
+}
+async function addSource(){
+ const type=window.prompt("Quellentyp: camera, capture, screen, window, image, video, audio, text oder color","camera");
+ if(type===null)return;
+ const name=window.prompt("Name der Quelle:");
+ if(name===null)return;
+ await callSource({action:"add",source:{type:type.trim().toLowerCase(),name:name.trim()}});
+}
+$("addSource").onclick=addSource;
+loadSources();
+
+// Reale lokale Kamera- und Mikrofonaufnahme über Chromium/Electron MediaDevices.
+// Es wird nichts übertragen oder gespeichert; Tracks enden beim erneuten Klick bzw. Schließen.
+const captureState={camera:null,microphone:null,audioContext:null,analyser:null,meterFrame:0};
+const cameraSelect=$("cameraDeviceSelect");
+const microphoneSelect=$("microphoneDeviceSelect");
+const cameraVideo=$("cameraPreview");
+function stopCapture(kind){
+ const stream=captureState[kind];
+ if(stream){for(const track of stream.getTracks())track.stop();captureState[kind]=null;}
+ if(kind==="camera"){cameraVideo.pause();cameraVideo.srcObject=null;cameraVideo.style.display="none";$("cameraStart").textContent="KAMERA TESTEN";}
+ if(kind==="microphone"){
+  if(captureState.meterFrame)cancelAnimationFrame(captureState.meterFrame);
+  captureState.meterFrame=0;
+  if(captureState.audioContext){captureState.audioContext.close().catch(()=>{});captureState.audioContext=null;}
+  captureState.analyser=null;
+  $("microphoneLevel").style.width="0%";
+  $("microphoneStart").textContent="MIKROFON TESTEN";
+ }
+}
+async function refreshCaptureDevices(){
+ const devices=await navigator.mediaDevices.enumerateDevices();
+ const fill=(select,kind,label)=>{
+  const previous=select.value;
+  select.replaceChildren();
+  const fallback=document.createElement("option");fallback.value="";fallback.textContent="Standard"+label.toLowerCase();select.append(fallback);
+  for(const [index,device] of devices.filter(item=>item.kind===kind).entries()){
+   const option=document.createElement("option");
+   option.value=device.deviceId;
+   option.textContent=device.label||label+" "+(index+1);
+   select.append(option);
+  }
+  if([...select.options].some(option=>option.value===previous))select.value=previous;
+ };
+ fill(cameraSelect,"videoinput","Kamera");
+ fill(microphoneSelect,"audioinput","Mikrofon");
+ return {cameras:devices.filter(item=>item.kind==="videoinput").length,microphones:devices.filter(item=>item.kind==="audioinput").length};
+}
+function captureError(error){
+ if(error?.name==="NotAllowedError"||error?.name==="PermissionDeniedError")return "Zugriff verweigert. Bitte Kamera-/Mikrofonberechtigung in den Systemeinstellungen erlauben.";
+ if(error?.name==="NotFoundError"||error?.name==="DevicesNotFoundError")return "Kein passendes Gerät gefunden.";
+ if(error?.name==="NotReadableError"||error?.name==="TrackStartError")return "Gerät ist belegt oder kann nicht gestartet werden.";
+ if(error?.name==="OverconstrainedError")return "Das ausgewählte Gerät ist nicht verfügbar. Bitte Standardgerät wählen.";
+ return "Gerätetest fehlgeschlagen: "+String(error?.message||error||"unbekannter Fehler").slice(0,160);
+}
+$("refreshDevices").onclick=async()=>{
+ const status=$("cameraCaptureStatus");
+ status.textContent="Suche angeschlossene Geräte …";
+ try{
+  if(!navigator.mediaDevices?.enumerateDevices)throw new Error("MediaDevices API ist nicht verfügbar.");
+  const counts=await refreshCaptureDevices();
+  status.textContent=counts.cameras+" Kamera(s), "+counts.microphones+" Mikrofon(e) gefunden. Gerätenamen können erst nach Berechtigung erscheinen.";
+  log("Lokale Geräte erkannt: "+counts.cameras+" Kamera(s), "+counts.microphones+" Mikrofon(e).");
+ }catch(error){status.textContent=captureError(error);}
+};
+$("cameraStart").onclick=async()=>{
+ if(captureState.camera){stopCapture("camera");$("cameraCaptureStatus").textContent="Kamera gestoppt.";return;}
+ const status=$("cameraCaptureStatus"),button=$("cameraStart");button.disabled=true;
+ status.textContent="Fordere Kamerazugriff an …";
+ try{
+  if(!navigator.mediaDevices?.getUserMedia)throw new Error("Kamera-API ist in dieser Laufzeit nicht verfügbar.");
+  const deviceId=cameraSelect.value;
+  const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:deviceId?{deviceId:{exact:deviceId}}:true});
+  captureState.camera=stream;cameraVideo.srcObject=stream;cameraVideo.style.display="block";
+  await cameraVideo.play();
+  const track=stream.getVideoTracks()[0];
+  if(!track||track.readyState!=="live")throw new Error("Kamera liefert keinen aktiven Videostream.");
+  status.textContent="Kamera aktiv: "+(track.label||"Videogerät")+". Nur lokale Vorschau – nicht live übertragen.";
+  button.textContent="KAMERA STOPPEN";
+  await refreshCaptureDevices();
+  log("Echte Kamera liefert einen lokalen Videostream.");
+ }catch(error){stopCapture("camera");status.textContent=captureError(error);log(status.textContent);}
+ finally{button.disabled=false;}
+};
+$("microphoneStart").onclick=async()=>{
+ if(captureState.microphone){stopCapture("microphone");$("microphoneCaptureStatus").textContent="Mikrofon gestoppt.";return;}
+ const status=$("microphoneCaptureStatus"),button=$("microphoneStart");button.disabled=true;
+ status.textContent="Fordere Mikrofonzugriff an …";
+ try{
+  if(!navigator.mediaDevices?.getUserMedia)throw new Error("Mikrofon-API ist in dieser Laufzeit nicht verfügbar.");
+  const deviceId=microphoneSelect.value;
+  const stream=await navigator.mediaDevices.getUserMedia({video:false,audio:deviceId?{deviceId:{exact:deviceId}}:true});
+  captureState.microphone=stream;
+  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+  if(!AudioContextClass)throw new Error("AudioContext ist in dieser Laufzeit nicht verfügbar.");
+  const context=new AudioContextClass();
+  await context.resume();
+  const source=context.createMediaStreamSource(stream);
+  const analyser=context.createAnalyser();analyser.fftSize=512;source.connect(analyser);
+  captureState.audioContext=context;captureState.analyser=analyser;
+  const samples=new Uint8Array(analyser.fftSize);
+  const draw=()=>{
+   if(!captureState.analyser)return;
+   analyser.getByteTimeDomainData(samples);
+   let energy=0;for(const sample of samples){const value=(sample-128)/128;energy+=value*value;}
+   const level=Math.min(100,Math.round(Math.sqrt(energy/samples.length)*240));
+   $("microphoneLevel").style.width=level+"%";
+   captureState.meterFrame=requestAnimationFrame(draw);
+  };
+  draw();
+  const track=stream.getAudioTracks()[0];
+  if(!track||track.readyState!=="live")throw new Error("Mikrofon liefert keinen aktiven Audiostream.");
+  status.textContent="Mikrofon aktiv: "+(track.label||"Audiogerät")+". Pegelanzeige lokal – kein Ton wird übertragen.";
+  button.textContent="MIKROFON STOPPEN";
+  await refreshCaptureDevices();
+  log("Echtes Mikrofon liefert einen lokalen Audiostream.");
+ }catch(error){stopCapture("microphone");status.textContent=captureError(error);log(status.textContent);}
+ finally{button.disabled=false;}
+};
+if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener("devicechange",()=>refreshCaptureDevices().catch(()=>{}));
+window.addEventListener("beforeunload",()=>{stopCapture("camera");stopCapture("microphone");});
+$("refreshDevices").click();
+$("runtimeCheck").onclick=async()=>{
+ const output=$("runtimeDiagnostics");
+ output.textContent="Prüfe installierte Streaming-Komponenten …";
+ if(!window.streamiovStudio?.getRuntimeDiagnostics){output.textContent="Diagnose ist in dieser Laufzeit nicht verfügbar.";return;}
+ try{
+  const report=await window.streamiovStudio.getRuntimeDiagnostics();
+  const missing=report.missing_rtmp_dependencies||[];
+  output.textContent=missing.length
+   ? "RTMP noch nicht bereit. Fehlend: "+missing.join(", ")+"."
+   : "Encoder-Abhängigkeiten vorhanden. Geräte, OAuth und Live-Ausgabe sind noch nicht verifiziert.";
+  log("Technikprüfung abgeschlossen. RTMP-Abhängigkeiten: "+(missing.length?"fehlen":"vorhanden")+"; Live verifiziert: nein.");
+ }catch(error){output.textContent="Technikprüfung fehlgeschlagen: "+String(error.message||error).slice(0,180);}
+};
+$("mediaTest").onclick=async()=>{
+ const output=$("mediaTestResult");
+ const button=$("mediaTest");
+ button.disabled=true;
+ output.textContent="Erzeuge lokalen Audio-/Video-Testclip …";
+ try{
+  if(!window.streamiovStudio?.runMediaTest){output.textContent="Audio-/Video-Test ist in dieser Laufzeit nicht verfügbar.";return;}
+  const result=await window.streamiovStudio.runMediaTest();
+  if(!result?.ok){
+   output.textContent="Test nicht ausgeführt: "+(result?.missing?.join(", ")||result?.error||"unbekannter Fehler");
+   log("Lokaler Audio-/Video-Test fehlgeschlagen: "+output.textContent);
+   return;
+  }
+  output.textContent="Lokaler A/V-Test erfolgreich: "+result.width+"×"+result.height+" @ "+result.fps+" FPS, "+result.output_bytes+" Byte WebM.";
+  log("Lokaler Audio-/Video-Test erfolgreich. Keine Geräteaufnahme oder Live-Ausgabe verifiziert.");
+ }catch(error){
+  output.textContent="Audio-/Video-Test fehlgeschlagen: "+String(error.message||error).slice(0,180);
+ }finally{button.disabled=false;}
+};
+$("live").onclick=()=>log("Noch keine bestätigte Plattform- oder Streamingverbindung. LIVE wurde nicht gestartet.");
+async function loadGameLibrary(){
+ const list=$("gameLibraryList"),status=$("gameLibraryStatus");
+ list.replaceChildren();status.textContent="Lade lokale Spielepakete …";
+ if(!window.streamiovStudio?.listGames){status.textContent="Spielebibliothek ist in dieser Laufzeit nicht verfügbar. Desktop-Paket neu erstellen.";return;}
+ try{
+  const result=await window.streamiovStudio.listGames();
+  if(!result?.ok)throw new Error(result?.error||"Unbekannter Fehler");
+  if(!result.games.length){status.textContent="Noch keine Spiele im lokalen Paket.";return;}
+  for(const game of result.games){
+   const card=document.createElement("article");card.className="game-card";
+   const title=document.createElement("h3");title.textContent=game.name;
+   const description=document.createElement("p");description.textContent=game.description||"Eigenständiges STREAMIOV-Spiel.";
+   const badge=document.createElement("span");badge.className="game-status";
+   badge.textContent=game.released?"VERÖFFENTLICHT":game.gameplayVerified?"SPIELPRÜFUNG ERFOLGT":"TESTVERSION · ENTWICKLUNG";
+   const button=document.createElement("button");button.type="button";button.textContent="SPIEL ÖFFNEN";
+   button.addEventListener("click",async()=>{
+    button.disabled=true;
+    try{
+     const opened=await window.streamiovStudio.openGame(game.id);
+     if(!opened?.ok)throw new Error(opened?.error||"Spiel konnte nicht geöffnet werden");
+     log("Spiel geöffnet: "+game.name+" ("+(opened.status||"Status unbekannt")+")");
+    }catch(error){status.textContent=String(error.message||error);log(status.textContent);}
+    finally{button.disabled=false;}
+   });
+   card.append(title,description,badge,button);list.append(card);
+  }
+  status.textContent=result.games.length+" eigenständige Spiele geladen. Testversionen sind noch keine öffentlichen Releases.";
+ }catch(error){status.textContent="Spielebibliothek konnte nicht geladen werden: "+String(error.message||error).slice(0,180);}
+}
+function toggleGameLibrary(){
+ const panel=$("game-library-panel");panel.hidden=!panel.hidden;
+ if(!panel.hidden)loadGameLibrary();
+}
+$("closeGameLibrary").onclick=()=>{$("game-library-panel").hidden=true;};
+document.querySelectorAll("[data-tool]").forEach(b=>b.onclick=()=>{
+ if(b.dataset.tool==="Spiele"){toggleGameLibrary();return;}
+ log("Werkzeug geöffnet: "+b.dataset.tool+" — eigenständige Modulverbindung noch offen.");
+});
+document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("input",()=>{
+ r.closest(".channel").querySelector(".meter i").style.width=r.value+"%";
+}));
+</script>
+
+<script>
+(() => {
+ const ids = ['streamerName','profileName','accountEmail','platformSelect','streamResolution','streamFps','streamBitrate','streamAudio','streamOverlay'];
+ const byId = id => document.getElementById(id);
+ const status = byId('creatorSettingsStatus');
+ const storageKey = 'streamiov.studio.creator-settings.v1';
+ const defaults = {streamerName:'',profileName:'',accountEmail:'',platformSelect:'tiktok',streamResolution:'1080p',streamFps:'60',streamBitrate:'4500',streamAudio:'mic-system',streamOverlay:'standard'};
+ try {
+  const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+  for (const id of ids) if (byId(id)) byId(id).value = String(saved[id] ?? defaults[id] ?? '');
+  byId('platformSelect').value = 'tiktok';
+ } catch (_) { status.textContent = 'Gespeicherte Einstellungen konnten nicht gelesen werden.'; }
+ byId('saveCreatorSettings').addEventListener('click', () => {
+  const name = byId('streamerName').value.trim();
+  const email = byId('accountEmail').value.trim();
+  const bitrate = Number(byId('streamBitrate').value);
+  if (!name) { status.textContent = 'Bitte einen Streamername eingeben.'; byId('streamerName').focus(); return; }
+  if (email && !byId('accountEmail').checkValidity()) { status.textContent = 'Bitte eine gültige Konto-E-Mail eingeben.'; byId('accountEmail').focus(); return; }
+  if (!Number.isInteger(bitrate) || bitrate < 500 || bitrate > 20000 || bitrate % 500 !== 0) {
+   status.textContent = 'Bitrate muss zwischen 500 und 20.000 kbit/s liegen und in 500er-Schritten eingegeben werden.';
+   byId('streamBitrate').focus(); return;
+  }
+  const values = Object.fromEntries(ids.map(id => [id, byId(id).value.trim()]));
+  try {
+   localStorage.setItem(storageKey, JSON.stringify(values));
+   status.textContent = 'Einstellungen lokal gespeichert. Noch nicht an einen Streamingdienst übertragen.';
+  } catch (_) { status.textContent = 'Speichern fehlgeschlagen – lokaler Speicher nicht verfügbar.'; }
+ });
+ byId('platformConnectInfo').addEventListener('click', () => {
+  const platform = byId('platformSelect').selectedOptions[0].textContent;
+  byId('platformConnectionState').textContent = platform + ': nicht verbunden – offizieller Login/OAuth erforderlich.';
+ });
+})();
+</script>
+
+<div id="streamiov-web-runtime-notice" role="status" aria-live="polite" style="position:relative;z-index:20;padding:9px 14px;background:#241f3b;border-bottom:1px solid #7c70ff;color:#eeeaff;font-size:12px;text-align:center">STREAMIOV WEB-REGIE · Geräte- und Medienfunktionen hängen von Browser, Berechtigungen und verbundenem Core ab. LIVE-Ausgabe ist hier nicht als aktiv bestätigt.</div><script>if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/app/sw.js',{scope:'/app/'}).catch(()=>{});});}</script>
+</body>
+</html>
