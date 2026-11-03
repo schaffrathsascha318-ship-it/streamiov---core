@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "id": "streamiov-star-defender",
+  "title": "Star Defender",
+  "version": "0.2.0-prototype",
+  "status": "PROTOTYPE",
+  "genre": ["arcade", "space-shooter"],
+  "entrypoint": "game.py",
+  "build": "python3 -m py_compile games/releases/streamiov-star-defender/engine.py games/releases/streamiov-star-defender/game.py",
+  "package_command": "python3 -m games.package games/releases/streamiov-star-defender/manifest.json",
+  "test": "python3 -m unittest discover -s games/releases/streamiov-star-defender/tests -p 'test_*.py' -v",
+  "display_smoke": "python3 games/releases/streamiov-star-defender/tests/gui_smoke.py",
+  "package": "games/releases/streamiov-star-defender-0.2.0-prototype.zip",
+  "package_checksum": "games/releases/streamiov-star-defender-0.2.0-prototype.zip.sha256",
+  "package_manifest": "streamiov-star-defender/manifest.json",
+  "package_files": ["README.md", "manifest.json", "engine.py", "game.py", "tests/test_engine.py", "tests/gui_smoke.py"],
+  "runtime": {
+    "python": ">=3.10",
+    "third_party_packages": [],
+    "network_required": false,
+    "optional_os_dependency": "Tkinter GUI support"
+  },
+  "provenance": {
+    "concept": "Repository-local StreamioV prototype, developed 2026-11-02",
+    "code": "Original implementation in engine.py and game.py",
+    "art": "Canvas gameplay shapes and native-shape adaptation of the shared StreamioV signal/play mark",
+    "fonts": "Operating-system Tk default font",
+    "audio": "None",
+    "external_assets": [],
+    "project_dependencies": [{"path": "games/branding/streamiov-symbol.svg", "use": "visual reference for the title-screen signal/play mark", "rights_status": "internal provenance review pending"}],
+    "ownership_review": "Open: verify contributor rights and applicable project agreements before any ownership or release claim"
+  },
+  "verification": {
+    "unit_tests": "5 engine tests passed on the development host on 2026-11-02",
+    "display_smoke": "Tkinter window, title rendering, Enter start input, and playfield rendering passed on the development host on 2026-11-02",
+    "gameplay_review": "not performed; display smoke only",
+    "platforms": {"Linux": "development-host GUI smoke only; not target-device tested", "Windows": "not hardware-tested", "ChromeOS": "not hardware-tested"}
+  }
+}

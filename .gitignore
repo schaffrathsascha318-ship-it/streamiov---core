@@ -21,6 +21,8 @@
 **/*.tar
 **/*.tar.gz
 **/*.zip
+# Audited game release candidates are small artifacts named by their manifests.
+!games/releases/*.zip
 .venv/
 dist/streamiov-studio-app/electron
 dist/streamiov-studio-app/streamiov-studio@1.0.0
@@ -47,12 +49,22 @@ dist/streamiov-studio-app/**/diagnose-*.cjs
 
 # Sensitive local credentials and private configuration (never commit)
 /secrets/
+/.en
+/.envy
 /config/platforms/**/oauth*.json
 /config/**/*.secret.*
 /config/**/*credentials*
 
+# Locally built installers and generated module backups
+/dist/streamiov-studio-app/release/
+/dist/streamiov-homepage/account/
+/dist/streamiov-homepage/assets/
+/modules/**/*.bak
+/modules/**/*.bak-*
+/modules/**/*.save
+/modules/**/*.before-*
+
 # Runtime state, private request data and historical deployment logs
-/.en
 /.testdir/
 /logs/
 /storage/

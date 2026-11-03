@@ -88,6 +88,8 @@ class ProjectToolTests(unittest.TestCase):
         with self.assertRaises(ToolError): self.tools.write_file("ai/existing.py", "overwrite")
     def test_fixed_test_command(self):
         with self.assertRaises(ToolError): self.tools.run_tests("rm -rf .")
+    def test_game_checks_are_not_available_to_general_tools(self):
+        with self.assertRaises(ToolError): self.tools.run_game_checks()
 
 class AgentTests(unittest.TestCase):
     def test_read_then_finish(self):
@@ -115,13 +117,64 @@ class AgentTests(unittest.TestCase):
             ])
             self.assertEqual(DevelopmentAgent(p, tmp).run("Change value"), "Updated the file.")
             self.assertEqual(target.read_text(encoding="utf-8"), "value = 2\n")
-    def test_invalid_json_fails_closed(self):
+    def test_invalid_json_gets_one_format_retry(self):
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider(["not json"]), tmp).run("Do task")
+            provider = FakeProvider(["not json", '{"final":"Recovered safely."}'])
+            result = DevelopmentAgent(provider, tmp).run("Do task")
+            self.assertEqual(result, "Recovered safely.")
+
+    def test_invalid_json_still_fails_closed_after_retry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            provider = FakeProvider(["not json", "still not json"])
+            with self.assertRaises(AgentError):
+                DevelopmentAgent(provider, tmp).run("Do task")
     def test_mixed_tool_and_final_response_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             response = '{"tool":"read_file","arguments":{"path":"README.md"},"final":"fake"}'
             with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider([response]), tmp).run("Do task")
+
+    def test_specialist_role_sets_prompt_and_enforced_write_scope(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            class CapturingProvider(FakeProvider):
+                def generate(self, **kwargs):
+                    self.system = kwargs["system"]
+                    return super().generate(**kwargs)
+            provider = CapturingProvider(['{"final":"Review complete."}'])
+            agent = DevelopmentAgent(provider, tmp, specialist="game")
+            self.assertEqual(agent.run("Plan an original puzzle game."), "Review complete.")
+            self.assertIn("SPECIALIST ROLE: Game Developer (game)", provider.system)
+            agent.tools.write_file("games/sample.py", "print('original')\n")
+            with self.assertRaises(ToolError):
+                agent.tools.write_file("dist/streamiov-studio-app/sample.js", "unsafe scope")
+
+    def test_games_specialist_runs_bounded_local_game_checks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "games", "releases").mkdir(parents=True)
+            Path(tmp, "games", "releases", "README.txt").write_text("No manifest", encoding="utf-8")
+            agent = DevelopmentAgent(
+                FakeProvider(['{"tool":"run_game_checks","arguments":{}}', '{"final":"Checks complete."}']),
+                tmp,
+                specialist="game",
+            )
+            # No manifests is a safe, surfaced tool error rather than executing arbitrary commands.
+            self.assertEqual(agent.run("Check the game projects."), "Checks complete.")
+            with self.assertRaises(ToolError):
+                agent.tools.run_game_checks()
+
+    def test_non_game_agent_cannot_request_game_check_tool(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            agent = DevelopmentAgent(
+                FakeProvider(['{"tool":"run_game_checks","arguments":{}}']), tmp, specialist="code"
+            )
+            with self.assertRaises(AgentError):
+                agent.run("Run game checks.")
+
+    def test_studio_specialist_can_write_studio_source_but_not_secrets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tools = DevelopmentAgent(FakeProvider(['{"final":"Done."}']), tmp, specialist="studio").tools
+            tools.write_file("dist/streamiov-studio-app/new-module.js", "module.exports = {};\n")
+            with self.assertRaises(ToolError):
+                tools.write_file("dist/streamiov-studio-app/secrets/token.json", "secret")
 
 
     def test_tool_batch_is_fully_validated_before_first_action(self):
@@ -191,6 +244,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.task, "inspect the project")
         self.assertEqual(args.project_root, "/tmp/streamiov")
         self.assertEqual(args.max_steps, 5)
+        self.assertEqual(args.specialist, "code")
+        self.assertEqual(parser.parse_args(["--task", "design a game", "--specialist", "game"]).specialist, "game")
 
     def test_doctor_cli_returns_success_only_when_provider_is_ready(self):
         from unittest.mock import patch

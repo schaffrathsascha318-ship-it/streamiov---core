@@ -66,7 +66,7 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
 .source{padding:10px;background:#17222d;border:1px solid var(--line);
  border-radius:7px;color:var(--muted)}
 .source b{display:block;color:var(--text);margin-bottom:5px}
-.mixer{display:grid;grid-template-columns:repeat(4,minmax(75px,1fr));gap:8px}
+.mixer{display:grid;grid-template-columns:repeat(3,minmax(75px,1fr));gap:8px}
 .channel{padding:10px 7px;background:#0c131b;border:1px solid var(--line);
  border-radius:8px;text-align:center}
 .channel input{width:100%;accent-color:var(--cyan)}
@@ -93,13 +93,60 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
 @media(max-width:700px){.game-list{grid-template-columns:1fr}}
 .pill{font-size:10px;border:1px solid var(--line);border-radius:20px;
  padding:4px 8px;color:var(--muted)}
+dialog{width:min(900px,calc(100vw - 32px));max-height:85vh;overflow:auto;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px}
+dialog::backdrop{background:#000b}
+.screen-source-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.screen-source{display:grid;gap:8px;text-align:left}
+.screen-source img{width:100%;aspect-ratio:16/9;object-fit:cover;background:#05080c;border-radius:6px}
 @media(max-width:1100px){
  main{grid-template-columns:190px minmax(350px,1fr)}
  .right-stack{grid-column:1/-1;grid-template-columns:repeat(3,1fr)}
  .bottom{grid-template-columns:1fr 1fr}
 }
+.screen canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#05080c}
+.screen-name{margin-top:6px;text-align:center;font-size:11px;letter-spacing:1.5px;color:var(--muted)}
+.source-list{display:grid;gap:6px;margin-bottom:8px}
+.scene-actions{display:flex;gap:6px;margin-top:6px}
+.scene-actions button{flex:1;padding:6px;font-size:11px}
+.scene-actions button:disabled{opacity:.45;cursor:not-allowed}
+.source-row{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;
+ padding:7px;background:#0c131b;border:1px solid var(--line);border-radius:7px}
+.source-row b{display:block;font-size:12px}
+.source-row small{color:var(--muted);font-size:10px}
+.source-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.source-actions button{padding:3px 6px;font-size:11px;line-height:1.1}
+.source-empty{color:var(--muted);font-size:12px;padding:8px}
+.dialog-fields{display:grid;gap:10px;margin:12px 0}
+.dialog-fields label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.dialog-fields input,.dialog-fields select,.dialog-fields textarea{
+ background:#0c131b;border:1px solid var(--line);border-radius:7px;color:var(--text);padding:8px;font:inherit}
+.dialog-fields textarea{min-height:70px;resize:vertical}
+.dialog-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.tool-body{display:grid;gap:10px}
+.tool-body h3{margin:0;font-size:13px;letter-spacing:1px;color:var(--cyan)}
+.tool-body p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.tool-field{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.tool-field input,.tool-field textarea,.tool-field select{
+ background:#0c131b;border:1px solid var(--line);border-radius:7px;color:var(--text);padding:8px;font:inherit}
+.tool-field textarea{min-height:70px;resize:vertical}
+.tool-pre{max-height:220px;overflow:auto;background:#0b1118;border-radius:7px;padding:9px;
+ font:11px/1.5 ui-monospace,monospace;color:#b9c9d6;white-space:pre-wrap;word-break:break-word}
+.tool-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chat-log{height:180px;overflow:auto;background:#0b1118;border-radius:7px;padding:9px;
+ font-size:12px;line-height:1.6;color:var(--muted)}
+.chat-log b{color:var(--text)}
+.gift-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.gift-card{background:#0c131b;border:1px solid var(--line);border-radius:8px;padding:9px;text-align:center}
+.gift-card button{width:100%;margin-top:6px}
+.gift-overlay{position:fixed;inset:0;pointer-events:none;z-index:60;display:none;overflow:hidden}
+.gift-particle{position:absolute;font-size:34px;animation:gift-fall 2.8s linear forwards}
+@keyframes gift-fall{from{transform:translateY(-60px) rotate(0);opacity:1}
+ to{transform:translateY(105vh) rotate(320deg);opacity:0}}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+ clip:rect(0,0,0,0);white-space:nowrap;border:0}
 #mobile-content-stage{display:none}
 #mobile-regie-toggle{display:none}
+
 @media(max-width:700px){
  header{height:auto;padding:12px;gap:10px;flex-wrap:wrap}
  header .status{width:100%;justify-content:space-between;gap:6px;font-size:11px}
@@ -133,6 +180,52 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
  </div>
 </header>
 
+<dialog id="displaySourceDialog" aria-labelledby="displaySourceTitle">
+ <h2 id="displaySourceTitle">Fenster oder Bildschirm wählen</h2>
+ <p>Streamiov erfasst nur die Quelle, die du auswählst.</p>
+ <div id="displaySourceList" class="screen-source-grid"></div>
+ <button id="cancelDisplaySource" type="button" style="margin-top:12px">Abbrechen</button>
+</dialog>
+
+<dialog id="sourceDialog" aria-labelledby="sourceDialogTitle">
+ <h2 id="sourceDialogTitle">Quelle hinzufügen</h2>
+ <p>Quellen werden in der Vorschauszene gespeichert und erst beim Streamstart ausgegeben.</p>
+ <div class="dialog-fields">
+  <label>Typ
+   <select id="sourceType">
+    <option value="camera">Kamera</option>
+    <option value="screen">Bildschirm</option>
+    <option value="title">Titelkarte</option>
+    <option value="text">Text</option>
+   </select>
+  </label>
+  <label>Name <input id="sourceName" maxlength="60" placeholder="z. B. Kamera 1"></label>
+  <label>Text (nur Titel/Text) <textarea id="sourceText" maxlength="200" placeholder="z. B. STARTING SOON"></textarea></label>
+  <label>Position
+   <select id="sourcePosition">
+    <option value="full">Vollbild</option>
+    <option value="pip">Bild-in-Bild rechts unten</option>
+    <option value="bottom">Unterer Balken</option>
+    <option value="top">Oberer Balken</option>
+    <option value="left">Linke Hälfte</option>
+    <option value="right">Rechte Hälfte</option>
+   </select>
+  </label>
+ </div>
+ <div class="dialog-actions">
+  <button id="confirmSource" type="button">Hinzufügen</button>
+  <button id="cancelSource" type="button">Abbrechen</button>
+ </div>
+</dialog>
+
+<dialog id="toolDialog" aria-labelledby="toolDialogTitle">
+ <h2 id="toolDialogTitle">Werkzeug</h2>
+ <div id="toolBody" class="tool-body"></div>
+ <div class="dialog-actions"><button id="closeTool" type="button">Schließen</button></div>
+</dialog>
+
+<div class="gift-overlay" id="giftOverlay" aria-hidden="true"></div>
+
 <section id="mobile-content-stage" aria-label="Spiel und Inhalt">
  <div class="mobile-stage-head">
   <strong>SPIEL / INHALT</strong>
@@ -149,6 +242,7 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
 <button id="mobile-regie-toggle" type="button" aria-controls="studio-regie" aria-expanded="true">REGIE / STUDIO AUSBLENDEN</button>
 
 <main id="studio-regie">
+
  <section class="panel">
   <div class="panel-title">SZENEN / PRODUKTION</div>
   <div class="pad">
@@ -162,10 +256,18 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
     <button class="scene" data-scene="JUST CHATTING">JUST CHATTING <small>06</small></button>
    </div>
    <button id="createScene" type="button" style="width:100%;margin-top:6px">＋ Eigene Szene</button>
-   <div class="panel-title" style="margin:12px -12px">QUELLEN / LOKALE VERWALTUNG</div>
-   <div id="sourceList" aria-live="polite"><div class="source"><b>Quellen werden geladen …</b></div></div>
-   <button style="width:100%;margin-top:8px" id="addSource" type="button">＋ Quelle hinzufügen</button>
-   <small style="display:block;color:var(--muted);margin-top:7px">Quellenliste und Einstellungen werden lokal gespeichert. Aufnahme, Compositing und Encoder-Anbindung sind davon getrennte nächste Entwicklungsschritte.</small>
+   <div class="scene-actions">
+    <button id="renameScene" type="button" disabled>✎ Umbenennen</button>
+    <button id="deleteScene" type="button" disabled>✕ Löschen</button>
+   </div>
+   <div class="panel-title" style="margin:12px -12px">QUELLEN DER VORSCHAU</div>
+   <div class="source-list" id="sourceList"></div>
+   <button style="width:100%;margin-top:8px" id="addSource">＋ Quelle hinzufügen</button>
+   <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12px;color:var(--muted)">
+    Hintergrund <input id="sceneBackground" type="color" value="#10151e" style="width:42px;height:28px;background:none;border:1px solid var(--line);border-radius:6px">
+   </label>
+   <small style="display:block;color:var(--muted);margin-top:7px">Quellen und Layout werden pro Szene lokal gespeichert. Aufnahme, Compositing und Encoder-Anbindung sind davon getrennte Entwicklungsschritte.</small>
+
    <section class="panel section" id="deviceCapturePanel">
     <div class="panel-title">ECHTE GERÄTE / KAMERA & MIKROFON</div>
     <div class="pad">
@@ -174,6 +276,9 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
      <button id="cameraStart" type="button" style="width:100%">KAMERA TESTEN</button>
      <video id="cameraPreview" autoplay muted playsinline style="display:none;width:100%;margin-top:8px;border-radius:8px;background:#05080c;aspect-ratio:16/9"></video>
      <p id="cameraCaptureStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Kamera noch nicht geprüft.</p>
+     <button id="screenStart" type="button" style="width:100%;margin-top:8px">BILDSCHIRM TEILEN</button>
+     <video id="screenPreview" autoplay muted playsinline style="display:none;width:100%;margin-top:8px;border-radius:8px;background:#05080c;aspect-ratio:16/9"></video>
+     <p id="screenCaptureStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Kein Bildschirm geteilt.</p>
      <div class="panel-title" style="margin:12px -12px">MIKROFON</div>
      <label for="microphoneDeviceSelect">Mikrofon auswählen</label>
      <select id="microphoneDeviceSelect" style="width:100%;margin:6px 0 10px"><option value="">Standardmikrofon</option></select>
@@ -181,7 +286,7 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
      <div class="meter" style="margin-top:12px"><i id="microphoneLevel" style="width:0%"></i></div>
      <p id="microphoneCaptureStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Mikrofon noch nicht geprüft.</p>
      <button id="refreshDevices" type="button" style="width:100%;margin-top:8px">GERÄTELISTE AKTUALISIEREN</button>
-     <small style="display:block;color:var(--muted);margin-top:8px">Die Tests fragen beim Start die Geräteberechtigung ab. Kamera- und Mikrofonaufnahme bleiben lokal; zum Beenden erneut auf den jeweiligen Testknopf klicken.</small>
+     <small style="display:block;color:var(--muted);margin-top:8px">Vorschautests bleiben lokal. Ein Stream wird erst nach Klick auf STREAM STARTEN übertragen. Systemton beim Bildschirmteilen hängt vom Betriebssystem und der ausgewählten Quelle ab.</small>
     </div>
    </section>
   </div>
@@ -191,15 +296,13 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
   <div class="monitors">
    <div class="monitor">
     <div class="monitor-head"><span>PREVIEW / VORSCHAU</span><span class="pill">LOCAL</span></div>
-    <div class="screen"><div class="screen-content">
-     <small>STREAMIOV STUDIO</small><strong id="previewName">STARTING SOON</strong>
-     <small>VORSCHAU</small></div></div>
+    <div class="screen"><canvas id="previewCanvas" width="1280" height="720" aria-label="Vorschau der gewählten Szene"></canvas></div>
+    <div class="screen-name" id="previewName">STARTING SOON</div>
    </div>
    <div class="monitor program">
-    <div class="monitor-head"><span>PROGRAMM / AUSGABE</span><span class="pill">NICHT LIVE</span></div>
-    <div class="screen"><div class="screen-content">
-     <small>STREAMIOV STUDIO</small><strong id="programName">STARTING SOON</strong>
-     <small>PROGRAMM-MONITOR</small></div></div>
+    <div class="monitor-head"><span>PROGRAMM / AUSGABE</span><span class="pill" id="programBadge">NICHT LIVE</span></div>
+    <div class="screen"><canvas id="programCanvas" width="1280" height="720" aria-label="Programmausgabe"></canvas></div>
+    <div class="screen-name" id="programName">STARTING SOON</div>
    </div>
   </div>
   <div class="panel section">
@@ -216,14 +319,13 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
    <div class="panel-title">AUDIO-MIXER / LOKALE REGLER</div>
    <div class="pad mixer">
     <div class="channel"><b>Mikrofon</b><div class="meter"><i></i></div>
-     <input type="range" min="0" max="100" value="75"><small>MIC 1</small></div>
-    <div class="channel"><b>Musik</b><div class="meter"><i></i></div>
-     <input type="range" min="0" max="100" value="45"><small>MUSIC</small></div>
-    <div class="channel"><b>Spiel</b><div class="meter"><i></i></div>
-     <input type="range" min="0" max="100" value="65"><small>GAME</small></div>
-    <div class="channel"><b>Alerts</b><div class="meter"><i></i></div>
-     <input type="range" min="0" max="100" value="80"><small>ALERTS</small></div>
+     <input id="mixerMic" type="range" min="0" max="100" value="75" aria-label="Mikrofonlautstärke"><small id="mixerMicValue">MIC 1 · 75 %</small></div>
+    <div class="channel"><b>System</b><div class="meter"><i></i></div>
+     <input id="mixerSystem" type="range" min="0" max="100" value="45" aria-label="Systemtonlautstärke"><small id="mixerSystemValue">SYSTEM · 45 %</small></div>
+    <div class="channel"><b>Master</b><div class="meter"><i></i></div>
+     <input id="mixerMaster" type="range" min="0" max="100" value="80" aria-label="Masterlautstärke"><small id="mixerMasterValue">MASTER · 80 %</small></div>
    </div>
+   <p id="mixerStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted);margin:0 12px 12px">Regler wirken auf den lokalen Stream-Mix. Musik-, Spiel- und Alert-Kanäle sind noch nicht als eigene Quellen angebunden.</p>
   </div>
  </section>
 
@@ -231,15 +333,20 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
   <section class="panel">
    <div class="panel-title">LIVE / VERBINDUNGEN</div>
    <div class="pad">
-    <div class="metric"><span>TikTok</span><b style="color:var(--amber)">OFFLINE</b></div>
-    <div class="metric"><span>Kamera</span><b>NICHT VERBUNDEN</b></div>
-    <div class="metric"><span>Mikrofon</span><b>NICHT VERBUNDEN</b></div>
-    <div class="metric"><span>Netzwerk</span><b>LOKAL</b></div>
+    <div class="metric"><span>Plattformdienst</span><b style="color:var(--amber)">NICHT VERBUNDEN</b></div>
+    <div class="metric"><span>Kamera</span><b id="cameraMetric">NICHT VERBUNDEN</b></div>
+    <div class="metric"><span>Bildschirm</span><b id="screenMetric">NICHT GETEILT</b></div>
+    <div class="metric"><span>Mikrofon</span><b id="microphoneMetric">NICHT VERBUNDEN</b></div>
+    <div class="metric"><span>RTMP-Ausgabe</span><b id="rtmpMetric">OFFLINE</b></div>
     <button id="runtimeCheck" type="button" style="width:100%;margin-top:12px">TECHNIK / ENCODER PRÜFEN</button>
     <p id="runtimeDiagnostics" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Systemprüfung noch nicht ausgeführt.</p>
     <button id="mediaTest" type="button" style="width:100%;margin-top:8px">LOKALEN AUDIO-/VIDEO-TEST STARTEN</button>
     <p id="mediaTestResult" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Erzeugt einen kurzen lokalen Testclip aus Bild- und Tonsignalen.</p>
-    <button class="go-live" style="width:100%;margin-top:12px" id="live">● LIVE VERBINDUNG PRÜFEN</button>
+    <label for="rtmpDestination" style="display:block;margin-top:12px">RTMP-Ziel + Stream-Key</label>
+    <input id="rtmpDestination" type="password" maxlength="2048" autocomplete="off" spellcheck="false" placeholder="rtmps://server/app/stream-key" style="width:100%;margin-top:6px">
+    <small style="display:block;color:var(--muted);margin-top:6px">Der Stream-Key wird nur für diese Sitzung verwendet. Zum Start müssen Kamera und Mikrofon aktiv sein. Das Ziel unterstützt RTMP/RTMPS.</small>
+    <button class="go-live" style="width:100%;margin-top:10px" id="live">● STREAM STARTEN</button>
+    <p id="liveStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Offline · Keine Plattform verbunden.</p>
    </div>
   </section>
   <section class="panel">
@@ -268,7 +375,15 @@ main{padding:14px;display:grid;grid-template-columns:220px minmax(420px,1fr) 290
   </div>
   <div class="panel">
    <div class="panel-title">GESCHENKE / GALERIEBOX</div>
-   <div class="pad"><div class="log">Warte auf Live-Geschenkereignisse.<br>Keine TikTok-Verbindung aktiv.</div></div>
+   <div class="pad">
+    <div class="log" role="status" aria-live="polite">
+     <strong>TikTok-Geschenke</strong><br>
+     TikTok wickelt Kauf, Zuordnung und mögliche Auszahlung direkt ab. StreamioV zieht nichts ab und nimmt kein Geld entgegen. Auszahlungshöhe und Berechtigung bestimmt TikTok; eine 1:1-Umrechnung des Kaufpreises ist nicht zugesichert.<br><br>
+     <strong>StreamioV-Galerie</strong><br>
+     Eigene Galerieeffekte sind kostenlos und lösen keine Zahlung oder Auszahlung aus.<br><br>
+     Noch keine offizielle TikTok-Geschenkefreigabe oder Live-Ereignisverbindung eingerichtet.
+    </div>
+   </div>
   </div>
   <div class="panel">
    <div class="panel-title">KI-REGIE / AUTOMATION</div>
@@ -366,62 +481,88 @@ if(mobileRegieToggle){
  });
 }
 let selected="STARTING SOON";
+let programOutputAlpha=1;
+let sceneState=null;
+let previewSceneId=null;
+let programSceneId=null;
+let programEffect=null;
+let programAlert=null;
 function log(message){
  const box=$("log");
  box.innerHTML += "<br>"+new Date().toLocaleTimeString()+" — "+
   message.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  box.scrollTop=box.scrollHeight;
 }
-function renderScenes(scenes, previewName){
+function sceneById(id){return sceneState?.scenes.find(scene=>scene.id===id)||null;}
+function sceneName(id){return sceneById(id)?.name||"STARTING SOON";}
+function applySceneState(state){
+ if(!state?.scenes?.length)return;
+ sceneState=state;
+ previewSceneId=state.previewSceneId;
+ programSceneId=state.programSceneId;
+ selected=sceneName(previewSceneId);
+ $("previewName").textContent=selected;
+ $("programName").textContent=sceneName(programSceneId);
+ const background=sceneById(previewSceneId)?.background;
+ if(background)$("sceneBackground").value=background;
+ renderScenes(state.scenes,previewSceneId);
+ renderSources();
+ updateSceneManagement();
+}
+function updateSceneManagement(){
+ const scene=sceneById(previewSceneId);
+ const custom=scene?.kind==="custom";
+ $("renameScene").disabled=!custom;
+ $("deleteScene").disabled=!custom;
+}
+function renderScenes(scenes, previewId){
  const host=$("scenes");
  host.replaceChildren();
- for(const scene of scenes){
+ scenes.forEach((scene,index)=>{
   const button=document.createElement("button");
-  button.className="scene"+(scene.name===previewName?" active":"");
+  button.className="scene"+(scene.id===previewId?" active":"");
+  button.dataset.sceneId=scene.id;
   button.dataset.scene=scene.name;
   button.append(document.createTextNode(scene.name));
   const small=document.createElement("small");
-  small.textContent=String(scenes.indexOf(scene)+1).padStart(2,"0");
+  small.textContent=String(index+1).padStart(2,"0");
   button.append(small);
-  button.addEventListener("click",()=>selectScene(scene.name));
+  button.addEventListener("click",()=>selectScene(scene.id));
   host.append(button);
- }
+ });
 }
-async function selectScene(name){
- selected=name;
- $("previewName").textContent=name;
- document.querySelectorAll(".scene").forEach(b=>b.classList.toggle("active",b.dataset.scene===name));
- if(window.streamiovStudio?.sceneAction){
-  const result=await window.streamiovStudio.sceneAction({action:"select",name});
-  if(!result?.ok){log("Szene konnte nicht gespeichert werden: "+(result?.error||"unbekannter Fehler"));return;}
+async function sceneCommand(payload){
+ if(!window.streamiovStudio?.sceneAction)return null;
+ const result=await window.streamiovStudio.sceneAction(payload);
+ if(!result?.ok){
+  log("Szenenaktion fehlgeschlagen: "+(result?.error||"unbekannter Fehler"));
+  return null;
  }
- log("Vorschau gewählt und lokal gespeichert: "+name);
+ applySceneState(result.state);
+ return result.state;
+}
+async function selectScene(idOrName){
+ const scene=sceneById(idOrName)||sceneState?.scenes.find(item=>item.name===idOrName);
+ if(!scene)return;
+ selected=scene.name;
+ $("previewName").textContent=scene.name;
+ document.querySelectorAll(".scene").forEach(button=>button.classList.toggle("active",button.dataset.sceneId===scene.id));
+ await sceneCommand({action:"select",id:scene.id});
+ log("Vorschau gewählt und lokal gespeichert: "+scene.name);
 }
 async function loadScenes(){
  if(!window.streamiovStudio?.sceneAction){log("Szenenverwaltung läuft im Demo-Modus.");return;}
  const result=await window.streamiovStudio.sceneAction({action:"load"});
  if(!result?.ok){log("Szenen konnten nicht geladen werden: "+(result?.error||"unbekannter Fehler"));return;}
- const state=result.state;
- const preview=state.scenes.find(s=>s.id===state.previewSceneId)?.name||state.scenes[0].name;
- const program=state.scenes.find(s=>s.id===state.programSceneId)?.name||preview;
- selected=preview;
- $("previewName").textContent=preview;
- $("programName").textContent=program;
- renderScenes(state.scenes,preview);
- log("Szenen aus lokalem Studio-Profil geladen.");
+ applySceneState(result.state);
+ log("Szenen und Quellen aus lokalem Studio-Profil geladen.");
 }
 async function createScene(){
  const name=window.prompt("Name der neuen Szene (max. 60 Zeichen):");
  if(name===null)return;
  if(!window.streamiovStudio?.sceneAction){log("Eigene Szenen benötigen die installierte Desktop-App.");return;}
- const result=await window.streamiovStudio.sceneAction({action:"create",name});
- if(!result?.ok){log("Szene nicht erstellt: "+(result?.error||"unbekannter Fehler"));return;}
- const state=result.state;
- const preview=state.scenes.find(s=>s.id===state.previewSceneId)?.name||name.trim();
- selected=preview;
- $("previewName").textContent=preview;
- renderScenes(state.scenes,preview);
- log("Eigene Szene dauerhaft im Studio-Profil gespeichert: "+preview);
+ const state=await sceneCommand({action:"create",name});
+ if(state)log("Eigene Szene dauerhaft im Studio-Profil gespeichert: "+sceneName(state.previewSceneId));
 }
 $("openProgramOutput").onclick=async()=>{
  const button=$("openProgramOutput");button.disabled=true;
@@ -436,82 +577,247 @@ $("openProgramOutput").onclick=async()=>{
  finally{button.disabled=false;}
 };
 async function take(){
- if(window.streamiovStudio?.sceneAction){
-  const result=await window.streamiovStudio.sceneAction({action:"take"});
-  if(!result?.ok){log("Programmumschaltung nicht gespeichert: "+(result?.error||"unbekannter Fehler"));return;}
- }
- $("programName").textContent=selected;
- log("Programm lokal umgeschaltet: "+selected+" (keine Live-Ausgabe).");
+ const state=await sceneCommand({action:"take"});
+ if(!state)return;
+ $("programName").textContent=sceneName(state.programSceneId);
+ log(broadcastRecorder?"Live-Programmszene umgeschaltet: "+sceneName(state.programSceneId):"Programm lokal umgeschaltet: "+sceneName(state.programSceneId)+" (keine Live-Ausgabe).");
 }
 $("createScene").onclick=createScene;
-loadScenes();
+$("renameScene").onclick=async()=>{
+ const scene=sceneById(previewSceneId);
+ if(!scene||scene.kind!=="custom")return;
+ const name=window.prompt("Neuer Szenenname (max. 60 Zeichen):",scene.name);
+ if(name===null)return;
+ const state=await sceneCommand({action:"rename-scene",id:scene.id,name});
+ if(state)log("Szene umbenannt: "+sceneName(state.previewSceneId));
+};
+$("deleteScene").onclick=async()=>{
+ const scene=sceneById(previewSceneId);
+ if(!scene||scene.kind!=="custom")return;
+ if(!window.confirm("Szene „"+scene.name+"“ dauerhaft löschen?"))return;
+ const state=await sceneCommand({action:"delete-scene",id:scene.id});
+ if(state)log("Szene gelöscht. Vorschau: "+sceneName(state.previewSceneId));
+};
 $("cut").onclick=take;
 $("take").onclick=take;
 $("fade").onclick=()=>{
  const screen=document.querySelector(".program .screen");
  screen.style.opacity=".25";
- setTimeout(()=>{take();screen.style.opacity="1"},180);
- log("Lokaler Fade-Übergang ausgeführt.");
+ const started=performance.now(),half=150,total=300;let changed=false;
+ const animate=now=>{
+  const elapsed=now-started;
+  if(elapsed<half)programOutputAlpha=1-elapsed/half;
+  else{
+   if(!changed){take();changed=true;}
+   programOutputAlpha=Math.min(1,(elapsed-half)/(total-half));
+  }
+  if(elapsed<total)requestAnimationFrame(animate);
+  else{programOutputAlpha=1;screen.style.opacity="1";}
+ };
+ requestAnimationFrame(animate);
+ log("Fade-Übergang ausgeführt.");
 };
-let sourceState=[];
-function renderSources(sources){
+
+// ---------------------------------------------------------------------------
+// Szenen-Quellen und lokaler Canvas-Renderer für Vorschau, Programm und Stream.
+// ---------------------------------------------------------------------------
+function sourcePosition(preset){
+ return {
+  full:{x:0,y:0,w:1,h:1},
+  pip:{x:0.72,y:0.72,w:0.25,h:0.25},
+  bottom:{x:0,y:0.75,w:1,h:0.25},
+  top:{x:0,y:0,w:1,h:0.25},
+  left:{x:0,y:0,w:0.5,h:1},
+  right:{x:0.5,y:0,w:0.5,h:1}
+ }[preset]||{x:0,y:0,w:1,h:1};
+}
+function sourceTypeLabel(type){
+ return {camera:"Kamera",screen:"Bildschirm",title:"Titelkarte",text:"Text"}[type]||type;
+}
+function renderSources(){
  const host=$("sourceList");
+ if(!host)return;
  host.replaceChildren();
- if(!sources.length){
-  const empty=document.createElement("div");empty.className="source";
-  const label=document.createElement("small");label.textContent="Noch keine Quellen angelegt.";
-  empty.append(label);host.append(empty);return;
+ const scene=sceneById(previewSceneId);
+ if(!scene){host.append(Object.assign(document.createElement("div"),{className:"source-empty",textContent:"Keine Vorschauszene geladen."}));return;}
+ if(!scene.sources.length){
+  host.append(Object.assign(document.createElement("div"),{className:"source-empty",textContent:"Noch keine Quelle. Füge Kamera, Bildschirm oder eine Titelkarte hinzu."}));
+  return;
  }
- for(const source of sources){
-  const card=document.createElement("div");card.className="source";card.style.margin="6px 0";
+ [...scene.sources].sort((a,b)=>b.z-a.z).forEach(source=>{
+  const row=document.createElement("div");row.className="source-row";
+  const info=document.createElement("div");
   const title=document.createElement("b");title.textContent=source.name;
-  const detail=document.createElement("small");
-  detail.textContent=source.type.toUpperCase()+" · "+(source.enabled?"aktiv":"deaktiviert")+(source.muted?" · stumm":"")+" · "+Math.round(source.volume*100)+" %";
-  const controls=document.createElement("div");controls.style.display="flex";controls.style.gap="5px";controls.style.marginTop="7px";
-  const enabled=document.createElement("button");enabled.type="button";enabled.textContent=source.enabled?"Deaktivieren":"Aktivieren";
-  enabled.addEventListener("click",()=>changeSource(source.id,{enabled:!source.enabled}));
-  const mute=document.createElement("button");mute.type="button";mute.textContent=source.muted?"Ton an":"Stumm";
-  mute.addEventListener("click",()=>changeSource(source.id,{muted:!source.muted}));
-  const remove=document.createElement("button");remove.type="button";remove.textContent="Entfernen";
-  remove.addEventListener("click",()=>removeSource(source.id));
-  controls.append(enabled,mute,remove);card.append(title,detail,controls);host.append(card);
+  const meta=document.createElement("small");
+  meta.textContent=sourceTypeLabel(source.type)+" · Ebene "+source.z+(source.visible?"":" · ausgeblendet");
+  info.append(title,meta);
+  const actions=document.createElement("div");actions.className="source-actions";
+  const addButton=(label,titleText,handler)=>{
+   const button=document.createElement("button");button.type="button";button.textContent=label;button.title=titleText;
+   button.addEventListener("click",handler);actions.append(button);return button;
+  };
+  addButton(source.visible?"◉":"○",source.visible?"Ausblenden":"Einblenden",()=>sceneCommand({action:"update-source",sourceId:source.id,patch:{visible:!source.visible}}));
+  addButton("↑","Nach vorne",()=>sceneCommand({action:"move-source",sourceId:source.id,direction:"up"}));
+  addButton("↓","Nach hinten",()=>sceneCommand({action:"move-source",sourceId:source.id,direction:"down"}));
+  if(source.type==="title"||source.type==="text"){
+   addButton("Text","Text bearbeiten",async()=>{
+    const text=window.prompt("Text der Quelle:",source.text||"");
+    if(text!==null)await sceneCommand({action:"update-source",sourceId:source.id,patch:{text}});
+   });
+  }
+  addButton("✕","Quelle entfernen",async()=>{
+   if(window.confirm("Quelle „"+source.name+"“ aus dieser Szene entfernen?"))await sceneCommand({action:"remove-source",sourceId:source.id});
+  });
+  row.append(info,actions);host.append(row);
+ });
+}
+function drawVideoCover(context, video, x, y, width, height){
+ if(!video?.videoWidth||!video?.videoHeight)return false;
+ const scale=Math.max(width/video.videoWidth,height/video.videoHeight);
+ const drawWidth=video.videoWidth*scale,drawHeight=video.videoHeight*scale;
+ context.save();context.beginPath();context.rect(x,y,width,height);context.clip();
+ context.drawImage(video,x+(width-drawWidth)/2,y+(height-drawHeight)/2,drawWidth,drawHeight);
+ context.restore();
+ return true;
+}
+function drawSourcePlaceholder(context, x, y, width, height, label){
+ context.fillStyle="#0c131b";context.fillRect(x,y,width,height);
+ context.strokeStyle="#263747";context.lineWidth=2;context.strokeRect(x+1,y+1,width-2,height-2);
+ context.fillStyle="#8195a6";context.textAlign="center";context.textBaseline="middle";
+ context.font="600 "+Math.max(12,Math.round(width*0.028))+"px system-ui";
+ context.fillText(label,x+width/2,y+height/2);
+}
+function drawWrappedText(context, text, x, y, width, height, fontSize, color){
+ context.fillStyle=color;context.textAlign="center";context.textBaseline="middle";
+ context.font="900 "+fontSize+"px system-ui";
+ const words=String(text||"").split(/\s+/).filter(Boolean);
+ const lines=[];let line="";
+ for(const word of words){
+  const next=line?line+" "+word:word;
+  if(context.measureText(next).width>width*0.9&&line){lines.push(line);line=word;}
+  else line=next;
  }
+ if(line)lines.push(line);
+ const lineHeight=fontSize*1.15;
+ const startY=y+height/2-(lines.length-1)*lineHeight/2;
+ lines.forEach((item,index)=>context.fillText(item,x+width/2,startY+index*lineHeight));
 }
-async function callSource(action){
- if(!window.streamiovStudio?.sourceAction){log("Quellenverwaltung benötigt die installierte Desktop-App.");return null;}
- const result=await window.streamiovStudio.sourceAction(action);
- if(!result?.ok){log("Quellenaktion fehlgeschlagen: "+(result?.error||"unbekannter Fehler"));return null;}
- sourceState=result.state.sources||[];renderSources(sourceState);return result;
+function drawSceneToCanvas(canvas, sceneId, alpha=1){
+ const context=canvas.getContext("2d");
+ const width=canvas.width,height=canvas.height;
+ const scene=sceneById(sceneId);
+ context.clearRect(0,0,width,height);
+ context.save();
+ context.globalAlpha=alpha;
+ context.fillStyle=scene?.background||"#090d13";
+ context.fillRect(0,0,width,height);
+ for(const source of [...(scene?.sources||[])].sort((a,b)=>a.z-b.z)){
+  if(!source.visible)continue;
+  const x=source.x*width,y=source.y*height,w=source.w*width,h=source.h*height;
+  if(source.type==="camera"||source.type==="screen"){
+   const video=source.type==="camera"?cameraVideo:screenVideo;
+   if(!drawVideoCover(context,video,x,y,w,h)){
+    drawSourcePlaceholder(context,x,y,w,h,source.type==="camera"?"Kamera nicht aktiv":"Bildschirm nicht geteilt");
+   }
+  }else{
+   if(source.type==="title"){
+    const gradient=context.createLinearGradient(x,y,x+w,y+h);
+    gradient.addColorStop(0,"#182a39");gradient.addColorStop(.6,"#10151e");gradient.addColorStop(1,"#292044");
+    context.fillStyle=gradient;context.fillRect(x,y,w,h);
+   }else{
+    context.fillStyle="rgba(10,16,24,0.86)";context.fillRect(x,y,w,h);
+   }
+   const fontSize=source.type==="title"
+    ?Math.max(18,Math.min(96,Math.round(w*0.085)))
+    :Math.max(14,Math.min(48,Math.round(w*0.04)));
+   drawWrappedText(context,source.text||source.name,x,y,w,h,fontSize,"#edf6fb");
+   if(source.type==="title"){
+    context.fillStyle="#35e0d0";context.textAlign="center";context.textBaseline="middle";
+    context.font="700 "+Math.max(12,Math.round(w*0.022))+"px system-ui";
+    context.fillText("STREAMIOV",x+w/2,y+h/2+fontSize*1.2);
+   }
+  }
+ }
+ // Local effect overlays (gifts/alerts) are rendered into the same canvas, so
+ // they also appear in the stream output.
+ const now=performance.now();
+ if(programEffect&&now-programEffect.startedAt<2800&&sceneId===programSceneId){
+  const progress=(now-programEffect.startedAt)/2800;
+  context.save();
+  context.globalAlpha=1-progress;
+  context.font="48px system-ui";context.textAlign="center";context.textBaseline="middle";
+  for(let index=0;index<18;index++){
+   const x=((index*137+progress*220)%100)/100*width;
+   const y=(progress*1.2+index*0.06)%1*height;
+   context.fillText(programEffect.symbol,x,y);
+  }
+  context.restore();
+ }
+ if(programAlert&&now-programAlert.startedAt<4200&&sceneId===programSceneId){
+  const progress=Math.min(1,(now-programAlert.startedAt)/350);
+  context.save();
+  context.globalAlpha=progress;
+  context.fillStyle="rgba(17,25,35,0.94)";context.fillRect(width*0.12,height*0.08,width*0.76,height*0.16);
+  context.strokeStyle="#35e0d0";context.lineWidth=3;context.strokeRect(width*0.12,height*0.08,width*0.76,height*0.16);
+  context.fillStyle="#edf6fb";context.textAlign="center";context.textBaseline="middle";
+  context.font="800 "+Math.round(width*0.026)+"px system-ui";
+  context.fillText(programAlert.text,width/2,height*0.16);
+  context.restore();
+ }
+ context.fillStyle="rgba(53,224,208,0.8)";context.textAlign="left";context.textBaseline="bottom";
+ context.font="700 "+Math.max(10,Math.round(width*0.012))+"px system-ui";
+ context.fillText("STREAMIOV · LOKAL",width*0.02,height*0.98);
+ context.restore();
 }
-async function loadSources(){
- const result=await callSource({action:"load"});
- if(result)log("Gespeicherte Quellen-Metadaten geladen. Encoder-Anbindung ist noch nicht aktiv.");
+let lastMonitorRender=0;
+function renderMonitors(now=0){
+ if(sceneState&&now-lastMonitorRender>33){
+  lastMonitorRender=now;
+  drawSceneToCanvas($("previewCanvas"),previewSceneId,1);
+  drawSceneToCanvas($("programCanvas"),programSceneId,programOutputAlpha);
+ }
+ requestAnimationFrame(renderMonitors);
 }
-async function changeSource(id,patch){await callSource({action:"update",id,patch});}
-async function removeSource(id){
- if(!window.confirm("Diese Quelle aus der lokalen Liste entfernen?"))return;
- await callSource({action:"remove",id});
+function resetSourceDialog(){
+ $("sourceType").value="camera";
+ $("sourceName").value="";
+ $("sourceText").value="";
+ $("sourcePosition").value="full";
 }
-async function addSource(){
- const type=window.prompt("Quellentyp: camera, capture, screen, window, image, video, audio, text oder color","camera");
- if(type===null)return;
- const name=window.prompt("Name der Quelle:");
- if(name===null)return;
- await callSource({action:"add",source:{type:type.trim().toLowerCase(),name:name.trim()}});
-}
-$("addSource").onclick=addSource;
-loadSources();
+$("addSource").onclick=()=>{resetSourceDialog();$("sourceDialog").showModal();};
+$("cancelSource").onclick=()=>$("sourceDialog").close();
+$("confirmSource").onclick=async()=>{
+ const type=$("sourceType").value;
+ const name=$("sourceName").value.trim()||sourceTypeLabel(type);
+ const text=$("sourceText").value.trim();
+ const position=sourcePosition($("sourcePosition").value);
+ if((type==="title"||type==="text")&&!text){log("Titel oder Text benötigt einen Textinhalt.");$("sourceText").focus();return;}
+ const state=await sceneCommand({action:"add-source",source:{type,name,text,...position}});
+ if(state){$("sourceDialog").close();log("Quelle hinzugefügt: "+name+" ("+sourceTypeLabel(type)+").");}
+};
+$("sceneBackground").onchange=async event=>{
+ if(!/^#[0-9a-fA-F]{6}$/.test(event.target.value))return;
+ await sceneCommand({action:"set-background",color:event.target.value});
+ log("Szenenhintergrund gespeichert: "+event.target.value);
+};
+
 
 // Reale lokale Kamera- und Mikrofonaufnahme über Chromium/Electron MediaDevices.
-// Es wird nichts übertragen oder gespeichert; Tracks enden beim erneuten Klick bzw. Schließen.
-const captureState={camera:null,microphone:null,audioContext:null,analyser:null,meterFrame:0};
+// Vorschautests bleiben lokal; die Tracks werden nur beim ausdrücklichen Streamstart übertragen.
+const captureState={camera:null,screen:null,microphone:null,audioContext:null,analyser:null,meterFrame:0};
 const cameraSelect=$("cameraDeviceSelect");
 const microphoneSelect=$("microphoneDeviceSelect");
 const cameraVideo=$("cameraPreview");
+const screenVideo=$("screenPreview");
 function stopCapture(kind){
  const stream=captureState[kind];
  if(stream){for(const track of stream.getTracks())track.stop();captureState[kind]=null;}
  if(kind==="camera"){cameraVideo.pause();cameraVideo.srcObject=null;cameraVideo.style.display="none";$("cameraStart").textContent="KAMERA TESTEN";}
+ if(kind==="screen"){
+  screenVideo.pause();screenVideo.srcObject=null;screenVideo.style.display="none";
+  $("screenStart").textContent="BILDSCHIRM TEILEN";
+  $("screenCaptureStatus").textContent="Bildschirmfreigabe beendet.";
+ }
  if(kind==="microphone"){
   if(captureState.meterFrame)cancelAnimationFrame(captureState.meterFrame);
   captureState.meterFrame=0;
@@ -520,6 +826,9 @@ function stopCapture(kind){
   $("microphoneLevel").style.width="0%";
   $("microphoneStart").textContent="MIKROFON TESTEN";
  }
+ if(kind==="camera")$("cameraMetric").textContent="NICHT VERBUNDEN";
+ if(kind==="screen")$("screenMetric").textContent="NICHT GETEILT";
+ if(kind==="microphone")$("microphoneMetric").textContent="NICHT VERBUNDEN";
 }
 async function refreshCaptureDevices(){
  const devices=await navigator.mediaDevices.enumerateDevices();
@@ -546,6 +855,40 @@ function captureError(error){
  if(error?.name==="OverconstrainedError")return "Das ausgewählte Gerät ist nicht verfügbar. Bitte Standardgerät wählen.";
  return "Gerätetest fehlgeschlagen: "+String(error?.message||error||"unbekannter Fehler").slice(0,160);
 }
+async function chooseDisplayStream(sources){
+ const dialog=$("displaySourceDialog"),host=$("displaySourceList");
+ host.replaceChildren();
+ return new Promise((resolve,reject)=>{
+  let settled=false;
+  const finish=(action,value)=>{
+   if(settled)return;settled=true;
+   dialog.close();
+   $("cancelDisplaySource").removeEventListener("click",cancel);
+   dialog.removeEventListener("cancel",cancel);
+   action(value);
+  };
+  const cancel=()=>finish(reject,new DOMException("Auswahl abgebrochen.","AbortError"));
+  $("cancelDisplaySource").addEventListener("click",cancel,{once:true});
+  dialog.addEventListener("cancel",cancel,{once:true});
+  for(const source of sources){
+   const button=document.createElement("button");button.type="button";button.className="screen-source";
+   const image=document.createElement("img");image.src=source.thumbnail;image.alt="Vorschau: "+source.name;
+   const title=document.createElement("strong");title.textContent=source.name;
+   button.append(image,title);
+   button.addEventListener("click",()=>{
+    if(!window.streamiovStudio?.selectDisplaySource?.(source.id)){
+     finish(reject,new Error("Bildschirmquelle konnte nicht ausgewählt werden."));return;
+    }
+    let request;
+    try{request=navigator.mediaDevices.getDisplayMedia({video:true,audio:true});}
+    catch(error){finish(reject,error);return;}
+    finish(resolve,request);
+   });
+   host.append(button);
+  }
+  dialog.showModal();
+ });
+}
 $("refreshDevices").onclick=async()=>{
  const status=$("cameraCaptureStatus");
  status.textContent="Suche angeschlossene Geräte …";
@@ -569,11 +912,40 @@ $("cameraStart").onclick=async()=>{
   const track=stream.getVideoTracks()[0];
   if(!track||track.readyState!=="live")throw new Error("Kamera liefert keinen aktiven Videostream.");
   status.textContent="Kamera aktiv: "+(track.label||"Videogerät")+". Nur lokale Vorschau – nicht live übertragen.";
+  $("cameraMetric").textContent="AKTIV LOKAL";
   button.textContent="KAMERA STOPPEN";
   await refreshCaptureDevices();
   log("Echte Kamera liefert einen lokalen Videostream.");
  }catch(error){stopCapture("camera");status.textContent=captureError(error);log(status.textContent);}
  finally{button.disabled=false;}
+};
+$("screenStart").onclick=async()=>{
+ if(captureState.screen){stopCapture("screen");return;}
+ const button=$("screenStart"),status=$("screenCaptureStatus");button.disabled=true;
+ status.textContent="Lade verfügbare Fenster und Bildschirme …";
+ try{
+  if(!navigator.mediaDevices?.getDisplayMedia||!window.streamiovStudio?.listDisplaySources)throw new Error("Bildschirmaufnahme ist in dieser Laufzeit nicht verfügbar.");
+  const sources=await window.streamiovStudio.listDisplaySources();
+  if(!sources.length)throw new Error("Es wurden keine Fenster oder Bildschirme gefunden.");
+  status.textContent="Wähle das Fenster oder den Bildschirm, den du teilen möchtest.";
+  const stream=await chooseDisplayStream(sources);
+  captureState.screen=stream;screenVideo.srcObject=stream;screenVideo.style.display="block";
+  await screenVideo.play();
+  const track=stream.getVideoTracks()[0];
+  if(!track||track.readyState!=="live")throw new Error("Die ausgewählte Bildschirmquelle liefert kein Bild.");
+  track.addEventListener("ended",()=>{if(captureState.screen===stream)stopCapture("screen");},{once:true});
+  const hasAudio=stream.getAudioTracks().some(item=>item.readyState==="live");
+  $("screenStart").textContent="BILDSCHIRM TEILEN STOPPEN";
+  $("screenMetric").textContent="GETEILT LOKAL";
+  status.textContent="Bildschirm lokal geteilt"+(hasAudio?" · Systemton verfügbar.":" · Kein Systemton von dieser Quelle.");
+  log("Bildschirmfreigabe aktiv. Das Bild wird erst beim Streamstart übertragen.");
+ }catch(error){
+  stopCapture("screen");
+  status.textContent=error?.name==="NotAllowedError"||error?.name==="AbortError"
+   ?"Bildschirmfreigabe wurde abgebrochen oder nicht erlaubt."
+   :captureError(error);
+  log("Bildschirmfreigabe fehlgeschlagen: "+status.textContent);
+ }finally{button.disabled=false;}
 };
 $("microphoneStart").onclick=async()=>{
  if(captureState.microphone){stopCapture("microphone");$("microphoneCaptureStatus").textContent="Mikrofon gestoppt.";return;}
@@ -604,6 +976,7 @@ $("microphoneStart").onclick=async()=>{
   const track=stream.getAudioTracks()[0];
   if(!track||track.readyState!=="live")throw new Error("Mikrofon liefert keinen aktiven Audiostream.");
   status.textContent="Mikrofon aktiv: "+(track.label||"Audiogerät")+". Pegelanzeige lokal – kein Ton wird übertragen.";
+  $("microphoneMetric").textContent="AKTIV LOKAL";
   button.textContent="MIKROFON STOPPEN";
   await refreshCaptureDevices();
   log("Echtes Mikrofon liefert einen lokalen Audiostream.");
@@ -611,7 +984,7 @@ $("microphoneStart").onclick=async()=>{
  finally{button.disabled=false;}
 };
 if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener("devicechange",()=>refreshCaptureDevices().catch(()=>{}));
-window.addEventListener("beforeunload",()=>{stopCapture("camera");stopCapture("microphone");});
+window.addEventListener("beforeunload",()=>{stopBroadcast();stopCapture("camera");stopCapture("screen");stopCapture("microphone");});
 $("refreshDevices").click();
 $("runtimeCheck").onclick=async()=>{
  const output=$("runtimeDiagnostics");
@@ -622,7 +995,7 @@ $("runtimeCheck").onclick=async()=>{
   const missing=report.missing_rtmp_dependencies||[];
   output.textContent=missing.length
    ? "RTMP noch nicht bereit. Fehlend: "+missing.join(", ")+"."
-   : "Encoder-Abhängigkeiten vorhanden. Geräte, OAuth und Live-Ausgabe sind noch nicht verifiziert.";
+   : "Encoder-Abhängigkeiten vorhanden. Geräte, Plattformanmeldung und eine echte Live-Ausgabe sind noch nicht verifiziert.";
   log("Technikprüfung abgeschlossen. RTMP-Abhängigkeiten: "+(missing.length?"fehlen":"vorhanden")+"; Live verifiziert: nein.");
  }catch(error){output.textContent="Technikprüfung fehlgeschlagen: "+String(error.message||error).slice(0,180);}
 };
@@ -645,7 +1018,588 @@ $("mediaTest").onclick=async()=>{
   output.textContent="Audio-/Video-Test fehlgeschlagen: "+String(error.message||error).slice(0,180);
  }finally{button.disabled=false;}
 };
-$("live").onclick=()=>log("Noch keine bestätigte Plattform- oder Streamingverbindung. LIVE wurde nicht gestartet.");
+let broadcastRecorder=null;
+let streamChunkQueue=Promise.resolve();
+let broadcastCanvasStream=null;
+let broadcastAudioContext=null;
+let broadcastTrackGains=[];
+let broadcastMasterGain=null;
+let broadcastGainBase=1;
+let broadcastFrame=0;
+const liveButton=$("live");
+const liveStatus=$("liveStatus");
+const mixerDefaults={mixerMic:75,mixerSystem:45,mixerMaster:80};
+const mixerStorageKey="streamiov.studio.audio-mixer.v1";
+function mixerValue(id){
+ const value=Number($(id)?.value);
+ return Number.isFinite(value)?Math.max(0,Math.min(100,value))/100:0;
+}
+function mixerPercent(id){return Math.round(mixerValue(id)*100);}
+function mixerLabel(id){return id==="mixerMic"?"MIC 1":id==="mixerSystem"?"SYSTEM":"MASTER";}
+function updateMixerLabels(){
+ for(const id of Object.keys(mixerDefaults)){
+  const label=$(id+"Value");
+  if(label)label.textContent=mixerLabel(id)+" · "+mixerPercent(id)+" %";
+ }
+}
+function saveMixerSettings(){
+ try{localStorage.setItem(mixerStorageKey,JSON.stringify(Object.fromEntries(Object.keys(mixerDefaults).map(id=>[id,mixerPercent(id)]))));}
+ catch(_){/* local storage is optional */}
+}
+function applyMixerGains(){
+ if(!broadcastAudioContext)return;
+ const now=broadcastAudioContext.currentTime;
+ for(const entry of broadcastTrackGains){
+  const target=broadcastGainBase*mixerValue(entry.kind==="system"?"mixerSystem":"mixerMic");
+  entry.gain.gain.setTargetAtTime(target,now,0.02);
+ }
+ if(broadcastMasterGain)broadcastMasterGain.gain.setTargetAtTime(mixerValue("mixerMaster"),now,0.02);
+}
+let lastStreamError="";
+function setSourceControlsLocked(locked){
+ ["cameraStart","screenStart","microphoneStart","cameraDeviceSelect","microphoneDeviceSelect","refreshDevices"].forEach(id=>$(id).disabled=locked);
+}
+function setBroadcastStatus(status,detail=""){
+ if(status==="error")lastStreamError=detail||"Ziel oder Encoder prüfen.";
+ else if(status==="connecting"||status==="offline")lastStreamError="";
+ const labels={offline:"Offline · Keine Verbindung.",connecting:"Verbinde mit RTMP-Ziel …",live:"Encoder sendet an das RTMP-Ziel · Plattform-Veröffentlichung nicht bestätigt.",stopping:"Stream wird beendet …",error:"Streamfehler · "+(detail||"Ziel oder Encoder prüfen.")};
+ liveStatus.textContent=labels[status]||"Status unbekannt.";
+ liveButton.textContent=status==="offline"||status==="error"?"● STREAM STARTEN":"■ STREAM BEENDEN";
+ liveButton.disabled=status==="stopping";
+ setSourceControlsLocked(["connecting","live","stopping"].includes(status));
+ $("connection").textContent=status==="live"?"RTMP VERBUNDEN":status.toUpperCase();
+ $("rtmpMetric").textContent=status==="live"?"RTMP AKTIV":status.toUpperCase();
+ const badge={offline:"NICHT LIVE",connecting:"VERBINDE …",live:"RTMP AKTIV",stopping:"BEENDE …",error:"FEHLER"};
+ $("programBadge").textContent=badge[status]||"NICHT LIVE";
+ if(status==="live")log("Encoder meldet RTMP-Ausgabe. Ob die Plattform den Stream veröffentlicht, zeigt nur die Plattform selbst.");
+ if(status==="error")log("Streamfehler: "+(detail||"Ziel oder Encoder prüfen."));
+}
+async function releaseBroadcastMedia(){
+ if(broadcastFrame)cancelAnimationFrame(broadcastFrame);
+ broadcastFrame=0;
+ if(broadcastCanvasStream){broadcastCanvasStream.getTracks().forEach(track=>track.stop());broadcastCanvasStream=null;}
+ if(broadcastAudioContext){await broadcastAudioContext.close().catch(()=>{});broadcastAudioContext=null;}
+ broadcastTrackGains=[];
+ broadcastMasterGain=null;
+ broadcastGainBase=1;
+}
+async function stopBroadcast(preserveStatus=false){
+ const recorder=broadcastRecorder;
+ broadcastRecorder=null;
+ if(!preserveStatus)setBroadcastStatus("stopping");
+ if(recorder&&recorder.state!=="inactive"){
+  await new Promise(resolve=>{
+   recorder.addEventListener("stop",resolve,{once:true});
+   recorder.stop();
+  });
+  await streamChunkQueue.catch(()=>{});
+ }
+ await releaseBroadcastMedia();
+ await window.streamiovStudio?.stopStream?.().catch(()=>{});
+}
+window.streamiovStudio?.onStreamStatus?.(payload=>{
+ if(lastStreamError&&["stopping","offline"].includes(payload?.status))return;
+ setBroadcastStatus(payload?.status||"offline",payload?.detail||"");
+ if(payload?.status==="error"||payload?.status==="offline"){
+  if(broadcastRecorder)void stopBroadcast(true);
+  liveButton.disabled=false;
+ }
+});
+async function startBroadcast(){
+ lastStreamError="";
+ const cameraTrack=captureState.camera?.getVideoTracks().find(track=>track.readyState==="live");
+ const screenTrack=captureState.screen?.getVideoTracks().find(track=>track.readyState==="live");
+ const microphoneTrack=captureState.microphone?.getAudioTracks().find(track=>track.readyState==="live");
+ const systemTrack=captureState.screen?.getAudioTracks().find(track=>track.readyState==="live");
+ const audioMode=$("streamAudio").value;
+ const audioInputs=(audioMode==="mic"?[microphoneTrack]:audioMode==="system"?[systemTrack]:[microphoneTrack,systemTrack]).filter(Boolean);
+ if((!cameraTrack&&!screenTrack)||!audioInputs.length){setBroadcastStatus("error","Bitte eine Kamera oder einen Bildschirm sowie eine verfügbare Audioquelle für den gewählten Modus starten.");return;}
+ const destination=$("rtmpDestination").value.trim();
+ if(!destination){setBroadcastStatus("error","Bitte RTMP-Ziel und Stream-Key eingeben.");$("rtmpDestination").focus();return;}
+ if(!window.streamiovStudio?.startStream||!window.MediaRecorder){setBroadcastStatus("error","Streaming-Funktion ist in dieser Laufzeit nicht verfügbar.");return;}
+ liveButton.disabled=true;
+ setSourceControlsLocked(true);
+ liveStatus.textContent="Prüfe RTMP-Ziel und starte Encoder …";
+ try{
+  const result=await window.streamiovStudio.startStream({
+   destination,
+   resolution:$("streamResolution").value,
+   fps:Number($("streamFps").value),
+   bitrate:Number($("streamBitrate").value)
+  });
+  if(!result?.ok)throw new Error(result?.error||"Encoder konnte nicht gestartet werden.");
+  const resolution=$("streamResolution").value;
+  const dimensions={"720p":[1280,720],"1080p":[1920,1080],"1440p":[2560,1440]}[resolution]||[1920,1080];
+  const canvas=document.createElement("canvas");
+  canvas.width=dimensions[0];canvas.height=dimensions[1];
+  const drawFrame=()=>{
+   // The stream output uses the same scene renderer as the program monitor so
+   // what the streamer sees is exactly what is encoded and sent.
+   drawSceneToCanvas(canvas,programSceneId,programOutputAlpha);
+   broadcastFrame=requestAnimationFrame(drawFrame);
+  };
+  drawFrame();
+  broadcastCanvasStream=canvas.captureStream(Number($("streamFps").value));
+  broadcastAudioContext=new AudioContext();
+  await broadcastAudioContext.resume();
+  const audioOutput=broadcastAudioContext.createMediaStreamDestination();
+  broadcastGainBase=1/Math.sqrt(audioInputs.length);
+  broadcastTrackGains=[];
+  broadcastMasterGain=broadcastAudioContext.createGain();
+  broadcastMasterGain.gain.value=mixerValue("mixerMaster");
+  broadcastMasterGain.connect(audioOutput);
+  for(const track of audioInputs){
+   const kind=track===systemTrack?"system":"mic";
+   const source=broadcastAudioContext.createMediaStreamSource(new MediaStream([track]));
+   const volume=broadcastAudioContext.createGain();
+   volume.gain.value=broadcastGainBase*mixerValue(kind==="system"?"mixerSystem":"mixerMic");
+   source.connect(volume).connect(broadcastMasterGain);
+   broadcastTrackGains.push({kind,gain:volume});
+  }
+  const outputTracks=[...broadcastCanvasStream.getVideoTracks(),...audioOutput.stream.getAudioTracks()];
+  const stream=new MediaStream(outputTracks);
+  const mimeType="video/webm;codecs=vp8,opus";
+  if(!MediaRecorder.isTypeSupported(mimeType))throw new Error("Dieser Browser unterstützt keinen VP8/Opus-Medienstream.");
+  const recorder=new MediaRecorder(stream,{mimeType,videoBitsPerSecond:Math.max(1000000,Number($("streamBitrate").value)*1000),audioBitsPerSecond:128000});
+  broadcastRecorder=recorder;
+  const stopIfSourcesEnded=()=>{
+   const videoAvailable=(cameraTrack?.readyState==="live")||(screenTrack?.readyState==="live");
+   const audioAvailable=audioInputs.some(track=>track.readyState==="live");
+   if(broadcastRecorder&&(!videoAvailable||!audioAvailable)){
+    setBroadcastStatus("error","Eine benötigte Kamera-, Bildschirm- oder Mikrofonquelle wurde beendet.");
+    void stopBroadcast(true);
+   }
+  };
+  [cameraTrack,screenTrack,...audioInputs].filter(Boolean).forEach(track=>track.addEventListener("ended",stopIfSourcesEnded,{once:true}));
+  streamChunkQueue=Promise.resolve();
+  recorder.ondataavailable=event=>{
+   if(!event.data?.size)return;
+   streamChunkQueue=streamChunkQueue.then(async()=>{
+    const chunk=await event.data.arrayBuffer();
+    const sent=await window.streamiovStudio.writeStreamChunk(chunk);
+    if(!sent?.ok)throw new Error(sent?.error||"Medienübertragung fehlgeschlagen.");
+   }).catch(async error=>{
+    setBroadcastStatus("error",error.message);
+    void stopBroadcast(true);
+   });
+  };
+  recorder.onerror=()=>{setBroadcastStatus("error","Medienaufnahme ist fehlgeschlagen.");stopBroadcast(true);};
+  recorder.start(1000);
+  liveButton.disabled=false;
+  setBroadcastStatus("connecting");
+  log("Encoder gestartet. Die Übertragung an das RTMP-Ziel beginnt; die Veröffentlichung auf der Plattform wird hier nicht geprüft.");
+ }catch(error){
+  if(broadcastRecorder)await stopBroadcast(true);
+  else{
+   await releaseBroadcastMedia();
+   await window.streamiovStudio.stopStream().catch(()=>{});
+  }
+  setBroadcastStatus("error",String(error.message||error).slice(0,220));
+  liveButton.disabled=false;
+  setSourceControlsLocked(false);
+ }
+}
+liveButton.onclick=()=>broadcastRecorder?stopBroadcast():startBroadcast();
+function toolNode(tag,className,text){
+ const node=document.createElement(tag);
+ if(className)node.className=className;
+ if(text!==undefined)node.textContent=text;
+ return node;
+}
+function toolButton(label,handler){
+ const button=toolNode("button",null,label);
+ button.type="button";
+ button.addEventListener("click",handler);
+ return button;
+}
+function toolNote(text){return toolNode("p",null,text);}
+function toolField(labelText,control){
+ const label=toolNode("label","tool-field",labelText);
+ label.append(control);
+ return label;
+}
+function showGiftEffect(symbol){
+ programEffect={symbol,startedAt:performance.now()};
+ const overlay=$("giftOverlay");
+ overlay.replaceChildren();
+ overlay.style.display="block";
+ for(let index=0;index<18;index++){
+  const particle=toolNode("span","gift-particle",symbol);
+  particle.style.left=(Math.random()*100).toFixed(2)+"%";
+  particle.style.animationDelay=(Math.random()*0.7).toFixed(2)+"s";
+  overlay.append(particle);
+ }
+ window.setTimeout(()=>{overlay.style.display="none";overlay.replaceChildren();},3400);
+}
+function showAlert(text){
+ programAlert={text:String(text).slice(0,120),startedAt:performance.now()};
+}
+async function renderChatTool(body){
+ const api=window.streamiovStudio?.chatAction;
+ if(!api){body.append(toolNote("Der lokale Chat benötigt die installierte Desktop-App."));return;}
+ const stateLine=toolNote("Chat-Status wird geladen …");
+ const logBox=toolNode("div","chat-log","");
+ const toggle=toolButton("Chat einschalten",async()=>{
+  const result=await api({action:"toggle-chat"});
+  apply(result);
+ });
+ const input=document.createElement("input");
+ input.placeholder="Lokale Testnachricht";
+ input.maxLength=2000;
+ const send=toolButton("Testnachricht übernehmen",async()=>{
+  const text=input.value.trim();
+  if(!text){input.focus();return;}
+  const result=await api({action:"receive",text});
+  if(result?.ok)input.value="";
+  apply(result);
+ });
+ const apply=result=>{
+  if(!result?.ok){
+   stateLine.textContent="Chat-Aktion fehlgeschlagen: "+(result?.error||"unbekannter Fehler");
+   return;
+  }
+  stateLine.textContent="Lokaler Chat: "+(result.chat==="online"?"an":"aus")+
+   " · TTS: "+(result.tts==="online"?"an":"aus")+
+   " · "+result.message_count+" Nachricht(en) · keine externe Plattform verbunden.";
+  toggle.textContent=result.chat==="online"?"Chat ausschalten":"Chat einschalten";
+  send.disabled=result.chat!=="online";
+  input.disabled=result.chat!=="online";
+  logBox.replaceChildren();
+  for(const message of result.messages||[]){
+   const line=toolNode("div");
+   line.append(toolNode("b",null,new Date(message.time).toLocaleTimeString()+" "),document.createTextNode(message.text));
+   logBox.append(line);
+  }
+  logBox.scrollTop=logBox.scrollHeight;
+ };
+ body.append(
+  toolNote("Nur lokaler Testchat. Es besteht keine Verbindung zu TikTok, Twitch oder YouTube."),
+  stateLine,toggle,logBox,toolField("Testnachricht",input),send
+ );
+ apply(await api({action:"status"}));
+}
+async function renderTtsTool(body){
+ const api=window.streamiovStudio?.chatAction;
+ if(!api){body.append(toolNote("TTS benötigt die installierte Desktop-App."));return;}
+ const stateLine=toolNote("TTS-Status wird geladen …");
+ const toggle=toolButton("TTS einschalten",async()=>apply(await api({action:"toggle-tts"})));
+ const input=document.createElement("textarea");
+ input.maxLength=1000;
+ input.placeholder="Text für die lokale Sprachausgabe";
+ const speak=toolButton("Lokal sprechen",async()=>{
+  const text=input.value.trim();
+  if(!text){input.focus();return;}
+  stateLine.textContent="Sprachausgabe läuft …";
+  apply(await api({action:"speak",text}));
+ });
+ const apply=result=>{
+  if(!result?.ok){
+   stateLine.textContent="TTS fehlgeschlagen: "+(result?.error||"unbekannter Fehler");
+   return;
+  }
+  stateLine.textContent="Lokale Sprachausgabe: "+(result.tts==="online"?"an":"aus")+
+   " · Audioausgabe nicht automatisch verifiziert.";
+  toggle.textContent=result.tts==="online"?"TTS ausschalten":"TTS einschalten";
+  speak.disabled=result.tts!=="online";
+  input.disabled=result.tts!=="online";
+ };
+ body.append(
+  toolNote("Sprachausgabe läuft über das lokale Systemwerkzeug espeak-ng. Es wird kein Cloud-Dienst verwendet."),
+  stateLine,toggle,toolField("Sprechtext",input),speak
+ );
+ apply(await api({action:"status"}));
+}
+async function renderGiftsTool(body){
+ const api=window.streamiovStudio?.dataQuery;
+ if(!api){
+  body.append(toolNote("Der Geschenk-Katalog benötigt die installierte Desktop-App und den lokalen Host."));
+  return;
+ }
+ const stateLine=toolNote("Rohdaten-Katalog wird geladen …");
+ const grid=toolNode("div","gift-grid");
+ body.append(
+  toolNote("Kostenlose lokale Effekte aus dem Rohdaten-Katalog. Es werden keine Geschenke gekauft, "+
+   "keine Zahlungen ausgelöst und keine TikTok-Geschenke beansprucht."),
+  stateLine,grid
+ );
+ const result=await api({kind:"gifts"});
+ if(!result?.ok){
+  stateLine.textContent="Geschenk-Katalog nicht erreichbar: "+(result?.error||"unbekannter Fehler");
+  return;
+ }
+ const catalog=result.data||{};
+ const gifts=Array.isArray(catalog.gifts)?catalog.gifts:[];
+ stateLine.textContent="Lokaler Katalog: "+gifts.length+" Geschenke · TikTok-Geschenk-IDs: "+
+  (catalog.tiktok_gift_ids_present?"vorhanden":"keine")+" · keine TikTok-Freigabe.";
+ for(const gift of gifts){
+  const card=toolNode("div","gift-card");
+  if(gift.svg&&result.assetBase){
+   const image=document.createElement("img");
+   image.alt=gift.name||"Geschenk";
+   image.loading="lazy";
+   image.style.width="56px";
+   image.style.height="56px";
+   image.src=String(result.assetBase).replace(/\/$/,"")+gift.svg;
+   image.addEventListener("error",()=>{
+    image.remove();
+    card.prepend(toolNode("div",null,"💜"));
+   },{once:true});
+   card.append(image);
+  }else{
+   card.append(toolNode("div",null,"💜"));
+  }
+  card.append(
+   toolNode("div",null,(gift.name||"Geschenk")+" · "+Number(gift.streamiov_points||0)+" Punkte"),
+   toolNode("small",null,gift.streamiov_custom?"StreamioV · "+(gift.status||"lokal"):(gift.status||"Katalog"))
+  );
+  card.append(toolButton("Lokalen Effekt auslösen",()=>{
+   showGiftEffect("💜");
+   log("Lokaler Geschenk-Effekt ausgelöst: "+(gift.name||"Geschenk")+".");
+  }));
+  grid.append(card);
+ }
+ const milestones=Array.isArray(catalog.like_milestones)?catalog.like_milestones:[];
+ if(milestones.length){
+  body.append(toolNote("Like-Meilensteine aus den Rohdaten: "+milestones.join(", ")+
+   " · geplant, nicht aktiv."));
+ }
+ const rules=Array.isArray(catalog.rules)?catalog.rules:[];
+ if(rules.length){
+  body.append(toolNote("Regeln: "+rules.map(rule=>
+   (rule.name||rule.id||"Regel")+" ["+(rule.status||"unbekannt")+"]").join(" · ")));
+ }
+}
+function renderAlertsTool(body){
+ const input=document.createElement("input");
+ input.maxLength=120;
+ input.placeholder="z. B. Neuer Follower";
+ const trigger=toolButton("Alert auslösen",()=>{
+  const text=input.value.trim();
+  if(!text){input.focus();return;}
+  showAlert(text);
+  log("Lokaler Alert ausgelöst.");
+ });
+ body.append(
+  toolNote("Der Alert erscheint lokal im Programm-Monitor und in der Stream-Ausgabe. "+
+   "Es werden keine Plattform-Ereignisse empfangen."),
+  toolField("Alert-Text",input),trigger
+ );
+}
+async function renderMusicTool(body){
+ const file=document.createElement("input");
+ file.type="file";
+ file.accept="audio/*";
+ const audio=document.createElement("audio");
+ audio.controls=true;
+ audio.style.width="100%";
+ file.addEventListener("change",()=>{
+  const chosen=file.files?.[0];
+  if(!chosen)return;
+  if(audio.src)URL.revokeObjectURL(audio.src);
+  audio.src=URL.createObjectURL(chosen);
+  audio.play().catch(()=>{});
+  log("Lokale Audiodatei geladen: "+chosen.name+".");
+ });
+ body.append(
+  toolNote("Wiedergabe erfolgt nur lokal. Du bist selbst für die Rechte an der geladenen Musik "+
+   "verantwortlich; StreamioV prüft keine Lizenz."),
+  toolField("Audiodatei",file),audio
+ );
+ const api=window.streamiovStudio?.dataQuery;
+ const catalogLine=toolNote("Musik-Katalog wird geladen …");
+ const catalogBox=toolNode("div");
+ body.append(toolNote("Lokaler Musik-Katalog aus den Rohdaten:"),catalogLine,catalogBox);
+ if(!api){
+  catalogLine.textContent="Der Musik-Katalog benötigt die installierte Desktop-App und den lokalen Host.";
+  return;
+ }
+ const result=await api({kind:"music"});
+ if(!result?.ok){
+  catalogLine.textContent="Musik-Katalog nicht erreichbar: "+(result?.error||"unbekannter Fehler");
+  return;
+ }
+ const catalog=result.data||{};
+ const playlists=Array.isArray(catalog.playlists)?catalog.playlists:[];
+ const rights=Array.isArray(catalog.rights_tracks)?catalog.rights_tracks:[];
+ catalogLine.textContent="Lokaler Katalog: "+playlists.length+" Playlist(s) · "+
+  Number(catalog.counts?.tracks||0)+" Titel · "+rights.length+" Rechte-Eintrag/Einträge.";
+ if(!playlists.length)catalogBox.append(toolNote("Keine Playlist in den Rohdaten hinterlegt."));
+ for(const playlist of playlists){
+  const card=toolNode("div","gift-card");
+  card.append(
+   toolNode("b",null,playlist.name||"Playlist"),
+   toolNode("small",null,(playlist.active?"aktiv":"inaktiv")+" · Lautstärke "+
+    Number(playlist.volume??1).toFixed(2))
+  );
+  const tracks=Array.isArray(playlist.tracks)?playlist.tracks:[];
+  if(!tracks.length)card.append(toolNode("small",null,"Keine Titel"));
+  for(const track of tracks){
+   card.append(toolNode("small",null,(track.title||"Titel")+" · Rechte: "+
+    (track.rights_status||"unbekannt")));
+  }
+  catalogBox.append(card);
+ }
+ if(rights.length){
+  catalogBox.append(toolNote("Rechte-Katalog: "+rights.map(track=>
+   (track.title||track.id||"Titel")+" ["+(track.status||"unbekannt")+"]").join(" · ")));
+ }else{
+  catalogBox.append(toolNote("Der Rechte-Katalog enthält noch keine geprüften Titel."));
+ }
+}
+async function renderGamesTool(body){
+ const api=window.streamiovStudio?.dataQuery;
+ if(!api){
+  body.append(toolNote("Der Spiele-Katalog benötigt die installierte Desktop-App und den lokalen Host."));
+  return;
+ }
+ const stateLine=toolNote("Rohdaten-Katalog wird geladen …");
+ const grid=toolNode("div","gift-grid");
+ body.append(
+  toolNote("Diese Spiele sind lokal registrierte Prototypen. Sie sind nicht veröffentlicht und "+
+   "werden nicht automatisch aus dem Studio installiert."),
+  stateLine,grid
+ );
+ const result=await api({kind:"games"});
+ if(!result?.ok){
+  stateLine.textContent="Spiele-Katalog nicht erreichbar: "+(result?.error||"unbekannter Fehler");
+  return;
+ }
+ const catalog=result.data||{};
+ const games=Array.isArray(catalog.games)?catalog.games:[];
+ stateLine.textContent="Lokaler Katalog: "+games.length+" Spiel(e) · "+
+  Number(catalog.counts?.actions||0)+" Aktion(en) · keine Veröffentlichung bestätigt.";
+ if(!games.length)grid.append(toolNote("Keine Spiele in den Rohdaten hinterlegt."));
+ for(const game of games){
+  const card=toolNode("div","gift-card");
+  card.append(
+   toolNode("b",null,game.name||game.game_id||"Spiel"),
+   toolNode("small",null,"Schnittstelle: "+(game.interface_status||"unbekannt")+
+    " · Version: "+(game.version||"ohne Version"))
+  );
+  const actions=Array.isArray(game.actions)?game.actions:[];
+  if(!actions.length)card.append(toolNode("small",null,"Keine Aktionen registriert"));
+  for(const action of actions){
+   card.append(toolNode("small",null,(action.name||"Aktion")+" · "+(action.status||"unbekannt")));
+  }
+  grid.append(card);
+ }
+ body.append(toolButton("Lokale Spielebibliothek öffnen",()=>{
+  $("toolDialog").close();
+  toggleGameLibrary();
+ }));
+}
+async function renderAiTool(body){
+ const loginApi=window.streamiovStudio?.aiLogin;
+ const submitApi=window.streamiovStudio?.aiSubmit;
+ if(!loginApi||!submitApi){
+  body.append(toolNote("Die KI-Regie benötigt die installierte Desktop-App."));
+  return;
+ }
+ const username=document.createElement("input");
+ username.autocomplete="username";
+ const password=document.createElement("input");
+ password.type="password";
+ password.autocomplete="current-password";
+ const sessionLine=toolNote("Nicht in dieser Ansicht angemeldet. Der lokale Host prüft die Sitzung beim Senden.");
+ const request=document.createElement("textarea");
+ request.maxLength=2000;
+ request.placeholder="Auftrag an die lokale KI-Regie";
+ const submit=toolButton("Auftrag senden",async()=>{
+  const text=request.value.trim();
+  if(!text){request.focus();return;}
+  sessionLine.textContent="Auftrag wird an den lokalen Host gesendet …";
+  const result=await submitApi({request:text});
+  if(result?.ok){
+   sessionLine.textContent="Der lokale Host hat den Auftrag angenommen.";
+  }else{
+   const code=result?.statusCode?" (HTTP "+result.statusCode+")":"";
+   sessionLine.textContent="KI-Auftrag nicht ausgeführt"+code+": "+
+    (result?.error||"unbekannter Fehler");
+  }
+ });
+ const login=toolButton("Am lokalen Host anmelden",async()=>{
+  const result=await loginApi({username:username.value.trim(),password:password.value});
+  if(!result?.ok){
+   sessionLine.textContent="Anmeldung fehlgeschlagen: "+(result?.error||"unbekannter Fehler");
+   return;
+  }
+  sessionLine.textContent="Angemeldet als "+result.user.username+". Der Host führt noch keine KI-Aufträge aus.";
+  log("KI-Regie: am lokalen Host angemeldet.");
+ });
+ body.append(
+  toolNote("Die KI-Regie spricht ausschließlich den lokalen Host an. Es gibt keinen Cloud-Aufruf "+
+   "und keinen bezahlten Fallback. Solange der Host keinen Ausführer hat, wird ein Auftrag ehrlich abgelehnt."),
+  toolField("Benutzername",username),
+  toolField("Passwort",password),
+  login,sessionLine,
+  toolField("Auftrag",request),submit
+ );
+}
+async function renderDevicesTool(body){
+ const studio=window.streamiovStudio;
+ const pre=toolNode("pre","tool-pre","Diagnose wird geladen …");
+ const refresh=toolButton("Aktualisieren",()=>load());
+ const load=async()=>{
+  if(!studio){
+   pre.textContent="Geräte- und Modulstatus benötigen die installierte Desktop-App.";
+   return;
+  }
+  pre.textContent="Diagnose wird geladen …";
+  const [modules,camera,network,diagnostics]=await Promise.all([
+   studio.getModuleStatus?.(),
+   studio.getCameraLab?.(),
+   studio.getNetworkStatus?.(),
+   studio.getRuntimeDiagnostics?.()
+  ]);
+  pre.textContent=JSON.stringify({modules,camera,network,diagnostics},null,2);
+ };
+ body.append(
+  toolNote("Geräte- und Modulstatus werden nur gelesen. Es werden keine Treiber installiert "+
+   "und keine Aufnahme gestartet."),
+  refresh,pre
+ );
+ await load();
+}
+async function openTool(name){
+ const body=$("toolBody");
+ $("toolDialogTitle").textContent=name;
+ body.replaceChildren();
+ if(!$("toolDialog").open)$("toolDialog").showModal();
+ try{
+  if(name==="Chat")await renderChatTool(body);
+  else if(name==="TTS")await renderTtsTool(body);
+  else if(name==="Geschenke")await renderGiftsTool(body);
+  else if(name==="Alerts")renderAlertsTool(body);
+  else if(name==="Musik")await renderMusicTool(body);
+  else if(name==="Spiele")await renderGamesTool(body);
+  else if(name==="KI-Regie")await renderAiTool(body);
+  else if(name==="Geräte")await renderDevicesTool(body);
+  else body.append(toolNote("Dieses Werkzeug ist noch nicht angebunden."));
+ }catch(error){
+  body.append(toolNote("Werkzeug konnte nicht geladen werden: "+String(error.message||error)));
+ }
+}
+$("closeTool").onclick=()=>$("toolDialog").close();
+document.querySelectorAll("[data-tool]").forEach(b=>b.onclick=()=>openTool(b.dataset.tool));
+loadScenes();
+requestAnimationFrame(renderMonitors);
+try{
+ const saved=JSON.parse(localStorage.getItem(mixerStorageKey)||"{}");
+ for(const id of Object.keys(mixerDefaults)){
+  const value=Number(saved[id]);
+  if(Number.isFinite(value))$(id).value=String(Math.max(0,Math.min(100,value)));
+ }
+}catch(_){/* markup defaults stay active */}
+updateMixerLabels();
+for(const id of Object.keys(mixerDefaults)){
+ $(id).addEventListener("input",()=>{
+  updateMixerLabels();
+  saveMixerSettings();
+  applyMixerGains();
+  const status=$("mixerStatus");
+  if(status)status.textContent="Lokaler Mix: Mikrofon "+mixerPercent("mixerMic")+" %, System "+mixerPercent("mixerSystem")+" %, Master "+mixerPercent("mixerMaster")+" %.";
+ });
+}
 async function loadGameLibrary(){
  const list=$("gameLibraryList"),status=$("gameLibraryStatus");
  list.replaceChildren();status.textContent="Lade lokale Spielepakete …";
@@ -680,10 +1634,7 @@ function toggleGameLibrary(){
  if(!panel.hidden)loadGameLibrary();
 }
 $("closeGameLibrary").onclick=()=>{$("game-library-panel").hidden=true;};
-document.querySelectorAll("[data-tool]").forEach(b=>b.onclick=()=>{
- if(b.dataset.tool==="Spiele"){toggleGameLibrary();return;}
- log("Werkzeug geöffnet: "+b.dataset.tool+" — eigenständige Modulverbindung noch offen.");
-});
+
 document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("input",()=>{
  r.closest(".channel").querySelector(".meter i").style.width=r.value+"%";
 }));

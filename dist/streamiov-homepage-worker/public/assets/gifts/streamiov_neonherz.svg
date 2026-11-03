@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Streamiov Neonherz">
+<defs><radialGradient id="orb"><stop stop-color="#ff70d9"/><stop offset="1" stop-color="#772fff"/></radialGradient><linearGradient id="shine" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#ff70d9" stop-opacity=".25"/></linearGradient></defs>
+<circle cx="256" cy="256" r="190" fill="url(#orb)" stroke="#ff70d9" stroke-width="12"/>
+<ellipse cx="256" cy="393" rx="122" ry="24" fill="#050817" opacity=".35"/>
+<path d="M132 194 A140 140 0 0 1 258 116" fill="none" stroke="url(#shine)" stroke-width="20" stroke-linecap="round" opacity=".75"/>
+<g fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><path d="M256 356 124 230 C66 164 156 105 205 166 L256 224 307 166 C356 105 446 164 388 230Z"/></g>
+<g fill="#fff"><circle cx="150" cy="130" r="7"/><circle cx="365" cy="158" r="5"/><circle cx="376" cy="328" r="8"/><circle cx="132" cy="336" r="5"/></g>
+</svg>

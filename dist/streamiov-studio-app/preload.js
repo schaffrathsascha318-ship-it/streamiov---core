@@ -16,6 +16,18 @@ contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
   getModuleStatus: () => ipcRenderer.invoke('studio:get-module-status'),
   chatAction: (payload) => ipcRenderer.invoke('studio:chat-action', payload),
   sceneAction: (payload) => ipcRenderer.invoke('studio:scene-action', payload),
+  startStream: (payload) => ipcRenderer.invoke('studio:start-stream', payload),
+  writeStreamChunk: (chunk) => ipcRenderer.invoke('studio:write-stream-chunk', chunk),
+  stopStream: () => ipcRenderer.invoke('studio:stop-stream'),
+  listDisplaySources: () => ipcRenderer.invoke('studio:list-display-sources'),
+  selectDisplaySource: (sourceId) => ipcRenderer.sendSync('studio:select-display-source', sourceId),
+  onStreamStatus: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, status) => callback(status);
+    ipcRenderer.on('studio:stream-status', listener);
+    return () => ipcRenderer.removeListener('studio:stream-status', listener);
+  },
+  dataQuery: (payload) => ipcRenderer.invoke('studio:data-query', payload),
   sourceAction: (payload) => ipcRenderer.invoke('studio:source-action', payload),
   listGames: () => ipcRenderer.invoke('studio:list-games'),
   openGame: (id) => ipcRenderer.invoke('studio:open-game', { id }),

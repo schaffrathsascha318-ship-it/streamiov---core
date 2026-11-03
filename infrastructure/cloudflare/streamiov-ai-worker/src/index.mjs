@@ -147,6 +147,7 @@ export default {
       const result = await env.AI.run(MODEL_ID, {
         messages: payload.messages,
         temperature: 0.1,
+        chat_template_kwargs: { enable_thinking: false },
         max_tokens: MAX_OUTPUT_TOKENS
       });
       const content = extractModelText(result);

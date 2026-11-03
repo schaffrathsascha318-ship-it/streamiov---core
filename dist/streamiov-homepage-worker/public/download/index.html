@@ -27,19 +27,22 @@ small{display:block;color:#aeb3ca;margin-top:10px;line-height:1.5}
 <main>
 <h1>STREAMIOV DOWNLOADS</h1>
 <p>Von Streamern für Streamer. Kostenlos und ohne Abonnements.</p>
+<p><strong>Build 2026-11-02:</strong> Die verlinkten Installer wurden am 2.11.2026 gebaut. Der lokale Audio-Mixer steuert echte Mikrofon- und Systemtonquellen samt Master-Regler; Electron startet die Regie direkt aus <code>regie-v2.html</code>.</p>
+<p><strong>Quellcode-Snapshot 2026-11-03:</strong> Das ZIP unten enthält den aktuellen Quellstand (u. a. Szenen-/Quellen-Editor und angebundene Werkzeug-Panels), der noch nicht in den Installern vom 2.11. steckt. Es ist kein Installer und enthält keine gebauten Binärdateien.</p>
 
 <section>
-<h2>Komplettes Studio-Paket</h2>
-<p>Das vollständige ZIP-Paket wird aus sieben bereitgestellten Download-Teilen zusammengesetzt. Der direkte Download benötigt einen Chromium-Browser mit Dateispeicher-Unterstützung.</p>
-<button class="download-button" id="studio-one-click" type="button">Komplettes Studio-ZIP herunterladen</button>
+<h2>Quellcode-Snapshot (kein Installer)</h2>
+<p><strong>Quellpaket vom 03.11.2026.</strong> Das ZIP-Paket wird aus sieben bereitgestellten Download-Teilen zusammengesetzt. Es enthält den Quellcode des Projekts ohne <code>node_modules</code>, ohne Build-Ausgaben und ohne Zugangsdaten. Zum Starten sind Node.js und die im README genannten Systemwerkzeuge erforderlich. Der direkte Download benötigt einen Chromium-Browser mit Dateispeicher-Unterstützung.</p>
+<button class="download-button" id="studio-one-click" type="button">Quellcode-Snapshot als ZIP herunterladen</button>
 <strong id="studio-progress" aria-live="polite">Bereit · 0 %</strong>
-<span id="studio-status" role="status" aria-live="polite">Nach dem Klick Speicherort auswählen. Die Teile werden nacheinander geladen und auf Größe sowie ZIP-Kennung geprüft.</span>
+<span id="studio-status" role="status" aria-live="polite">Nach dem Klick Speicherort auswählen. Die Teile werden nacheinander geladen und auf Größe sowie SHA-256 geprüft.</span>
 <details>
 <summary>Alternative: sieben Teile manuell herunterladen</summary>
 <p>Alle sieben Dateien herunterladen und in einem gemeinsamen Ordner speichern. Unter Linux/ChromeOS im Ordner ausführen:</p>
-<pre><code>cat streamiov-studio-part-*.bin &gt; streamiov-studio.zip</code></pre>
+<pre><code>cat streamiov-studio-part-*.bin &gt; streamiov-studio-source-20261103.zip
+sha256sum streamiov-studio-source-20261103.zip</code></pre>
 <p>Unter Windows in der Eingabeaufforderung:</p>
-<pre><code>copy /b streamiov-studio-part-00.bin+streamiov-studio-part-01.bin+streamiov-studio-part-02.bin+streamiov-studio-part-03.bin+streamiov-studio-part-04.bin+streamiov-studio-part-05.bin+streamiov-studio-part-06.bin streamiov-studio.zip</code></pre>
+<pre><code>copy /b streamiov-studio-part-00.bin+streamiov-studio-part-01.bin+streamiov-studio-part-02.bin+streamiov-studio-part-03.bin+streamiov-studio-part-04.bin+streamiov-studio-part-05.bin+streamiov-studio-part-06.bin streamiov-studio-source-20261103.zip</code></pre>
 <ul>
 <li><a href="/downloads/streamiov-studio-part-00.bin">Teil 1 von 7</a></li>
 <li><a href="/downloads/streamiov-studio-part-01.bin">Teil 2 von 7</a></li>
@@ -49,31 +52,38 @@ small{display:block;color:#aeb3ca;margin-top:10px;line-height:1.5}
 <li><a href="/downloads/streamiov-studio-part-05.bin">Teil 6 von 7</a></li>
 <li><a href="/downloads/streamiov-studio-part-06.bin">Teil 7 von 7</a></li>
 </ul>
-<small>Gesamtgröße: 134.811.280 Bytes. Nach dem Zusammenfügen ZIP-Datei vor der Installation entpacken und prüfen.</small>
+<small>Gesamtgröße: 852.117 Bytes. SHA-256 des zusammengefügten ZIPs: <code>d223a9fd6e68bb2b7fb04973af173ee7600a291777be2fde5213638ea1c230a1</code>. Prüfsummen aller Teile: <a href="/downloads/SHA256SUMS.txt">SHA256SUMS.txt</a>. Nach dem Zusammenfügen ZIP-Datei vor der Nutzung entpacken und prüfen.</small>
 </details>
 </section>
 
 <section>
 <h2>Windows</h2>
 <p>Streamiov Studio für Windows 64-Bit.</p>
-<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0/Streamiov.Studio.Setup.1.0.0.exe">Windows-Installer herunterladen (.exe)</a>
-<small>Version 1.0.0 · x64 · 122 MB</small>
+<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/Streamiov.Studio.Setup.1.0.0.exe">Windows-Installer herunterladen (.exe)</a>
+<small>Version 1.0.0 · x64 · 122 MB · Build 2026-11-02</small>
 </section>
 
 <section>
 <h2>Linux x64</h2>
 <p>Für übliche 64-Bit-PCs mit Linux.</p>
-<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0/Streamiov.Studio-1.0.0.AppImage">AppImage herunterladen</a>
-<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0/streamiov-studio_1.0.0_amd64.deb">DEB herunterladen</a>
-<small>Version 1.0.0 · x64</small>
+<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/Streamiov.Studio-1.0.0.AppImage">AppImage herunterladen</a>
+<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/streamiov-studio_1.0.0_amd64.deb">DEB herunterladen</a>
+<small>Version 1.0.0 · x64 · Build 2026-11-02</small>
 </section>
 
 <section>
 <h2>Linux ARM64</h2>
 <p>Für kompatible ARM64-Linux-Systeme.</p>
-<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0/Streamiov.Studio-1.0.0-arm64.AppImage">ARM64-AppImage herunterladen</a>
-<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0/streamiov-studio_1.0.0_arm64.deb">ARM64-DEB herunterladen</a>
-<small>Version 1.0.0 · ARM64</small>
+<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/Streamiov.Studio-1.0.0-arm64.AppImage">ARM64-AppImage herunterladen</a>
+<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/streamiov-studio_1.0.0_arm64.deb">ARM64-DEB herunterladen</a>
+<small>Version 1.0.0 · ARM64 · Build 2026-11-02</small>
+</section>
+
+<section>
+<h2>Streaming-Funktion</h2>
+<p><strong>Regie-Oberfläche enthalten, Encoder noch extern.</strong></p>
+<p>Die Installer enthalten die Regie mit Kamera-, Bildschirm- und Mikrofonauswahl sowie dem RTMP-Ziel. Der Quellcode-Snapshot vom 3.11. ergänzt einen Szenen-/Quellen-Editor mit gemeinsamem Vorschau-, Programm- und Stream-Renderer; dieser Stand ist noch nicht in den Installern vom 2.11. enthalten. Für eine echte Live-Ausgabe muss FFmpeg mit libx264, AAC und RTMP-Unterstützung auf dem Computer installiert sein; der Encoder ist noch nicht Teil der Installer.</p>
+<p>Eine erfolgreiche RTMP-Verbindung ersetzt keine Anmeldung bei TikTok, YouTube, Twitch oder einem anderen Dienst. Offizielle Plattform-Anmeldungen und TikTok-Geschenke bleiben von einer Freigabe durch TikTok abhängig.</p>
 </section>
 
 <section>
@@ -92,7 +102,7 @@ small{display:block;color:#aeb3ca;margin-top:10px;line-height:1.5}
 
 <section>
 <h2>Alle Dateien und Versionshinweise</h2>
-<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/tag/studio-v1.0.0">GitHub Release öffnen</a>
+<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/tag/studio-v1.0.0-build-20261102">GitHub Release öffnen</a>
 </section>
 
 <p class="notice">Hinweis: Die Installer wurden erfolgreich gebaut und veröffentlicht. Ein vollständiger Funktionstest auf jeder Zielplattform steht noch aus.</p>
