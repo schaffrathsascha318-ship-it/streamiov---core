@@ -133,18 +133,46 @@ jobs:
     needs: [build, media-pipeline-smoke]
     runs-on: ubuntu-latest
     steps:
+      - name: Quellcode laden
+        uses: actions/checkout@v4
+
       - name: Installer aller Plattformen herunterladen
         uses: actions/download-artifact@v4
         with:
           pattern: streamiov-studio-*
-          path: release
-          merge-multiple: true
+          path: artifacts
 
-      - name: Prüfsummen erzeugen
+      - name: Installer eindeutig benennen und prüfen
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
+          set -euo pipefail
+          APP_VERSION=$(node -p "require('./dist/streamiov-studio-app/package.json').version")
+          if [ "$APP_VERSION" != "$RELEASE_VERSION" ]; then
+            echo "::error::package.json version $APP_VERSION does not match release input $RELEASE_VERSION"
+            exit 1
+          fi
+          mkdir -p release
+          copy_one() {
+            local directory="$1" pattern="$2" destination="$3"
+            local source
+            source=$(find "$directory" -maxdepth 1 -type f -name "$pattern" | head -n 1)
+            if [ -z "$source" ]; then
+              echo "::error::missing $pattern in $directory"
+              exit 1
+            fi
+            cp "$source" "release/$destination"
+          }
+          copy_one "artifacts/streamiov-studio-Windows x64" "*.exe" "Streamiov.Studio.Setup.${APP_VERSION}-x64.exe"
+          copy_one "artifacts/streamiov-studio-Windows ARM64" "*.exe" "Streamiov.Studio.Setup.${APP_VERSION}-arm64.exe"
+          copy_one "artifacts/streamiov-studio-Linux x64" "*.AppImage" "Streamiov.Studio-${APP_VERSION}-x64.AppImage"
+          copy_one "artifacts/streamiov-studio-Linux ARM64" "*.AppImage" "Streamiov.Studio-${APP_VERSION}-arm64.AppImage"
+          copy_one "artifacts/streamiov-studio-Linux x64" "*.deb" "streamiov-studio_${APP_VERSION}_amd64.deb"
+          copy_one "artifacts/streamiov-studio-Linux ARM64" "*.deb" "streamiov-studio_${APP_VERSION}_arm64.deb"
           cd release
           find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+          ls -lh
 
       - name: GitHub Release erstellen oder aktualisieren
         uses: softprops/action-gh-release@v2
@@ -152,6 +180,7 @@ jobs:
           tag_name: studio-v${{ inputs.release_version }}
           name: Streamiov Studio ${{ inputs.release_version }}
           target_commitish: ${{ github.sha }}
+          body_path: docs/RELEASE_NOTES.md
           prerelease: ${{ inputs.prerelease }}
           make_latest: ${{ inputs.prerelease && 'false' || 'true' }}
           fail_on_unmatched_files: true

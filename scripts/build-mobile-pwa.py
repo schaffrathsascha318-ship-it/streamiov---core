@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Build the installable STREAMIOV web Regie from the canonical Studio UI."""
 from pathlib import Path
+import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "dist/streamiov-studio-app/regie-v2.html"
+SHIELD_SOURCE = ROOT / "dist/streamiov-studio-app/engine/privacy-shield.js"
 TARGET = ROOT / "dist/streamiov-homepage-worker/public/app/index.html"
+SHIELD_TARGET = ROOT / "dist/streamiov-homepage-worker/public/app/engine/privacy-shield.js"
 
 HEAD_MARKER = "<head>"
 BODY_MARKER = "</body>"
@@ -34,6 +37,8 @@ if ('serviceWorker' in navigator) {
 def main():
     if not SOURCE.is_file():
         raise SystemExit(f"Canonical Studio UI missing: {SOURCE}")
+    if not SHIELD_SOURCE.is_file():
+        raise SystemExit(f"Schutzregie module missing: {SHIELD_SOURCE}")
     html = SOURCE.read_text(encoding="utf-8")
     if HEAD_MARKER not in html or BODY_MARKER not in html:
         raise SystemExit("Canonical Studio UI has no expected HTML document structure")
@@ -41,7 +46,10 @@ def main():
     html = html.replace(BODY_MARKER, PWA_RUNTIME + BODY_MARKER, 1)
     TARGET.parent.mkdir(parents=True, exist_ok=True)
     TARGET.write_text(html, encoding="utf-8")
+    SHIELD_TARGET.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(SHIELD_SOURCE, SHIELD_TARGET)
     print(f"Built installable web Regie: {TARGET}")
+    print(f"Copied Schutzregie module: {SHIELD_TARGET}")
 
 if __name__ == "__main__":
     main()

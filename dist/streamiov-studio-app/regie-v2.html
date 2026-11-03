@@ -501,8 +501,8 @@ if(mobileRegieToggle){
 let selected="STARTING SOON";
 let programOutputAlpha=1;
 let sceneState=null;
-let previewSceneId=null;
-let programSceneId=null;
+let previewSceneId="starting-soon";
+let programSceneId="starting-soon";
 let programEffect=null;
 let programAlert=null;
 function log(message){
@@ -512,7 +512,8 @@ function log(message){
  box.scrollTop=box.scrollHeight;
 }
 function sceneById(id){return sceneState?.scenes.find(scene=>scene.id===id)||null;}
-function sceneName(id){return sceneById(id)?.name||"STARTING SOON";}
+const builtInSceneNames={"starting-soon":"STARTING SOON",live:"LIVE",pause:"PAUSE",ending:"ENDING",gameplay:"GAMEPLAY","just-chatting":"JUST CHATTING"};
+function sceneName(id){return sceneById(id)?.name||builtInSceneNames[id]||"STARTING SOON";}
 function applySceneState(state){
  if(!state?.scenes?.length)return;
  sceneState=state;
@@ -550,7 +551,18 @@ function renderScenes(scenes, previewId){
  });
 }
 async function sceneCommand(payload){
- if(!window.streamiovStudio?.sceneAction)return null;
+ if(!window.streamiovStudio?.sceneAction){
+  // Browser/PWA demo: scene changes stay local so the UI and Schutzregie can
+  // be tried without the desktop Core. No file or platform action is claimed.
+  if(payload?.action==="set-program"){
+   const target=payload.id||payload.name;
+   if(!target)return null;
+   programSceneId=target;
+   $("programName").textContent=sceneName(target);
+   return {programSceneId,previewSceneId,scenes:sceneState?.scenes||[]};
+  }
+  return null;
+ }
  const result=await window.streamiovStudio.sceneAction(payload);
  if(!result?.ok){
   log("Szenenaktion fehlgeschlagen: "+(result?.error||"unbekannter Fehler"));
@@ -730,6 +742,16 @@ function drawSceneToCanvas(canvas, sceneId, alpha=1){
  context.globalAlpha=alpha;
  context.fillStyle=scene?.background||"#090d13";
  context.fillRect(0,0,width,height);
+ if(!scene){
+  // PWA demo fallback: show the selected built-in scene name even when the
+  // desktop Core has not provided a persisted scene model.
+  drawWrappedText(context,sceneName(sceneId),0,0,width,height,Math.max(18,Math.min(96,Math.round(width*0.085))),"#edf6fb");
+  context.fillStyle="rgba(53,224,208,0.8)";context.textAlign="left";context.textBaseline="bottom";
+  context.font="700 "+Math.max(10,Math.round(width*0.012))+"px system-ui";
+  context.fillText("STREAMIOV · LOKAL",width*0.02,height*0.98);
+  context.restore();
+  return;
+ }
  for(const source of [...(scene?.sources||[])].sort((a,b)=>a.z-b.z)){
   if(!source.visible)continue;
   const x=source.x*width,y=source.y*height,w=source.w*width,h=source.h*height;

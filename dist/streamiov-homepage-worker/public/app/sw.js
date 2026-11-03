@@ -1,10 +1,11 @@
 'use strict';
 
-const CACHE_NAME = 'streamiov-web-regie-v1';
+const CACHE_NAME = 'streamiov-web-regie-v2';
 const APP_SHELL = [
   '/app/',
   '/app/manifest.webmanifest',
-  '/app/icon.svg'
+  '/app/icon.svg',
+  '/app/engine/privacy-shield.js'
 ];
 
 self.addEventListener('install', event => {
