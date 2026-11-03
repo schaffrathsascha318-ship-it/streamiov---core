@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "streamiov-device-control",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-10-31",
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "streamiov-device-control-db",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

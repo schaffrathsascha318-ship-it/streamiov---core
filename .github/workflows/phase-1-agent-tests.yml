@@ -4,6 +4,8 @@ on:
     paths:
       - "ai/**"
       - "infrastructure/cloudflare/streamiov-ai-worker/**"
+      - "infrastructure/cloudflare/streamiov-device-control/**"
+      - "tests/test_streamiov_device_control.mjs"
       - "scripts/deploy-streamiov-ai-worker.sh"
       - "tests/**"
       - "scripts/autonomous/**"
@@ -40,6 +42,8 @@ jobs:
         run: bash -n scripts/deploy-streamiov-ai-worker.sh
       - name: Run Cloudflare AI Worker tests
         run: node --test tests/test_cloudflare_ai_worker.mjs
+      - name: Run Chromebook device control Worker tests
+        run: node --test tests/test_streamiov_device_control.mjs
       - name: Check autonomous runner Python syntax
         run: python -m py_compile scripts/autonomous/run_issue.py
       - name: Run Phase 1 unit tests
