@@ -29,7 +29,8 @@
     .hero-art{position:relative;display:grid;place-items:center;min-height:330px}.hero-art .halo{position:absolute;width:min(84%,320px);aspect-ratio:1;border:1px solid #42e8ff20;border-radius:50%;box-shadow:0 0 70px #42e8ff12,inset 0 0 70px #9b86ff0b}.hero-art .halo:before,.hero-art .halo:after{content:"";position:absolute;inset:12%;border:1px solid #9b86ff24;border-radius:50%;transform:rotate(38deg) scaleX(.68)}.hero-art .halo:after{inset:23%;border-color:#74ffd129;transform:rotate(-34deg) scaleX(.72)}.hero-art img{position:relative;width:min(46%,175px);filter:drop-shadow(0 0 35px #42e8ff4c)}
     .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;border-block:1px solid var(--line);background:var(--line)}.stat{padding:22px 26px;background:#0a0e17}.stat b{display:block;color:var(--text);font-size:15px}.stat span{color:#97a6bd;font-size:13px}
     section{padding:82px 0;border-bottom:1px solid #1c2636}.section-head{max-width:740px;margin-bottom:34px}.kicker{margin-bottom:10px;color:var(--cyan);font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}h2{margin-bottom:12px;font-size:clamp(30px,4vw,46px);line-height:1.12;letter-spacing:-.04em}.section-head p,.copy{color:var(--muted);font-size:17px}
-    .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.card{min-height:220px;padding:25px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#111a29,#0c111b 70%)}.card:hover{border-color:#4a6885}.icon{display:grid;place-items:center;width:42px;height:42px;margin-bottom:19px;border:1px solid #42e8ff35;border-radius:13px;background:#42e8ff0d;color:var(--cyan);font-size:19px}.card h3{margin-bottom:8px;font-size:20px}.card p{margin:0;color:#aebbd0}.tag{display:inline-flex;margin-top:18px;padding:4px 9px;border:1px solid #37455c;border-radius:999px;color:#b8c5da;font-size:11px;font-weight:750;letter-spacing:.04em;text-decoration:none;text-transform:uppercase}.tag-ready{border-color:#327765;color:#8df1ce}.tag-work{border-color:#76603b;color:#ffd28c}
+    .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.card{min-height:220px;padding:25px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#111a29,#0c111b 70%)}.card:hover{border-color:#4a6885}.icon{display:grid;place-items:center;width:42px;height:42px;margin-bottom:19px;border:1px solid #42e8ff35;border-radius:13px;background:#42e8ff0d;color:var(--cyan);font-size:19px}.card h3{margin-bottom:8px;font-size:20px}.card p{margin:0;color:#aebbd0}.tag{display:inline-flex;margin-top:18px;padding:4px 9px;border:1px solid #37455c;border-radius:999px;color:#b8c5da;font-size:11px;font-weight:750;letter-spacing:.04em;text-decoration:none;text-transform:uppercase}.tag-ready{border-color:#327765;color:#8df1ce}.tag-work{border-color:#76603b;color:#ffd28c}.tag-blocked{border-color:#7b4650;color:#ffb2be}
+    code{padding:1px 5px;border:1px solid #2b3a50;border-radius:5px;background:#080d15;color:#cfe8ff;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em;overflow-wrap:anywhere}
     .split{display:grid;grid-template-columns:.85fr 1.15fr;gap:52px;align-items:start}.panel{padding:26px;border:1px solid var(--line);border-radius:18px;background:var(--panel)}.panel h3{margin-bottom:10px}.panel p{color:var(--muted)}.list{display:grid;gap:12px;margin:20px 0 0;padding:0;list-style:none}.list li{display:flex;gap:11px;align-items:flex-start;color:#c6d0df}.check{flex:none;color:var(--mint);font-weight:900}
     .platforms{display:flex;gap:9px;flex-wrap:wrap;margin:24px 0}.platform{padding:8px 12px;border:1px solid #35445b;border-radius:10px;background:#0d1420;color:#d4deee;font-size:13px;font-weight:750}.platform small{display:block;color:#8798b0;font-size:10px;font-weight:600}
     .timeline{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.status-card{display:grid;grid-template-columns:104px 1fr;gap:16px;padding:19px;border:1px solid var(--line);border-radius:14px;background:#0c121d}.status-label{align-self:start;color:var(--amber);font-size:11px;font-weight:850;letter-spacing:.09em;text-transform:uppercase}.status-card h3{margin:0 0 4px;font-size:15px}.status-card p{margin:0;color:#98a8be;font-size:13px;line-height:1.55}
@@ -45,7 +46,7 @@
     <div class="wrap nav">
       <a class="brand" href="/" aria-label="StreamioV Startseite"><img src="/assets/streamiov-wordmark.svg" alt="StreamioV"></a>
       <nav class="links" aria-label="Hauptnavigation">
-        <a href="#studio">Studio</a><a href="#ki">KI</a><a href="#spiele">Spiele</a><a href="#musik">Musik</a><a href="#tiktok">TikTok</a><a href="#status">Projektstand</a><a href="/account/">Konto</a><a class="nav-cta" href="/download/">Downloads</a>
+        <a href="#downloads">Downloads</a><a href="#studio">Studio</a><a href="#ki">KI</a><a href="#spiele">Spiele</a><a href="#musik">Musik</a><a href="#tiktok">TikTok</a><a href="#status">Projektstand</a><a href="/forum/">Forum</a><a href="/account/">Konto</a><a class="nav-cta" href="/download/">Download-Hub</a>
       </nav>
     </div>
   </header>
@@ -57,18 +58,33 @@
           <span class="eyebrow"><i aria-hidden="true"></i> Von Streamern für Streamer</span>
           <h1>Dein Stream.<br><span>Deine Bühne.</span></h1>
           <p class="lead">StreamioV entwickelt eine eigene Regie, kreative Spiele und smarte Werkzeuge für Creator – ohne Abo und ohne verpflichtende externe KI- oder Streamingdienste.</p>
-          <div class="actions"><a class="btn btn-main" href="/download/">Studio-Downloads ansehen <span aria-hidden="true">&nbsp;↗</span></a><a class="btn btn-secondary" href="#status">Entwicklungsstand ansehen</a></div>
-          <p class="micro">Kostenlos – ohne Werbung, Verkäufe, Abos oder Einnahmen für StreamioV. Vorhandene Hardware und Internetzugang werden vorausgesetzt.</p>
+          <div class="actions"><a class="btn btn-main" href="/download/">Alle Downloads öffnen <span aria-hidden="true">&nbsp;↗</span></a><a class="btn btn-secondary" href="#downloads">Was ist verfügbar?</a></div>
+          <p class="micro">Kostenlos – ohne Werbung, Verkäufe, Abos oder Einnahmen für StreamioV. Installer, Quellcode-Snapshot, PWA und Spiel-Prototypen sind gebündelt und, wo vorhanden, mit SHA-256-Prüfsumme ausgewiesen.</p>
         </div>
         <div class="hero-art" aria-hidden="true"><div class="halo"></div><img src="/assets/streamiov-symbol.svg" alt=""></div>
       </div>
     </section>
 
     <div class="wrap stats" aria-label="StreamioV in Kürze">
-      <div class="stat"><b>Eigene Regie</b><span>Desktop-Studio, lokal auf deinem Gerät</span></div>
-      <div class="stat"><b>Ein gemeinsamer Kern</b><span>Ziel: Windows, Linux, ChromeOS und Mobilgeräte</span></div>
-      <div class="stat"><b>Ohne Pflicht-Abo</b><span>Keine kostenpflichtige KI-API als Voraussetzung</span></div>
+      <div class="stat"><b>Gebaut: Windows &amp; Linux</b><span>Installer vom 2.11.2026 · Gerätetests offen</span></div>
+      <div class="stat"><b>5 Spiel-Prototypen</b><span>Checksumiert · kein Release</span></div>
+      <div class="stat"><b>11 KI-Spezialisten</b><span>Rollen und Queue getestet · Modell extern blockiert</span></div>
     </div>
+
+    <section id="downloads">
+      <div class="wrap">
+        <div class="section-head"><div class="kicker">Downloads</div><h2>Alles an einem Ort – mit Prüfsumme und Status.</h2><p>Der Download-Hub bündelt die vorhandenen Installer, den aktuellen Quellcode-Snapshot, die Web-Regie und die Spiel-Prototypen. Jede Karte nennt, ob sie gebaut, getestet oder noch extern blockiert ist.</p></div>
+        <div class="cards">
+          <article class="card"><div class="icon" aria-hidden="true">↓</div><h3>Studio-Installer</h3><p>Windows x64, Linux x64 und Linux ARM64 als Build vom 2.11.2026. Die Installer enthalten die Regie, aber noch keinen gebündelten FFmpeg-Encoder.</p><a class="tag tag-ready" href="/download/#installer">Installer ansehen</a></article>
+          <article class="card"><div class="icon" aria-hidden="true">▤</div><h3>Quellcode-Snapshot</h3><p>Sieben Teile mit fester Größe und SHA-256, im Browser zusammensetzbar. Ausdrücklich ein Quellpaket, kein Installer und ohne Zugangsdaten.</p><a class="tag tag-ready" href="/download/#quellcode">Quellpaket ansehen</a></article>
+          <article class="card"><div class="icon" aria-hidden="true">▢</div><h3>Web-Regie / PWA</h3><p>Für Handy, Tablet und Chromebook im Browser installierbar. Kein APK- oder App-Store-Paket; Kamera-, Mikrofon- und Live-Verhalten sind nicht auf jedem Gerät geprüft.</p><a class="tag tag-work" href="/download/#pwa">PWA ansehen</a></article>
+          <article class="card"><div class="icon" aria-hidden="true">◇</div><h3>5 Spiel-Prototypen</h3><p>Echo Grid, Neon Relay, Pulse Defender, Signal Weave und Star Defender als kleine, offline lauffähige ZIPs. Automatisierte Quelltests vorhanden, kein Release.</p><a class="tag tag-work" href="/download/#spiele">Prototypen ansehen</a></article>
+          <article class="card"><div class="icon" aria-hidden="true">◎</div><h3>Konto &amp; Forum</h3><p>Das Forum ist eine echte Host-Funktion: öffentliches Lesen, Schreiben nur mit lokaler Konto-Sitzung, Same-Origin-Prüfung und Rate-Limits. Kein öffentlicher Rollout.</p><a class="tag tag-ready" href="/forum/">Forum öffnen</a></article>
+          <article class="card"><div class="icon" aria-hidden="true">▣</div><h3>Prüfstatus</h3><p>Eine Tabelle trennt gebaut, lokal verifiziert, Prototyp und extern blockiert – inklusive der offenen Punkte bei TikTok, Livestream, Hardware und Hosting.</p><a class="tag tag-work" href="/download/#pruefung">Prüfstatus ansehen</a></article>
+        </div>
+        <div class="actions"><a class="btn btn-main" href="/download/">Zum vollständigen Download-Hub</a><a class="btn btn-secondary" href="/download/#pruefung">Was noch fehlt</a></div>
+      </div>
+    </section>
 
     <section id="studio">
       <div class="wrap">
@@ -82,29 +98,33 @@
 
     <section id="plattformen">
       <div class="wrap split">
-        <div><div class="kicker">Für deine Geräte</div><h2>Ein Studio-Kern. Viele Bildschirmgrößen.</h2><p class="copy">StreamioV soll für Desktop, Chromebook, Tablet und Smartphone entwickelt werden. Die Oberfläche passt sich an; gerätespezifische Funktionen werden pro Betriebssystem getestet und ausgewiesen.</p><div class="platforms" aria-label="Zielplattformen"><span class="platform">Windows<small>Zielplattform</small></span><span class="platform">Linux<small>Zielplattform</small></span><span class="platform">ChromeOS<small>Zielplattform</small></span><span class="platform">Android<small>Zielplattform</small></span><span class="platform">iOS<small>Zielplattform</small></span></div><p class="micro">Die vollständige Zielmatrix ist nicht gleichbedeutend mit bereits verfügbaren oder geprüften Installern. Aktuelle Builds und bekannte Einschränkungen stehen auf der Download-Seite.</p></div>
+        <div><div class="kicker">Für deine Geräte</div><h2>Ein Studio-Kern. Viele Bildschirmgrößen.</h2><p class="copy">StreamioV wird für Desktop, Chromebook, Tablet und Smartphone entwickelt. Die Oberfläche passt sich an; gerätespezifische Funktionen werden pro Betriebssystem getestet und ausgewiesen.</p><div class="platforms" aria-label="Zielplattformen"><span class="platform">Windows<small>Installer gebaut</small></span><span class="platform">Linux<small>Installer gebaut</small></span><span class="platform">ChromeOS<small>PWA + DEB</small></span><span class="platform">Android<small>PWA, kein APK</small></span><span class="platform">iOS<small>PWA, kein App Store</small></span></div><p class="micro">Ein gebauter Installer ist nicht gleichbedeutend mit einem bestandenen Gerätetest. Aktuelle Builds, Prüfsummen und bekannte Einschränkungen stehen auf der <a href="/download/">Download-Seite</a>.</p></div>
         <aside class="panel"><h3>Lokal und kostenbewusst</h3><p>Kamera, Mikrofon, Vorschau, lokale Musik und unterstützte Encoder sollen direkt auf dem jeweiligen Gerät arbeiten. Ein ausgeschalteter eigener Host kann keine Online-Aufgaben ausführen; die App soll dann klar anzeigen, was lokal weiter funktioniert.</p><ul class="list"><li><span class="check">✓</span><span>Kein verpflichtender Cloud-Encoder</span></li><li><span class="check">✓</span><span>Kein kostenpflichtiger KI-Dienst als Kernvoraussetzung</span></li><li><span class="check">✓</span><span>Vorhandene Hardware statt automatischer Tarif-Upgrades</span></li></ul></aside>
       </div>
     </section>
 
     <section id="ki">
       <div class="wrap">
-        <div class="section-head"><div class="kicker">StreamioV KI</div><h2>Fachspezialisten mit klaren Grenzen.</h2><p>Geplant sind eigene Rollen für Code, Studio, Spiele, Design, Musik- und Rechte-Recherche, Tests und Betrieb. Wo die Hardware reicht, können die Rollen dasselbe lokal laufende Modell nutzen.</p></div>
-        <div class="notice"><strong>Keine vorgetäuschte Autonomie:</strong> Die KI darf Aufgaben im freigegebenen Arbeitsbereich selbst bearbeiten, protokollieren und prüfen. TikTok-Freigaben, öffentliche Releases, Zahlungen und andere externe Aktionen brauchen eigene Berechtigungen und belastbare Nachweise.</div>
+        <div class="section-head"><div class="kicker">StreamioV KI</div><h2>Fachspezialisten mit klaren Grenzen.</h2><p>Die elf Spezialisten-Rollen, der Core-Planer, die persistente Task-Queue, die rollenspezifischen Schreibgrenzen und der Worker sind implementiert und durch automatisierte Tests abgedeckt. Eine echte Modell-Inferenz braucht zusätzlich ein erreichbares Modell – lokal oder über den vorbereiteten Cloudflare-Worker.</p></div>
+        <div class="cards">
+          <article class="card"><div class="icon" aria-hidden="true">⌘</div><h3>11 Rollen, getestet</h3><p>Core, Code, Game, Design, Gifts, Testing, Repair, Integration, Studio, Server und General. Jede Rolle hat eine eigene Mission und einen erzwungenen Schreibbereich; die Queue kann Aufgaben planen, speichern und abarbeiten.</p><span class="tag tag-ready">Implementiert · Tests grün</span></article>
+          <article class="card"><div class="icon" aria-hidden="true">◌</div><h3>Modell noch nicht erreichbar</h3><p><code>python -m ai --doctor</code> meldet auf dieser Maschine kein erreichbares lokales Modell (rund 213 MiB verfügbarer RAM). Der Cloudflare-Worker ist gebaut und getestet, aber aus diesem Checkout nicht deployt. Ohne erreichbares Modell läuft keine echte Inferenz.</p><span class="tag tag-blocked">Extern blockiert</span></article>
+        </div>
+        <div class="notice"><strong>Keine vorgetäuschte Autonomie:</strong> Die KI darf Aufgaben im freigegebenen Arbeitsbereich selbst bearbeiten, protokollieren und prüfen. TikTok-Freigaben, öffentliche Releases, Zahlungen und andere externe Aktionen brauchen eigene Berechtigungen und belastbare Nachweise. Ein grüner Testlauf ist kein Beweis für ein laufendes Modell.</div>
       </div>
     </section>
 
     <section id="spiele">
       <div class="wrap split">
-        <div><div class="kicker">Spiele und Game AI</div><h2>Eigene Spiele über viele Genres.</h2><p class="copy">Die Spiele-KI soll Konzepte entwickeln, Spiele bauen, balancieren und prüfen. Jedes Spiel bekommt eine eigene Identität und das gemeinsame StreamioV-Zeichen mit überspringbarem Intro und korrekten Credits.</p><a class="btn btn-secondary" href="/zukunft/">StreamioVs Zukunft ansehen</a></div>
-        <aside class="panel"><h3>Originalität mit Herkunftsnachweis</h3><p>Die Galerie soll eigene oder ausdrücklich freigegebene Spiele zeigen. Namen, Figuren, Musik, Schriften, Bilder und Code werden auf Herkunft und Nutzungsrechte geprüft. Ein StreamioV-Logo macht fremde Inhalte nicht zu eigenem Eigentum.</p><span class="tag tag-work">Game AI und Spiele im Aufbau</span></aside>
+        <div><div class="kicker">Spiele und Game AI</div><h2>Eigene Spiele über viele Genres.</h2><p class="copy">Fünf eigenständige Prototypen sind bereits als kleine, offline lauffähige ZIPs im Download-Hub: Echo Grid, Neon Relay, Pulse Defender, Signal Weave und Star Defender. Automatisierte Paket- und Quelltests sind vorhanden; menschliche Spielbarkeit, Barrierefreiheit, Rechteprüfung und Zielgerätetests stehen aus.</p><div class="actions"><a class="btn btn-main" href="/download/#spiele">Spiel-Prototypen herunterladen</a><a class="btn btn-secondary" href="/zukunft/">StreamioVs Zukunft ansehen</a></div></div>
+        <aside class="panel"><h3>Originalität mit Herkunftsnachweis</h3><p>Die Galerie zeigt eigene Prototypen mit dokumentierter Herkunft. Namen, Figuren, Musik, Schriften, Bilder und Code werden auf Nutzungsrechte geprüft. Ein StreamioV-Logo macht fremde Inhalte nicht zu eigenem Eigentum. Keiner der fünf Prototypen ist als fertiges Spiel veröffentlicht.</p><span class="tag tag-work">5 Prototypen · kein Release</span></aside>
       </div>
     </section>
 
     <section id="musik">
       <div class="wrap split">
-        <div><div class="kicker">Musik im Studio</div><h2>Ein Player mit Rechteprüfung.</h2><p class="copy">Geplant ist eine lokale Musikbibliothek mit Playlists und getrenntem Stream-/Kopfhörer-Ausgang. Eine KI soll Quellen und Erlaubnisse recherchieren und Inhalte kennzeichnen – ohne ungeprüfte Songs aus dem Internet zu laden.</p></div>
-        <aside class="panel"><h3>Rechte zuerst</h3><p>Für lokale Wiedergabe, Livestream und gespeicherte Aufzeichnungen können unterschiedliche Nutzungsrechte gelten. Unklare Titel bleiben gesperrt, bis die Rechte belegt sind. Der Startkatalog soll auf eigener Musik, kostenfrei freigegebenen Titeln und geprüftem gemeinfreiem Material beruhen.</p><span class="tag tag-work">Geplant, noch kein Musikkatalog</span></aside>
+        <div><div class="kicker">Musik im Studio</div><h2>Lokale Musikbibliothek mit Rechteprüfung.</h2><p class="copy">Die lokale Bibliothek, Playlists und getrennte Stream-/Kopfhörer-Ausgänge sind angebunden; Rechteprüfung und Quellenrecherche sind implementiert. Der aktuelle Katalog ist ein Read-only-Seed mit einem einzigen Testtrack (<code>test-only</code>); der Rechte-Katalog ist noch leer. Ungeprüfte Songs werden nicht automatisch aus dem Internet geladen.</p></div>
+        <aside class="panel"><h3>Rechte zuerst</h3><p>Für lokale Wiedergabe, Livestream und gespeicherte Aufzeichnungen können unterschiedliche Nutzungsrechte gelten. Unklare Titel bleiben gesperrt, bis die Rechte belegt sind. Der Startkatalog soll auf eigener Musik, kostenfrei freigegebenen Titeln und geprüftem gemeinfreiem Material beruhen.</p><span class="tag tag-work">Implementiert · Katalog noch Testdaten</span></aside>
       </div>
     </section>
 
@@ -122,12 +142,12 @@
       <div class="wrap">
         <div class="section-head"><div class="kicker">Offener Projektstand</div><h2>Was da ist und was noch entsteht.</h2><p>Wir unterscheiden zwischen vorhandenen Downloads, laufender Entwicklung, Planung und externen Freigaben. Ein Plan oder CI-Erfolg ist kein Beweis für einen getesteten Livestream.</p></div>
         <div class="timeline">
-          <article class="status-card"><span class="status-label" style="color:var(--mint)">Download</span><div><h3>Desktop-Versionen</h3><p>Die Download-Seite listet vorhandene Windows- und Linux-Pakete samt Versionshinweisen. Plattformtests und Funktionsumfang bitte dort prüfen.</p></div></article>
-          <article class="status-card"><span class="status-label">In Arbeit</span><div><h3>Regie und Medienpipeline</h3><p>Szenen, Geräte, Audio-/Video-Verarbeitung und bestätigte Live-Ausgabe werden schrittweise umgesetzt und getrennt geprüft.</p></div></article>
-          <article class="status-card"><span class="status-label">In Planung</span><div><h3>KI-Spezialisten</h3><p>Lokale Modelle, Fachrollen, Aufgabenbegrenzung und nachvollziehbare Ausführung.</p></div></article>
-          <article class="status-card"><span class="status-label">In Planung</span><div><h3>Musik und Spiel-Galerie</h3><p>Rechtebelegte Musik und originale Spiele mit gemeinsamer StreamioV-Marke.</p></div></article>
-          <article class="status-card"><span class="status-label">Extern</span><div><h3>TikTok-Freigabe</h3><p>Login Kit und weitere Scopes erfordern TikToks Genehmigung; verfügbare Live-Events werden separat verifiziert.</p></div></article>
-          <article class="status-card"><span class="status-label">Zielmatrix</span><div><h3>Windows, Linux, ChromeOS, Android, iOS</h3><p>Alle sind Entwicklungsziele. Unterstützt wird ein Ziel erst nach passendem Build und Gerätetest.</p></div></article>
+          <article class="status-card"><span class="status-label" style="color:var(--mint)">Gebaut</span><div><h3>Installer und Quell-Snapshot</h3><p>Windows- und Linux-Installer vom 2.11.2026 sowie ein siebenteiliger Quellcode-Snapshot mit SHA-256. Der Snapshot ist kein Installer; Gerätetests stehen aus.</p></div></article>
+          <article class="status-card"><span class="status-label" style="color:var(--mint)">Lokal verifiziert</span><div><h3>Forum, Konto, Katalog, KI-Queue</h3><p>Automatisierte Tests decken Forum-Schreibregeln, lokale Konten, den Read-only-Katalog, die KI-Spezialisten, die Task-Queue und den Cloudflare-Worker-Vertrag ab.</p></div></article>
+          <article class="status-card"><span class="status-label">In Arbeit</span><div><h3>Regie und Medienpipeline</h3><p>Szenen, Geräte, Audio-/Video-Verarbeitung und bestätigte Live-Ausgabe werden schrittweise umgesetzt und getrennt geprüft. FFmpeg ist noch nicht gebündelt.</p></div></article>
+          <article class="status-card"><span class="status-label">Prototyp</span><div><h3>Fünf Spiele</h3><p>Checksumierte ZIPs mit automatisierten Quelltests, aber ohne abgeschlossene Spielbarkeits-, Barrierefreiheits-, Rechte- und Geräteprüfung.</p></div></article>
+          <article class="status-card"><span class="status-label">Extern blockiert</span><div><h3>KI-Modell, TikTok und Live</h3><p>Lokale Modell-Inferenz ist auf dieser Maschine nicht möglich; der Cloudflare-Worker ist aus diesem Checkout nicht deployt. TikTok-Freigaben und ein real empfangener Livestream fehlen.</p></div></article>
+          <article class="status-card"><span class="status-label">Zielmatrix</span><div><h3>Windows, Linux, ChromeOS, Android, iOS</h3><p>Windows/Linux haben Installer; ChromeOS, Android und iOS nutzen die PWA. Unterstützt wird ein Ziel erst nach passendem Build und Gerätetest.</p></div></article>
         </div>
       </div>
     </section>
@@ -140,14 +160,14 @@
     </section>
 
     <section id="community">
-      <div class="wrap"><div class="section-head"><div class="kicker">Gemeinschaft</div><h2>Unterschiedliche Menschen. Gemeinsamer Respekt.</h2><p>Unterschiedliche Meinungen dürfen sein. Regeln gegen Hass, Bedrohung und gezielte Erniedrigung sollen transparent und unabhängig von politischer Richtung gelten.</p></div></div>
+      <div class="wrap"><div class="section-head"><div class="kicker">Gemeinschaft</div><h2>Unterschiedliche Menschen. Gemeinsamer Respekt.</h2><p>Unterschiedliche Meinungen dürfen sein. Regeln gegen Hass, Bedrohung und gezielte Erniedrigung gelten transparent und unabhängig von politischer Richtung.</p><p>Das Forum ist bereits eine echte Host-Funktion: Lesen ist öffentlich, Schreiben benötigt eine lokale Konto-Sitzung und dieselbe Origin. Die statische Cloudflare-Seite allein kann keine Beiträge speichern; dafür muss der StreamioV-Host laufen.</p><div class="actions"><a class="btn btn-main" href="/forum/">Forum öffnen</a><a class="btn btn-secondary" href="/account/">Konto &amp; Anmeldung</a></div></div></div>
     </section>
   </main>
 
   <footer>
     <div class="wrap footer-row">
       <div class="footer-brand"><img src="/assets/streamiov-symbol.svg" alt=""><span>StreamioV · Von Streamern für Streamer</span></div>
-      <nav aria-label="Rechtliches und Informationen"><a href="/geschichte/">Unsere Geschichte</a><a href="/forum/">Community</a><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="/nutzungsbedingungen/">Nutzungsbedingungen</a><a href="/compliance/">Compliance</a></nav>
+      <nav aria-label="Rechtliches und Informationen"><a href="/download/">Downloads</a><a href="/geschichte/">Unsere Geschichte</a><a href="/forum/">Community</a><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="/nutzungsbedingungen/">Nutzungsbedingungen</a><a href="/compliance/">Compliance</a></nav>
       <p class="copyright">© 2026 StreamioV. Produkt- und Plattformstatus gemäß den jeweiligen Projekt- und Download-Hinweisen.</p>
     </div>
   </footer>

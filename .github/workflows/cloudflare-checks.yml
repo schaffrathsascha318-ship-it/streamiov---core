@@ -1,0 +1,69 @@
+name: Cloudflare config checks
+
+on:
+  pull_request:
+    paths:
+      - "dist/streamiov-homepage-worker/**"
+      - "infrastructure/cloudflare/**"
+      - "scripts/deploy-streamiov-ai-worker.sh"
+      - "scripts/verify-cloudflare-config.py"
+      - "tests/test_cloudflare_config.py"
+      - "tests/test_cloudflare_ai_worker.mjs"
+      - "tests/test_cloudflare_worker_provider.py"
+      - ".github/workflows/cloudflare-checks.yml"
+  push:
+    branches: [main]
+    paths:
+      - "dist/streamiov-homepage-worker/**"
+      - "infrastructure/cloudflare/**"
+      - "scripts/deploy-streamiov-ai-worker.sh"
+      - "scripts/verify-cloudflare-config.py"
+      - "tests/test_cloudflare_config.py"
+      - "tests/test_cloudflare_ai_worker.mjs"
+      - "tests/test_cloudflare_worker_provider.py"
+      - ".github/workflows/cloudflare-checks.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  offline-verification:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check shell deployment script syntax
+        run: bash -n scripts/deploy-streamiov-ai-worker.sh
+
+      - name: Verify checked-in Cloudflare configuration offline
+        run: python scripts/verify-cloudflare-config.py
+
+      - name: Run Cloudflare AI Worker contract tests
+        run: node --test tests/test_cloudflare_ai_worker.mjs
+
+      - name: Run Cloudflare provider and public-site tests
+        run: >-
+          python -m unittest
+          tests.test_cloudflare_config
+          tests.test_cloudflare_worker_provider
+          tests.test_streamiov_host
+          tests.test_forum
+          -v
+
+      - name: Confirm no deployment was attempted
+        run: |
+          echo "This workflow is read-only."
+          echo "It verifies configs and contracts; it does not deploy or claim a live service."

@@ -42,5 +42,21 @@ jobs:
         run: node --test tests/test_cloudflare_ai_worker.mjs
       - name: Check autonomous runner Python syntax
         run: python -m py_compile scripts/autonomous/run_issue.py
+      - name: Verify every AI specialist helper is registered
+        run: |
+          python -m ai --help > /dev/null
+          python - <<'PY'
+          from ai.specialists import SPECIALISTS, specialist_names
+          names = specialist_names()
+          assert len(names) == 11, names
+          assert set(names) == set(SPECIALISTS)
+          for name in names:
+              role = SPECIALISTS[name]
+              assert role.title.strip() and role.mission.strip()
+              assert role.writable_prefixes
+          print("registered specialists:", ", ".join(names))
+          PY
+      - name: Report model readiness without failing the build
+        run: python -m ai --doctor || true
       - name: Run Phase 1 unit tests
         run: python -m unittest discover -s tests -v

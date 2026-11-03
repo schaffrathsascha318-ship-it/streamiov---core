@@ -28,6 +28,30 @@ class SpecialistRegistryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             get_specialist("superuser")
 
+    def test_every_specialist_has_a_unique_safe_write_scope(self):
+        from ai.specialists import SPECIALISTS
+        from ai.__main__ import build_parser
+
+        names = specialist_names()
+        self.assertEqual(len(names), 11)
+        self.assertEqual(set(names), set(SPECIALISTS))
+        parser_names = set(build_parser()._option_string_actions["--specialist"].choices)
+        self.assertEqual(parser_names, set(names))
+        for name in names:
+            definition = SPECIALISTS[name]
+            self.assertTrue(definition.title.strip())
+            self.assertTrue(definition.mission.strip())
+            self.assertTrue(definition.writable_prefixes)
+            self.assertEqual(
+                len(definition.writable_prefixes),
+                len(set(definition.writable_prefixes)),
+                f"{name} lists a duplicate scope",
+            )
+            for prefix in definition.writable_prefixes:
+                self.assertFalse(prefix.startswith("/"), f"{name} has an absolute scope: {prefix}")
+                self.assertNotIn("..", prefix, f"{name} escapes its scope: {prefix}")
+                self.assertTrue(prefix.endswith("/"), f"{name} scope must be a directory prefix: {prefix}")
+
     def test_specialist_prompt_contains_mission_and_write_scope(self):
         prompt = build_specialist_system_prompt("game", "Base instructions")
         self.assertIn("Game Developer", prompt)

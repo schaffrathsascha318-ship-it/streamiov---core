@@ -3,110 +3,301 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#090b16">
-<title>Streamiov Studio – Downloads</title>
+<meta name="theme-color" content="#080b12">
+<meta name="description" content="Alle StreamioV-Downloads an einem Ort: Studio-Installer, Quellcode-Snapshot, Web-Regie/PWA und checksumierte Spiel-Prototypen – mit ehrlichem Projektstand.">
+<title>StreamioV – Alle Downloads</title>
 <script src="/download/combine.js" defer></script>
 <style>
-*{box-sizing:border-box}
-body{margin:0;background:#090b16;color:#eef1ff;font:16px Arial,sans-serif}
-main{max-width:900px;margin:40px auto;padding:24px}
-h1{color:#8c80ff}
-h2{margin-top:0}
-p{line-height:1.6;color:#c5c9df}
-section{background:#15182a;border:1px solid #343052;border-radius:14px;padding:22px;margin:18px 0}
-a{color:#73e5e2;font-weight:bold}
-.download{display:inline-block;margin:8px 8px 8px 0;padding:12px 16px;border:1px solid #5b55a0;border-radius:9px;text-decoration:none}
-.download-button{display:inline-block;margin:8px 8px 8px 0;padding:13px 18px;border:0;border-radius:9px;background:#7c70ff;color:#fff;font-weight:bold;font-size:16px;cursor:pointer}
-.download-button:disabled{opacity:.55;cursor:wait}
-#studio-status,#studio-progress{display:block;margin-top:10px;color:#d9dcf5;line-height:1.5}
-small{display:block;color:#aeb3ca;margin-top:10px;line-height:1.5}
-.notice{border-left:4px solid #e5b85c;padding-left:14px}
+  :root{color-scheme:dark;--bg:#080b12;--panel:#0e1421;--panel2:#101a2b;--text:#f4f7ff;--muted:#aebbd0;--line:#243147;--cyan:#42e8ff;--mint:#74ffd1;--violet:#9b86ff;--amber:#ffc56e;--max:1120px}
+  *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:86px}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 Inter,"Avenir Next","Segoe UI",Arial,sans-serif}
+  a{color:var(--cyan)}a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid var(--mint);outline-offset:4px}
+  .wrap{width:min(var(--max),calc(100% - 40px));margin-inline:auto}
+  .topbar{position:sticky;top:0;z-index:20;border-bottom:1px solid #253044cc;background:#080b12ef;backdrop-filter:blur(16px)}
+  .nav{min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+  .brand{display:flex;align-items:center;flex:none}.brand img{display:block;width:176px;height:auto}
+  .links{display:flex;align-items:center;justify-content:flex-end;gap:20px;flex-wrap:wrap}.links a{text-decoration:none;color:#ced7e7;font-size:14px;font-weight:650}.links a:hover{color:var(--cyan)}
+  .links .nav-cta{padding:8px 14px;border:1px solid #42e8ff77;border-radius:999px;color:var(--cyan)}
+  .hero{padding:64px 0 38px;background:radial-gradient(ellipse 50% 80% at 82% 0%,#442c8126,transparent 70%),radial-gradient(ellipse 45% 70% at 10% 100%,#20c4d114,transparent 75%)}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;padding:7px 12px;border:1px solid #3d5470;border-radius:999px;color:#a7edff;background:#0c1421;font-size:12px;font-weight:750;letter-spacing:.1em;text-transform:uppercase}
+  .eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 12px var(--mint)}
+  h1,h2,h3,p{margin-top:0}h1{margin:20px 0 16px;font-size:clamp(38px,6vw,64px);line-height:1.02;letter-spacing:-.055em}
+  h1 span{color:var(--cyan)}.lead{max-width:760px;color:#bcc8d9;font-size:18px;line-height:1.65}
+  .quick{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}.quick a{display:inline-flex;padding:9px 13px;border:1px solid #35445b;border-radius:10px;background:#0d1420;color:#d4deee;font-size:13px;font-weight:750;text-decoration:none}.quick a:hover{border-color:var(--cyan);color:var(--cyan)}
+  section{padding:46px 0;border-top:1px solid #1c2636}.section-head{max-width:780px;margin-bottom:24px}.kicker{margin-bottom:8px;color:var(--cyan);font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}
+  h2{margin-bottom:10px;font-size:clamp(26px,3.4vw,38px);line-height:1.15;letter-spacing:-.035em}.section-head p,.copy{color:var(--muted);font-size:16px}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .card{padding:22px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(145deg,#111a29,#0c111b 72%)}.card:hover{border-color:#4a6885}
+  .card h3{margin-bottom:7px;font-size:19px}.card p{margin:0 0 14px;color:#aebbd0;font-size:14px}
+  .card .meta{display:block;margin:0 0 12px;color:#8798b0;font-size:12px}
+  .download{display:inline-flex;margin:6px 6px 0 0;padding:10px 13px;border:1px solid #5b55a0;border-radius:9px;color:#dfe2ff;text-decoration:none;font-size:14px;font-weight:750}.download:hover{border-color:var(--cyan);color:var(--cyan)}
+  .download-main{display:inline-flex;margin:6px 6px 0 0;padding:12px 17px;border:0;border-radius:10px;background:linear-gradient(105deg,var(--cyan),var(--mint));color:#061018;font-size:15px;font-weight:850;text-decoration:none;cursor:pointer}.download-main:hover{filter:brightness(1.05)}
+  .download-button{display:inline-flex;margin:6px 6px 0 0;padding:12px 17px;border:0;border-radius:10px;background:linear-gradient(105deg,var(--cyan),var(--mint));color:#061018;font-size:15px;font-weight:850;cursor:pointer}
+  .download-button:disabled{opacity:.55;cursor:wait}
+  #studio-status,#studio-progress{display:block;margin-top:10px;color:#d9dcf5;line-height:1.5;font-size:14px}
+  small{display:block;color:#aeb3ca;margin-top:10px;line-height:1.55;font-size:12px}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;color:#cfe8ff;overflow-wrap:anywhere}
+  code.checksum{display:block;margin-top:8px;padding:8px 9px;border:1px solid #2b3a50;border-radius:8px;background:#080d15;color:#9fb4cc;font-size:11px;line-height:1.5}
+  .notice{padding:18px 20px;border-left:3px solid var(--amber);border-radius:0 12px 12px 0;background:#14120d;color:#d9d0bd;font-size:14px}.notice strong{color:#ffe3a8}
+  .ok{border-left-color:var(--mint);background:#0b1715;color:#c5e7dd}.ok strong{color:#a9ffe1}
+  .tag{display:inline-flex;margin-top:12px;padding:4px 9px;border:1px solid #37455c;border-radius:999px;color:#b8c5da;font-size:11px;font-weight:750;letter-spacing:.04em;text-transform:uppercase}
+  .tag-ready{border-color:#327765;color:#8df1ce}.tag-work{border-color:#76603b;color:#ffd28c}.tag-blocked{border-color:#7b4650;color:#ffb2be}
+  details{margin-top:18px;border:1px solid var(--line);border-radius:12px;background:#0b111b}summary{padding:14px 16px;cursor:pointer;color:#dbe5f4;font-weight:750}
+  details>div{padding:0 16px 16px}pre{overflow:auto;padding:12px;border:1px solid #26354a;border-radius:9px;background:#070b12;color:#c8d8ea;font-size:12px;line-height:1.55}
+  ul{margin:12px 0 0;padding-left:20px;color:#b9c6d8}li{margin:5px 0}
+  table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:10px 12px;border-bottom:1px solid #223046;text-align:left;vertical-align:top}th{color:#cfe0f4;font-size:12px;text-transform:uppercase;letter-spacing:.06em}td{color:#aebbd0}
+  footer{padding:32px 0 46px;border-top:1px solid #1c2636;background:#06080e}.footer-row{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}.footer-brand{display:flex;align-items:center;gap:11px;color:#94a2b7;font-size:13px}.footer-brand img{width:30px;height:30px}footer nav{display:flex;gap:15px;flex-wrap:wrap}footer nav a{color:#aab7ca;text-decoration:none;font-size:13px}
+  @media(max-width:850px){.nav{align-items:flex-start;padding:14px 0;flex-direction:column;gap:12px}.links{justify-content:flex-start;gap:10px 16px}.grid,.grid-3{grid-template-columns:1fr}.hero{padding:44px 0 28px}}
+  @media(max-width:620px){.wrap{width:min(var(--max),calc(100% - 28px))}.brand img{width:158px}.links a{font-size:13px}.links .nav-cta{padding:7px 11px}section{padding:36px 0}.footer-row{align-items:flex-start;flex-direction:column}}
+  @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
 </style>
 </head>
 <body>
-<main>
-<h1>STREAMIOV DOWNLOADS</h1>
-<p>Von Streamern für Streamer. Kostenlos und ohne Abonnements.</p>
-<p><strong>Build 2026-11-02:</strong> Die verlinkten Installer wurden am 2.11.2026 gebaut. Der lokale Audio-Mixer steuert echte Mikrofon- und Systemtonquellen samt Master-Regler; Electron startet die Regie direkt aus <code>regie-v2.html</code>.</p>
-<p><strong>Quellcode-Snapshot 2026-11-03:</strong> Das ZIP unten enthält den aktuellen Quellstand (u. a. Szenen-/Quellen-Editor und angebundene Werkzeug-Panels), der noch nicht in den Installern vom 2.11. steckt. Es ist kein Installer und enthält keine gebauten Binärdateien.</p>
+  <header class="topbar">
+    <div class="wrap nav">
+      <a class="brand" href="/" aria-label="StreamioV Startseite"><img src="/assets/streamiov-wordmark.svg" alt="StreamioV"></a>
+      <nav class="links" aria-label="Hauptnavigation">
+        <a href="/">Startseite</a><a href="#installer">Installer</a><a href="#quellcode">Quellcode</a><a href="#spiele">Spiele</a><a href="/forum/">Forum</a><a href="/account/">Konto</a>
+      </nav>
+    </div>
+  </header>
 
-<section>
-<h2>Quellcode-Snapshot (kein Installer)</h2>
-<p><strong>Quellpaket vom 03.11.2026.</strong> Das ZIP-Paket wird aus sieben bereitgestellten Download-Teilen zusammengesetzt. Es enthält den Quellcode des Projekts ohne <code>node_modules</code>, ohne Build-Ausgaben und ohne Zugangsdaten. Zum Starten sind Node.js und die im README genannten Systemwerkzeuge erforderlich. Der direkte Download benötigt einen Chromium-Browser mit Dateispeicher-Unterstützung.</p>
-<button class="download-button" id="studio-one-click" type="button">Quellcode-Snapshot als ZIP herunterladen</button>
-<strong id="studio-progress" aria-live="polite">Bereit · 0 %</strong>
-<span id="studio-status" role="status" aria-live="polite">Nach dem Klick Speicherort auswählen. Die Teile werden nacheinander geladen und auf Größe sowie SHA-256 geprüft.</span>
-<details>
-<summary>Alternative: sieben Teile manuell herunterladen</summary>
-<p>Alle sieben Dateien herunterladen und in einem gemeinsamen Ordner speichern. Unter Linux/ChromeOS im Ordner ausführen:</p>
-<pre><code>cat streamiov-studio-part-*.bin &gt; streamiov-studio-source-20261103.zip
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <span class="eyebrow"><i aria-hidden="true"></i> Alle Downloads an einem Ort</span>
+        <h1>Herunterladen.<br><span>Prüfen. Ehrlich starten.</span></h1>
+        <p class="lead">Hier liegen die vorhandenen Studio-Installer, der aktuelle Quellcode-Snapshot, die installierbare Web-Regie und fünf checksumierte Spiel-Prototypen. Jede Karte nennt, was gebaut, was getestet und was noch nicht verifiziert ist.</p>
+        <div class="quick" aria-label="Schnellzugriff">
+          <a href="#installer">Studio-Installer</a>
+          <a href="#quellcode">Quellcode-Snapshot</a>
+          <a href="#pwa">Handy &amp; Chromebook</a>
+          <a href="#spiele">Spiel-Prototypen</a>
+          <a href="#konto">Konto &amp; Forum</a>
+          <a href="#pruefung">Prüfstatus</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="installer">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">StreamioV Studio · Build 2026-11-02</div>
+          <h2>Desktop-Installer</h2>
+          <p>Die Installer enthalten die Electron-Regie mit Szenen-/Quellenmodell, Vorschau, Programmausgabe, lokalem Audio-Mixer und RTMP-Ziel. Sie wurden gebaut und veröffentlicht; ein vollständiger Erststart- und Funktionstest auf jedem Zielgerät steht noch aus.</p>
+        </div>
+        <div class="grid grid-3">
+          <article class="card">
+            <h3>Windows x64</h3>
+            <span class="meta">Version 1.0.0 · .exe · 122 MB</span>
+            <p>Installer für übliche 64-Bit-Windows-PCs.</p>
+            <a class="download-main" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/Streamiov.Studio.Setup.1.0.0.exe">Windows-Installer herunterladen</a>
+            <span class="tag tag-work">Gebaut · Gerätetest offen</span>
+          </article>
+          <article class="card">
+            <h3>Linux x64</h3>
+            <span class="meta">Version 1.0.0 · AppImage / DEB</span>
+            <p>Für übliche 64-Bit-PCs mit Linux.</p>
+            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/Streamiov.Studio-1.0.0.AppImage">AppImage</a>
+            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/streamiov-studio_1.0.0_amd64.deb">DEB</a>
+            <span class="tag tag-work">Gebaut · Gerätetest offen</span>
+          </article>
+          <article class="card">
+            <h3>Linux ARM64</h3>
+            <span class="meta">Version 1.0.0 · AppImage / DEB</span>
+            <p>Für kompatible ARM64-Linux-Systeme.</p>
+            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/Streamiov.Studio-1.0.0-arm64.AppImage">ARM64-AppImage</a>
+            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/streamiov-studio_1.0.0_arm64.deb">ARM64-DEB</a>
+            <span class="tag tag-work">Gebaut · Gerätetest offen</span>
+          </article>
+        </div>
+        <p><small>Alle Dateien und Versionshinweise: <a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/tag/studio-v1.0.0-build-20261102">GitHub-Release öffnen</a>. Der Installer ist kein Beweis für einen funktionierenden Livestream oder für Unterstützung jeder Kamera, Capture-Karte und jedes Betriebssystems.</small></p>
+      </div>
+    </section>
+
+    <section id="quellcode">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Quellcode-Snapshot 2026-11-03</div>
+          <h2>Aktueller Quellstand, klar als Quellpaket markiert.</h2>
+          <p>Das ZIP enthält den aktuellen Quellcode ohne <code>node_modules</code>, ohne gebaute Binärdateien und ohne Zugangsdaten. Es ist <strong>kein Installer</strong> und steckt noch nicht in den Installern vom 2.11. Zum Starten sind Node.js und die im README genannten Systemwerkzeuge erforderlich.</p>
+        </div>
+        <button class="download-button" id="studio-one-click" type="button">Quellcode-Snapshot als ZIP herunterladen</button>
+        <strong id="studio-progress" aria-live="polite">Bereit · 0 %</strong>
+        <span id="studio-status" role="status" aria-live="polite">Nach dem Klick Speicherort auswählen. Die sieben Teile werden nacheinander geladen und auf Größe sowie SHA-256 geprüft.</span>
+        <details>
+          <summary>Alternative: sieben Teile manuell herunterladen</summary>
+          <div>
+            <p>Alle sieben Dateien herunterladen und in einem gemeinsamen Ordner speichern. Unter Linux/ChromeOS im Ordner ausführen:</p>
+            <pre><code>cat streamiov-studio-part-*.bin &gt; streamiov-studio-source-20261103.zip
 sha256sum streamiov-studio-source-20261103.zip</code></pre>
-<p>Unter Windows in der Eingabeaufforderung:</p>
-<pre><code>copy /b streamiov-studio-part-00.bin+streamiov-studio-part-01.bin+streamiov-studio-part-02.bin+streamiov-studio-part-03.bin+streamiov-studio-part-04.bin+streamiov-studio-part-05.bin+streamiov-studio-part-06.bin streamiov-studio-source-20261103.zip</code></pre>
-<ul>
-<li><a href="/downloads/streamiov-studio-part-00.bin">Teil 1 von 7</a></li>
-<li><a href="/downloads/streamiov-studio-part-01.bin">Teil 2 von 7</a></li>
-<li><a href="/downloads/streamiov-studio-part-02.bin">Teil 3 von 7</a></li>
-<li><a href="/downloads/streamiov-studio-part-03.bin">Teil 4 von 7</a></li>
-<li><a href="/downloads/streamiov-studio-part-04.bin">Teil 5 von 7</a></li>
-<li><a href="/downloads/streamiov-studio-part-05.bin">Teil 6 von 7</a></li>
-<li><a href="/downloads/streamiov-studio-part-06.bin">Teil 7 von 7</a></li>
-</ul>
-<small>Gesamtgröße: 852.117 Bytes. SHA-256 des zusammengefügten ZIPs: <code>d223a9fd6e68bb2b7fb04973af173ee7600a291777be2fde5213638ea1c230a1</code>. Prüfsummen aller Teile: <a href="/downloads/SHA256SUMS.txt">SHA256SUMS.txt</a>. Nach dem Zusammenfügen ZIP-Datei vor der Nutzung entpacken und prüfen.</small>
-</details>
-</section>
+            <p>Unter Windows in der Eingabeaufforderung:</p>
+            <pre><code>copy /b streamiov-studio-part-00.bin+streamiov-studio-part-01.bin+streamiov-studio-part-02.bin+streamiov-studio-part-03.bin+streamiov-studio-part-04.bin+streamiov-studio-part-05.bin+streamiov-studio-part-06.bin streamiov-studio-source-20261103.zip</code></pre>
+            <ul>
+              <li><a href="/downloads/streamiov-studio-part-00.bin">Teil 1 von 7</a></li>
+              <li><a href="/downloads/streamiov-studio-part-01.bin">Teil 2 von 7</a></li>
+              <li><a href="/downloads/streamiov-studio-part-02.bin">Teil 3 von 7</a></li>
+              <li><a href="/downloads/streamiov-studio-part-03.bin">Teil 4 von 7</a></li>
+              <li><a href="/downloads/streamiov-studio-part-04.bin">Teil 5 von 7</a></li>
+              <li><a href="/downloads/streamiov-studio-part-05.bin">Teil 6 von 7</a></li>
+              <li><a href="/downloads/streamiov-studio-part-06.bin">Teil 7 von 7</a></li>
+            </ul>
+            <small>Gesamtgröße: 868.890 Bytes. SHA-256 des zusammengefügten ZIPs: <code>44f7f81a63300c5d44456cb7a05109ea33557ba68081aab72d1c67e9c876aa79</code>. Prüfsummen aller Teile: <a href="/downloads/SHA256SUMS.txt">SHA256SUMS.txt</a>. Nach dem Zusammenfügen ZIP-Datei vor der Nutzung entpacken und prüfen.</small>
+          </div>
+        </details>
+      </div>
+    </section>
 
-<section>
-<h2>Windows</h2>
-<p>Streamiov Studio für Windows 64-Bit.</p>
-<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/Streamiov.Studio.Setup.1.0.0.exe">Windows-Installer herunterladen (.exe)</a>
-<small>Version 1.0.0 · x64 · 122 MB · Build 2026-11-02</small>
-</section>
+    <section id="pwa">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Handy, Tablet &amp; Chromebook</div>
+          <h2>Web-Regie als installierbare PWA.</h2>
+          <p>Die gemeinsame Web-Regie lässt sich in unterstützten Browsern zum Startbildschirm hinzufügen und passt sich an Touch-Bedienung und kleine Displays an. Es gibt keinen APK- oder App-Store-Installer.</p>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <h3>Android / iPhone / iPad</h3>
+            <p>Im Browser öffnen und über das Browsermenü installieren. Native Kamera-, Capture-, Push- und Live-Funktionen hängen von Betriebssystem, Browser, Core-Anbindung und separaten Gerätetests ab.</p>
+            <a class="download-main" href="/app/">STREAMIOV auf dem Handy öffnen</a>
+            <span class="tag tag-work">PWA vorbereitet · Gerätetest offen</span>
+          </article>
+          <article class="card">
+            <h3>Chromebook / ChromeOS</h3>
+            <p>Die PWA ist der empfohlene Einstieg im Chrome-Browser. Die Crostini-DEB-Pakete bleiben ein zusätzlicher, geräteabhängiger Desktop-Weg. Kamera-, Mikrofon-, GPU- und Encoding-Unterstützung sind auf realen ARM- und x64-Chromebooks nicht verifiziert.</p>
+            <a class="download-main" href="/app/">Web-Regie auf Chromebook öffnen</a>
+            <span class="tag tag-work">PWA vorbereitet · Gerätetest offen</span>
+          </article>
+        </div>
+      </div>
+    </section>
 
-<section>
-<h2>Linux x64</h2>
-<p>Für übliche 64-Bit-PCs mit Linux.</p>
-<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/Streamiov.Studio-1.0.0.AppImage">AppImage herunterladen</a>
-<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/streamiov-studio_1.0.0_amd64.deb">DEB herunterladen</a>
-<small>Version 1.0.0 · x64 · Build 2026-11-02</small>
-</section>
+    <section id="spiele">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Spiele · Prototypen, kein Release</div>
+          <h2>Fünf eigenständige Spiel-Prototypen.</h2>
+          <p>Die ZIPs sind kleine, offline lauffähige Entwicklungsprototypen. Automatisierte Paket- und Quelltests sind vorhanden; menschliche Spielbarkeit, Barrierefreiheit, Rechteprüfung und Zielgerätetests stehen aus. Sie sind <strong>keine veröffentlichten Spiele</strong> und werden nicht als fertig bezeichnet.</p>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <h3>Echo Grid</h3>
+            <span class="meta">0.1.0-prototype · Memory-/Sequenzspiel · Browser · 9.051 Bytes</span>
+            <p>Merke dir die wachsende Neon-Sequenz auf dem 3×3-Feld. Offline, ohne Drittanbieter-Pakete.</p>
+            <a class="download" href="/downloads/streamiov-echo-grid-0.1.0-prototype.zip">Prototyp herunterladen</a>
+            <code class="checksum">SHA-256: 5893f354fe47786e94c6b0f7349f7dc13f9497ce98bb972990a6d49d402b5fef</code>
+            <span class="tag tag-work">Prototyp · Spielbarkeit nicht verifiziert</span>
+          </article>
+          <article class="card">
+            <h3>Neon Relay</h3>
+            <span class="meta">0.1.0-prototype · Arcade-/Reflexspiel · Browser · 10.046 Bytes</span>
+            <p>Sammle Energie und weiche roten Störfeldern aus. Offline, ohne Drittanbieter-Pakete.</p>
+            <a class="download" href="/downloads/streamiov-neon-relay-0.1.0-prototype.zip">Prototyp herunterladen</a>
+            <code class="checksum">SHA-256: 48a625a42e6783ba7cecea40bd63120451c247960a012aad3d9ec2605bb7488c</code>
+            <span class="tag tag-work">Prototyp · Spielbarkeit nicht verifiziert</span>
+          </article>
+          <article class="card">
+            <h3>Pulse Defender</h3>
+            <span class="meta">0.1.0-prototype · Arcade-Wellenshooter · Browser · 9.868 Bytes</span>
+            <p>Verteidige den Energiekern gegen fallende Drohnenwellen. Offline, ohne Drittanbieter-Pakete.</p>
+            <a class="download" href="/downloads/streamiov-pulse-defender-0.1.0-prototype.zip">Prototyp herunterladen</a>
+            <code class="checksum">SHA-256: 072e69aac56193776bec589d065cbb442e3ea8b5cad314545d14dae86d071cb0</code>
+            <span class="tag tag-work">Prototyp · Spielbarkeit nicht verifiziert</span>
+          </article>
+          <article class="card">
+            <h3>Signal Weave</h3>
+            <span class="meta">0.1.0-prototype · Logik-/Raumrätsel · Browser · 14.260 Bytes</span>
+            <p>Drehe Rohrplättchen und leite den Puls durch drei handgebaute Level. Offline, ohne Drittanbieter-Pakete.</p>
+            <a class="download" href="/downloads/streamiov-signal-weave-0.1.0-prototype.zip">Prototyp herunterladen</a>
+            <code class="checksum">SHA-256: bd34424269507e2cd76abe0d736a1705a77161919d80784e5808ed69a20e59b0</code>
+            <span class="tag tag-work">Prototyp · Spielbarkeit nicht verifiziert</span>
+          </article>
+          <article class="card">
+            <h3>Star Defender</h3>
+            <span class="meta">0.2.0-prototype · Arcade-Weltraumshooter · Python/Tkinter · 7.591 Bytes</span>
+            <p>Ein offline laufender Python-Prototyp mit Engine, Pause, Neustart und Credits. Tkinter kann unter Linux ein optionales Systempaket sein.</p>
+            <a class="download" href="/downloads/streamiov-star-defender-0.2.0-prototype.zip">Prototyp herunterladen</a>
+            <code class="checksum">SHA-256: 37ce93121ec4f48eb79a775d3580e43b0dce2c41112565d028e31d62c5a6c35f</code>
+            <span class="tag tag-work">Prototyp · Spielbarkeit nicht verifiziert</span>
+          </article>
+        </div>
+        <p><small>Alle Prüfsummen: <a href="/downloads/SHA256SUMS-games.txt">SHA256SUMS-games.txt</a>. Die ZIPs enthalten Manifest, Quellen, Tests und die StreamioV-Kennung. Herkunft und Nutzungsrechte sind dokumentiert, aber nicht vollständig rechtlich geprüft. Eine Veröffentlichung als fertiges Spiel ist nicht erfolgt.</small></p>
+      </div>
+    </section>
 
-<section>
-<h2>Linux ARM64</h2>
-<p>Für kompatible ARM64-Linux-Systeme.</p>
-<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/Streamiov.Studio-1.0.0-arm64.AppImage">ARM64-AppImage herunterladen</a>
-<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/streamiov-studio_1.0.0_arm64.deb">ARM64-DEB herunterladen</a>
-<small>Version 1.0.0 · ARM64 · Build 2026-11-02</small>
-</section>
+    <section id="konto">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Konto &amp; Gemeinschaft</div>
+          <h2>Forum und lokales Konto.</h2>
+          <p>Das Forum ist eine echte Funktion des selbst betriebenen StreamioV-Hosts: Lesen ist öffentlich, Schreiben benötigt eine lokale Konto-Sitzung, eine exakte Same-Origin-Anfrage, ein JSON-Body und hält die Rate-Limits ein. Die statische Cloudflare-Seite allein kann keine Foren-Schreibvorgänge verarbeiten.</p>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <h3>Community-Forum</h3>
+            <p>Threads und Antworten werden in einer separaten <code>forum.sqlite3</code> gespeichert. Moderation erfolgt über die Host-CLI; Soft-Deletes und gesperrte Threads sind vorhanden. Abuse-Reporting, Spam-Erkennung und eine dokumentierte Aufbewahrungsrichtlinie fehlen noch.</p>
+            <a class="download-main" href="/forum/">Forum öffnen</a>
+            <span class="tag tag-ready">Lokal verifiziert · kein öffentlicher Rollout</span>
+          </article>
+          <article class="card">
+            <h3>Lokales Konto</h3>
+            <p>Registrierung ist standardmäßig geschlossen. Der erste Account wird vom Betreiber auf dem Host angelegt. E-Mail-Passwort-Reset, Verifikation und Account-Löschung sind nicht implementiert.</p>
+            <a class="download-main" href="/account/">Konto-Seite öffnen</a>
+            <span class="tag tag-work">Lokal · kein E-Mail-/OAuth-Flow</span>
+          </article>
+        </div>
+      </div>
+    </section>
 
-<section>
-<h2>Streaming-Funktion</h2>
-<p><strong>Regie-Oberfläche enthalten, Encoder noch extern.</strong></p>
-<p>Die Installer enthalten die Regie mit Kamera-, Bildschirm- und Mikrofonauswahl sowie dem RTMP-Ziel. Der Quellcode-Snapshot vom 3.11. ergänzt einen Szenen-/Quellen-Editor mit gemeinsamem Vorschau-, Programm- und Stream-Renderer; dieser Stand ist noch nicht in den Installern vom 2.11. enthalten. Für eine echte Live-Ausgabe muss FFmpeg mit libx264, AAC und RTMP-Unterstützung auf dem Computer installiert sein; der Encoder ist noch nicht Teil der Installer.</p>
-<p>Eine erfolgreiche RTMP-Verbindung ersetzt keine Anmeldung bei TikTok, YouTube, Twitch oder einem anderen Dienst. Offizielle Plattform-Anmeldungen und TikTok-Geschenke bleiben von einer Freigabe durch TikTok abhängig.</p>
-</section>
+    <section id="streaming">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Streaming-Funktion</div>
+          <h2>Regie-Oberfläche enthalten, Encoder noch extern.</h2>
+          <p>Die Installer enthalten Kamera-, Bildschirm- und Mikrofonauswahl sowie ein RTMP-Ziel. Der Quellcode-Snapshot ergänzt den Szenen-/Quellen-Editor mit gemeinsamem Vorschau-, Programm- und Stream-Renderer; dieser Stand ist noch nicht in den Installern vom 2.11. enthalten. Für eine echte Live-Ausgabe muss FFmpeg mit libx264, AAC und RTMP-Unterstützung auf dem Computer installiert sein; der Encoder ist noch nicht Teil der Installer.</p>
+        </div>
+        <div class="notice"><strong>Kein Live-Nachweis:</strong> Eine erfolgreiche RTMP-Verbindung ersetzt keine Anmeldung bei TikTok, YouTube, Twitch oder einem anderen Dienst. Ein Encoder-Start beweist nicht, dass ein Dienst den Stream empfangen oder veröffentlicht hat. Offizielle Plattform-Anmeldungen und TikTok-Geschenke bleiben von einer Freigabe durch TikTok abhängig.</div>
+      </div>
+    </section>
 
-<section>
-<h2>Handy und Tablet · Android / iPhone / iPad</h2>
-<p>Die installierbare STREAMIOV Web-Regie ist jetzt als gemeinsamer PWA-Einstieg vorbereitet. Sie kann in unterstützten Browsern zum Startbildschirm hinzugefügt werden und passt die Regie an Touch-Bedienung und kleine Displays an.</p>
-<a class="download" href="/app/">STREAMIOV auf dem Handy öffnen / installieren</a>
-<small>Kein APK- oder App-Store-Installer. Native Kamera-/Capture-Funktionen, Push-Mitteilungen und echte Live-Ausgabe sind abhängig von Betriebssystem, Browser, Core-Anbindung und separaten Gerätetests.</small>
-</section>
+    <section id="pruefung">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Prüfstatus</div>
+          <h2>Was hier belegt ist – und was nicht.</h2>
+          <p>Die Unterscheidung ist Absicht: Ein grüner Build, ein vorhandenes ZIP oder eine getestete Oberfläche ist kein Nachweis für echte Hardware, einen Livestream oder eine Plattformfreigabe.</p>
+        </div>
+        <table>
+          <thead><tr><th>Bereich</th><th>Stand</th><th>Beleg / offene Grenze</th></tr></thead>
+          <tbody>
+            <tr><td>Studio-Installer</td><td>Gebaut und veröffentlicht</td><td>Build 2026-11-02; Erststart und Funktionen auf Zielgeräten nicht vollständig geprüft.</td></tr>
+            <tr><td>Quellcode-Snapshot</td><td>Sieben Teile mit SHA-256</td><td>Quellpaket, kein Installer; Größe und Prüfsummen werden vor dem Speichern geprüft.</td></tr>
+            <tr><td>Web-Regie / PWA</td><td>Vorbereitet</td><td>Kein APK/App-Store-Paket; Kamera-, Mikrofon-, GPU- und Live-Verhalten nicht auf jedem Gerät verifiziert.</td></tr>
+            <tr><td>Spiel-Prototypen</td><td>Fünf checksumierte ZIPs</td><td>Automatisierte Quelltests vorhanden; menschliche Spielbarkeit, Barrierefreiheit, Rechte und Zielgeräte offen.</td></tr>
+            <tr><td>Forum / Konto</td><td>Lokal verifiziert</td><td>Öffentliches Lesen, sitzungsgebundenes Schreiben, Rate-Limits und Moderation; kein öffentlicher Community-Rollout.</td></tr>
+            <tr><td>KI-Spezialisten</td><td>Rollen, Queue und Scopes getestet</td><td>Lokale Modell-Inferenz ist auf dieser Maschine nicht verfügbar; Cloudflare-Worker ist vorbereitet, aber aus diesem Checkout nicht deployt.</td></tr>
+            <tr><td>TikTok</td><td>Extern blockiert</td><td>App-Review, genehmigte Scopes und offizielle Geschenk-Funktionen fehlen; keine Freigabe wird behauptet.</td></tr>
+            <tr><td>Livestream</td><td>Extern blockiert</td><td>Ein realer, von einem Dienst empfangener und veröffentlichter Stream ist nicht nachgewiesen.</td></tr>
+            <tr><td>Code-Signierung / Hosting / Recht</td><td>Extern blockiert</td><td>Zertifikate, öffentlich erreichbarer Host mit Vertrauenszertifikat und vollständige Rechtsprüfung stehen aus.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-<section>
-<h2>Chromebook / ChromeOS</h2>
-<p>Für Chromebook ist die installierbare Web-Regie der empfohlene Einstieg. Sie läuft im Chrome-Browser und kann über das Browsermenü installiert werden. Die Crostini-DEB-Pakete sind ein zusätzlicher, geräteabhängiger Desktop-Weg.</p>
-<a class="download" href="/app/">STREAMIOV Web-Regie auf Chromebook öffnen / installieren</a>
-<small>Die PWA-Oberfläche ist noch kein Nachweis für Kamera-, Mikrofon-, GPU- oder Encoding-Unterstützung auf jedem Chromebook. Diese Fähigkeiten müssen auf realen ARM- und x64-Geräten geprüft werden.</small>
-</section>
+    <section id="hinweise">
+      <div class="wrap">
+        <div class="notice ok"><strong>Kosten:</strong> StreamioV erhebt keine Gebühren. Es gibt keine Werbung, Abos, Pro-Stufen, Verkäufe oder bezahlten StreamioV-Geschenke. Internet, Strom, Geräte und externe Plattformen haben eigene Bedingungen und können außerhalb StreamioVs Kosten verursachen.</div>
+        <p><small>Produkt- und Plattformstatus gemäß den jeweiligen Projekt- und Download-Hinweisen. Keine Zugangsdaten oder Tokens werden über diese Seite verteilt.</small></p>
+        <p><a href="/">← Zur StreamioV-Startseite</a> · <a href="/forum/">Forum</a> · <a href="/account/">Konto</a> · <a href="/geschichte/">Geschichte</a></p>
+      </div>
+    </section>
+  </main>
 
-<section>
-<h2>Alle Dateien und Versionshinweise</h2>
-<a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/tag/studio-v1.0.0-build-20261102">GitHub Release öffnen</a>
-</section>
-
-<p class="notice">Hinweis: Die Installer wurden erfolgreich gebaut und veröffentlicht. Ein vollständiger Funktionstest auf jeder Zielplattform steht noch aus.</p>
-<p><a href="/">← Zur Streamiov-Homepage</a></p>
-</main>
+  <footer>
+    <div class="wrap footer-row">
+      <div class="footer-brand"><img src="/assets/streamiov-symbol.svg" alt=""><span>StreamioV · Von Streamern für Streamer</span></div>
+      <nav aria-label="Rechtliches und Informationen"><a href="/download/">Downloads</a><a href="/forum/">Community</a><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="/nutzungsbedingungen/">Nutzungsbedingungen</a><a href="/compliance/">Compliance</a></nav>
+    </div>
+  </footer>
 </body>
 </html>

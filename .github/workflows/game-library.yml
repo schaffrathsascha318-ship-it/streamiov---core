@@ -7,7 +7,7 @@ on:
       - ".github/workflows/game-library.yml"
       - ".github/workflows/release-game.yml"
   push:
-    branches: [main, streamiov-build-setup-clean]
+    branches: [main]
     paths:
       - "games/**"
       - ".github/workflows/game-library.yml"

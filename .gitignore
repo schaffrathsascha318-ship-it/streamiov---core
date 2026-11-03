@@ -23,6 +23,9 @@
 **/*.zip
 # Audited game release candidates are small artifacts named by their manifests.
 !games/releases/*.zip
+# The public download hub mirrors those small, checksummed prototypes so the
+# static site and the self-hosted site can serve the same files.
+!dist/streamiov-homepage-worker/public/downloads/*.zip
 .venv/
 dist/streamiov-studio-app/electron
 dist/streamiov-studio-app/streamiov-studio@1.0.0

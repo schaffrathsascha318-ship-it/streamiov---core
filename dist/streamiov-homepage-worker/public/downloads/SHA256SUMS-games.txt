@@ -1,0 +1,7 @@
+# StreamioV game prototypes — 2026-11-03
+# Verify with: sha256sum -c SHA256SUMS-games.txt
+5893f354fe47786e94c6b0f7349f7dc13f9497ce98bb972990a6d49d402b5fef  streamiov-echo-grid-0.1.0-prototype.zip
+48a625a42e6783ba7cecea40bd63120451c247960a012aad3d9ec2605bb7488c  streamiov-neon-relay-0.1.0-prototype.zip
+072e69aac56193776bec589d065cbb442e3ea8b5cad314545d14dae86d071cb0  streamiov-pulse-defender-0.1.0-prototype.zip
+bd34424269507e2cd76abe0d736a1705a77161919d80784e5808ed69a20e59b0  streamiov-signal-weave-0.1.0-prototype.zip
+37ce93121ec4f48eb79a775d3580e43b0dce2c41112565d028e31d62c5a6c35f  streamiov-star-defender-0.2.0-prototype.zip

@@ -58,6 +58,15 @@ python -m ai --doctor
 
 The agent CLI should report the worker and model as ready before running a task. Replace the example URL with the exact URL printed by Wrangler.
 
+## GitHub Actions
+
+Two workflows cover this Worker:
+
+- `.github/workflows/cloudflare-checks.yml` is read-only. It verifies the Wrangler config, the pinned model, bearer authentication, the deploy script, and the Worker contract tests on pull requests and pushes to `main`.
+- `.github/workflows/cloudflare-deploy.yml` is manual and owner-approved. It uses the GitHub `production` environment and requires `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. After deploying, it checks that `STREAMIOV_AI_WORKER_TOKEN` exists as a Cloudflare secret. It does not create the secret, enable Workers AI, or prove quota/model availability.
+
 ## Verification status
 
 The Worker source and tests can be validated in GitHub Actions. This repository change does not deploy the Worker, create the Cloudflare secret, or prove that the user's Cloudflare account has the Workers AI binding enabled. A successful deployment and a real `--doctor` check are required before calling the service online.
+
+The current development host reports `python -m ai --doctor` as not ready because no local Ollama endpoint is reachable and only about 213 MiB RAM is available. That is an honest external limit, not a passing inference test.

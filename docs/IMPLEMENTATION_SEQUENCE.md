@@ -154,14 +154,29 @@ This pass closed the internally implementable gaps and kept every external gate 
 - The seeded catalog currently contains 18 StreamioV gift previews (no TikTok gift IDs), 2 locally registered test games with 3 actions, 1 test playlist with 1 `test-only` track, an empty rights catalog, and 5 local template specifications.
 - Studio's gift, game, and music panels load this catalog through the sender-guarded `studio:data-query` IPC bridge, which uses a fixed endpoint allowlist. The 18 gift SVGs are published under `/assets/gifts/`; missing images fall back to a local symbol.
 
+### Homepage, download hub, and deployment checks
+
+- The homepage now has a central downloads section linking the installer, source snapshot, PWA, five game prototypes, account/forum, and the honest verification table. AI, game, and music cards distinguish implemented/tested work from externally blocked inference, unreleased prototypes, and read-only test catalog data.
+- The download hub centralizes all local artifacts: three Studio installer families, the seven-part source snapshot, the Web-Regie/PWA, five checksummed game-prototype ZIPs, account/forum links, and a built/verified/prototype/blocked table.
+- `public/_headers` declares baseline security headers and a one-hour cache for `/downloads/` assets. It is consumed by Cloudflare Workers static assets; the local Python host does not interpret it.
+- `scripts/verify-cloudflare-config.py` validates the assets-only homepage Worker, the AI Worker binding and pinned model, bearer authentication, deploy-script contents, public entry points, security headers, and all download checksums without contacting Cloudflare.
+- `.github/workflows/cloudflare-checks.yml` runs those checks and the Worker contract tests on pull requests and `main` pushes. `.github/workflows/cloudflare-deploy.yml` is manual, requires the `production` environment and owner-provided secrets, and makes no deployment claim by itself.
+- `release-game.yml` now targets `main` instead of the deleted `streamiov-build-setup-clean` branch.
+
 ### Verification
 
-- `python3 -m unittest discover -s tests -p 'test_*.py'`: 139 tests pass.
-- `node --test tests/test_cloudflare_ai_worker.mjs`: 10 tests pass.
+- `python3 -m unittest discover -s tests -p 'test_*.py'`: 253 tests pass.
+- `node --test tests/test_cloudflare_ai_worker.mjs`: 12 tests pass.
+- `node --test tests/tiktok-oauth.test.js`: 8 tests pass.
+- `node --test games/tests/library.test.cjs`: 6 tests pass.
+- Prototype game tests: Echo Grid 1, Neon Relay 1, Pulse Defender 1, Signal Weave 5, Star Defender engine 5.
+- `node --test engine/*.test.js` in the Studio: 27 tests pass.
+- `python3 scripts/verify-cloudflare-config.py`: all offline config, link, header, and checksum checks pass.
 - `node --check` passes for `main.js`, `preload.js`, `media-pipeline.js`, `combine.js`, and every inline Regie script.
 - The published download parts are assembled and hashed in a Node check that mirrors `combine.js`, and `sha256sum -c SHA256SUMS.txt` passes for all seven parts.
-- Publicly served backup files and unlinked stale archives were removed from the site root; a host test fails if backup, secret, or extra download files reappear.
+- Publicly served backup files and unlinked stale archives were removed from the site root; a host test fails if backup, secret, or unexpected download files reappear.
 - The Studio declares no runtime npm dependencies; the unofficial `tiktok-live-connector` package was removed from `package.json` and the lockfile.
+- `python3 -m ai --doctor` exits 3 in this environment because no local model is reachable. That is an honest external limit, not a passing inference test.
 
 ### Still externally gated
 

@@ -66,16 +66,43 @@ class HostStaticPathTests(unittest.TestCase):
                 offenders.append(str(path))
         self.assertEqual(offenders, [], "public site must not serve backup or secret files")
 
-    def test_public_downloads_contain_only_the_published_source_parts(self):
+    def test_public_downloads_contain_only_published_source_parts_and_game_prototypes(self):
         downloads = DEFAULT_SITE_ROOT / "downloads"
         if not (downloads / "streamiov-studio-part-00.bin").is_file():
             self.skipTest("download artifacts are release files and are not part of the source snapshot")
+        game_prototypes = {
+            "streamiov-echo-grid-0.1.0-prototype.zip",
+            "streamiov-neon-relay-0.1.0-prototype.zip",
+            "streamiov-pulse-defender-0.1.0-prototype.zip",
+            "streamiov-signal-weave-0.1.0-prototype.zip",
+            "streamiov-star-defender-0.2.0-prototype.zip",
+        }
         published = {
             "SHA256SUMS.txt",
+            "SHA256SUMS-games.txt",
             *(f"streamiov-studio-part-{index:02d}.bin" for index in range(7)),
+            *game_prototypes,
         }
         actual = {path.name for path in downloads.iterdir() if path.is_file()}
         self.assertEqual(actual, published)
+
+    def test_game_prototype_downloads_match_their_checksums(self):
+        downloads = DEFAULT_SITE_ROOT / "downloads"
+        checksum_file = downloads / "SHA256SUMS-games.txt"
+        if not checksum_file.is_file():
+            self.skipTest("game prototype downloads are release artifacts")
+        import hashlib
+
+        for line in checksum_file.read_text(encoding="utf-8").splitlines():
+            if not line or line.startswith("#"):
+                continue
+            digest, filename = line.split(maxsplit=1)
+            payload = (downloads / filename).read_bytes()
+            with self.subTest(filename=filename):
+                self.assertEqual(hashlib.sha256(payload).hexdigest(), digest)
+                source = DEFAULT_SITE_ROOT.parents[2] / "games" / "releases" / filename
+                if source.is_file():
+                    self.assertEqual(payload, source.read_bytes(), f"published copy drifted from {source}")
 
     def test_catalog_gift_svgs_are_published_for_the_host(self):
         catalog = json.loads(

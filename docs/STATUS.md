@@ -13,18 +13,30 @@
 | Studio source | `tests/test_studio_scene_ui.py`, `tests/test_studio_js_syntax.py`: Electron entry points, inline scripts, scene model, UI wiring |
 | Scene renderer | Preview, program, and stream output all call `drawSceneToCanvas`; source layout persists in scene v2 |
 | Local tools | Chat, TTS, gifts, alerts, music, games list, AI login/submit, and diagnostics are wired; gift/game/music panels load the host's read-only raw-data catalog; local-only boundaries are stated in the UI |
-| Download package | Seven parts with fixed sizes and per-part SHA-256; archive SHA-256 is shown on the page and in `SHA256SUMS.txt` |
+| Download hub | `tests/test_streamiov_host.py`: every local download link resolves; source parts and five game-prototype ZIPs match their SHA-256 files |
+| Homepage | `tests/test_streamiov_host.py`: every local homepage link resolves; downloads, forum, account, and honest AI/game/music status are linked |
+| Cloudflare config | `scripts/verify-cloudflare-config.py`, `tests/test_cloudflare_config.py`: assets-only homepage Worker, AI binding, pinned model, bearer auth, deploy script, security headers, and download checksums are consistent offline |
 | AI worker | `node --test tests/test_cloudflare_ai_worker.mjs` (12 tests) |
+| AI specialists | `tests/test_specialist_registry.py`: all 11 roles, CLI choices, mission/scope text, unique per-role scopes, and enforced write boundaries |
+| AI queue and agent | `tests/test_persistent_task_queue.py`, `tests/test_worker_service.py`, `tests/test_phase1_agent.py`, `tests/test_agent_response_parsing.py`, `tests/test_ai_queue_cli.py` |
 | Music rights | `tests/test_music_library.py`, `tests/test_music_research.py` |
-| Games | `tests/test_game_*.py` package, catalog, preflight, and AI checks |
-| Agent | `tests/test_phase1_agent.py`, `tests/test_agent_response_parsing.py` |
+| Games | `tests/test_game_*.py` package, catalog, preflight, and AI checks; five checksummed prototype ZIPs are published through the download hub |
 
 Run everything:
 
 ```sh
 python3 -m unittest discover -s tests -p 'test_*.py'
 node --test tests/test_cloudflare_ai_worker.mjs
+python3 scripts/verify-cloudflare-config.py
 ```
+
+## Cloudflare and GitHub deployment state
+
+- `.github/workflows/cloudflare-checks.yml` verifies the checked-in homepage Worker, AI Worker, deploy script, security headers, and download checksums offline on pull requests and pushes to `main`.
+- `.github/workflows/cloudflare-deploy.yml` is a manual, owner-approved workflow. It requires the GitHub `production` environment secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. It never runs on push or pull request.
+- The AI Worker still needs the Cloudflare secret `STREAMIOV_AI_WORKER_TOKEN` and an enabled Workers AI binding. The deploy workflow checks that the secret exists after deployment, but it cannot prove quota, model availability, or a successful inference.
+- A successful Wrangler command is not proof that `streamiov.pages.dev`, a custom domain, or every asset is publicly reachable. DNS, routes, cache propagation, and the public URL must be verified separately by the owner.
+- This checkout has no Cloudflare credentials, so no deployment was performed and no live service is claimed.
 
 ## Built, but not verified on real target hardware
 

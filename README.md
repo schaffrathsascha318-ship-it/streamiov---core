@@ -12,7 +12,7 @@ The current Studio is an early foundation, not a finished live-streaming product
 
 The broadcast path encodes the current program scene, including camera, screen, title-card, and text sources, and mixes the chosen microphone/system audio mode to a user-provided RTMP/RTMPS destination. Windows may provide system audio from the selected screen. It currently requires FFmpeg to be installed on the computer with the `libx264` video encoder, AAC audio encoder, and RTMP/RTMPS protocols. FFmpeg is not yet bundled in the downloadable installers. Official platform sign-in is not implemented. Do not treat an RTMP encoder starting as proof that a streaming service received or published the broadcast.
 
-The download page is maintained at `dist/streamiov-homepage-worker/public/download/index.html`. It separates the 2026-11-02 installers from the newer source snapshot, which is checksummed but is not an installer. A successful installer build does not by itself prove that the app can stream or that it works on every device.
+The download page is maintained at `dist/streamiov-homepage-worker/public/download/index.html`. It centralizes the 2026-11-02 installers, the newer source snapshot (checksummed, but not an installer), the Web-Regie/PWA, account/forum links, and five checksummed game prototypes. The prototypes are development builds, not releases. A successful installer build does not by itself prove that the app can stream or that it works on every device.
 
 The packaged Electron app does not include the optional Python `modules/` tree. Features that need it report `not_bundled` with a clear explanation instead of failing with an import error. The same guard applies in a repository checkout when those optional modules are absent; if they are present, the handlers use them.
 
@@ -33,9 +33,12 @@ See [`docs/STATUS.md`](docs/STATUS.md) for the full built/verified/blocked matri
 ```sh
 python3 -m unittest discover -s tests -p 'test_*.py'
 node --test tests/test_cloudflare_ai_worker.mjs
+python3 scripts/verify-cloudflare-config.py
 ```
 
-They cover the local host, accounts, the read-only raw-data catalog, AI-worker contract, Studio source and inline-script syntax, scene model, UI wiring, download-part sizes and SHA-256 checksums, music rights, game packaging, and agent behaviour. These are automated checks, not real-device or live-platform evidence.
+They cover the local host, accounts, the read-only raw-data catalog, the 11 AI specialist roles and task queue, AI-worker contract, Studio source and inline-script syntax, scene model, UI wiring, download-part sizes and SHA-256 checksums, game-prototype checksums, music rights, game packaging, and agent behaviour. These are automated checks, not real-device or live-platform evidence.
+
+Cloudflare and GitHub automation is split into a read-only check workflow (`.github/workflows/cloudflare-checks.yml`) and a manual, owner-approved deployment workflow (`.github/workflows/cloudflare-deploy.yml`). The deployment workflow requires the `production` environment secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the AI Worker additionally needs the Cloudflare secret `STREAMIOV_AI_WORKER_TOKEN` and an enabled Workers AI binding. No deployment is performed or claimed by this checkout.
 
 Still externally gated: TikTok app review/scopes, a real live broadcast received by a streaming service, hardware verification on Windows/Chromebook/Android/iOS, local model inference on a machine with sufficient memory, code signing, public hosting, and legal rights review.
 
