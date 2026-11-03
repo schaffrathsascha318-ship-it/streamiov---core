@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, session, dialog, ipcMain, desktopCapturer } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { randomUUID } = require('node:crypto');
@@ -7,11 +7,186 @@ const http = require('node:http');
 const { pathToFileURL } = require('node:url');
 const { buildSyntheticAvPipelineArgs } = require('./media-pipeline');
 
-const { execFile } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
 const execFileAsync = promisify(execFile);
-const projectRoot = path.resolve(__dirname, '..', '..');
-const studioUrl = pathToFileURL(path.join(__dirname, 'index.html')).href;
+// In development this is the repository root. In an installed build it points
+// at the packaged resources directory. Python module features are optional and
+// must report a clear "not bundled" state instead of crashing.
+const projectRoot = app.isPackaged
+  ? process.resourcesPath
+  : path.resolve(__dirname, '..', '..');
+const studioUrl = pathToFileURL(path.join(__dirname, 'regie-v2.html')).href;
+let liveStreamProcess = null;
+let liveStreamState = 'offline';
+let selectedDisplaySourceId = null;
+
+async function missingPythonModules(relativePaths) {
+  const missing = [];
+  for (const relative of relativePaths) {
+    try {
+      await fs.access(path.join(projectRoot, relative));
+    } catch {
+      missing.push(relative);
+    }
+  }
+  return missing;
+}
+
+function notBundledResult(missing) {
+  return {
+    ok: false,
+    verification: 'not_bundled',
+    error: 'Die Python-Module sind im installierten Studio nicht enthalten. ' +
+      'Diese Funktion benötigt eine Entwicklungsinstallation mit modules/ und studio/.',
+    missing
+  };
+}
+
+ipcMain.handle('studio:list-display-sources', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  const sources = await desktopCapturer.getSources({
+    types: ['screen', 'window'],
+    thumbnailSize: { width: 320, height: 180 },
+    fetchWindowIcons: true
+  });
+  return sources.map((source) => ({
+    id: source.id,
+    name: source.name,
+    thumbnail: source.thumbnail.toDataURL(),
+    icon: source.appIcon ? source.appIcon.toDataURL() : null
+  }));
+});
+
+ipcMain.on('studio:select-display-source', (event, sourceId) => {
+  if (!isTrustedStudioSender(event) || typeof sourceId !== 'string' || sourceId.length > 500) {
+    event.returnValue = false;
+    return;
+  }
+  selectedDisplaySourceId = sourceId;
+  event.returnValue = true;
+});
+
+function publishStreamStatus(status, detail = '') {
+  liveStreamState = status;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('studio:stream-status', { status, detail });
+  }
+}
+
+function normalizeRtmpDestination(value) {
+  if (typeof value !== 'string' || value.trim().length > 2048) return null;
+  try {
+    const url = new URL(value.trim());
+    if (!['rtmp:', 'rtmps:'].includes(url.protocol) || !url.hostname || !url.pathname ||
+        url.username || url.password || url.hash) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+ipcMain.handle('studio:start-stream', async (event, payload = {}) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  if (liveStreamProcess) return { ok: false, error: 'Ein Stream läuft bereits.' };
+
+  const destination = normalizeRtmpDestination(payload.destination);
+  const resolution = ['720p', '1080p', '1440p'].includes(payload.resolution) ? payload.resolution : '1080p';
+  const fps = Number(payload.fps);
+  const bitrate = Number(payload.bitrate);
+  if (!destination) return { ok: false, error: 'Bitte eine gültige rtmp://- oder rtmps://-Adresse ohne Benutzername und Passwort eingeben.' };
+  if (![30, 60].includes(fps) || !Number.isInteger(bitrate) || bitrate < 500 || bitrate > 20000) {
+    return { ok: false, error: 'Stream-Einstellungen sind ungültig.' };
+  }
+  const encoder = await probeFfmpegRtmp();
+  if (!encoder.available) {
+    return {
+      ok: false,
+      error: 'RTMP-Streaming benötigt FFmpeg mit libx264, AAC und RTMP/RTMPS. Fehlend: ' + encoder.missing.join(', ') + '.'
+    };
+  }
+
+  const dimensions = { '720p': [1280, 720], '1080p': [1920, 1080], '1440p': [2560, 1440] }[resolution];
+  const args = [
+    '-hide_banner', '-loglevel', 'info', '-f', 'webm', '-i', 'pipe:0',
+    '-map', '0:v:0', '-map', '0:a:0?', '-vf', `scale=${dimensions[0]}:${dimensions[1]}:force_original_aspect_ratio=decrease,pad=${dimensions[0]}:${dimensions[1]}:(ow-iw)/2:(oh-ih)/2`,
+    '-r', String(fps), '-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'zerolatency',
+    '-pix_fmt', 'yuv420p', '-b:v', `${bitrate}k`, '-maxrate', `${bitrate}k`, '-bufsize', `${bitrate * 2}k`,
+    '-c:a', 'aac', '-b:a', '128k', '-ar', '48000', '-ac', '2', '-f', 'flv', destination
+  ];
+
+  try {
+    const child = spawn('ffmpeg', args, { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
+    liveStreamProcess = child;
+    publishStreamStatus('connecting');
+
+    child.once('error', (error) => {
+      if (liveStreamProcess === child) liveStreamProcess = null;
+      publishStreamStatus('error', error.code === 'ENOENT'
+        ? 'FFmpeg wurde nicht gefunden. Installiere FFmpeg mit libx264 und RTMP-Unterstützung.'
+        : 'Der Encoder konnte nicht gestartet werden.');
+    });
+    let diagnosticBuffer = '';
+    child.stderr.on('data', (data) => {
+      // Encoder diagnostics can contain the RTMP destination and stream key.
+      // Never forward or persist raw FFmpeg output.
+      diagnosticBuffer = (diagnosticBuffer + data.toString('utf8')).slice(-8192);
+      if (diagnosticBuffer.includes('Output #0, flv')) {
+        publishStreamStatus('live');
+        diagnosticBuffer = '';
+      }
+    });
+    child.once('close', (code, signal) => {
+      if (liveStreamProcess === child) liveStreamProcess = null;
+      if (liveStreamState !== 'stopping') {
+        publishStreamStatus(code === 0 ? 'offline' : 'error',
+          code === 0 ? 'Stream beendet.' : 'Stream-Verbindung beendet. Prüfe Zieladresse, Stream-Key und Encoder.');
+      } else {
+        publishStreamStatus('offline');
+      }
+    });
+    child.once('spawn', () => publishStreamStatus('connecting'));
+    return { ok: true, status: 'connecting' };
+  } catch (error) {
+    publishStreamStatus('error', 'FFmpeg konnte nicht gestartet werden.');
+    return { ok: false, error: error.code === 'ENOENT'
+      ? 'FFmpeg wurde nicht gefunden. Installiere FFmpeg mit libx264 und RTMP-Unterstützung.'
+      : 'Der Encoder konnte nicht gestartet werden.' };
+  }
+});
+
+ipcMain.handle('studio:write-stream-chunk', async (event, chunk) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  if (!liveStreamProcess || liveStreamState === 'stopping') return { ok: false, error: 'Kein aktiver Stream.' };
+  if (!(chunk instanceof ArrayBuffer) || chunk.byteLength > 4 * 1024 * 1024) {
+    return { ok: false, error: 'Ungültiger Medienblock.' };
+  }
+  const input = liveStreamProcess.stdin;
+  if (!input || input.destroyed || input.writableLength > 8 *  1024 * 1024) {
+    return { ok: false, error: 'Der Encoder kann die Medien nicht schnell genug verarbeiten.' };
+  }
+  return new Promise((resolve) => {
+    input.write(Buffer.from(chunk), (error) => resolve(error
+      ? { ok: false, error: 'Medien konnten nicht an den Encoder gesendet werden.' }
+      : { ok: true }));
+  });
+});
+
+ipcMain.handle('studio:stop-stream', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  if (!liveStreamProcess) {
+    publishStreamStatus('offline');
+    return { ok: true, status: 'offline' };
+  }
+  const child = liveStreamProcess;
+  liveStreamState = 'stopping';
+  publishStreamStatus('stopping');
+  child.stdin?.end();
+  setTimeout(() => {
+    if (liveStreamProcess === child) child.kill('SIGINT');
+  }, 3000).unref();
+  return { ok: true, status: 'stopping' };
+});
 
 function isTrustedStudioSender(event) {
   const frame = event.senderFrame;
@@ -122,38 +297,102 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
   }
 
   const file = path.join(app.getPath('userData'), 'streamiov-scenes.json');
-  const defaults = () => ({
-    version: 1,
-    scenes: [
-      { id: 'starting-soon', name: 'STARTING SOON', kind: 'built-in' },
-      { id: 'live', name: 'LIVE', kind: 'built-in' },
-      { id: 'pause', name: 'PAUSE', kind: 'built-in' },
-      { id: 'ending', name: 'ENDING', kind: 'built-in' },
-      { id: 'gameplay', name: 'GAMEPLAY', kind: 'built-in' },
-      { id: 'just-chatting', name: 'JUST CHATTING', kind: 'built-in' }
-    ],
-    previewSceneId: 'starting-soon',
-    programSceneId: 'starting-soon',
-    updatedAt: new Date().toISOString()
+  const SCENE_VERSION = 2;
+  const MAX_SCENES = 100;
+  const MAX_SOURCES = 30;
+  const SOURCE_TYPES = new Set(['camera', 'screen', 'title', 'text']);
+  const clamp = (value, min, max, fallback) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
+  };
+  const titleSource = (text) => ({
+    id: randomUUID(), type: 'title', name: 'Titelkarte', text,
+    x: 0, y: 0, w: 1, h: 1, z: 0, visible: true
   });
+  const cameraSource = (overrides = {}) => ({
+    id: randomUUID(), type: 'camera', name: 'Kamera', text: '',
+    x: 0, y: 0, w: 1, h: 1, z: 0, visible: true, ...overrides
+  });
+  const screenSource = (overrides = {}) => ({
+    id: randomUUID(), type: 'screen', name: 'Bildschirm', text: '',
+    x: 0, y: 0, w: 1, h: 1, z: 0, visible: true, ...overrides
+  });
+  const defaultSources = (sceneId, sceneName) => {
+    if (sceneId === 'starting-soon') return [titleSource('STARTING SOON')];
+    if (sceneId === 'pause') return [titleSource('PAUSE')];
+    if (sceneId === 'ending') return [titleSource('ENDING')];
+    if (sceneId === 'live') return [cameraSource()];
+    if (sceneId === 'just-chatting') return [cameraSource({ name: 'Kamera' })];
+    if (sceneId === 'gameplay') {
+      return [screenSource(), cameraSource({ name: 'Kamera-Overlay', x: 0.72, y: 0.72, w: 0.25, h: 0.25, z: 1 })];
+    }
+    return [titleSource(sceneName)];
+  };
+  const defaults = () => {
+    const scenes = [
+      ['starting-soon', 'STARTING SOON'],
+      ['live', 'LIVE'],
+      ['pause', 'PAUSE'],
+      ['ending', 'ENDING'],
+      ['gameplay', 'GAMEPLAY'],
+      ['just-chatting', 'JUST CHATTING']
+    ].map(([id, name]) => ({
+      id, name, kind: 'built-in', background: '#10151e', sources: defaultSources(id, name)
+    }));
+    return {
+      version: SCENE_VERSION,
+      scenes,
+      previewSceneId: 'starting-soon',
+      programSceneId: 'starting-soon',
+      updatedAt: new Date().toISOString()
+    };
+  };
+
+  const normalizeSource = (raw, index) => {
+    if (!raw || typeof raw !== 'object' || !SOURCE_TYPES.has(raw.type)) return null;
+    const id = typeof raw.id === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(raw.id) ? raw.id : randomUUID();
+    const name = typeof raw.name === 'string' ? raw.name.trim().slice(0, 60) : '';
+    const text = typeof raw.text === 'string' ? raw.text.slice(0, 200) : '';
+    return {
+      id,
+      type: raw.type,
+      name: name || raw.type,
+      text,
+      x: clamp(raw.x, 0, 0.95, 0),
+      y: clamp(raw.y, 0, 0.95, 0),
+      w: clamp(raw.w, 0.05, 1, 1),
+      h: clamp(raw.h, 0.05, 1, 1),
+      z: Math.trunc(clamp(raw.z, 0, 100, index)),
+      visible: raw.visible !== false
+    };
+  };
+
+  const normalizeScene = (raw) => {
+    if (!raw || typeof raw.id !== 'string' || typeof raw.name !== 'string') return null;
+    if (!/^[a-zA-Z0-9_-]{1,80}$/.test(raw.id)) return null;
+    const name = raw.name.trim();
+    if (!name || name.length > 60) return null;
+    const sources = Array.isArray(raw.sources)
+      ? raw.sources.map(normalizeSource).filter(Boolean).slice(0, MAX_SOURCES)
+      : defaultSources(raw.id, name);
+    return {
+      id: raw.id,
+      name,
+      kind: raw.kind === 'custom' ? 'custom' : 'built-in',
+      background: /^#[0-9a-fA-F]{6}$/.test(raw.background || '') ? raw.background : '#10151e',
+      sources
+    };
+  };
 
   const normalize = (value) => {
-    if (!value || value.version !== 1 || !Array.isArray(value.scenes)) return defaults();
-    const scenes = value.scenes
-      .filter(s => s && typeof s.id === 'string' && typeof s.name === 'string')
-      .filter(s => /^[a-zA-Z0-9_-]{1,80}$/.test(s.id))
-      .filter(s => s.name.trim().length > 0 && s.name.length <= 60)
-      .slice(0, 100)
-      .map(s => ({
-        id: s.id,
-        name: s.name.trim(),
-        kind: s.kind === 'custom' ? 'custom' : 'built-in'
-      }));
-
+    if (!value || ![1, SCENE_VERSION].includes(value.version) || !Array.isArray(value.scenes)) {
+      return defaults();
+    }
+    const scenes = value.scenes.map(normalizeScene).filter(Boolean).slice(0, MAX_SCENES);
     if (!scenes.length) return defaults();
     const ids = new Set(scenes.map(s => s.id));
     return {
-      version: 1,
+      version: SCENE_VERSION,
       scenes,
       previewSceneId: ids.has(value.previewSceneId) ? value.previewSceneId : scenes[0].id,
       programSceneId: ids.has(value.programSceneId) ? value.programSceneId : scenes[0].id,
@@ -180,6 +419,8 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
     await save(state);
   }
 
+  const sceneById = (id) => state.scenes.find(s => s.id === id);
+  const sceneByName = (name) => state.scenes.find(s => s.name === name);
   const action = payload && payload.action;
   if (action === 'load') {
     return { ok: true, state };
@@ -187,7 +428,8 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
 
   if (action === 'select') {
     const name = typeof payload.name === 'string' ? payload.name.trim() : '';
-    const scene = state.scenes.find(s => s.name === name);
+    const id = typeof payload.id === 'string' ? payload.id : '';
+    const scene = sceneByName(name) || sceneById(id);
     if (!scene) return { ok: false, error: 'Szene wurde nicht gefunden.' };
     state.previewSceneId = scene.id;
   } else if (action === 'take') {
@@ -197,15 +439,86 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
     if (!name || name.length > 60) {
       return { ok: false, error: 'Szenenname muss 1 bis 60 Zeichen lang sein.' };
     }
-    if (state.scenes.length >= 100) {
-      return { ok: false, error: 'Maximal 100 Szenen sind möglich.' };
+    if (state.scenes.length >= MAX_SCENES) {
+      return { ok: false, error: 'Maximal ' + MAX_SCENES + ' Szenen sind möglich.' };
     }
     if (state.scenes.some(s => s.name.toLowerCase() === name.toLowerCase())) {
       return { ok: false, error: 'Eine Szene mit diesem Namen existiert bereits.' };
     }
-    const scene = { id: randomUUID(), name, kind: 'custom' };
+    const scene = {
+      id: randomUUID(), name, kind: 'custom', background: '#10151e',
+      sources: defaultSources('custom', name)
+    };
     state.scenes.push(scene);
     state.previewSceneId = scene.id;
+  } else if (action === 'add-source') {
+    const scene = sceneById(state.previewSceneId);
+    if (!scene) return { ok: false, error: 'Vorschauszene wurde nicht gefunden.' };
+    if (scene.sources.length >= MAX_SOURCES) {
+      return { ok: false, error: 'Maximal ' + MAX_SOURCES + ' Quellen pro Szene sind möglich.' };
+    }
+    const source = normalizeSource({ ...payload.source, id: randomUUID() }, scene.sources.length);
+    if (!source) return { ok: false, error: 'Unbekannter Quellentyp.' };
+    source.z = scene.sources.reduce((max, item) => Math.max(max, item.z), -1) + 1;
+    scene.sources.push(source);
+  } else if (action === 'update-source') {
+    const scene = sceneById(state.previewSceneId);
+    if (!scene) return { ok: false, error: 'Vorschauszene wurde nicht gefunden.' };
+    const source = scene.sources.find(s => s.id === payload.sourceId);
+    if (!source) return { ok: false, error: 'Quelle wurde nicht gefunden.' };
+    const patch = payload.patch && typeof payload.patch === 'object' ? payload.patch : {};
+    if (typeof patch.name === 'string' && patch.name.trim()) source.name = patch.name.trim().slice(0, 60);
+    if (typeof patch.text === 'string') source.text = patch.text.slice(0, 200);
+    for (const key of ['x', 'y', 'w', 'h', 'z']) {
+      if (patch[key] !== undefined) {
+        source[key] = key === 'z'
+          ? Math.trunc(clamp(patch[key], 0, 100, source[key]))
+          : clamp(patch[key], key === 'w' || key === 'h' ? 0.05 : 0, key === 'w' || key === 'h' ? 1 : 0.95, source[key]);
+      }
+    }
+    if (patch.visible !== undefined) source.visible = patch.visible !== false;
+  } else if (action === 'remove-source') {
+    const scene = sceneById(state.previewSceneId);
+    if (!scene) return { ok: false, error: 'Vorschauszene wurde nicht gefunden.' };
+    const before = scene.sources.length;
+    scene.sources = scene.sources.filter(s => s.id !== payload.sourceId);
+    if (scene.sources.length === before) return { ok: false, error: 'Quelle wurde nicht gefunden.' };
+  } else if (action === 'move-source') {
+    const scene = sceneById(state.previewSceneId);
+    if (!scene) return { ok: false, error: 'Vorschauszene wurde nicht gefunden.' };
+    const index = scene.sources.findIndex(s => s.id === payload.sourceId);
+    if (index < 0) return { ok: false, error: 'Quelle wurde nicht gefunden.' };
+    const target = payload.direction === 'up' ? index + 1 : index - 1;
+    if (target >= 0 && target < scene.sources.length) {
+      const [source] = scene.sources.splice(index, 1);
+      scene.sources.splice(target, 0, source);
+      scene.sources.forEach((item, order) => { item.z = order; });
+    }
+  } else if (action === 'set-background') {
+    const scene = sceneById(state.previewSceneId);
+    if (!scene) return { ok: false, error: 'Vorschauszene wurde nicht gefunden.' };
+    if (!/^#[0-9a-fA-F]{6}$/.test(payload.color || '')) {
+      return { ok: false, error: 'Hintergrundfarbe muss ein Hex-Wert wie #10151e sein.' };
+    }
+    scene.background = payload.color;
+  } else if (action === 'delete-scene') {
+    const scene = sceneById(payload.id);
+    if (!scene) return { ok: false, error: 'Szene wurde nicht gefunden.' };
+    if (scene.kind !== 'custom') return { ok: false, error: 'Eingebaute Szenen können nicht gelöscht werden.' };
+    if (state.scenes.length <= 1) return { ok: false, error: 'Mindestens eine Szene muss bestehen bleiben.' };
+    state.scenes = state.scenes.filter(s => s.id !== scene.id);
+    if (state.previewSceneId === scene.id) state.previewSceneId = state.scenes[0].id;
+    if (state.programSceneId === scene.id) state.programSceneId = state.scenes[0].id;
+  } else if (action === 'rename-scene') {
+    const scene = sceneById(payload.id);
+    if (!scene) return { ok: false, error: 'Szene wurde nicht gefunden.' };
+    if (scene.kind !== 'custom') return { ok: false, error: 'Eingebaute Szenen können nicht umbenannt werden.' };
+    const name = typeof payload.name === 'string' ? payload.name.trim() : '';
+    if (!name || name.length > 60) return { ok: false, error: 'Szenenname muss 1 bis 60 Zeichen lang sein.' };
+    if (state.scenes.some(s => s.id !== scene.id && s.name.toLowerCase() === name.toLowerCase())) {
+      return { ok: false, error: 'Eine Szene mit diesem Namen existiert bereits.' };
+    }
+    scene.name = name;
   } else {
     return { ok: false, error: 'Unbekannte Szenenaktion.' };
   }
@@ -248,6 +561,43 @@ async function probeGStreamerPlugin(plugin) {
   }
 }
 
+async function probeFfmpegRtmp() {
+  try {
+    const [{ stdout: encoders }, { stdout: protocols }] = await Promise.all([
+      execFileAsync('ffmpeg', ['-hide_banner', '-encoders'], {
+        timeout: 10000, windowsHide: true, maxBuffer: 1024 * 1024
+      }),
+      execFileAsync('ffmpeg', ['-hide_banner', '-protocols'], {
+        timeout: 10000, windowsHide: true, maxBuffer: 1024 * 1024
+      })
+    ]);
+    const video = /\blibx264\b/.test(encoders);
+    const audio = /\baac\b/.test(encoders);
+    const rtmp = /(?:^|\s)rtmp(?:s)?(?:\s|$)/m.test(protocols);
+    return {
+      available: video && audio && rtmp,
+      ffmpeg_available: true,
+      video_encoder_available: video,
+      audio_encoder_available: audio,
+      rtmp_protocol_available: rtmp,
+      missing: [
+        ...(!video ? ['libx264'] : []),
+        ...(!audio ? ['AAC'] : []),
+        ...(!rtmp ? ['RTMP/RTMPS'] : [])
+      ]
+    };
+  } catch (error) {
+    return {
+      available: false,
+      ffmpeg_available: false,
+      video_encoder_available: false,
+      audio_encoder_available: false,
+      rtmp_protocol_available: false,
+      missing: [error.code === 'ENOENT' ? 'FFmpeg' : 'FFmpeg-Prüfung fehlgeschlagen']
+    };
+  }
+}
+
 ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
   if (!isTrustedStudioSender(event)) {
     throw new Error('Nicht autorisierter Studio-Aufruf');
@@ -258,6 +608,7 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
     probeExecutable('gst-launch-1.0'),
     probeExecutable('ffmpeg')
   ]);
+  const rtmp = await probeFfmpegRtmp();
 
   let plugins = {};
   if (gstInspect.available) {
@@ -265,12 +616,6 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
     const results = await Promise.all(names.map(async name => [name, await probeGStreamerPlugin(name)]));
     plugins = Object.fromEntries(results);
   }
-
-  const missingForRtmp = [
-    ...(!gstLaunch.available ? ['gst-launch-1.0'] : []),
-    ...(!plugins.x264enc?.available ? ['x264enc'] : []),
-    ...(!plugins.rtmpsink?.available ? ['rtmpsink'] : [])
-  ];
 
   return {
     ok: true,
@@ -283,8 +628,12 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
     plugins,
     local_test_sources_available: Boolean(plugins.videotestsrc?.available && plugins.audiotestsrc?.available),
     media_test_pipeline_available: Boolean(plugins.videotestsrc?.available && plugins.audiotestsrc?.available && plugins.vp8enc?.available && plugins.vorbisenc?.available && plugins.webmmux?.available),
-    rtmp_pipeline_dependencies_available: missingForRtmp.length === 0,
-    missing_rtmp_dependencies: missingForRtmp,
+    ffmpeg_rtmp: rtmp,
+    rtmp_pipeline_dependencies_available: rtmp.available,
+    missing_rtmp_dependencies: rtmp.missing,
+    camera_screen_rtmp_implemented: true,
+    screen_camera_compositing_implemented: true,
+    named_scene_switching_implemented: false,
     live_stream_verified: false,
     note: 'Dies ist eine Abhängigkeitsprüfung. Gerätezugriff, Encoder-Pipeline, Plattformautorisierung und Live-Ausgabe sind damit nicht getestet.'
   };
@@ -297,6 +646,9 @@ ipcMain.handle('studio:get-module-status', async (event) => {
   if (!isTrustedStudioSender(event)) {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
+
+  const missing = await missingPythonModules(['studio/modules/module_loader.py']);
+  if (missing.length) return notBundledResult(missing);
 
   const code =
     'import json; from studio.modules.module_loader import ModuleLoader; ' +
@@ -329,6 +681,15 @@ ipcMain.handle('studio:get-module-status', async (event) => {
 ipcMain.handle('studio:get-status', async (event) => {
   if (!isTrustedStudioSender(event)) {
     throw new Error('Nicht autorisierter Studio-Aufruf');
+  }
+
+  const missing = await missingPythonModules(['modules/broadcast/gstreamer_engine.py']);
+  if (missing.length) {
+    return {
+      ok: false,
+      bridge: 'not_bundled',
+      backend: { connected: false, error: notBundledResult(missing).error }
+    };
   }
 
   const code =
@@ -444,6 +805,11 @@ ipcMain.handle('studio:record-music-test', async (event, payload = {}) => {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
 
+  const missing = await missingPythonModules(['modules/broadcast/gstreamer_engine.py']);
+  if (missing.length) {
+    return { ok: false, stage: 'not_bundled', error: notBundledResult(missing).error, missing };
+  }
+
   const chosen = await dialog.showOpenDialog({
     title: 'Musikdatei für den Streamiov-Mischtest auswählen',
     properties: ['openFile'],
@@ -552,6 +918,11 @@ ipcMain.handle('studio:get-camera-lab', async (event) => {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
 
+  const missing = await missingPythonModules(['modules/devices/universal_hub.py']);
+  if (missing.length) {
+    return { ok: false, stage: 'not_bundled', error: notBundledResult(missing).error, missing };
+  }
+
   const code =
     'import json; from modules.devices.universal_hub import UniversalDeviceHub; ' +
     'report = UniversalDeviceHub().scan(include_network=True); ' +
@@ -586,9 +957,23 @@ ipcMain.handle('studio:get-camera-lab', async (event) => {
 
 // STREAMIOV_STUDIO_AI_BRIDGE
 // API-Zugang und Session bleiben ausschließlich im Electron-Hauptprozess.
-const STREAMIOV_API = 'http://127.0.0.1:8080';
-let streamiovSessionToken = null;
+// Contract: host/server.py exposes cookie auth under /api/v1/auth/* and a
+// guarded AI task placeholder under /api/v1/ai/tasks.
+const STREAMIOV_API = process.env.STREAMIOV_HOST_URL || 'http://127.0.0.1:8765';
+const STREAMIOV_CLIENT_HEADER = 'studio';
+let streamiovSessionCookie = null;
 let streamiovSessionUser = null;
+
+function readSessionCookie(response) {
+  const values = typeof response.headers.getSetCookie === 'function'
+    ? response.headers.getSetCookie()
+    : [response.headers.get('set-cookie')].filter(Boolean);
+  for (const value of values) {
+    const first = String(value).split(';', 1)[0].trim();
+    if (first.startsWith('streamiov_session=')) return first;
+  }
+  return null;
+}
 
 ipcMain.handle('studio:ai-login', async (event, payload = {}) => {
   if (!isTrustedStudioSender(event)) {
@@ -603,40 +988,44 @@ ipcMain.handle('studio:ai-login', async (event, payload = {}) => {
   }
 
   try {
-    const response = await fetch(STREAMIOV_API + '/api/auth/login', {
+    const response = await fetch(STREAMIOV_API + '/api/v1/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Streamiov-Client': STREAMIOV_CLIENT_HEADER
+      },
       body: JSON.stringify({ username, password }),
       signal: AbortSignal.timeout(10000)
     });
 
     const data = await response.json().catch(() => ({}));
 
-    if (!response.ok || data.status !== 'authenticated' || !data.token) {
+    if (!response.ok || data.ok !== true || !data.user) {
       return {
         ok: false,
-        error: data.message || data.error || 'Anmeldung fehlgeschlagen.'
+        error: data.error || data.detail || 'Anmeldung fehlgeschlagen.'
       };
     }
 
-    if (!data.user || data.user.role !== 'streamer') {
-      streamiovSessionToken = null;
+    const cookie = readSessionCookie(response);
+    if (!cookie) {
+      streamiovSessionCookie = null;
       streamiovSessionUser = null;
-      return { ok: false, error: 'Für den KI-Manager ist ein Streamer-Konto erforderlich.' };
+      return { ok: false, error: 'Der Host hat keine gültige Sitzung gesetzt.' };
     }
 
-    streamiovSessionToken = data.token;
+    streamiovSessionCookie = cookie;
     streamiovSessionUser = {
-      username: data.user.username || data.user.name || username,
-      role: data.user.role,
-      expires_at: data.expires_at || null
+      id: data.user.id || null,
+      username: data.user.username || username,
+      created_at: data.user.created_at || null
     };
 
     return { ok: true, user: streamiovSessionUser };
   } catch (error) {
     return {
       ok: false,
-      error: 'Streamiov-Server nicht erreichbar: ' + String(error.message || error).slice(0, 250)
+      error: 'Streamiov-Host nicht erreichbar: ' + String(error.message || error).slice(0, 250)
     };
   }
 });
@@ -645,16 +1034,19 @@ ipcMain.handle('studio:ai-logout', async (event) => {
   if (!isTrustedStudioSender(event)) {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
-  if (streamiovSessionToken) {
+  if (streamiovSessionCookie) {
     try {
-      await fetch(STREAMIOV_API + '/api/auth/logout', {
+      await fetch(STREAMIOV_API + '/api/v1/auth/logout', {
         method: 'POST',
-        headers: { Authorization: 'Bearer ' + streamiovSessionToken },
+        headers: {
+          Cookie: streamiovSessionCookie,
+          'X-Streamiov-Client': STREAMIOV_CLIENT_HEADER
+        },
         signal: AbortSignal.timeout(5000)
       });
     } catch {}
   }
-  streamiovSessionToken = null;
+  streamiovSessionCookie = null;
   streamiovSessionUser = null;
   return { ok: true };
 });
@@ -663,7 +1055,7 @@ ipcMain.handle('studio:ai-submit', async (event, payload = {}) => {
   if (!isTrustedStudioSender(event)) {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
-  if (!streamiovSessionToken) {
+  if (!streamiovSessionCookie) {
     return { ok: false, error: 'Bitte zuerst im KI-Manager anmelden.' };
   }
 
@@ -673,11 +1065,12 @@ ipcMain.handle('studio:ai-submit', async (event, payload = {}) => {
   }
 
   try {
-    const response = await fetch(STREAMIOV_API + '/api/ai/wunschbox', {
+    const response = await fetch(STREAMIOV_API + '/api/v1/ai/tasks', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + streamiovSessionToken
+        Cookie: streamiovSessionCookie,
+        'X-Streamiov-Client': STREAMIOV_CLIENT_HEADER
       },
       body: JSON.stringify({ request }),
       signal: AbortSignal.timeout(30000)
@@ -686,7 +1079,7 @@ ipcMain.handle('studio:ai-submit', async (event, payload = {}) => {
     const data = await response.json().catch(() => ({}));
 
     if (response.status === 401) {
-      streamiovSessionToken = null;
+      streamiovSessionCookie = null;
       streamiovSessionUser = null;
     }
 
@@ -694,12 +1087,52 @@ ipcMain.handle('studio:ai-submit', async (event, payload = {}) => {
       ok: response.ok,
       statusCode: response.status,
       data,
-      error: response.ok ? null : (data.error || 'KI-Anfrage fehlgeschlagen.')
+      error: response.ok ? null : (data.detail || data.error || 'KI-Anfrage fehlgeschlagen.')
     };
   } catch (error) {
     return {
       ok: false,
-      error: 'KI-Server nicht erreichbar: ' + String(error.message || error).slice(0, 250)
+      error: 'KI-Host nicht erreichbar: ' + String(error.message || error).slice(0, 250)
+    };
+  }
+});
+// Read-only catalog bridge. The allowlist maps Studio panel names to host
+// endpoints; arbitrary paths are never forwarded from the renderer.
+const STUDIO_DATA_PATHS = Object.freeze({
+  summary: '/api/v1/catalog',
+  gifts: '/api/v1/catalog/gifts',
+  games: '/api/v1/catalog/games',
+  music: '/api/v1/music/library',
+  templates: '/api/v1/studio/templates'
+});
+
+ipcMain.handle('studio:data-query', async (event, payload = {}) => {
+  if (!isTrustedStudioSender(event)) {
+    throw new Error('Nicht autorisierter Studio-Aufruf');
+  }
+  const kind = String(payload.kind || '');
+  const dataPath = STUDIO_DATA_PATHS[kind];
+  if (!dataPath) {
+    return { ok: false, error: 'Unbekannte Datenabfrage.' };
+  }
+  try {
+    const response = await fetch(STREAMIOV_API + dataPath, {
+      headers: { 'X-Streamiov-Client': STREAMIOV_CLIENT_HEADER },
+      signal: AbortSignal.timeout(10000)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok !== true) {
+      return {
+        ok: false,
+        statusCode: response.status,
+        error: data.detail || data.error || 'Rohdaten-Katalog nicht erreichbar.'
+      };
+    }
+    return { ok: true, kind, data, assetBase: STREAMIOV_API };
+  } catch (error) {
+    return {
+      ok: false,
+      error: 'Streamiov-Host nicht erreichbar: ' + String(error.message || error).slice(0, 250)
     };
   }
 });
@@ -713,11 +1146,34 @@ app.whenReady().then(() => {
 
   ses.setPermissionRequestHandler((webContents, permission, callback) => {
     const trusted = webContents.getURL() === studioUrl;
-    callback(permission === 'media' && trusted);
+    callback(['media', 'display-capture'].includes(permission) && trusted);
   });
 
   ses.setPermissionCheckHandler((webContents, permission) => {
-    return permission === 'media' && webContents.getURL() === studioUrl;
+    return ['media', 'display-capture'].includes(permission) && webContents.getURL() === studioUrl;
+  });
+
+  ses.setDisplayMediaRequestHandler((request, callback) => {
+    const frame = request.frame;
+    const sourceId = selectedDisplaySourceId;
+    selectedDisplaySourceId = null;
+    if (!frame || frame.parent !== null || frame.url !== studioUrl || !sourceId) {
+      callback(null);
+      return;
+    }
+    desktopCapturer.getSources({
+      types: ['screen', 'window'],
+      thumbnailSize: { width: 0, height: 0 }
+    }).then((sources) => {
+      const source = sources.find((item) => item.id === sourceId);
+      if (!source) {
+        callback(null);
+        return;
+      }
+      const media = { video: source };
+      if (request.audioRequested && process.platform === 'win32') media.audio = 'loopback';
+      callback(media);
+    }).catch(() => callback(null));
   });
 
   mainWindow = new BrowserWindow({
@@ -748,7 +1204,7 @@ app.whenReady().then(() => {
   win.webContents.on('render-process-gone', (_e, details) => console.error('[TRACE] RENDER_GONE', details));
   win.webContents.on('unresponsive', () => console.error('[TRACE] RENDER_UNRESPONSIVE'));
   win.webContents.on('did-fail-load', (_e, code, desc, url) => console.error('[TRACE] LOAD_FAILED', code, desc, url));
-  win.loadFile(path.join(__dirname, 'index.html')).catch(e => console.error('[TRACE] LOAD_PROMISE_REJECTED', e));
+  win.loadFile(path.join(__dirname, 'regie-v2.html')).catch(e => console.error('[TRACE] LOAD_PROMISE_REJECTED', e));
 
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
@@ -776,7 +1232,10 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('before-quit', () => console.error('[TRACE] BEFORE_QUIT', new Error('before-quit-stack').stack));
+app.on('before-quit', () => {
+  if (liveStreamProcess) liveStreamProcess.kill('SIGINT');
+  console.error('[TRACE] BEFORE_QUIT', new Error('before-quit-stack').stack);
+});
 app.on('will-quit', () => console.error('[TRACE] WILL_QUIT'));
 
 app.on('window-all-closed', () => {

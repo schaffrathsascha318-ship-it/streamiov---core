@@ -1,0 +1,29 @@
+[Unit]
+Description=StreamioV local account host bootstrap
+After=network.target
+
+[Service]
+Type=simple
+User=streamiov
+Group=streamiov
+WorkingDirectory=/opt/streamiov
+StateDirectory=streamiov-host
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 /opt/streamiov/host/server.py --host 127.0.0.1 --port 8765 --site-root /opt/streamiov/dist/streamiov-homepage-worker/public --data-dir /var/lib/streamiov-host --trust-loopback-proxy
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=128M
+TasksMax=32
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

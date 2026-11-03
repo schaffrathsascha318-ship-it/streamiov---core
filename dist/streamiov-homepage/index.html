@@ -1,94 +1,155 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Streamiov</title>
-<meta name="description" content="Streamiov – eigene Streaming-Plattform und Streaming-Station.">
-<style>
-*{box-sizing:border-box}
-body{margin:0;background:#080b12;color:#f4f7ff;font-family:Arial,Helvetica,sans-serif}
-header{padding:22px 6%;border-bottom:1px solid #202838;background:#0b101a}
-.logo{font-size:28px;font-weight:800;letter-spacing:.5px}
-.logo span{color:#42e8ff}
-nav{margin-top:14px;display:flex;flex-wrap:wrap;gap:16px}
-nav a{color:#cbd5e1;text-decoration:none}
-nav a:hover{color:#42e8ff}
-.hero{padding:90px 6%;max-width:1100px}
-.badge{display:inline-block;padding:7px 12px;border:1px solid #2d4055;border-radius:999px;color:#42e8ff}
-h1{font-size:clamp(42px,7vw,78px);margin:20px 0 12px}
-h2{font-size:32px}
-p{color:#b8c2d1;line-height:1.7}
-.button{display:inline-block;margin-top:18px;padding:13px 20px;border-radius:10px;background:#42e8ff;color:#061018;text-decoration:none;font-weight:700}
-section{padding:55px 6%;border-top:1px solid #18202d}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
-.card{padding:22px;border:1px solid #202b3c;border-radius:14px;background:#0d131e}
-.card h3{margin-top:0}
-footer{padding:30px 6%;border-top:1px solid #202838;color:#8995a7}
-footer a{color:#9aa8bb;margin-right:14px}
-.status{color:#55e391;font-weight:700}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080b12">
+  <meta name="description" content="StreamioV ist die kostenlose Creator-Plattform mit eigener Regie, Spielen und Werkzeugen für Streamer.">
+  <title>StreamioV — Dein Stream. Deine Bühne.</title>
+  <style>
+    :root{color-scheme:dark;--bg:#080b12;--panel:#0e1421;--panel2:#101a2b;--text:#f4f7ff;--muted:#aebbd0;--line:#243147;--cyan:#42e8ff;--mint:#74ffd1;--violet:#9b86ff;--amber:#ffc56e;--max:1180px}
+    *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:90px}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 Inter,"Avenir Next","Segoe UI",Arial,sans-serif}
+    a{color:var(--cyan)}a:focus-visible,button:focus-visible{outline:3px solid var(--mint);outline-offset:4px}
+    .wrap{width:min(var(--max),calc(100% - 40px));margin-inline:auto}
+    .topbar{position:sticky;top:0;z-index:20;border-bottom:1px solid #253044cc;background:#080b12eF;backdrop-filter:blur(16px)}
+    .nav{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:28px}
+    .brand{display:flex;align-items:center;flex:none}.brand img{display:block;width:186px;height:auto}
+    .links{display:flex;align-items:center;justify-content:flex-end;gap:22px;flex-wrap:wrap}.links a{text-decoration:none;color:#ced7e7;font-size:14px;font-weight:650}.links a:hover{color:var(--cyan)}
+    .links .nav-cta{padding:9px 15px;border:1px solid #42e8ff77;border-radius:999px;color:var(--cyan)}
+    .hero{position:relative;isolation:isolate;overflow:hidden;padding:92px 0 78px;background:radial-gradient(ellipse 48% 70% at 78% 15%,#442c812b,transparent 72%),radial-gradient(ellipse 50% 80% at 82% 92%,#20c4d11b,transparent 76%)}
+    .hero:after{content:"";position:absolute;z-index:-1;width:420px;height:420px;right:6%;top:5%;border:1px solid #42e8ff15;border-radius:50%;box-shadow:0 0 100px #42e8ff0c,inset 0 0 80px #9b86ff0b}
+    .hero-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr);gap:52px;align-items:center}
+    .eyebrow{display:inline-flex;align-items:center;gap:9px;padding:7px 12px;border:1px solid #3d5470;border-radius:999px;color:#a7edff;background:#0c1421;font-size:12px;font-weight:750;letter-spacing:.1em;text-transform:uppercase}
+    .eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 12px var(--mint)}
+    h1,h2,h3,p{margin-top:0}h1{margin:24px 0 20px;max-width:800px;font-size:clamp(48px,7vw,88px);line-height:.99;letter-spacing:-.065em}
+    h1 span{color:var(--cyan);text-shadow:0 0 38px #42e8ff22}.lead{max-width:660px;color:#bcc8d9;font-size:clamp(17px,2vw,20px);line-height:1.65}
+    .actions{display:flex;gap:13px;flex-wrap:wrap;margin-top:30px}.btn{display:inline-flex;min-height:48px;align-items:center;justify-content:center;padding:12px 19px;border:1px solid transparent;border-radius:12px;text-decoration:none;font-weight:800;transition:transform .18s,border-color .18s,background .18s}.btn:hover{transform:translateY(-2px)}
+    .btn-main{background:linear-gradient(105deg,var(--cyan),var(--mint));color:#061018;box-shadow:0 10px 32px #42e8ff1e}.btn-secondary{border-color:#394961;background:#0c111c;color:#e4ebf6}.micro{margin:16px 0 0;color:#91a0b6;font-size:13px}
+    .hero-art{position:relative;display:grid;place-items:center;min-height:330px}.hero-art .halo{position:absolute;width:min(84%,320px);aspect-ratio:1;border:1px solid #42e8ff20;border-radius:50%;box-shadow:0 0 70px #42e8ff12,inset 0 0 70px #9b86ff0b}.hero-art .halo:before,.hero-art .halo:after{content:"";position:absolute;inset:12%;border:1px solid #9b86ff24;border-radius:50%;transform:rotate(38deg) scaleX(.68)}.hero-art .halo:after{inset:23%;border-color:#74ffd129;transform:rotate(-34deg) scaleX(.72)}.hero-art img{position:relative;width:min(46%,175px);filter:drop-shadow(0 0 35px #42e8ff4c)}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;border-block:1px solid var(--line);background:var(--line)}.stat{padding:22px 26px;background:#0a0e17}.stat b{display:block;color:var(--text);font-size:15px}.stat span{color:#97a6bd;font-size:13px}
+    section{padding:82px 0;border-bottom:1px solid #1c2636}.section-head{max-width:740px;margin-bottom:34px}.kicker{margin-bottom:10px;color:var(--cyan);font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}h2{margin-bottom:12px;font-size:clamp(30px,4vw,46px);line-height:1.12;letter-spacing:-.04em}.section-head p,.copy{color:var(--muted);font-size:17px}
+    .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.card{min-height:220px;padding:25px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#111a29,#0c111b 70%)}.card:hover{border-color:#4a6885}.icon{display:grid;place-items:center;width:42px;height:42px;margin-bottom:19px;border:1px solid #42e8ff35;border-radius:13px;background:#42e8ff0d;color:var(--cyan);font-size:19px}.card h3{margin-bottom:8px;font-size:20px}.card p{margin:0;color:#aebbd0}.tag{display:inline-flex;margin-top:18px;padding:4px 9px;border:1px solid #37455c;border-radius:999px;color:#b8c5da;font-size:11px;font-weight:750;letter-spacing:.04em;text-decoration:none;text-transform:uppercase}.tag-ready{border-color:#327765;color:#8df1ce}.tag-work{border-color:#76603b;color:#ffd28c}
+    .split{display:grid;grid-template-columns:.85fr 1.15fr;gap:52px;align-items:start}.panel{padding:26px;border:1px solid var(--line);border-radius:18px;background:var(--panel)}.panel h3{margin-bottom:10px}.panel p{color:var(--muted)}.list{display:grid;gap:12px;margin:20px 0 0;padding:0;list-style:none}.list li{display:flex;gap:11px;align-items:flex-start;color:#c6d0df}.check{flex:none;color:var(--mint);font-weight:900}
+    .platforms{display:flex;gap:9px;flex-wrap:wrap;margin:24px 0}.platform{padding:8px 12px;border:1px solid #35445b;border-radius:10px;background:#0d1420;color:#d4deee;font-size:13px;font-weight:750}.platform small{display:block;color:#8798b0;font-size:10px;font-weight:600}
+    .timeline{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.status-card{display:grid;grid-template-columns:104px 1fr;gap:16px;padding:19px;border:1px solid var(--line);border-radius:14px;background:#0c121d}.status-label{align-self:start;color:var(--amber);font-size:11px;font-weight:850;letter-spacing:.09em;text-transform:uppercase}.status-card h3{margin:0 0 4px;font-size:15px}.status-card p{margin:0;color:#98a8be;font-size:13px;line-height:1.55}
+    .notice{padding:23px 25px;border-left:3px solid var(--cyan);border-radius:0 14px 14px 0;background:#0d1522;color:#bfccdd}.notice strong{color:#f2f7ff}.notice a{white-space:nowrap}
+    footer{padding:36px 0 48px;background:#06080e}.footer-row{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}.footer-brand{display:flex;align-items:center;gap:12px;color:#94a2b7;font-size:13px}.footer-brand img{width:34px;height:34px}footer nav{display:flex;gap:16px;flex-wrap:wrap}footer nav a{color:#aab7ca;text-decoration:none;font-size:13px}footer nav a:hover{color:var(--cyan)}.copyright{width:100%;margin:0;color:#748198;font-size:12px}
+    @media(max-width:850px){.nav{align-items:flex-start;padding:16px 0;flex-direction:column;gap:14px}.links{justify-content:flex-start;gap:12px 18px}.hero-grid{grid-template-columns:1fr;gap:16px}.hero{padding:65px 0 55px}.hero-art{position:absolute;right:-80px;top:70px;width:310px;min-height:310px;opacity:.26;pointer-events:none}.hero-art img{width:120px}.hero-grid>div:first-child{position:relative;z-index:1}.split{grid-template-columns:1fr;gap:24px}.stats{grid-template-columns:1fr}.stat{padding:15px 20px}}
+    @media(max-width:620px){.wrap{width:min(var(--max),calc(100% - 30px))}.brand img{width:164px}.links{gap:9px 14px}.links a{font-size:13px}.links .nav-cta{padding:7px 11px}.hero{padding:50px 0 42px}h1{font-size:clamp(44px,13vw,68px)}.hero-art{right:-145px;top:30px;opacity:.19}.cards,.timeline{grid-template-columns:1fr}.card{min-height:0;padding:21px}.status-card{grid-template-columns:90px 1fr;padding:15px;gap:10px}section{padding:62px 0}.footer-row{align-items:flex-start;flex-direction:column}}
+    @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+  </style>
 </head>
 <body>
+  <header class="topbar">
+    <div class="wrap nav">
+      <a class="brand" href="/" aria-label="StreamioV Startseite"><img src="/assets/streamiov-wordmark.svg" alt="StreamioV"></a>
+      <nav class="links" aria-label="Hauptnavigation">
+        <a href="#studio">Studio</a><a href="#ki">KI</a><a href="#spiele">Spiele</a><a href="#musik">Musik</a><a href="#tiktok">TikTok</a><a href="#status">Projektstand</a><a href="/account/">Konto</a><a class="nav-cta" href="/download/">Downloads</a>
+      </nav>
+    </div>
+  </header>
 
-<header>
-  <div class="logo">Streamiov <span>Liberty TV</span></div>
-  <nav>
-    <a href="/">Start</a>
-    <a href="/features">Features</a>
-    <a href="/download">Download</a>
-    <a href="/docs">Docs</a>
-    <a href="/status">Status</a>
-  </nav>
-</header>
+  <main>
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <span class="eyebrow"><i aria-hidden="true"></i> Von Streamern für Streamer</span>
+          <h1>Dein Stream.<br><span>Deine Bühne.</span></h1>
+          <p class="lead">StreamioV entwickelt eine eigene Regie, kreative Spiele und smarte Werkzeuge für Creator – ohne Abo und ohne verpflichtende externe KI- oder Streamingdienste.</p>
+          <div class="actions"><a class="btn btn-main" href="/download/">Studio-Downloads ansehen <span aria-hidden="true">&nbsp;↗</span></a><a class="btn btn-secondary" href="#status">Entwicklungsstand ansehen</a></div>
+          <p class="micro">Kostenlos – ohne Werbung, Verkäufe, Abos oder Einnahmen für StreamioV. Vorhandene Hardware und Internetzugang werden vorausgesetzt.</p>
+        </div>
+        <div class="hero-art" aria-hidden="true"><div class="halo"></div><img src="/assets/streamiov-symbol.svg" alt=""></div>
+      </div>
+    </section>
 
-<main>
-<section class="hero">
-  <span class="badge">Eigene Streaming-Plattform</span>
-  <h1>Streamiov<br><span style="color:#42e8ff">Liberty TV</span></h1>
-  <p>
-    Eine eigene Streaming-Station für Streamer, Geräte, Plattformen,
-    Games, Events, Audio und intelligente Streaming-Werkzeuge.
-  </p>
-  <a class="button" href="/download">Download-Bereich</a>
-</section>
+    <div class="wrap stats" aria-label="StreamioV in Kürze">
+      <div class="stat"><b>Eigene Regie</b><span>Desktop-Studio, lokal auf deinem Gerät</span></div>
+      <div class="stat"><b>Ein gemeinsamer Kern</b><span>Ziel: Windows, Linux, ChromeOS und Mobilgeräte</span></div>
+      <div class="stat"><b>Ohne Pflicht-Abo</b><span>Keine kostenpflichtige KI-API als Voraussetzung</span></div>
+    </div>
 
-<section>
-  <h2>Was ist Streamiov?</h2>
-  <p>
-    Streamiov verbindet Streaming, Geräteverwaltung,
-    Plattformen, Games, Events, Audio, KI-Unterstützung und
-    zentrale Steuerung in einer eigenen Plattform.
-  </p>
-</section>
+    <section id="studio">
+      <div class="wrap">
+        <div class="section-head"><div class="kicker">StreamioV Studio</div><h2>Eine eigene Regie für deinen Stream.</h2><p>Das Studio wird als installierbare Anwendung entwickelt. Szenen, Vorschau, Audio, Geräte und lokale Medien sollen aus einem StreamioV-eigenen Arbeitsbereich steuerbar werden.</p></div>
+        <div class="cards">
+          <article class="card"><div class="icon" aria-hidden="true">▣</div><h3>Dein Setup, deine Regie</h3><p>Eigene Szenenverwaltung, Quellen, Audio-Routing und Geräte-Diagnose. Die Medienverarbeitung soll auf deinem Gerät laufen, ohne OBS als Laufzeitvoraussetzung.</p><span class="tag tag-work">In Entwicklung</span></article>
+          <article class="card"><div class="icon" aria-hidden="true">↓</div><h3>Installierbare Downloads</h3><p>Auf der Download-Seite stehen die vorhandenen Desktop-Pakete und ihre bekannten Einschränkungen. Eine gelistete Version ist kein Nachweis, dass jede Funktion auf jedem Gerät geprüft wurde.</p><a class="tag tag-ready" href="/download/">Downloads und Hinweise ansehen</a></article>
+        </div>
+      </div>
+    </section>
 
-<section>
-  <h2>Features</h2>
-  <div class="grid">
-    <div class="card"><h3>🎥 Streaming</h3><p>Stream Console, Live-Status, Kamera, Mikrofon und Audio.</p></div>
-    <div class="card"><h3>🎮 Games</h3><p>Games, Events, Gifts, Actions und interaktive Funktionen.</p></div>
-    <div class="card"><h3>🤖 KI</h3><p>Wunschbox, Planung, Diagnose und unterstützende Funktionen.</p></div>
-    <div class="card"><h3>☁️ Cloud</h3><p>Eigene Speicher-, Backup- und Verwaltungsfunktionen.</p></div>
-    <div class="card"><h3>🔐 Sicherheit</h3><p>Rollen, Datenschutz, Sicherheits- und Compliance-Strukturen.</p></div>
-    <div class="card"><h3>📱 Geräte</h3><p>Streaming-Unterstützung für verschiedene Geräte und Displays.</p></div>
-  </div>
-</section>
+    <section id="plattformen">
+      <div class="wrap split">
+        <div><div class="kicker">Für deine Geräte</div><h2>Ein Studio-Kern. Viele Bildschirmgrößen.</h2><p class="copy">StreamioV soll für Desktop, Chromebook, Tablet und Smartphone entwickelt werden. Die Oberfläche passt sich an; gerätespezifische Funktionen werden pro Betriebssystem getestet und ausgewiesen.</p><div class="platforms" aria-label="Zielplattformen"><span class="platform">Windows<small>Zielplattform</small></span><span class="platform">Linux<small>Zielplattform</small></span><span class="platform">ChromeOS<small>Zielplattform</small></span><span class="platform">Android<small>Zielplattform</small></span><span class="platform">iOS<small>Zielplattform</small></span></div><p class="micro">Die vollständige Zielmatrix ist nicht gleichbedeutend mit bereits verfügbaren oder geprüften Installern. Aktuelle Builds und bekannte Einschränkungen stehen auf der Download-Seite.</p></div>
+        <aside class="panel"><h3>Lokal und kostenbewusst</h3><p>Kamera, Mikrofon, Vorschau, lokale Musik und unterstützte Encoder sollen direkt auf dem jeweiligen Gerät arbeiten. Ein ausgeschalteter eigener Host kann keine Online-Aufgaben ausführen; die App soll dann klar anzeigen, was lokal weiter funktioniert.</p><ul class="list"><li><span class="check">✓</span><span>Kein verpflichtender Cloud-Encoder</span></li><li><span class="check">✓</span><span>Kein kostenpflichtiger KI-Dienst als Kernvoraussetzung</span></li><li><span class="check">✓</span><span>Vorhandene Hardware statt automatischer Tarif-Upgrades</span></li></ul></aside>
+      </div>
+    </section>
 
-<section>
-  <h2>Systemstatus</h2>
-  <p class="status">Lokaler Server: verifiziert online</p>
-  <p>Masterplan-Strukturen: 137 / 137</p>
-  <p>Öffentliche Domain: noch nicht verifiziert</p>
-</section>
-</main>
+    <section id="ki">
+      <div class="wrap">
+        <div class="section-head"><div class="kicker">StreamioV KI</div><h2>Fachspezialisten mit klaren Grenzen.</h2><p>Geplant sind eigene Rollen für Code, Studio, Spiele, Design, Musik- und Rechte-Recherche, Tests und Betrieb. Wo die Hardware reicht, können die Rollen dasselbe lokal laufende Modell nutzen.</p></div>
+        <div class="notice"><strong>Keine vorgetäuschte Autonomie:</strong> Die KI darf Aufgaben im freigegebenen Arbeitsbereich selbst bearbeiten, protokollieren und prüfen. TikTok-Freigaben, öffentliche Releases, Zahlungen und andere externe Aktionen brauchen eigene Berechtigungen und belastbare Nachweise.</div>
+      </div>
+    </section>
 
-<footer>
-  <p>© 2026 Streamiov</p>
-  <a href="/impressum">Impressum</a>
-  <a href="/datenschutz">Datenschutz</a>
-  <a href="/docs">Dokumentation</a>
-  <a href="/kontakt">Kontakt</a>
-</footer>
+    <section id="spiele">
+      <div class="wrap split">
+        <div><div class="kicker">Spiele und Game AI</div><h2>Eigene Spiele über viele Genres.</h2><p class="copy">Die Spiele-KI soll Konzepte entwickeln, Spiele bauen, balancieren und prüfen. Jedes Spiel bekommt eine eigene Identität und das gemeinsame StreamioV-Zeichen mit überspringbarem Intro und korrekten Credits.</p><a class="btn btn-secondary" href="/zukunft/">StreamioVs Zukunft ansehen</a></div>
+        <aside class="panel"><h3>Originalität mit Herkunftsnachweis</h3><p>Die Galerie soll eigene oder ausdrücklich freigegebene Spiele zeigen. Namen, Figuren, Musik, Schriften, Bilder und Code werden auf Herkunft und Nutzungsrechte geprüft. Ein StreamioV-Logo macht fremde Inhalte nicht zu eigenem Eigentum.</p><span class="tag tag-work">Game AI und Spiele im Aufbau</span></aside>
+      </div>
+    </section>
 
+    <section id="musik">
+      <div class="wrap split">
+        <div><div class="kicker">Musik im Studio</div><h2>Ein Player mit Rechteprüfung.</h2><p class="copy">Geplant ist eine lokale Musikbibliothek mit Playlists und getrenntem Stream-/Kopfhörer-Ausgang. Eine KI soll Quellen und Erlaubnisse recherchieren und Inhalte kennzeichnen – ohne ungeprüfte Songs aus dem Internet zu laden.</p></div>
+        <aside class="panel"><h3>Rechte zuerst</h3><p>Für lokale Wiedergabe, Livestream und gespeicherte Aufzeichnungen können unterschiedliche Nutzungsrechte gelten. Unklare Titel bleiben gesperrt, bis die Rechte belegt sind. Der Startkatalog soll auf eigener Musik, kostenfrei freigegebenen Titeln und geprüftem gemeinfreiem Material beruhen.</p><span class="tag tag-work">Geplant, noch kein Musikkatalog</span></aside>
+      </div>
+    </section>
+
+    <section id="tiktok">
+      <div class="wrap">
+        <div class="section-head"><div class="kicker">TikTok-Anbindung</div><h2>Login und Geschenk-Galerie, transparent getrennt.</h2><p>StreamioV plant eine offizielle TikTok-Kontoanmeldung und eine Galerie, die TikTok-eigene Geschenke von StreamioV-eigenen Geschenken unterscheidet.</p></div>
+        <div class="cards">
+          <article class="card"><div class="icon" aria-hidden="true">↗</div><h3>TikTok-Login</h3><p>Login Kit, genau angeforderte Berechtigungen und sichere serverseitige Token-Verarbeitung. Nutzung hängt von TikToks App-Prüfung und den tatsächlich genehmigten Scopes ab.</p><span class="tag tag-work">In Planung / Freigabe erforderlich</span></article>
+          <article class="card"><div class="icon" aria-hidden="true">◇</div><h3>Geschenk-Galerie</h3><p>TikTok-Geschenke sollen über TikToks eigene, offiziell verfügbare Funktion laufen. StreamioV nimmt nichts an und zieht nichts ab. TikTok bestimmt Guthaben, Belohnungen und Auszahlung; eine Auszahlung des Kaufpreises 1:1 wird nicht zugesagt.</p><span class="tag tag-work">Datenzugriff noch nicht verifiziert</span></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="status">
+      <div class="wrap">
+        <div class="section-head"><div class="kicker">Offener Projektstand</div><h2>Was da ist und was noch entsteht.</h2><p>Wir unterscheiden zwischen vorhandenen Downloads, laufender Entwicklung, Planung und externen Freigaben. Ein Plan oder CI-Erfolg ist kein Beweis für einen getesteten Livestream.</p></div>
+        <div class="timeline">
+          <article class="status-card"><span class="status-label" style="color:var(--mint)">Download</span><div><h3>Desktop-Versionen</h3><p>Die Download-Seite listet vorhandene Windows- und Linux-Pakete samt Versionshinweisen. Plattformtests und Funktionsumfang bitte dort prüfen.</p></div></article>
+          <article class="status-card"><span class="status-label">In Arbeit</span><div><h3>Regie und Medienpipeline</h3><p>Szenen, Geräte, Audio-/Video-Verarbeitung und bestätigte Live-Ausgabe werden schrittweise umgesetzt und getrennt geprüft.</p></div></article>
+          <article class="status-card"><span class="status-label">In Planung</span><div><h3>KI-Spezialisten</h3><p>Lokale Modelle, Fachrollen, Aufgabenbegrenzung und nachvollziehbare Ausführung.</p></div></article>
+          <article class="status-card"><span class="status-label">In Planung</span><div><h3>Musik und Spiel-Galerie</h3><p>Rechtebelegte Musik und originale Spiele mit gemeinsamer StreamioV-Marke.</p></div></article>
+          <article class="status-card"><span class="status-label">Extern</span><div><h3>TikTok-Freigabe</h3><p>Login Kit und weitere Scopes erfordern TikToks Genehmigung; verfügbare Live-Events werden separat verifiziert.</p></div></article>
+          <article class="status-card"><span class="status-label">Zielmatrix</span><div><h3>Windows, Linux, ChromeOS, Android, iOS</h3><p>Alle sind Entwicklungsziele. Unterstützt wird ein Ziel erst nach passendem Build und Gerätetest.</p></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="kosten">
+      <div class="wrap split">
+        <div><div class="kicker">Kostenversprechen</div><h2>StreamioV nimmt kein Geld ein.</h2><p class="copy">Keine Werbung, Abos, Pro-Stufen, Verkäufe, bezahlten StreamioV-Geschenke, Spenden an StreamioV oder Zahlungsabwicklung durch StreamioV.</p></div>
+        <aside class="panel"><h3>Keine versteckten Käufe</h3><p>Wir planen mit vorhandener Hardware und ohne automatische Käufe, Upgrades oder bezahlte Rückfall-Dienste. Internet, Strom, Geräte und externe Plattformen haben eigene Bedingungen und können außerhalb StreamioVs Kosten verursachen. StreamioV erhebt dafür keine Gebühr.</p></aside>
+      </div>
+    </section>
+
+    <section id="community">
+      <div class="wrap"><div class="section-head"><div class="kicker">Gemeinschaft</div><h2>Unterschiedliche Menschen. Gemeinsamer Respekt.</h2><p>Unterschiedliche Meinungen dürfen sein. Regeln gegen Hass, Bedrohung und gezielte Erniedrigung sollen transparent und unabhängig von politischer Richtung gelten.</p></div></div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-row">
+      <div class="footer-brand"><img src="/assets/streamiov-symbol.svg" alt=""><span>StreamioV · Von Streamern für Streamer</span></div>
+      <nav aria-label="Rechtliches und Informationen"><a href="/geschichte/">Unsere Geschichte</a><a href="/forum/">Community</a><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="/nutzungsbedingungen/">Nutzungsbedingungen</a><a href="/compliance/">Compliance</a></nav>
+      <p class="copyright">© 2026 StreamioV. Produkt- und Plattformstatus gemäß den jeweiligen Projekt- und Download-Hinweisen.</p>
+    </div>
+  </footer>
 </body>
 </html>

@@ -1,0 +1,25 @@
+{
+  "id": "signal-weave",
+  "name": "Signal Weave",
+  "version": "0.1.0",
+  "description": "Ein eigenständiges Leitungs- und Verbindungsrätsel mit drei handgebauten Levels.",
+  "entry": "index.html",
+  "runtime": "browser",
+  "controls": {
+    "keyboard": ["Tab", "Enter", "Space"],
+    "pointer": true,
+    "touch": true
+  },
+  "display": {
+    "scalable_vector_ui": true,
+    "hd_design_target": "responsive vector rendering through HD and Full HD; viewport/device verification pending",
+    "resolution_independent_assets": true
+  },
+  "dependencies": [],
+  "status": "development",
+  "release": {
+    "automatedTestsPassed": true,
+    "gameplayVerified": false,
+    "released": false
+  }
+}

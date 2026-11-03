@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080b12">
+  <meta name="description" content="Lokales StreamioV-Konto und aktueller Verbindungsstatus.">
+  <title>Konto — StreamioV</title>
+  <style>
+    :root{color-scheme:dark;--bg:#080b12;--panel:#101827;--line:#2a3850;--text:#f4f7ff;--muted:#aebbd0;--cyan:#42e8ff;--mint:#74ffd1;--amber:#ffc56e}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 70% 0,#29335b55,transparent 50%),var(--bg);color:var(--text);font:16px/1.6 Inter,"Segoe UI",Arial,sans-serif}.wrap{width:min(900px,calc(100% - 32px));margin:auto}.bar{border-bottom:1px solid var(--line);padding:18px 0}.bar a{color:var(--cyan);text-decoration:none;font-weight:750}.main{padding:60px 0}h1{font-size:clamp(36px,7vw,56px);line-height:1.05;margin:0 0 12px;letter-spacing:-.04em}h2{font-size:22px;margin:0 0 8px}p{color:var(--muted)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:28px}.card{border:1px solid var(--line);border-radius:18px;background:#101827dd;padding:24px}.field{display:grid;gap:6px;margin:14px 0}.field label{font-weight:650}.field input{width:100%;padding:12px;border:1px solid #45536b;border-radius:9px;background:#080d16;color:var(--text);font:inherit}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}button{border:1px solid #42e8ff88;border-radius:999px;background:#0c2630;color:var(--cyan);padding:10px 16px;font:inherit;font-weight:700;cursor:pointer}button.secondary{border-color:#53617a;background:transparent;color:var(--text)}button:disabled{opacity:.55;cursor:not-allowed}.notice{min-height:1.5em;color:var(--mint)}.muted{font-size:14px}.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:3px 9px;color:var(--amber);font-size:13px}.wide{grid-column:1/-1}@media(max-width:680px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}.main{padding-top:38px}}
+  </style>
+</head>
+<body>
+  <header class="bar"><div class="wrap"><a href="/">← StreamioV Startseite</a></div></header>
+  <main class="wrap main">
+    <h1>Dein StreamioV-Konto</h1><p>Dieses Konto wird auf dem StreamioV-Host gespeichert. Es ist getrennt von deinem TikTok-Konto.</p>
+    <p id="host-state" class="pill" role="status">Host wird geprüft …</p>
+    <div class="grid">
+      <section class="card" aria-labelledby="login-title"><h2 id="login-title">Anmelden</h2>
+        <form id="login-form"><div class="field"><label for="login-name">Benutzername</label><input id="login-name" name="username" autocomplete="username" minlength="3" maxlength="24" required></div><div class="field"><label for="login-password">Passwort</label><input id="login-password" name="password" type="password" autocomplete="current-password" required></div><button>Anmelden</button></form>
+      </section>
+      <section class="card" aria-labelledby="register-title"><h2 id="register-title">Konto erstellen</h2><p id="registration-note" class="muted">Die Registrierung ist standardmäßig geschlossen. Der Betreiber kann sie am eigenen Host ausdrücklich freischalten.</p>
+        <form id="register-form"><div class="field"><label for="register-name">Benutzername</label><input id="register-name" name="username" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_.-]{3,24}" required></div><div class="field"><label for="register-password">Passwort (mindestens 12 Zeichen)</label><input id="register-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="1024" required></div><button id="register-button" disabled>Konto erstellen</button></form>
+      </section>
+      <section class="card wide" aria-labelledby="connected-title"><h2 id="connected-title">Verbundene Dienste</h2><p>Die offizielle TikTok-Anmeldung ist noch nicht eingerichtet. Dafür fehlen die veröffentlichte TikTok-App-Konfiguration und deren Freigabe. Diese Seite fragt keine TikTok-Zugangsdaten ab.</p><button type="button" disabled aria-describedby="tiktok-note">TikTok verbinden (noch nicht verfügbar)</button><p id="tiktok-note" class="muted">TikTok-Geschenke, Events und Auszahlungen werden von TikTok verwaltet. StreamioV verarbeitet kein Geld.</p></section>
+      <section id="session-card" class="card wide" hidden><h2>Angemeldet</h2><p id="session-user"></p><button id="logout-button" class="secondary" type="button">Abmelden</button></section>
+    </div>
+    <p id="message" class="notice" role="status" aria-live="polite"></p>
+  </main>
+  <script>
+    const $=id=>document.getElementById(id), message=$('message');
+    async function request(path,body){const response=await fetch(path,{method:body?'POST':'GET',credentials:'same-origin',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);return data}
+    function credentials(form){return Object.fromEntries(new FormData(form))}
+    async function refresh(){try{const status=await request('/api/v1/status');$('host-state').textContent=status.auth_ready?'StreamioV-Host verbunden':'Kontoservice nicht bereit';$('register-button').disabled=!status.registration_open;$('registration-note').textContent=status.registration_open?'Die Registrierung ist auf diesem Host geöffnet.':'Die Registrierung ist standardmäßig geschlossen. Der Betreiber kann sie am eigenen Host ausdrücklich freischalten.';try{const current=await request('/api/v1/auth/me');$('session-card').hidden=false;$('session-user').textContent=`Angemeldet als ${current.user.username}`;}catch{$('session-card').hidden=true;}}catch{$('host-state').textContent='Kein StreamioV-Kontoservice unter dieser Adresse';$('registration-note').textContent='Die statische Website ist erreichbar, aber der eigene StreamioV-Host für Konten ist hier nicht verbunden.';$('register-button').disabled=true;}}
+    for(const [id,path,label] of [['login-form','/api/v1/auth/login','Anmeldung'],['register-form','/api/v1/auth/register','Konto']])$(id).addEventListener('submit',async event=>{event.preventDefault();const button=event.currentTarget.querySelector('button');button.disabled=true;message.textContent=`${label} wird verarbeitet …`;try{const result=await request(path,credentials(event.currentTarget));message.textContent=`Willkommen, ${result.user.username}.`;$('login-password').value='';$('register-password').value='';await refresh()}catch(error){message.textContent=error.message==='registration_closed'?'Die Registrierung ist auf diesem Host geschlossen.':error.message==='request_origin_not_allowed'?'Die Anfrage wurde aus Sicherheitsgründen abgelehnt.':error.message==='username_taken'?'Dieser Benutzername ist bereits vergeben.':`Aktion fehlgeschlagen: ${error.message}`}finally{button.disabled=id==='register-form'&&!$('register-button').disabled}});
+    $('logout-button').addEventListener('click',async()=>{try{await request('/api/v1/auth/logout',{});message.textContent='Du wurdest abgemeldet.';await refresh()}catch(error){message.textContent=`Abmelden fehlgeschlagen: ${error.message}`}});
+    refresh();
+  </script>
+</body>
+</html>

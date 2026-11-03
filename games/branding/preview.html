@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080b12">
+  <title>Streamiov · Spiele-Intro Vorschau</title>
+  <style>
+    *{box-sizing:border-box}body{min-height:100vh;margin:0;display:grid;place-items:center;background:#080b12;color:#f5f7ff;font:16px Inter,"Segoe UI",sans-serif}
+    main{width:min(780px,92vw);padding:34px;border:1px solid #273149;border-radius:24px;background:radial-gradient(ellipse at top,#121d36,#0b1020 68%);box-shadow:0 24px 100px #0008}
+    img{display:block;width:min(500px,90%);margin:12px auto 34px}.icon{width:112px;margin:0 auto 12px}
+    h1{text-align:center;font-size:clamp(28px,6vw,46px);margin:0}.hint{text-align:center;color:#98a8c4;line-height:1.6}
+    button{display:block;margin:28px auto 0;padding:13px 20px;border:0;border-radius:12px;background:#42e8ff;color:#071018;font-weight:750;cursor:pointer}
+  </style>
+</head>
+<body>
+  <main>
+    <img class="icon" src="streamiov-symbol.svg" alt="">
+    <img src="streamiov-wordmark.svg" alt="Streamiov">
+    <h1>Ein gemeinsames Zeichen für jedes Spiel</h1>
+    <p class="hint">Das Intro spielt automatisch. Überspringen mit Enter, Leertaste oder Escape.</p>
+    <button id="replay" type="button">Intro erneut ansehen</button>
+    <button id="replay-outro" type="button">Abspann ansehen</button>
+  </main>
+  <script src="streamiov-game-intro.js"></script>
+  <script>
+    function startIntro(){StreamiovGameBranding.playIntro({gameTitle:'NEON RELAY',onComplete:function(){document.getElementById('replay').focus()}})}
+    function startOutro(){StreamiovGameBranding.playOutro({gameTitle:'NEON RELAY',credits:['Beispiel-Credit: Verantwortliche hier eintragen','Beispiel-Credit: Lizenzen und Quellen je Spiel dokumentieren'],onComplete:function(){document.getElementById('replay-outro').focus()}})}
+    document.getElementById('replay').addEventListener('click',startIntro);
+    document.getElementById('replay-outro').addEventListener('click',startOutro);
+    startIntro();
+  </script>
+</body>
+</html>

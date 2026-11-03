@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "id": "streamiov-pulse-defender",
+  "title": "Pulse Defender",
+  "version": "0.1.0-prototype",
+  "status": "PROTOTYPE",
+  "genre": [
+    "arcade",
+    "wave-shooter",
+    "action"
+  ],
+  "entrypoint": "index.html",
+  "build": "manual browser HTML and inline JavaScript prototype; no build dependencies",
+  "test": "node --test games/releases/streamiov-pulse-defender/tests/game.test.cjs",
+  "package_command": "python3 -m games.package games/releases/streamiov-pulse-defender/manifest.json",
+  "display_smoke": "not yet performed",
+  "package": "games/releases/streamiov-pulse-defender-0.1.0-prototype.zip",
+  "package_checksum": "games/releases/streamiov-pulse-defender-0.1.0-prototype.zip.sha256",
+  "package_manifest": "streamiov-pulse-defender/manifest.json",
+  "package_files": [
+    "README.md",
+    "manifest.json",
+    "game.json",
+    "index.html",
+    "assets/streamiov-game-intro.js",
+    "assets/streamiov-symbol.svg",
+    "tests/game.test.cjs"
+  ],
+  "runtime": {
+    "browser": "current standards-based browser",
+    "third_party_packages": [],
+    "network_required": false,
+    "optional_os_dependency": null
+  },
+  "provenance": {
+    "concept": "Adapted from the repository's GitHub development prototype; concept: Verteidige den Energiekern gegen Drohnenwellen.",
+    "code": "HTML Canvas or DOM game implementation adapted from repository prototype",
+    "art": "Native HTML/CSS/canvas plus StreamioV branded introduction",
+    "fonts": "Operating-system sans-serif fallback stack",
+    "audio": "None",
+    "external_assets": [],
+    "project_dependencies": [
+      {
+        "path": "games/branding/streamiov-game-intro.js",
+        "use": "embedded StreamioV game intro library",
+        "rights_status": "internal provenance review pending"
+      },
+      {
+        "path": "games/branding/streamiov-symbol.svg",
+        "use": "source asset for branded intro mark",
+        "rights_status": "internal provenance review pending"
+      }
+    ],
+    "ownership_review": "Open: review upstream authorship, contributor rights, and applicable agreements before release"
+  },
+  "verification": {
+    "unit_tests": "Manifest and packaged-file audit; run the listed Node static-mechanics test before a release review",
+    "gameplay_review": "not performed",
+    "accessibility_review": "not performed",
+    "rights_review": "pending",
+    "release_review": "not performed",
+    "platforms": {
+      "HD browser viewport": "not yet display-tested",
+      "Touch devices": "not device-tested"
+    }
+  }
+}

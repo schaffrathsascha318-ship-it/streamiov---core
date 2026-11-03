@@ -1,8 +1,10 @@
-"""Prepare the active Electron Studio UI before launch or packaging.
+"""Create a legacy index.html copy of the active Regie UI.
 
-The repository keeps the current Regie UI as regie-v2.html. Electron's main
-process loads index.html, so this script creates that runtime entry point
-atomically and refuses to follow or replace a symlink.
+Electron's main process now loads regie-v2.html directly, so this script is
+not part of npm start or installer builds. It remains available only for
+manual compatibility checks. The repository keeps the current Regie UI as
+regie-v2.html; this script copies it to index.html atomically and refuses to
+follow or replace a symlink.
 """
 from __future__ import annotations
 

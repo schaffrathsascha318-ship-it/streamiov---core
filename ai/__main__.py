@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from ai.core.agent import AgentError, DevelopmentAgent
+from ai.core.specialists import SPECIALISTS
 from ai.providers.local_http import ProviderError, provider_from_env
 
 
@@ -35,6 +36,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=12,
         help="Maximum model/tool turns (1–30, default: 12).",
     )
+    parser.add_argument(
+        "--role",
+        choices=sorted(SPECIALISTS),
+        default="software",
+        help="Bounded specialist role (default: software).",
+    )
     return parser
 
 
@@ -55,6 +62,7 @@ def main(argv: list[str] | None = None) -> int:
             provider=provider,
             project_root=Path(args.project_root),
             max_steps=args.max_steps,
+            specialist=args.role,
         )
         print(agent.run(args.task))
         return 0

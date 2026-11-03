@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "id": "streamiov-signal-weave",
+  "title": "Signal Weave",
+  "version": "0.1.0-prototype",
+  "status": "PROTOTYPE",
+  "genre": ["logic-puzzle", "spatial-routing"],
+  "entrypoint": "index.html",
+  "build": "node --check games/releases/streamiov-signal-weave/engine.js",
+  "test": "node --test games/releases/streamiov-signal-weave/tests/game.test.cjs",
+  "package_command": "python3 -m games.package games/releases/streamiov-signal-weave/manifest.json",
+  "display_smoke": "not yet performed",
+  "package": "games/releases/streamiov-signal-weave-0.1.0-prototype.zip",
+  "package_checksum": "games/releases/streamiov-signal-weave-0.1.0-prototype.zip.sha256",
+  "package_manifest": "streamiov-signal-weave/manifest.json",
+  "package_files": ["README.md", "manifest.json", "game.json", "engine.js", "index.html", "tests/game.test.cjs", "assets/streamiov-game-intro.js", "assets/streamiov-symbol.svg"],
+  "runtime": {
+    "browser": "current standards-based browser",
+    "third_party_packages": [],
+    "network_required": false,
+    "optional_os_dependency": null
+  },
+  "provenance": {
+    "concept": "Original spatial path-rotation puzzle developed in repository workspace",
+    "code": "Original JavaScript state engine and HTML interface",
+    "art": "Native SVG/CSS paths and the shared StreamioV signal mark",
+    "fonts": "Operating-system sans-serif fallback stack",
+    "audio": "None",
+    "external_assets": [],
+    "project_dependencies": [{"path": "games/branding/streamiov-game-intro.js", "use": "branded intro and outro", "rights_status": "internal provenance review pending"}, {"path": "games/branding/streamiov-symbol.svg", "use": "included by the branded intro", "rights_status": "internal provenance review pending"}],
+    "ownership_review": "Open: verify contributor rights and project agreements before any ownership or release claim"
+  },
+  "verification": {
+    "unit_tests": "5 Node tests passed on the development host on 2026-11-02",
+    "gameplay_review": "not performed",
+    "accessibility_review": "not performed",
+    "rights_review": "pending",
+    "release_review": "not performed",
+    "platforms": {"HD browser viewport": "not yet display-tested", "Touch devices": "not device-tested"}
+  }
+}

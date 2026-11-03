@@ -1,14 +1,18 @@
 """Run Node's parser against the Electron entry points and inline Regie scripts."""
 from pathlib import Path
+import hashlib
+import io
 import re
 import shutil
 import subprocess
 import tempfile
 import unittest
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 STUDIO = ROOT / "dist" / "streamiov-studio-app"
 HOMEPAGE = ROOT / "dist" / "streamiov-homepage-worker" / "public" / "download"
+DOWNLOADS = ROOT / "dist" / "streamiov-homepage-worker" / "public" / "downloads"
 
 
 @unittest.skipUnless(shutil.which("node"), "Node.js is required for JavaScript syntax checks")
@@ -73,13 +77,52 @@ class HomepageDownloadPageTests(unittest.TestCase):
 
     def test_download_combiner_uses_exact_part_sizes_and_validates_zip(self):
         script = (HOMEPAGE / "combine.js").read_text(encoding="utf-8")
+        names = re.findall(r'name: "(streamiov-studio-part-\d{2}\.bin)"', script)
         sizes = [int(value) for value in re.findall(r"size: (\d+)", script)]
-        self.assertEqual(sizes, [20971520] * 6 + [8982160])
-        self.assertEqual(sum(sizes), 134811280)
+        hashes = re.findall(r'sha256: "([0-9a-f]{64})"', script)
+        self.assertEqual(len(names), 7)
+        self.assertEqual(len(sizes), 7)
+        self.assertEqual(len(hashes), 7)
+        self.assertEqual(sum(sizes), 723390)
+        if not (DOWNLOADS / names[0]).is_file():
+            self.skipTest("download parts are release artifacts and are not part of the source tree")
+
+        assembled = b""
+        for name, size, expected_hash in zip(names, sizes, hashes):
+            with self.subTest(part=name):
+                path = DOWNLOADS / name
+                self.assertTrue(path.is_file(), f"missing download part: {name}")
+                payload = path.read_bytes()
+                self.assertEqual(len(payload), size)
+                self.assertEqual(hashlib.sha256(payload).hexdigest(), expected_hash)
+                assembled += payload
+
+        self.assertEqual(
+            hashlib.sha256(assembled).hexdigest(),
+            "e0206821b9f3e015c765c6aa9c07f6677390bbfe5d56aaa67ab1832fbad295ba",
+        )
+        with zipfile.ZipFile(io.BytesIO(assembled)) as archive:
+            names_in_zip = set(archive.namelist())
+        self.assertIn("dist/streamiov-studio-app/regie-v2.html", names_in_zip)
+        self.assertIn("dist/streamiov-studio-app/main.js", names_in_zip)
+        self.assertFalse(any("/release/" in name for name in names_in_zip))
+        self.assertFalse(any(name.endswith(".env") for name in names_in_zip))
+
         self.assertIn("partBytes !== part.size", script)
         self.assertIn("downloaded !== totalSize", script)
         self.assertIn("isZipSignature(signature)", script)
+        self.assertIn("crypto.subtle.digest", script)
+        self.assertIn("SHA-256-Prüfsumme", script)
         self.assertIn("await writable.abort()", script)
+
+    def test_download_page_documents_the_source_snapshot_and_checksums(self):
+        html = (HOMEPAGE / "index.html").read_text(encoding="utf-8")
+        self.assertIn("Quellcode-Snapshot", html)
+        self.assertIn("kein Installer", html)
+        self.assertIn("723.390 Bytes", html)
+        self.assertIn("e0206821b9f3e015c765c6aa9c07f6677390bbfe5d56aaa67ab1832fbad295ba", html)
+        self.assertIn('href="/downloads/SHA256SUMS.txt"', html)
+        self.assertIn("noch nicht in den Installern vom 2.11.", html)
 
 if __name__ == "__main__":
     unittest.main()

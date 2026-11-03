@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#080b12">
+  <meta name="description" content="Signal Weave – ein kostenloses, lokales StreamioV-Leitungs-Puzzle.">
+  <title>Signal Weave — StreamioV Original</title>
+  <style>
+    :root{color-scheme:dark;--bg:#080b12;--panel:#101827;--line:#2b3950;--text:#f4f7ff;--muted:#aebbd0;--cyan:#42e8ff;--mint:#74ffd1;--violet:#9b86ff;--amber:#ffc56e}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 0,#1e3150 0,transparent 50%),var(--bg);color:var(--text);font:16px/1.5 Inter,"Segoe UI",Arial,sans-serif}.wrap{width:min(1260px,calc(100% - 28px));margin:auto}header{padding:22px 0 8px;text-align:center}.brand{color:var(--mint);font-size:12px;font-weight:800;letter-spacing:.23em;text-transform:uppercase}h1{margin:7px 0;font-size:clamp(32px,7vw,52px);line-height:1.05;letter-spacing:-.04em}header p{margin:8px auto;color:var(--muted);max-width:620px}.game{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start;padding:18px 0 36px}.board-card,.side-card{border:1px solid var(--line);border-radius:20px;background:#101827eF;box-shadow:0 18px 60px #0005}.board-card{padding:clamp(12px,3vw,24px)}.board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:clamp(5px,1.5vw,12px);width:min(100%,min(75vh,900px));margin:auto;aspect-ratio:1}.cell{display:grid;place-items:center;min-width:0;min-height:0;border:1px solid #26354b;border-radius:13px;background:#0b1220;color:var(--muted)}.cell.empty{border-color:transparent;background:#0b122033}.cell.pipe{padding:0;cursor:pointer;touch-action:manipulation;transition:background .16s,border-color .16s,transform .12s}.cell.pipe:hover{background:#142338;border-color:#42e8ff99}.cell.pipe:active{transform:scale(.96)}.cell:focus-visible{outline:3px solid var(--mint);outline-offset:2px}.cell.endpoint{background:#111c2c;border-color:#42e8ff55;color:var(--cyan);font-size:clamp(19px,6vw,30px);font-weight:800}.cell.target{color:var(--mint);border-color:#74ffd177}.cell svg{width:100%;height:100%;padding:8%}.pipe-line{stroke:#42e8ff;stroke-width:10;stroke-linecap:round;filter:drop-shadow(0 0 3px #42e8ff66)}.pipe-core{fill:#0e1b2b;stroke:#7890b0;stroke-width:2}.cell.connected .pipe-core{fill:#12313a;stroke:var(--mint)}.legend{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;color:var(--muted);font-size:13px;margin:16px 0 0}.legend span{display:flex;align-items:center;gap:7px}.dot{width:9px;height:9px;border-radius:50%;background:var(--cyan)}.dot.target{background:var(--mint)}.side{display:grid;gap:14px}.side-card{padding:18px}.side-card h2{font-size:16px;margin:0 0 8px}.level-title{color:var(--cyan);font-size:20px;font-weight:750}.stat{display:flex;justify-content:space-between;gap:12px;color:var(--muted);padding:7px 0;border-bottom:1px solid #ffffff0e}.stat strong{color:var(--text)}.instructions{font-size:14px;color:var(--muted)}.actions{display:grid;gap:9px;margin-top:16px}button.action{min-height:46px;border:1px solid #42e8ff80;border-radius:999px;background:#0c2630;color:var(--cyan);padding:10px 15px;font:inherit;font-weight:750;cursor:pointer}button.action.secondary{border-color:#52617a;background:transparent;color:var(--text)}button.action:disabled{opacity:.55;cursor:not-allowed}.notice{min-height:52px;color:var(--mint);font-weight:650}.overlay{position:fixed;inset:0;z-index:3;display:grid;place-items:center;padding:20px;background:#050812dd;backdrop-filter:blur(8px)}.overlay[hidden]{display:none}.dialog{width:min(520px,100%);padding:clamp(24px,6vw,42px);border:1px solid #425879;border-radius:24px;background:linear-gradient(150deg,#16243a,#0c1220);text-align:center;box-shadow:0 24px 100px #0009}.dialog h2{margin:0;font-size:clamp(30px,7vw,46px);line-height:1.08}.dialog p{color:var(--muted)}.dialog .action{margin-top:8px;min-width:210px}.footer{padding:0 0 24px;color:#78869d;text-align:center;font-size:12px}@media(max-width:720px){.game{grid-template-columns:1fr}.side{grid-template-columns:1fr 1fr}.side-card:first-child{grid-column:1/-1}.board{width:min(100%,min(75vw,650px));gap:clamp(4px,1.2vw,8px)}.cell{border-radius:10px}}@media(max-width:440px){.side{grid-template-columns:1fr}.side-card:first-child{grid-column:auto}.instructions{margin-bottom:0}}@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header><div class="brand">A StreamioV Original</div><h1>Signal Weave</h1><p>Drehe die Leitungen, bis der Impuls vom Start zum Ziel fließt. Drei handgebaute Rätsel, komplett lokal und ohne Konto.</p></header>
+    <main class="game" aria-label="Signal Weave Spiel" inert>
+      <section class="board-card"><div id="board" class="board" role="group" aria-label="Leitungsraster"></div><div class="legend"><span><i class="dot" aria-hidden="true"></i>Signalquelle</span><span><i class="dot target" aria-hidden="true"></i>Ziel</span></div></section>
+      <aside class="side">
+        <section class="side-card"><h2>Aktuelles Rätsel</h2><div id="level-title" class="level-title">Bereit?</div><div class="stat"><span>Rätsel</span><strong id="level-count">1 / 3</strong></div><div class="stat"><span>Drehungen</span><strong id="attempts">0</strong></div><p id="status" class="notice" role="status" aria-live="polite">Starte das Spiel, um den Impuls zu leiten.</p><div class="actions"><button id="start" class="action">Spiel starten</button><button id="next" class="action" hidden>Nächstes Rätsel</button><button id="restart" class="action secondary" type="button">Neu beginnen</button></div></section>
+        <section class="side-card"><h2>So geht's</h2><p class="instructions">Tippe oder klicke auf ein Leitungsfeld, um es um 90° zu drehen. Verbinde den blauen Start mit dem mintfarbenen Ziel. Leere Felder lassen sich nicht drehen.</p><p class="instructions">Die Felder sind auch per Tab und Enter oder Leertaste bedienbar.</p></section>
+      </aside>
+    </main>
+    <footer class="footer">Offline spielbar · keine Werbung · keine Käufe · keine externen Spiel- oder Musikdateien</footer>
+  </div>
+  <div id="dialog" class="overlay" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div class="dialog"><div class="brand">A StreamioV Original</div><h2 id="dialog-title">Signal Weave</h2><p>Drei Leitungsrätsel warten. Bring den Impuls ans Ziel.</p><button id="dialog-start" class="action">Kostenlos spielen</button></div></div>
+  <script src="assets/streamiov-game-intro.js"></script>
+  <script src="engine.js"></script>
+  <script>
+    (() => {
+      const game = new StreamioVSignalWeave.SignalWeaveGame();
+      const board = document.getElementById('board');
+      const dialog = document.getElementById('dialog');
+      const start = document.getElementById('start');
+      const next = document.getElementById('next');
+      let brandingBusy = false;
+      let launchInProgress = false;
+      function pipeSvg(cell) {
+        const lines = cell.connections.map((direction) => {
+          const coords = {N:[30,30,30,5],E:[30,30,55,30],S:[30,30,30,55],W:[30,30,5,30]}[direction];
+          return `<line class="pipe-line" x1="${coords[0]}" y1="${coords[1]}" x2="${coords[2]}" y2="${coords[3]}"/>`;
+        }).join('');
+        return `<svg viewBox="0 0 60 60" aria-hidden="true">${lines}<circle class="pipe-core" cx="30" cy="30" r="7"/></svg>`;
+      }
+      function render() {
+        const cells = game.getBoard();
+        board.replaceChildren();
+        cells.forEach((row, y) => row.forEach((cell, x) => {
+          if (cell.type === 'pipe') {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'cell pipe' + (game.phase === 'level_complete' || game.phase === 'victory' ? ' connected' : '');
+            button.setAttribute('aria-label', `Zeile ${y + 1}, Spalte ${x + 1}: Leitung, Ausrichtung ${cell.turns * 90} Grad, zum Drehen aktivieren`);
+            button.innerHTML = pipeSvg(cell);
+            button.addEventListener('click', () => { if (game.rotate(x, y)) update(); });
+            board.append(button);
+          } else {
+            const node = document.createElement('div');
+            node.className = 'cell ' + (cell.type === 'empty' ? 'empty' : 'endpoint ' + cell.type);
+            node.setAttribute('aria-label', cell.type === 'source' ? 'Signalquelle' : cell.type === 'target' ? 'Signalziel' : 'Leerfeld');
+            if (cell.type === 'source') node.textContent = '▶';
+            if (cell.type === 'target') node.textContent = '◎';
+            board.append(node);
+          }
+        }));
+      }
+      function update() {
+        render();
+        start.hidden = game.phase !== 'intro';
+        document.getElementById('level-title').textContent = game.phase === 'victory' ? 'Geschafft!' : game.level.title;
+        document.getElementById('level-count').textContent = `${Math.min(game.levelIndex + 1, StreamioVSignalWeave.LEVEL_COUNT)} / ${StreamioVSignalWeave.LEVEL_COUNT}`;
+        document.getElementById('attempts').textContent = String(game.attempts);
+        const status = document.getElementById('status');
+        if (game.phase === 'level_complete') {
+          status.textContent = 'Signal verbunden! Gut gelöst.';
+          next.hidden = false;
+          next.focus();
+        } else if (game.phase === 'victory') {
+          status.textContent = 'Alle Rätsel gelöst. Danke fürs Spielen!';
+          next.hidden = true;
+          if (!brandingBusy && window.StreamiovGameBranding) {
+            brandingBusy = true;
+            window.StreamiovGameBranding.playOutro({gameTitle:'Signal Weave', credits:['Projekt: StreamioV Signal Weave','Status: Prototyp','Rechte- und Beitragsprüfung: ausstehend'], onComplete:()=>{brandingBusy=false;}});
+          }
+        } else {
+          status.textContent = 'Drehe Leitungsfelder, bis Start und Ziel verbunden sind.';
+          next.hidden = true;
+        }
+      }
+      function begin() {
+        if (launchInProgress) return;
+        launchInProgress = true;
+        dialog.hidden = true;
+        start.hidden = true;
+        document.querySelector('.game').inert = false;
+        const launch = () => { game.start(); launchInProgress = false; update(); document.querySelector('.cell.pipe')?.focus(); };
+        if (window.StreamiovGameBranding) window.StreamiovGameBranding.playIntro({gameTitle:'Signal Weave', onComplete:launch});
+        else launch();
+      }
+      document.getElementById('dialog-start').addEventListener('click', begin);
+      start.addEventListener('click', begin);
+      next.addEventListener('click', () => { game.nextLevel(); update(); document.querySelector('.cell.pipe')?.focus(); });
+      document.getElementById('restart').addEventListener('click', () => { game.restart(); document.querySelector('.game').inert = true; dialog.hidden = false; update(); document.getElementById('dialog-start').focus(); });
+      document.getElementById('dialog-start').focus();
+      update();
+    })();
+  </script>
+</body>
+</html>

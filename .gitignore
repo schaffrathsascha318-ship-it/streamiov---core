@@ -44,3 +44,20 @@ dist/streamiov-studio-app/**/*.before_*
 dist/streamiov-studio-app/**/diagnose-*.cjs
 
 /android/backup/
+
+# Sensitive local credentials and private configuration (never commit)
+/secrets/
+/.en
+/.envy
+/config/platforms/**/oauth*.json
+/config/**/*.secret.*
+/config/**/*credentials*
+
+# Locally built installers and generated module backups
+/dist/streamiov-studio-app/release/
+/dist/streamiov-homepage/account/
+/dist/streamiov-homepage/assets/
+/modules/**/*.bak
+/modules/**/*.bak-*
+/modules/**/*.save
+/modules/**/*.before-*
