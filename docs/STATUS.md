@@ -51,6 +51,11 @@ python3 scripts/verify-cloudflare-config.py
 
 ## Externally gated
 
+The per-item acceptance procedure, evidence format, and pass/fail criteria are in
+[`docs/operations/external-verification.md`](operations/external-verification.md).
+Nothing in this section counts as verified until that checklist is completed with
+a dated record.
+
 - **TikTok:** app review, approved scopes, and any official gift-event or gift-sending capability. No approval is claimed.
 - **Live broadcast:** a real stream received and published by TikTok, YouTube, Twitch, or another service.
 - **Mobile:** a tested Android or iOS build. The unlinked stale APK was removed from the public download directory.
