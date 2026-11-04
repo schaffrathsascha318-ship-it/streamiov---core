@@ -57,7 +57,7 @@
     <div class="wrap nav">
       <a class="brand" href="/" aria-label="StreamioV Startseite"><img src="/assets/streamiov-wordmark.svg" alt="StreamioV"></a>
       <nav class="links" aria-label="Hauptnavigation">
-        <a href="/">Startseite</a><a href="#installer">Installer</a><a href="#quellcode">Quellcode</a><a href="#spiele">Spiele</a><a href="/forum/">Forum</a><a href="/account/">Konto</a>
+        <a href="/">Startseite</a><a href="/promo/">Promo</a><a href="#installer">Installer</a><a href="#quellcode">Quellcode</a><a href="#spiele">Spiele</a><a href="/forum/">Forum</a><a href="/account/">Konto</a>
       </nav>
     </div>
   </header>
@@ -82,36 +82,43 @@
     <section id="installer">
       <div class="wrap">
         <div class="section-head">
-          <div class="kicker">StreamioV Studio · Build 2026-11-02</div>
+          <div class="kicker">StreamioV Studio · Version 1.0.1</div>
           <h2>Desktop-Installer</h2>
-          <p>Die Installer enthalten die Electron-Regie mit Szenen-/Quellenmodell, Vorschau, Programmausgabe, lokalem Audio-Mixer und RTMP-Ziel. Sie wurden gebaut und veröffentlicht; ein vollständiger Erststart- und Funktionstest auf jedem Zielgerät steht noch aus.</p>
+          <p>Studio 1.0.1 enthält die Electron-Regie mit Szenen-/Quellenmodell, Vorschau, Programmausgabe, lokalem Audio-Mixer, RTMP-Ziel und der Schutzregie. Die Linux-x64-DEB wurde auf Inhalt und SHA-256 geprüft; ein vollständiger Erststart- und Funktionstest auf jedem Zielgerät steht weiterhin aus.</p>
         </div>
-        <div class="grid grid-3">
+        <div class="grid">
           <article class="card">
             <h3>Windows x64</h3>
-            <span class="meta">Version 1.0.0 · .exe · 122 MB</span>
-            <p>Installer für übliche 64-Bit-Windows-PCs.</p>
-            <a class="download-main" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/Streamiov.Studio.Setup.1.0.0.exe">Windows-Installer herunterladen</a>
+            <span class="meta">Version 1.0.1 · .exe · ca. 120 MB</span>
+            <p>NSIS-Installer für übliche 64-Bit-Windows-PCs.</p>
+            <a class="download-main" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.1/Streamiov.Studio.Setup.1.0.1-x64.exe">Windows-Installer herunterladen</a>
+            <span class="tag tag-work">Gebaut · Gerätetest offen</span>
+          </article>
+          <article class="card">
+            <h3>Windows ARM64</h3>
+            <span class="meta">Version 1.0.1 · .exe · ca. 115 MB</span>
+            <p>NSIS-Installer für Windows-on-ARM-Geräte.</p>
+            <a class="download-main" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.1/Streamiov.Studio.Setup.1.0.1-arm64.exe">ARM64-Installer herunterladen</a>
             <span class="tag tag-work">Gebaut · Gerätetest offen</span>
           </article>
           <article class="card">
             <h3>Linux x64</h3>
-            <span class="meta">Version 1.0.0 · AppImage / DEB</span>
-            <p>Für übliche 64-Bit-PCs mit Linux.</p>
-            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/Streamiov.Studio-1.0.0.AppImage">AppImage</a>
-            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/streamiov-studio_1.0.0_amd64.deb">DEB</a>
-            <span class="tag tag-work">Gebaut · Gerätetest offen</span>
+            <span class="meta">Version 1.0.1 · AppImage / DEB</span>
+            <p>Für übliche 64-Bit-PCs mit Linux. Die DEB wurde zusätzlich auf Inhalt und Prüfsumme geprüft.</p>
+            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.1/Streamiov.Studio-1.0.1-x64.AppImage">AppImage</a>
+            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.1/streamiov-studio_1.0.1_amd64.deb">DEB</a>
+            <span class="tag tag-ready">DEB-Inhalt geprüft</span>
           </article>
           <article class="card">
             <h3>Linux ARM64</h3>
-            <span class="meta">Version 1.0.0 · AppImage / DEB</span>
-            <p>Für kompatible ARM64-Linux-Systeme.</p>
-            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/Streamiov.Studio-1.0.0-arm64.AppImage">ARM64-AppImage</a>
-            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.0-build-20261102/streamiov-studio_1.0.0_arm64.deb">ARM64-DEB</a>
+            <span class="meta">Version 1.0.1 · AppImage / DEB</span>
+            <p>Für kompatible ARM64-Linux-Systeme, inklusive Chromebooks mit Crostini.</p>
+            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.1/Streamiov.Studio-1.0.1-arm64.AppImage">ARM64-AppImage</a>
+            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.1/streamiov-studio_1.0.1_arm64.deb">ARM64-DEB</a>
             <span class="tag tag-work">Gebaut · Gerätetest offen</span>
           </article>
         </div>
-        <p><small>Alle Dateien und Versionshinweise: <a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/tag/studio-v1.0.0-build-20261102">GitHub-Release öffnen</a>. Der Installer ist kein Beweis für einen funktionierenden Livestream oder für Unterstützung jeder Kamera, Capture-Karte und jedes Betriebssystems.</small></p>
+        <p><small>Alle Dateien, Prüfsummen und Versionshinweise: <a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/tag/studio-v1.0.1">GitHub-Release studio-v1.0.1 öffnen</a>. Der Installer ist kein Beweis für einen funktionierenden Livestream oder für Unterstützung jeder Kamera, Capture-Karte und jedes Betriebssystems. ChromeOS/Crostini nutzt die Linux-DEB-Pakete.</small></p>
       </div>
     </section>
 
@@ -120,7 +127,7 @@
         <div class="section-head">
           <div class="kicker">Quellcode-Snapshot 2026-11-03</div>
           <h2>Aktueller Quellstand, klar als Quellpaket markiert.</h2>
-          <p>Das ZIP enthält den aktuellen Quellcode ohne <code>node_modules</code>, ohne gebaute Binärdateien und ohne Zugangsdaten. Es ist <strong>kein Installer</strong> und steckt noch nicht in den Installern vom 2.11. Zum Starten sind Node.js und die im README genannten Systemwerkzeuge erforderlich.</p>
+          <p>Das ZIP enthält den aktuellen Quellcode ohne <code>node_modules</code>, ohne gebaute Binärdateien und ohne Zugangsdaten. Es ist <strong>kein Installer</strong>; die Schutzregie ist inzwischen zusätzlich in Studio 1.0.1 enthalten. Zum Starten sind Node.js und die im README genannten Systemwerkzeuge erforderlich.</p>
         </div>
         <button class="download-button" id="studio-one-click" type="button">Quellcode-Snapshot als ZIP herunterladen</button>
         <strong id="studio-progress" aria-live="polite">Bereit · 0 %</strong>
@@ -142,7 +149,7 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
               <li><a href="/downloads/streamiov-studio-part-05.bin">Teil 6 von 7</a></li>
               <li><a href="/downloads/streamiov-studio-part-06.bin">Teil 7 von 7</a></li>
             </ul>
-            <small>Gesamtgröße: 876.770 Bytes. SHA-256 des zusammengefügten ZIPs: <code>41ac99ddf344c3c851bbebe824512854784689242662b0b34c237bf464702066</code>. Prüfsummen aller Teile: <a href="/downloads/SHA256SUMS.txt">SHA256SUMS.txt</a>. Nach dem Zusammenfügen ZIP-Datei vor der Nutzung entpacken und prüfen.</small>
+            <small>Gesamtgröße: 587.533 Bytes. SHA-256 des zusammengefügten ZIPs: <code>a63c21daba46d866642d72f09d6315be22cfde9c0be3d28827f8edb6d780bec9</code>. Prüfsummen aller Teile: <a href="/downloads/SHA256SUMS.txt">SHA256SUMS.txt</a>. Nach dem Zusammenfügen ZIP-Datei vor der Nutzung entpacken und prüfen.</small>
           </div>
         </details>
       </div>
@@ -254,7 +261,7 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
         <div class="section-head">
           <div class="kicker">Streaming-Funktion</div>
           <h2>Regie-Oberfläche enthalten, Encoder noch extern.</h2>
-          <p>Die Installer enthalten Kamera-, Bildschirm- und Mikrofonauswahl sowie ein RTMP-Ziel. Der Quellcode-Snapshot ergänzt den Szenen-/Quellen-Editor mit gemeinsamem Vorschau-, Programm- und Stream-Renderer sowie der Schutzregie: Ein Hotkey schaltet das Programm auf PAUSE und den lokalen Mikrofon-Mix auf 0 %, beim Aufheben werden beide Werte wiederhergestellt. Dieser Stand ist noch nicht in den Installern vom 2.11. enthalten. Für eine echte Live-Ausgabe muss FFmpeg mit libx264, AAC und RTMP-Unterstützung auf dem Computer installiert sein; der Encoder ist noch nicht Teil der Installer.</p>
+          <p>Die Installer enthalten Kamera-, Bildschirm- und Mikrofonauswahl sowie ein RTMP-Ziel. Studio 1.0.1 enthält den Szenen-/Quellen-Editor mit gemeinsamem Vorschau-, Programm- und Stream-Renderer sowie der Schutzregie: Ein Hotkey schaltet das Programm auf PAUSE und den lokalen Mikrofon-Mix auf 0 %, beim Aufheben werden beide Werte wiederhergestellt. Für eine echte Live-Ausgabe muss FFmpeg mit libx264, AAC und RTMP-Unterstützung auf dem Computer installiert sein; der Encoder ist noch nicht Teil der Installer.</p>
         </div>
         <div class="notice"><strong>Kein Live-Nachweis:</strong> Eine erfolgreiche RTMP-Verbindung ersetzt keine Anmeldung bei TikTok, YouTube, Twitch oder einem anderen Dienst. Ein Encoder-Start beweist nicht, dass ein Dienst den Stream empfangen oder veröffentlicht hat. Offizielle Plattform-Anmeldungen und TikTok-Geschenke bleiben von einer Freigabe durch TikTok abhängig.</div>
         <div class="notice"><strong>Grenze der Schutzregie:</strong> Sie stoppt weder den Encoder noch eine laufende Aufnahme und garantiert keine Plattform-Privatsphäre. Sie schaltet nur die Programmszene und den lokalen Mikrofon-Mix; Plattform- und Aufnahme-Privatsphäre müssen separat geprüft werden.</div>
@@ -271,10 +278,10 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
         <table>
           <thead><tr><th>Bereich</th><th>Stand</th><th>Beleg / offene Grenze</th></tr></thead>
           <tbody>
-            <tr><td>Studio-Installer</td><td>Gebaut und veröffentlicht</td><td>Build 2026-11-02; Erststart und Funktionen auf Zielgeräten nicht vollständig geprüft.</td></tr>
-            <tr><td>Schutzregie / Privacy Shield</td><td>Im Quellcode · Engine getestet</td><td>Programm auf PAUSE und lokaler Mikrofon-Mix auf 0 % per Hotkey, inklusive Wiederherstellung. Stoppt keinen Encoder und garantiert keine Plattform-Privatsphäre; noch nicht in den Installern vom 2.11.</td></tr>
+            <tr><td>Studio-Installer</td><td>Version 1.0.1 gebaut und veröffentlicht</td><td>Windows x64/ARM64 und Linux x64/ARM64 mit SHA256SUMS.txt. Linux-x64-DEB heruntergeladen, Prüfsumme geprüft und Schutzregie im Paket nachgewiesen; Erststart auf echter Hardware weiter offen.</td></tr>
+            <tr><td>Schutzregie / Privacy Shield</td><td>In Installern und PWA · Engine getestet</td><td>Programm auf PAUSE und lokaler Mikrofon-Mix auf 0 % per Hotkey, inklusive exakter Wiederherstellung. Stoppt keinen Encoder und garantiert keine Plattform-Privatsphäre.</td></tr>
             <tr><td>Quellcode-Snapshot</td><td>Sieben Teile mit SHA-256</td><td>Quellpaket, kein Installer; Größe und Prüfsummen werden vor dem Speichern geprüft.</td></tr>
-            <tr><td>Web-Regie / PWA</td><td>Vorbereitet</td><td>Kein APK/App-Store-Paket; Kamera-, Mikrofon-, GPU- und Live-Verhalten nicht auf jedem Gerät verifiziert.</td></tr>
+            <tr><td>Web-Regie / PWA</td><td>Neu gebaut · Schutzregie enthalten</td><td>Lokale Szenen-/TAKE-Demo ohne Desktop-Core; Kamera-, Mikrofon-, GPU- und Live-Verhalten nicht auf jedem Gerät verifiziert. Kein APK/App-Store-Paket.</td></tr>
             <tr><td>Spiel-Prototypen</td><td>Fünf checksumierte ZIPs</td><td>Automatisierte Quelltests vorhanden; menschliche Spielbarkeit, Barrierefreiheit, Rechte und Zielgeräte offen.</td></tr>
             <tr><td>Forum / Konto</td><td>Lokal verifiziert</td><td>Öffentliches Lesen, sitzungsgebundenes Schreiben, Rate-Limits und Moderation; kein öffentlicher Community-Rollout.</td></tr>
             <tr><td>KI-Spezialisten</td><td>Rollen, Queue und Cloudflare-Inferenz verifiziert</td><td>11 Rollen und die Task-Queue sind lokal getestet; der deployte Cloudflare-Worker beantwortete am 3.11.2026 eine Mini-Inferenz. Lokale Ollama-Inferenz bleibt auf dieser Maschine nicht verfügbar.</td></tr>

@@ -521,6 +521,7 @@ function log(message){
 }
 function sceneById(id){return sceneState?.scenes.find(scene=>scene.id===id)||null;}
 const builtInSceneNames={"starting-soon":"STARTING SOON",live:"LIVE",pause:"PAUSE",ending:"ENDING",gameplay:"GAMEPLAY","just-chatting":"JUST CHATTING"};
+const builtInSceneIds=Object.fromEntries(Object.entries(builtInSceneNames).map(([id,name])=>[name,id]));
 function sceneName(id){return sceneById(id)?.name||builtInSceneNames[id]||"STARTING SOON";}
 function applySceneState(state){
  if(!state?.scenes?.length)return;
@@ -569,6 +570,12 @@ async function sceneCommand(payload){
    $("programName").textContent=sceneName(target);
    return {programSceneId,previewSceneId,scenes:sceneState?.scenes||[]};
   }
+  if(payload?.action==="take"){
+   programSceneId=previewSceneId||programSceneId;
+   $("programName").textContent=sceneName(programSceneId);
+   log("Demo ohne Desktop-Core: Programm lokal auf "+sceneName(programSceneId)+" umgeschaltet. Keine Live-Ausgabe.");
+   return {programSceneId,previewSceneId,scenes:sceneState?.scenes||[]};
+  }
   return null;
  }
  const result=await window.streamiovStudio.sceneAction(payload);
@@ -581,7 +588,18 @@ async function sceneCommand(payload){
 }
 async function selectScene(idOrName){
  const scene=sceneById(idOrName)||sceneState?.scenes.find(item=>item.name===idOrName);
- if(!scene)return;
+ if(!scene){
+  // Browser/PWA demo: the built-in scene buttons remain usable without Core.
+  if(window.streamiovStudio?.sceneAction)return;
+  const id=builtInSceneIds[idOrName]||idOrName;
+  if(!builtInSceneNames[id])return;
+  previewSceneId=id;
+  selected=builtInSceneNames[id];
+  $("previewName").textContent=selected;
+  document.querySelectorAll(".scene").forEach(button=>button.classList.toggle("active",button.dataset.scene===selected));
+  log("Demo ohne Desktop-Core: Vorschau lokal auf "+selected+" gewählt. TAKE schaltet nur die lokale Demo.");
+  return;
+ }
  selected=scene.name;
  $("previewName").textContent=scene.name;
  document.querySelectorAll(".scene").forEach(button=>button.classList.toggle("active",button.dataset.sceneId===scene.id));
@@ -1727,6 +1745,11 @@ document.querySelectorAll("[data-tool]").forEach(b=>b.onclick=()=>openTool(b.dat
 async function initSceneUi(){
  try{await loadScenes();}
  catch(error){log("Szenen konnten nicht geladen werden: "+String(error.message||error));}
+ if(!window.streamiovStudio?.sceneAction){
+  document.querySelectorAll("#scenes .scene").forEach(button=>{
+   button.addEventListener("click",()=>selectScene(button.dataset.scene));
+  });
+ }
  hydratePrivacyShield();
 }
 initSceneUi();

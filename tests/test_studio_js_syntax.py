@@ -84,28 +84,34 @@ class HomepageDownloadPageTests(unittest.TestCase):
         self.assertEqual(len(names), 7)
         self.assertEqual(len(sizes), 7)
         self.assertEqual(len(hashes), 7)
-        self.assertEqual(sum(sizes), 876770)
         if not (DOWNLOADS / names[0]).is_file():
             self.skipTest("download parts are release artifacts and are not part of the source tree")
 
         assembled = b""
+        actual_sizes = []
         for name, size, expected_hash in zip(names, sizes, hashes):
             with self.subTest(part=name):
                 path = DOWNLOADS / name
                 self.assertTrue(path.is_file(), f"missing download part: {name}")
                 payload = path.read_bytes()
+                actual_sizes.append(len(payload))
                 self.assertEqual(len(payload), size)
                 self.assertEqual(hashlib.sha256(payload).hexdigest(), expected_hash)
                 assembled += payload
+        self.assertEqual(sizes, actual_sizes, "combine.js sizes must match the published parts")
 
-        self.assertEqual(
-            hashlib.sha256(assembled).hexdigest(),
-            "41ac99ddf344c3c851bbebe824512854784689242662b0b34c237bf464702066",
+        checksums = (DOWNLOADS / "SHA256SUMS.txt").read_text(encoding="utf-8")
+        expected_archive = re.search(
+            r"^# assembled archive: ([0-9a-f]{64})", checksums, flags=re.M
         )
+        self.assertIsNotNone(expected_archive)
+        self.assertEqual(hashlib.sha256(assembled).hexdigest(), expected_archive.group(1))
+        self.assertIn(f'"{expected_archive.group(1)}"', script)
         with zipfile.ZipFile(io.BytesIO(assembled)) as archive:
             names_in_zip = set(archive.namelist())
         self.assertIn("dist/streamiov-studio-app/regie-v2.html", names_in_zip)
         self.assertIn("dist/streamiov-studio-app/main.js", names_in_zip)
+        self.assertIn("scripts/build-source-snapshot.py", names_in_zip)
         self.assertFalse(any("/release/" in name for name in names_in_zip))
         self.assertFalse(any(name.endswith(".env") for name in names_in_zip))
 
@@ -118,12 +124,53 @@ class HomepageDownloadPageTests(unittest.TestCase):
 
     def test_download_page_documents_the_source_snapshot_and_checksums(self):
         html = (HOMEPAGE / "index.html").read_text(encoding="utf-8")
+        checksums = (DOWNLOADS / "SHA256SUMS.txt").read_text(encoding="utf-8")
+        sizes = [int(value) for value in re.findall(r"size: (\d+)", (HOMEPAGE / "combine.js").read_text(encoding="utf-8"))]
+        archive_hash = re.search(r"^# assembled archive: ([0-9a-f]{64})", checksums, flags=re.M)
+        self.assertIsNotNone(archive_hash)
+        total = f"{sum(sizes):,}".replace(",", ".")
         self.assertIn("Quellcode-Snapshot", html)
         self.assertIn("kein Installer", html)
-        self.assertIn("876.770 Bytes", html)
-        self.assertIn("41ac99ddf344c3c851bbebe824512854784689242662b0b34c237bf464702066", html)
+        self.assertIn(f"{total} Bytes", html)
+        self.assertIn(archive_hash.group(1), html)
         self.assertIn('href="/downloads/SHA256SUMS.txt"', html)
-        self.assertIn("noch nicht in den Installern vom 2.11.", html)
+        self.assertIn("inzwischen zusätzlich in Studio 1.0.1 enthalten", html)
+
+    def test_promo_page_uses_real_media_and_states_the_limits(self):
+        public = ROOT / "dist" / "streamiov-homepage-worker" / "public"
+        html = (public / "promo" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("StreamioV Studio 1.0.1", html)
+        self.assertIn("Ctrl+Shift+P", html)
+        self.assertIn("stoppt weder den Encoder noch eine laufende Aufnahme", html)
+        self.assertIn("keine Plattform-Privatsphäre", html)
+        self.assertIn("regie-schutzregie-demo.webm", html)
+        self.assertIn("data-copy", html)
+        for asset in (
+            "homepage-desktop.png",
+            "download-hub.png",
+            "regie-live.png",
+            "regie-shield-desktop.png",
+            "regie-shield-mobile.png",
+            "regie-schutzregie-demo.webm",
+        ):
+            with self.subTest(asset=asset):
+                path = public / "promo" / "media" / asset
+                self.assertTrue(path.is_file(), f"missing real promo asset: {asset}")
+                self.assertGreater(path.stat().st_size, 10_000)
+
+    def test_source_snapshot_builder_is_reproducible_and_excludes_private_artifacts(self):
+        script = (ROOT / "scripts" / "build-source-snapshot.py").read_text(encoding="utf-8")
+        self.assertIn('["git", "ls-files", "-z"]', script)
+        self.assertIn("PART_COUNT = 7", script)
+        for excluded in ("data/db/", "promo/media/", "release/", ".env", ".wrangler"):
+            self.assertIn(excluded, script)
+        self.assertIn("def update_download_combiner", script)
+        self.assertIn("def update_download_page", script)
+        self.assertIn("SHA256SUMS.txt", script)
+        # Fixed zip timestamps make repeated builds byte-identical.
+        self.assertIn("ZIP_TIMESTAMP", script)
+        self.assertIn("zipfile.ZipInfo", script)
+        self.assertIn('"dist/streamiov-homepage-worker/public/download/"', script)
 
 if __name__ == "__main__":
     unittest.main()

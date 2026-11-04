@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080b12">
+<meta name="description" content="StreamioV Studio 1.0.1: kostenlose Regie mit Schutzregie, Szenen, PWA und ehrlichen Grenzen. Screenshots, Demo-Clip und alle Downloads.">
+<title>StreamioV Studio 1.0.1 – Dein Stream. Deine Schutzregie.</title>
+<style>
+  :root{color-scheme:dark;--bg:#080b12;--panel:#0e1421;--panel2:#101a2b;--text:#f4f7ff;--muted:#aebbd0;--line:#243147;--cyan:#42e8ff;--mint:#74ffd1;--violet:#9b86ff;--amber:#ffc56e;--red:#ff6b83;--max:1160px}
+  *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:86px}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 Inter,"Avenir Next","Segoe UI",Arial,sans-serif}
+  a{color:var(--cyan)}a:focus-visible,button:focus-visible{outline:3px solid var(--mint);outline-offset:4px}
+  .wrap{width:min(var(--max),calc(100% - 40px));margin-inline:auto}
+  .topbar{position:sticky;top:0;z-index:20;border-bottom:1px solid #253044cc;background:#080b12ef;backdrop-filter:blur(16px)}
+  .nav{min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+  .brand{display:flex;align-items:center;flex:none}.brand img{display:block;width:176px;height:auto}
+  .links{display:flex;align-items:center;justify-content:flex-end;gap:20px;flex-wrap:wrap}.links a{text-decoration:none;color:#ced7e7;font-size:14px;font-weight:650}.links a:hover{color:var(--cyan)}
+  .links .nav-cta{padding:8px 14px;border:1px solid #42e8ff77;border-radius:999px;color:var(--cyan)}
+  .hero{position:relative;isolation:isolate;overflow:hidden;padding:78px 0 54px;background:radial-gradient(ellipse 50% 75% at 82% 8%,#442c812e,transparent 72%),radial-gradient(ellipse 46% 70% at 8% 100%,#20c4d118,transparent 74%)}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;padding:7px 12px;border:1px solid #3d5470;border-radius:999px;color:#a7edff;background:#0c1421;font-size:12px;font-weight:750;letter-spacing:.1em;text-transform:uppercase}
+  .eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 12px var(--mint)}
+  h1,h2,h3,p{margin-top:0}h1{margin:20px 0 16px;font-size:clamp(40px,6.4vw,72px);line-height:1;letter-spacing:-.06em}
+  h1 span{color:var(--cyan);text-shadow:0 0 38px #42e8ff22}.lead{max-width:720px;color:#bcc8d9;font-size:clamp(17px,2vw,20px)}
+  .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}.btn{display:inline-flex;min-height:48px;align-items:center;justify-content:center;padding:12px 19px;border:1px solid transparent;border-radius:12px;text-decoration:none;font-weight:800;transition:transform .18s,border-color .18s,background .18s}.btn:hover{transform:translateY(-2px)}
+  .btn-main{background:linear-gradient(105deg,var(--cyan),var(--mint));color:#061018;box-shadow:0 10px 32px #42e8ff1e}.btn-secondary{border-color:#394961;background:#0c111c;color:#e4ebf6}
+  .micro{margin:16px 0 0;color:#91a0b6;font-size:13px}
+  section{padding:64px 0;border-top:1px solid #1c2636}.section-head{max-width:780px;margin-bottom:28px}.kicker{margin-bottom:9px;color:var(--cyan);font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}
+  h2{margin-bottom:12px;font-size:clamp(29px,4vw,44px);line-height:1.12;letter-spacing:-.04em}.section-head p,.copy{color:var(--muted);font-size:17px}
+  .showcase{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(240px,.7fr);gap:18px;align-items:start}
+  .shot{margin:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#0a0f18;box-shadow:0 24px 60px #00000040}
+  .shot img,.shot video{display:block;width:100%;height:auto}
+  .shot figcaption{padding:11px 14px;border-top:1px solid var(--line);color:#93a3ba;font-size:12px}
+  .shot-phone{max-width:330px;margin-inline:auto}
+  .demo-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr);gap:20px;align-items:start}
+  .steps{display:grid;gap:12px;margin:0;padding:0;list-style:none;counter-reset:step}
+  .steps li{position:relative;padding:16px 16px 16px 52px;border:1px solid var(--line);border-radius:13px;background:#0c121d;color:#c3cfdf;font-size:14px}
+  .steps li:before{counter-increment:step;content:counter(step);position:absolute;left:15px;top:15px;display:grid;place-items:center;width:25px;height:25px;border:1px solid #42e8ff55;border-radius:50%;color:var(--cyan);font-size:12px;font-weight:850}
+  .steps b{display:block;color:#f0f6ff;font-size:14px}
+  .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.card{padding:24px;border:1px solid var(--line);border-radius:17px;background:linear-gradient(145deg,#111a29,#0c111b 72%)}.card:hover{border-color:#4a6885}
+  .card h3{margin-bottom:8px;font-size:19px}.card p{margin:0;color:#aebbd0;font-size:14px}
+  .tag{display:inline-flex;margin-top:14px;padding:4px 9px;border:1px solid #37455c;border-radius:999px;color:#b8c5da;font-size:11px;font-weight:750;letter-spacing:.04em;text-decoration:none;text-transform:uppercase}
+  .tag-ready{border-color:#327765;color:#8df1ce}.tag-work{border-color:#76603b;color:#ffd28c}.tag-blocked{border-color:#7b4650;color:#ffb2be}
+  .notice{padding:20px 22px;border-left:3px solid var(--amber);border-radius:0 13px 13px 0;background:#14120d;color:#d9d0bd;font-size:14px}.notice strong{color:#ffe3a8}
+  .notice.red{border-left-color:var(--red);background:#180d11;color:#e7c4cb}.notice.red strong{color:#ffc2cd}
+  .downloads{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .dl{padding:20px;border:1px solid var(--line);border-radius:15px;background:#0c121d}
+  .dl h3{margin:0 0 3px;font-size:17px}.dl .meta{display:block;margin-bottom:12px;color:#8798b0;font-size:12px}
+  .dl a{display:inline-flex;margin:5px 6px 0 0;padding:9px 12px;border:1px solid #5b55a0;border-radius:9px;color:#dfe2ff;text-decoration:none;font-size:13px;font-weight:750}.dl a:hover{border-color:var(--cyan);color:var(--cyan)}
+  .dl a.primary{border:0;background:linear-gradient(105deg,var(--cyan),var(--mint));color:#061018;font-weight:850}
+  .social{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .social article{position:relative;padding:20px;border:1px solid var(--line);border-radius:15px;background:#0c121d}
+  .social h3{margin:0 0 9px;font-size:15px;color:#dce8f8}
+  .social pre{margin:0;white-space:pre-wrap;word-break:break-word;color:#b9c8dc;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .copy{margin-top:12px;padding:7px 11px;border:1px solid #42e8ff66;border-radius:8px;background:#0a1620;color:var(--cyan);font-size:12px;font-weight:800;cursor:pointer}.copy:hover{background:#0e2230}
+  table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:10px 12px;border-bottom:1px solid #223046;text-align:left;vertical-align:top}th{color:#cfe0f4;font-size:12px;text-transform:uppercase;letter-spacing:.06em}td{color:#aebbd0}
+  footer{padding:32px 0 46px;border-top:1px solid #1c2636;background:#06080e}.footer-row{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}.footer-brand{display:flex;align-items:center;gap:11px;color:#94a2b7;font-size:13px}.footer-brand img{width:30px;height:30px}footer nav{display:flex;gap:15px;flex-wrap:wrap}footer nav a{color:#aab7ca;text-decoration:none;font-size:13px}
+  @media(max-width:900px){.nav{align-items:flex-start;padding:14px 0;flex-direction:column;gap:12px}.links{justify-content:flex-start;gap:10px 16px}.showcase,.demo-grid{grid-template-columns:1fr}.shot-phone{max-width:380px}.social{grid-template-columns:1fr}}
+  @media(max-width:620px){.wrap{width:min(var(--max),calc(100% - 28px))}.brand img{width:158px}.links a{font-size:13px}.links .nav-cta{padding:7px 11px}.cards,.downloads{grid-template-columns:1fr}section{padding:48px 0}.hero{padding:54px 0 40px}.footer-row{align-items:flex-start;flex-direction:column}}
+  @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap nav">
+      <a class="brand" href="/" aria-label="StreamioV Startseite"><img src="/assets/streamiov-wordmark.svg" alt="StreamioV"></a>
+      <nav class="links" aria-label="Hauptnavigation">
+        <a href="/">Startseite</a><a href="#demo">Demo</a><a href="#downloads">Downloads</a><a href="#social">Social Copy</a><a href="/download/">Download-Hub</a><a href="/forum/">Forum</a><a class="nav-cta" href="/app/">PWA testen</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <span class="eyebrow"><i aria-hidden="true"></i> StreamioV Studio 1.0.1 · kostenlos</span>
+        <h1>Dein Stream.<br><span>Deine Schutzregie.</span></h1>
+        <p class="lead">Ein Hotkey schaltet das Programm auf PAUSE und den lokalen Mikrofon-Mix auf 0 %. Beim Aufheben werden vorherige Szene und exakter Pegel wiederhergestellt. Lokal, kostenlos, ohne Cloud – jetzt in den Installern und in der PWA.</p>
+        <div class="actions">
+          <a class="btn btn-main" href="#downloads">Studio 1.0.1 herunterladen</a>
+          <a class="btn btn-secondary" href="/app/">Schutzregie im Browser testen</a>
+          <a class="btn btn-secondary" href="#demo">Demo ansehen</a>
+        </div>
+        <p class="micro">Echte Aufnahmen aus der laufenden Web-Regie. Kein Abo, keine Werbung, keine erfundenen Screenshots. Externe Grenzen stehen unten.</p>
+      </div>
+    </section>
+
+    <section id="demo">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Schutzregie in Aktion</div>
+          <h2>Erst LIVE, dann ein Tastendruck, dann PAUSE.</h2>
+          <p>Der Clip und die Screenshots stammen aus der echten PWA. Die Demo läuft ohne Desktop-Core; deshalb sind Szenenwechsel und TAKE dort lokal und ausdrücklich als Demo gekennzeichnet.</p>
+        </div>
+        <div class="showcase">
+          <figure class="shot">
+            <video controls muted loop playsinline preload="metadata" poster="/promo/media/regie-shield-desktop.png">
+              <source src="/promo/media/regie-schutzregie-demo.webm" type="video/webm">
+              Dein Browser kann das WebM-Video nicht abspielen. <a href="/promo/media/regie-schutzregie-demo.webm">Demo-Clip herunterladen</a>.
+            </video>
+            <figcaption>Echte Frame-Aufnahme der Web-Regie: LIVE → TAKE → Schutzregie → Wiederherstellung. Die Aufnahme ist bewusst als Clip und nicht als Live-Stream gekennzeichnet.</figcaption>
+          </figure>
+          <figure class="shot shot-phone">
+            <img src="/promo/media/regie-shield-mobile.png" alt="Web-Regie auf einem Smartphone mit aktiver Schutzregie, Programm auf PAUSE und gesperrtem Mikrofonregler" loading="lazy">
+            <figcaption>Schutzregie auf dem Smartphone: Programm PAUSE, Mikrofonregler gesperrt, ehrlicher Hinweis sichtbar.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="demo-grid">
+          <div>
+            <div class="section-head">
+              <div class="kicker">So funktioniert es</div>
+              <h2>Drei Schritte, keine Cloud.</h2>
+              <p>Die Schutzregie ist eine lokale Zustandsmaschine. Sie merkt sich die aktive Programmszene und den Mikrofonpegel, schaltet beides sicher um und stellt exakt diesen Zustand wieder her.</p>
+            </div>
+            <ol class="steps">
+              <li><b>Auslösen</b>Mit <code>Ctrl+Shift+P</code> oder dem Button „SCHUTZREGIE“.</li>
+              <li><b>Sofort schützen</b>Programm wechselt auf die eingebaute PAUSE-Szene, der lokale Mikrofon-Mix geht auf 0 %. TAKE und Mikrofonregler sind gesperrt.</li>
+              <li><b>Sauber zurück</b>Beim Aufheben kehren die vorherige Programmszene und der exakte Mikrofonpegel zurück. Der Zustand überlebt auch einen Neustart.</li>
+            </ol>
+          </div>
+          <aside>
+            <div class="notice red"><strong>Ehrliche Grenze:</strong> Die Schutzregie stoppt weder den Encoder noch eine laufende Aufnahme und garantiert keine Plattform-Privatsphäre. Sie schaltet ausschließlich die Programmszene und den lokalen Mikrofon-Mix. Plattform- und Aufnahme-Privatsphäre müssen separat geprüft werden.</div>
+            <div class="notice" style="margin-top:14px"><strong>Warum das zählt:</strong> Ein Notfall-Hotkey ist nur dann nützlich, wenn er den vorherigen Zustand nicht zerstört. Genau das ist hier lokal und automatisiert getestet – ohne Cloud, Konto oder zusätzliche Kosten.</div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Was in 1.0.1 steckt</div>
+          <h2>Eine Regie, die aufräumt, statt nur zu verstecken.</h2>
+        </div>
+        <div class="cards">
+          <article class="card"><h3>Schutzregie / Privacy Shield</h3><p>Hotkey, PAUSE-Szene, Mikrofon-Mix 0 %, Sperren, exakte Wiederherstellung und lokale Persistenz. In Desktop-App und PWA enthalten.</p><span class="tag tag-ready">In 1.0.1 · 7 Engine-Tests</span></article>
+          <article class="card"><h3>Szenen und Programm</h3><p>Programmszene direkt wechseln, ohne die Vorschau zu verändern. TAKE bleibt gesperrt, solange die Schutzregie aktiv ist.</p><span class="tag tag-ready">Engine getestet</span></article>
+          <article class="card"><h3>Web-Regie / PWA</h3><p>Installierbar auf Handy, Tablet und Chromebook. Die Schutzregie funktioniert dort auch ohne Desktop-Core; Szenen und TAKE bleiben dann klar als lokale Demo markiert.</p><span class="tag tag-ready">Neu gebaut · Shield enthalten</span></article>
+          <article class="card"><h3>Kostenlos und lokal</h3><p>Kein Abo, kein bezahlter KI- oder Cloud-Zwang. Die Schutzregie benötigt weder Konto noch Netzwerk und läuft vollständig auf dem Gerät.</p><span class="tag tag-ready">Ohne Zusatzkosten</span></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="downloads">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">StreamioV Studio 1.0.1</div>
+          <h2>Direkt herunterladen.</h2>
+          <p>Alle Dateien liegen im GitHub-Release <a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/tag/studio-v1.0.1">studio-v1.0.1</a>. Die Prüfsummen stehen in <a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.1/SHA256SUMS.txt">SHA256SUMS.txt</a>. ChromeOS/Crostini nutzt die Linux-DEB-Pakete.</p>
+        </div>
+        <div class="downloads">
+          <article class="dl"><h3>Windows x64</h3><span class="meta">NSIS-Installer · 1.0.1 · ca. 120 MB</span><a class="primary" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.1/Streamiov.Studio.Setup.1.0.1-x64.exe">Installer herunterladen</a></article>
+          <article class="dl"><h3>Windows ARM64</h3><span class="meta">NSIS-Installer · 1.0.1 · ca. 115 MB</span><a class="primary" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.1/Streamiov.Studio.Setup.1.0.1-arm64.exe">Installer herunterladen</a></article>
+          <article class="dl"><h3>Linux x64</h3><span class="meta">AppImage oder DEB · 1.0.1</span><a class="primary" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.1/Streamiov.Studio-1.0.1-x64.AppImage">AppImage</a><a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.1/streamiov-studio_1.0.1_amd64.deb">DEB</a></article>
+          <article class="dl"><h3>Linux ARM64</h3><span class="meta">AppImage oder DEB · 1.0.1</span><a class="primary" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.1/Streamiov.Studio-1.0.1-arm64.AppImage">AppImage</a><a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.1/streamiov-studio_1.0.1_arm64.deb">DEB</a></article>
+        </div>
+        <div class="notice" style="margin-top:18px"><strong>Gerätetest offen:</strong> Die Pakete sind gebaut, veröffentlicht und mindestens als Linux-x64-DEB auf Inhalt und Prüfsumme geprüft. Ein vollständiger Erststart- und Funktionstest auf echter Windows-, Linux-, Chromebook- und ARM-Hardware steht weiterhin aus.</div>
+      </div>
+    </section>
+
+    <section id="social">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Promo zum Kopieren</div>
+          <h2>Fertige Texte – ohne erfundene Versprechen.</h2>
+          <p>Die Texte nennen bewusst die ehrliche Grenze der Schutzregie. So bleibt die Promo wahr, auch wenn jemand den Encoder oder die Plattform-Privatsphäre separat prüft.</p>
+        </div>
+        <div class="social">
+          <article><h3>X / Twitter</h3><pre id="copy-x">StreamioV Studio 1.0.1 ist da – kostenlos, ohne Abo.
+
+Schutzregie: Ctrl+Shift+P → Programm auf PAUSE, lokaler Mikrofon-Mix auf 0 %. Beim Aufheben wird beides exakt wiederhergestellt.
+
+Lokal, ohne Cloud. Download und ehrliche Grenzen:
+https://streamiov.pages.dev/promo/
+
+#StreamioV #Streaming #CreatorTools</pre><button class="copy" data-copy="copy-x" type="button">Text kopieren</button></article>
+          <article><h3>Instagram / TikTok</h3><pre id="copy-short">Ein Hotkey für den unerwarteten Moment:
+Ctrl+Shift+P schaltet dein Programm auf PAUSE und dein Mikrofon auf 0 %.
+Beim Aufheben ist alles wieder da – Szene und Pegel.
+
+Kostenlos, lokal, ohne Cloud.
+StreamioV Studio 1.0.1 → streamiov.pages.dev/promo/
+
+#StreamioV #Streamer #ContentCreator #StreamingSetup</pre><button class="copy" data-copy="copy-short" type="button">Text kopieren</button></article>
+          <article><h3>YouTube-Beschreibung</h3><pre id="copy-youtube">StreamioV Studio 1.0.1 – kostenlose Regie mit Schutzregie
+
+In diesem kurzen Demo-Clip seht ihr die Schutzregie in der Web-Regie:
+1. Szene LIVE und TAKE.
+2. Ctrl+Shift+P: Programm auf PAUSE, lokaler Mikrofon-Mix auf 0 %.
+3. Schutzregie aufheben: vorherige Szene und exakter Mikrofonpegel sind zurück.
+
+Wichtig: Die Schutzregie stoppt weder den Encoder noch eine laufende Aufnahme und garantiert keine Plattform-Privatsphäre. Sie schaltet die Programmszene und den lokalen Mikrofon-Mix.
+
+Download: https://streamiov.pages.dev/download/
+PWA: https://streamiov.pages.dev/app/
+Projektstand: https://streamiov.pages.dev/promo/#status</pre><button class="copy" data-copy="copy-youtube" type="button">Text kopieren</button></article>
+          <article><h3>Kurzer Community-Post</h3><pre id="copy-forum">Ich habe StreamioV Studio 1.0.1 gebaut: eine kostenlose Regie mit Szenen, PWA und einer Schutzregie.
+
+Die Idee: Wenn spontan etwas passiert, drückt man Ctrl+Shift+P. Das Programm geht auf PAUSE, das lokale Mikrofon auf 0 %. Danach kommt exakt der vorherige Zustand zurück.
+
+Das ist kein Encoder-Stopp und keine Plattform-Garantie – nur Programmszene und lokaler Mikrofon-Mix. Aber genau dieser Teil ist lokal getestet und ohne Cloud nutzbar.
+
+Feedback und Grenzen: https://streamiov.pages.dev/promo/</pre><button class="copy" data-copy="copy-forum" type="button">Text kopieren</button></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="status">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Prüfstatus</div>
+          <h2>Was belegt ist – und was nicht.</h2>
+          <p>Ein grüner Build oder ein Screenshot ist kein Nachweis für echte Hardware, einen Livestream oder eine Plattformfreigabe.</p>
+        </div>
+        <table>
+          <thead><tr><th>Bereich</th><th>Stand</th><th>Beleg / offene Grenze</th></tr></thead>
+          <tbody>
+            <tr><td>Studio 1.0.1</td><td>Gebaut und veröffentlicht</td><td>Release <code>studio-v1.0.1</code> mit Windows x64/ARM64, Linux x64/ARM64, SHA256SUMS.txt. Linux-x64-DEB heruntergeladen, Prüfsumme geprüft, Schutzregie im Paket nachgewiesen.</td></tr>
+            <tr><td>Schutzregie</td><td>In Installern und PWA</td><td>7 Engine-Tests, Python-Regressionstests und echte PWA-Demo mit LIVE → PAUSE → Wiederherstellung. Stoppt keinen Encoder und garantiert keine Plattform-Privatsphäre.</td></tr>
+            <tr><td>PWA</td><td>Neu gebaut</td><td>Enthält das Schutzregie-Modul und lokale Szenen-/TAKE-Demo ohne Core. Kamera-, Mikrofon-, GPU- und Live-Verhalten sind nicht auf jedem Gerät geprüft.</td></tr>
+            <tr><td>Quellcode-Snapshot</td><td>Sieben Teile mit SHA-256</td><td>Quellpaket, kein Installer. Enthält keine Zugangsdaten, keine Produktionsdatenbank und keine gebauten Installer.</td></tr>
+            <tr><td>Geräte</td><td>Extern offen</td><td>Erststart und Funktion auf echter Windows-, Linux-, Chromebook- und ARM-Hardware sind nicht vollständig geprüft.</td></tr>
+            <tr><td>Livestream</td><td>Extern blockiert</td><td>Ein real von einem Dienst empfangener und veröffentlichter Stream ist nicht nachgewiesen. FFmpeg mit libx264, AAC und RTMP/RTMPS wird separat benötigt.</td></tr>
+            <tr><td>TikTok</td><td>Extern blockiert</td><td>App-Review, genehmigte Scopes und offizielle Geschenk-Funktionen fehlen; keine Freigabe wird behauptet.</td></tr>
+            <tr><td>Signierung / Domain / Recht</td><td>Extern offen</td><td>Code-Signierung, Notarisierung, eigene Domain und vollständige Rechtsprüfung stehen aus.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-row">
+      <div class="footer-brand"><img src="/assets/streamiov-symbol.svg" alt=""><span>StreamioV · kostenlos für Creator</span></div>
+      <nav aria-label="Rechtliches und Informationen"><a href="/">Startseite</a><a href="/download/">Downloads</a><a href="/app/">PWA</a><a href="/forum/">Community</a><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a></nav>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelectorAll('[data-copy]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const source = document.getElementById(button.dataset.copy);
+        if (!source) return;
+        const text = source.textContent;
+        try {
+          await navigator.clipboard.writeText(text);
+          button.textContent = 'Kopiert ✓';
+        } catch (_) {
+          const range = document.createRange();
+          range.selectNodeContents(source);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          button.textContent = 'Text ausgewählt – bitte kopieren';
+        }
+        setTimeout(() => { button.textContent = 'Text kopieren'; }, 2200);
+      });
+    });
+  </script>
+</body>
+</html>

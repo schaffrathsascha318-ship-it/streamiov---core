@@ -11,11 +11,11 @@
 | Community forum | `tests/test_forum.py`: public read, session-gated same-origin writes, validation, per-IP rate limits, replies, locking, soft deletes, moderation CLI |
 | Raw-data catalog | `tests/test_data_store.py`, `tests/test_streamiov_host.py`: 18 gifts, 2 games, 3 actions, 1 playlist, 5 templates seeded into a separate read-only SQLite catalog; legacy `data/db` databases untouched |
 | Studio source | `tests/test_studio_scene_ui.py`, `tests/test_studio_js_syntax.py`: Electron entry points, inline scripts, scene model, UI wiring |
-| Schutzregie / Privacy Shield | `engine/privacy-shield.js` and `engine/privacy-shield.test.js`; hotkey switches the program scene to PAUSE and the local mic mix to 0 %, restores both on exit, persists its own restore state, and states that the encoder, recording, and platform privacy are not stopped |
+| Schutzregie / Privacy Shield | `engine/privacy-shield.js` and `engine/privacy-shield.test.js`; hotkey switches the program scene to PAUSE and the local mic mix to 0 %, restores both on exit, persists its own restore state, and states that the encoder, recording, and platform privacy are not stopped. Included in the published Studio 1.0.1 installers and in the Web-Regie/PWA. |
 | Scene renderer | Preview, program, and stream output all call `drawSceneToCanvas`; source layout persists in scene v2 |
 | Local tools | Chat, TTS, gifts, alerts, music, games list, AI login/submit, and diagnostics are wired; gift/game/music panels load the host's read-only raw-data catalog; local-only boundaries are stated in the UI |
-| Download hub | `tests/test_streamiov_host.py`: every local download link resolves; source parts and five game-prototype ZIPs match their SHA-256 files |
-| Homepage | `tests/test_streamiov_host.py`: every local homepage link resolves; downloads, forum, account, and honest AI/game/music status are linked |
+| Download hub | `tests/test_streamiov_host.py`: every local download link resolves; Studio 1.0.1 links, source parts, and five game-prototype ZIPs match their SHA-256 files |
+| Homepage and promo | `tests/test_streamiov_host.py`: every local homepage and promo link resolves; downloads, forum, account, honest AI/game/music status, real screenshots, and the Schutzregie demo are linked |
 | Cloudflare config | `scripts/verify-cloudflare-config.py`, `tests/test_cloudflare_config.py`: assets-only homepage Worker, AI binding, pinned model, bearer auth, deploy script, security headers, and download checksums are consistent offline |
 | AI worker | `node --test tests/test_cloudflare_ai_worker.mjs` (12 tests) |
 | Cloudflare live inference | On 2026-11-03 the already-deployed AI Worker answered a minimal authenticated request with HTTP 200 and `STREAMIOV_AI_OK` using `@cf/zai-org/glm-4.7-flash`; `python -m ai --doctor` exited 0 with the owner env |
@@ -43,11 +43,11 @@ python3 scripts/verify-cloudflare-config.py
 
 ## Built, but not verified on real target hardware
 
-- Windows x64, Linux x64, and Linux ARM64 installers were built on 2026-11-02 and published. Clean-install and first-launch behaviour on each target device is not verified here.
+- Studio 1.0.1 installers for Windows x64/ARM64 and Linux x64/ARM64 were built and published on 2026-11-03. The Linux-x64 DEB was downloaded, its SHA-256 was verified against `SHA256SUMS.txt`, and its `app.asar` was extracted to confirm version 1.0.1 plus `engine/privacy-shield.js`. Clean-install and first-launch behaviour on each target device is still not verified here.
 - The RTMP path requires a separately installed FFmpeg with `libx264`, AAC, and RTMP support. A local encoder start is not proof that a streaming service received or published the broadcast.
 - Camera, screen, and microphone capture use real Chromium media APIs, but this environment cannot prove behaviour on every camera, capture card, or operating system.
-- The 2026-11-03 source snapshot is newer than the published installers. It is source code, not an installer.
-- The Schutzregie / Privacy Shield is local UI state. It switches the program scene to PAUSE and the local microphone mixer to 0 %, then restores both values. It does not stop the encoder or a running recording, and it does not guarantee platform-side privacy. The published installers from 2026-11-02 do not contain it yet.
+- The 2026-11-03 source snapshot is source code, not an installer. It excludes credentials, production databases, built installers, caches, binary download artifacts, and the generated download metadata (parts, checksums, `combine.js`, download page). Archive entries use a fixed timestamp, so the same commit produces byte-identical parts and checksums on any machine.
+- The Schutzregie / Privacy Shield is local UI state. It switches the program scene to PAUSE and the local microphone mixer to 0 %, then restores both values. It does not stop the encoder or a running recording, and it does not guarantee platform-side privacy. It is included in Studio 1.0.1 and the PWA.
 
 ## Externally gated
 
@@ -72,7 +72,7 @@ python3 scripts/verify-cloudflare-config.py
 - The Studio declares no runtime npm dependencies. The unofficial `tiktok-live-connector` package was removed; any TikTok integration must use an officially approved interface.
 - The public community forum is real but local-first. Threads and replies are stored in a separate `forum.sqlite3`; anyone can read, and writes require a host session, an exact same-origin request, JSON bodies, length validation, and per-IP rate limits. Operators can lock, unlock, and soft-delete entries with the host CLI. It does not yet provide abuse reporting, per-user post history, automatic spam detection, email notifications, or a documented data-retention policy.
 - Password recovery by email is not implemented. The operator can create or reset a local account with the host CLI; there is no email delivery service.
-- The source snapshot is a point-in-time copy. Its internal `combine.js` and download page can name the checksums of the immediately preceding archive, because editing them changes the archive that contains them. The live site under `dist/streamiov-homepage-worker/public/download/` is authoritative for the published parts; `tests/test_studio_js_syntax.py` verifies those live files byte-for-byte.
+- The source snapshot is a point-in-time copy. Because a file cannot contain its own archive checksum, the generated download metadata is not part of the archive; the live site under `dist/streamiov-homepage-worker/public/download/` is authoritative for the published parts and hashes. `tests/test_studio_js_syntax.py` verifies the live files byte-for-byte.
 
 ## Publication rule
 

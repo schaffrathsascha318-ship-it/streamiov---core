@@ -53,6 +53,24 @@ class HostStaticPathTests(unittest.TestCase):
                 self.assertIsNotNone(resolve_public_file(DEFAULT_SITE_ROOT, target))
         self.assertTrue(checksums.is_file())
 
+    def test_promo_page_local_links_and_real_media_resolve(self):
+        page = DEFAULT_SITE_ROOT / "promo" / "index.html"
+        markup = page.read_text(encoding="utf-8")
+        targets = [
+            target
+            for target in re.findall(r'(?:href|src|poster)="([^"]+)"', markup)
+            if not target.startswith(("#", "http://", "https://", "mailto:", "tel:", "data:"))
+        ]
+        self.assertTrue(targets)
+        for target in targets:
+            with self.subTest(target=target):
+                self.assertIsNotNone(
+                    resolve_public_file(DEFAULT_SITE_ROOT, target),
+                    f"promo link does not resolve: {target}",
+                )
+        self.assertIn("Ctrl+Shift+P", markup)
+        self.assertIn("stoppt weder den Encoder noch eine laufende Aufnahme", markup)
+
     def test_public_site_serves_no_backup_or_secret_files(self):
         patterns = (".bak", ".save", ".before-", ".orig", ".old", ".tmp", ".log")
         offenders = []

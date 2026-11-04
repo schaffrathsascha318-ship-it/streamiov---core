@@ -23,6 +23,16 @@ Die Schutzregie stoppt **weder den Encoder noch eine laufende Aufnahme** und gar
 
 ChromeOS/Crostini nutzt die Linux-DEB-Pakete. Die Web-Regie steht zusätzlich als PWA unter `https://streamiov.pages.dev/app/` bereit.
 
+## Dauerhaft kostenlos
+
+StreamioV bleibt ein kostenloses Angebot für alle: **keine Abos, keine Pro-Stufen, keine Werbung, keine Verkäufe und keine Zahlungspflicht**. Es gibt keine künstlichen Bezahlschranken und keinen automatischen kostenpflichtigen Fallback. Internet, Strom, Geräte und externe Plattformen haben eigene Bedingungen und können außerhalb StreamioVs Kosten verursachen.
+
+## Promo und Quellcode
+
+- Die Promo-Seite unter `https://streamiov.pages.dev/promo/` zeigt echte Screenshots der laufenden Web-Regie, einen kurzen Clip der Schutzregie und vorbereitete Social-Texte.
+- Der Quellcode-Snapshot wird mit `scripts/build-source-snapshot.py` reproduzierbar aus den Repository-Quellen gebaut, in sieben größen- und SHA-256-geprüfte Teile zerlegt und im Download-Hub verlinkt. Ein erneuter Lauf auf demselben Commit erzeugt byte-identische Teile samt Prüfsummen.
+- Der Snapshot enthält keine Zugangsdaten, Produktionsdatenbanken, Installer, Caches, binären Download-Artefakte oder generierten Download-Metadaten (Teile, Prüfsummen, `combine.js`, Download-Seite).
+
 ## Noch extern blockiert
 
 - Ein real von einem Streamingdienst empfangener und veröffentlichter Livestream ist nicht nachgewiesen.

@@ -258,6 +258,14 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("Der Encoder läuft weiter", self.ui)
         self.assertIn("guaranteesPlatformPrivacy", SHIELD.read_text(encoding="utf-8"))
 
+    def test_browser_demo_keeps_scene_selection_and_take_local_without_core(self):
+        self.assertIn("const builtInSceneIds=Object.fromEntries", self.ui)
+        self.assertIn('if(payload?.action==="take")', self.ui)
+        self.assertIn("Demo ohne Desktop-Core: Programm lokal auf ", self.ui)
+        self.assertIn("Demo ohne Desktop-Core: Vorschau lokal auf ", self.ui)
+        self.assertIn("Keine Live-Ausgabe.", self.ui)
+        self.assertIn('document.querySelectorAll("#scenes .scene").forEach(button=>{', self.ui)
+
     def test_privacy_shield_does_not_persist_the_muted_mixer_as_the_saved_level(self):
         # The shield sets the mic slider directly and only persists its own restore
         # state. It must not call saveMixerSettings with the temporary 0 % value.
