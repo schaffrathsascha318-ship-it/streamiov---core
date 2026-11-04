@@ -29,6 +29,15 @@ The implementation target is **zero additional cash outlay and no required hoste
 - An external destination such as TikTok still requires its own authorized connection. Do not represent this platform connection as owned by StreamioV or bypass its official access rules.
 - If a device lacks an encoder, compatible driver, or enough compute, show the limitation and offer supported local options. Never silently switch to paid cloud encoding.
 
+## Self-built instead of purchased
+
+The rule is to implement free, auditable replacements before considering a purchase:
+
+- **Release integrity:** Ed25519 signatures over the checksum manifests (`scripts/release-signing.mjs`), with a published public key and fingerprint. This costs nothing and needs no certificate authority. It is not a substitute for CA-backed Authenticode/notarisation; that paid option stays optional and is never bought automatically.
+- **Audio proof:** a local RTMP listener plus `ffprobe` analysis (`scripts/stream-audio-check.py`) proves what the encoder actually sends, without a paid relay or test service.
+- **Hardware evidence:** `scripts/collect-hardware-report.py` records OS, CPU, memory, tool versions, commit and installer hashes for each test device.
+- **Streaming, AI and hosting:** core paths stay local or on already-owned hardware; external platforms and paid tiers are never required for the free product.
+
 ## Music research and playback
 
 - The music player can be included in the free Studio, but StreamioV must not host or stream commercial catalogue recordings without documented rights for the exact usage (local playback, live broadcast, and stored replay are separate checks).

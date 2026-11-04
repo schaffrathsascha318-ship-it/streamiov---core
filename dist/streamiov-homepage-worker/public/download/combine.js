@@ -4,43 +4,43 @@
   const parts = [
     {
       name: "streamiov-studio-part-00.bin",
-      size: 86483,
-      sha256: "59e177060d9636a51a7613da0fbc2b79d960da5a53fdbe49ed9290779c3f04c0"
+      size: 86540,
+      sha256: "0ac880e769393db4269986f2ea90ae49e2195d8ed5028b46aff5e323145cf4ab"
     },
     {
       name: "streamiov-studio-part-01.bin",
-      size: 86482,
-      sha256: "37d10eeb56559c30717eccc70ed8a742233c2d85c0502e6a282a29f1d67f8102"
+      size: 86539,
+      sha256: "759c9fbf6c92b45f5c2437875841938db5ce0f96fd0b1ed036c76d1566740579"
     },
     {
       name: "streamiov-studio-part-02.bin",
-      size: 86482,
-      sha256: "5988d2de3985b58f939f8e1690b857382a8958b2d937ecb1f783f547777d93af"
+      size: 86539,
+      sha256: "92da607909cf16720964b557b87fb204f8d9f5ff4ec0c3a776c4e5d1ed5e90d8"
     },
     {
       name: "streamiov-studio-part-03.bin",
-      size: 86482,
-      sha256: "0ab9c905a2b786a95222afe182fdbc6e9ca1cd3606d341a653e5932422851cd9"
+      size: 86539,
+      sha256: "6b4e5e32417fdaec84846079f36cbe60b65815ba7dd5935a983b5d2ba0edadd8"
     },
     {
       name: "streamiov-studio-part-04.bin",
-      size: 86482,
-      sha256: "5baf9cd6464dd6dad4812f2749596d9681824349f6a1890b87704899325ca72b"
+      size: 86539,
+      sha256: "7bf9467f12b72563e66a9a973a65c3c9a1a0c49ce8d914a089341fd965748b94"
     },
     {
       name: "streamiov-studio-part-05.bin",
-      size: 86482,
-      sha256: "f55bbd17ae08d7653b5e3566c7326872700fb2968d5eac21da25d28aa31550f6"
+      size: 86539,
+      sha256: "f760dbcff927b51ea39c4776211b58647d11c98ffadfffef69f2979746586188"
     },
     {
       name: "streamiov-studio-part-06.bin",
-      size: 86482,
-      sha256: "5a17a2d72fa563f5227d7f9ad88c16b1589f26f2902c08fe41a38f9ba01a25e7"
+      size: 86539,
+      sha256: "1cbea7b1602e1741d2e85a2956f5b14dc072ac8cbdddc1af2ddfd0d7b4ef2e22"
     }
   ];
 
   const expectedArchiveSha256 =
-    "a445ea3fc4a50dcf166fe1fc21b38a7bf0c22da8c609311f43b6c2befb5d9772";
+    "94776cba9af77eaff61149c6ceb810a27033de164decd332c1e9868026c4ffae";
   const base = "/downloads/";
   const totalSize = parts.reduce((sum, part) => sum + part.size, 0);
   const isZipSignature = bytes =>
