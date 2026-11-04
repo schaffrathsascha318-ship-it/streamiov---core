@@ -36,15 +36,18 @@ See [`docs/STATUS.md`](docs/STATUS.md) for the full built/verified/blocked matri
 python3 -m unittest discover -s tests -p 'test_*.py'
 node --test tests/test_cloudflare_ai_worker.mjs
 python3 scripts/verify-cloudflare-config.py
+node scripts/release-signing.mjs verify-release
 ```
 
-They cover the local host, accounts, the read-only raw-data catalog, the 11 AI specialist roles and task queue, AI-worker contract, Studio source and inline-script syntax, scene model, UI wiring, download-part sizes and SHA-256 checksums, game-prototype checksums, music rights, game packaging, and agent behaviour. These are automated checks, not real-device or live-platform evidence.
+They cover the local host, accounts, the read-only raw-data catalog, the 11 AI specialist roles and task queue, AI-worker contract, Studio source and inline-script syntax, scene model, UI wiring, download-part sizes and SHA-256 checksums, game-prototype checksums, Ed25519 release signatures, music rights, game packaging, and agent behaviour. These are automated checks, not real-device or live-platform evidence.
+
+For the external checks, use [`docs/operations/external-verification.md`](docs/operations/external-verification.md), `scripts/stream-audio-check.py` (local RTMP audio proof, no purchase needed) and `scripts/collect-hardware-report.py` (per-device evidence report).
 
 Cloudflare and GitHub automation is split into a read-only check workflow (`.github/workflows/cloudflare-checks.yml`) and a manual, owner-approved deployment workflow (`.github/workflows/cloudflare-deploy.yml`). The deployment workflow requires the `production` environment secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the AI Worker additionally needs the Cloudflare secret `STREAMIOV_AI_WORKER_TOKEN` and an enabled Workers AI binding.
 
 The static site is published to the `streamiov` Pages project at `https://streamiov.pages.dev/`. The AI Worker is deployed at `https://streamiov-ai-worker.schaffrathsascha318.workers.dev`; on 2026-11-03 `python -m ai --doctor` exited 0 and a minimal authenticated inference returned `STREAMIOV_AI_OK`. Those credentials live in the owner's local environment, not in this repository.
 
-Still externally gated: TikTok app review/scopes, a real live broadcast received by a streaming service, hardware verification on Windows/Chromebook/Android/iOS, local model inference on a machine with sufficient memory, code signing, public hosting, and legal rights review.
+Still externally gated: TikTok app review/scopes, a real live broadcast received by a streaming service, hardware verification on Windows/Chromebook/Android/iOS, local model inference on a machine with sufficient memory, CA-backed OS code signing (the free Ed25519 release signature is implemented), and legal rights review.
 
 ## Build and launch the desktop app
 

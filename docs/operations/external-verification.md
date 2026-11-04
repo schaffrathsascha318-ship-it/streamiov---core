@@ -84,7 +84,16 @@ Matrix (jeweils Installer-Hash vor der Installation prüfen):
 - Linux x64 (DEB und AppImage) und Linux ARM64 (DEB und AppImage)
 - Chromebook mit Crostini (Linux-DEB)
 
-Pro Gerät:
+Pro Gerät zuerst einen Bericht erzeugen und an diesen Abschnitt anhängen:
+
+```bash
+python3 scripts/collect-hardware-report.py --markdown <installer-datei>
+```
+
+Der Bericht enthält OS/Build, CPU/RAM, Tool-Versionen, FFmpeg-Fähigkeiten,
+Commit und Installer-SHA-256 – ohne Zugangsdaten oder Stream-Keys.
+
+Dann:
 
 1. `SHA256SUMS.txt` prüfen und Installer-Hash vergleichen.
 2. Installieren, starten, Version 1.0.1 anzeigen lassen.
@@ -106,14 +115,26 @@ funktionieren.
 
 Getestet wird die **gesendete** Audiospur, nicht nur der lokale Pegel.
 
-Aufbau ohne Plattform (kostenlos, lokal):
+Aufbau ohne Plattform (kostenlos, lokal) mit dem mitgelieferten Prüfwerkzeug:
 
 ```bash
-# Einfacher lokaler RTMP-Empfänger, zeichnet den gesendeten Stream auf
-ffmpeg -listen 1 -i rtmp://127.0.0.1:1935/live/test -c copy /tmp/stream-test.flv
+# Startet den lokalen RTMP-Empfänger und prüft danach die Aufnahme mit ffprobe
+python3 scripts/stream-audio-check.py
 ```
 
-Danach in Studio `rtmp://127.0.0.1:1935/live/test` als Ziel verwenden.
+Danach in Studio `rtmp://127.0.0.1:1935/live/test` als Ziel verwenden, senden
+und wieder stoppen. Das Skript beendet sich nach dem Stopp und meldet
+`ok: true/false`. Eine vorhandene Aufnahme lässt sich erneut prüfen mit:
+
+```bash
+python3 scripts/stream-audio-check.py --analyze /tmp/stream-test.flv
+```
+
+Alternativ manuell:
+
+```bash
+ffmpeg -listen 1 -i rtmp://127.0.0.1:1935/live/test -c copy /tmp/stream-test.flv
+```
 
 Testmatrix:
 
@@ -138,28 +159,41 @@ fehlt oder der Ton nach einigen Minuten auseinanderläuft.
 Bekannte Grenze: Systemton ist nur verfügbar, wenn das jeweilige Betriebssystem
 ihn bei der Bildschirmfreigabe anbietet.
 
-## 5. Code-Signierung
+## 5. Code-Signierung und Release-Signatur
 
-Ausgangslage: Die NSIS-/AppImage-Builds sind unsigniert; Windows SmartScreen
-und Linux-Paketprüfungen können warnen. macOS wird derzeit nicht gebaut.
+Ausgangslage: Die NSIS-/AppImage-Builds sind nicht mit einem
+Zertifizierungsstellen-Zertifikat signiert; Windows SmartScreen und
+Linux-Paketprüfungen können warnen. macOS wird derzeit nicht gebaut.
 
-Wichtig: Signaturzertifikate kosten Geld. Das widerspricht dem
-Zero-Cost-Grundsatz, solange der Owner nicht ausdrücklich eine kostenpflichtige
-Lösung freigibt. Es darf nichts automatisch gekauft oder abonniert werden.
+**Bereits selbst umgesetzt und kostenlos:** Die Prüfsummen-Dateien werden mit
+einem projekt-eigenen Ed25519-Schlüssel signiert
+(`scripts/release-signing.mjs`). Öffentlicher Schlüssel, Signaturen und
+Fingerabdruck liegen unter `/downloads/`. Das ist eine
+Integritäts-/Herkunftssignatur, **keine** Betriebssystem-Code-Signatur.
 
-Optionen, in dieser Reihenfolge zu entscheiden:
+Prüfen:
 
-1. **Unsigniert bleiben** und stattdessen SHA-256-Prüfsummen, reproduzierbare
-   Builds und eine klare Warnung veröffentlichen (aktueller Stand).
-2. **Kostenlose/open-source-freundliche Signierung** prüfen, falls verfügbar,
-   inklusive Bedingungen und Grenzen.
-3. **Kostenpflichtiges Zertifikat** nur nach ausdrücklicher Owner-Entscheidung
-   (Windows Authenticode bzw. Trusted Signing, Linux-Paketsignatur).
+```bash
+node scripts/release-signing.mjs verify-release
+node scripts/release-signing.mjs fingerprint
+```
 
-Bestanden (falls Option 2/3): Signatur mit `signtool verify /pa` bzw.
-`osslsigncode verify` prüfbar, Zertifikatsinhaber und Zeitstempel korrekt,
-kein Secret im Repository. SmartScreen-Reputation ist damit nicht automatisch
-garantiert und wird separat beobachtet.
+Bestanden (Projekt-Signatur): `verify-release` meldet `ok: true`, der
+Fingerabdruck stimmt mit dem veröffentlichten Wert
+`5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc`
+überein, und nach einer Änderung an einer Datei schlägt die Prüfung fehl.
+
+**Weiterhin offen (OS-Vertrauen):** Damit Windows SmartScreen oder macOS
+Gatekeeper ohne Warnung vertrauen, ist ein Zertifikat einer Zertifizierungsstelle
+nötig. Das kostet Geld und widerspricht dem Zero-Cost-Grundsatz; es wird nichts
+automatisch gekauft. Alternativen sind eine selbst erzeugte, vom Nutzer manuell
+installierte Vertrauensstellung (unüblich und warnungsanfällig) oder das
+Akzeptieren der Warnung zusammen mit veröffentlichten Prüfsummen und
+Signaturen.
+
+Bestanden (falls je ein CA-Zertifikat beschafft wird): `signtool verify /pa`
+bzw. `osslsigncode verify` erfolgreich, Inhaber und Zeitstempel korrekt, kein
+Secret im Repository. SmartScreen-Reputation bleibt davon unabhängig.
 
 ## Was OpenCode dabei übernehmen kann
 

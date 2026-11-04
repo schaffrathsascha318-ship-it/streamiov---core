@@ -67,6 +67,10 @@ dist/streamiov-studio-app/**/diagnose-*.cjs
 /modules/**/*.save
 /modules/**/*.before-*
 
+# Release signing private key — must never be committed
+/release-signing.key
+**/release-signing.key
+
 # Runtime state, private request data and historical deployment logs
 /.testdir/
 /logs/

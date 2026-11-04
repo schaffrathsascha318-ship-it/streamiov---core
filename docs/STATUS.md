@@ -23,6 +23,8 @@
 | AI queue and agent | `tests/test_persistent_task_queue.py`, `tests/test_worker_service.py`, `tests/test_phase1_agent.py`, `tests/test_agent_response_parsing.py`, `tests/test_ai_queue_cli.py` |
 | Music rights | `tests/test_music_library.py`, `tests/test_music_research.py` |
 | Games | `tests/test_game_*.py` package, catalog, preflight, and AI checks; five checksummed prototype ZIPs are published through the download hub |
+| Release signatures | `tests/test_release_signing.py`: Ed25519 key generation, signing, verification, tamper detection and `verify-release` against the published key; the private key stays outside the repository |
+| Acceptance tooling | `tests/test_stream_audio_check.py`, `tests/test_hardware_report.py`: the local RTMP audio check fails cleanly without FFmpeg and verifies AAC/H.264 recordings when it is present; the hardware report hashes tested installers |
 
 Run everything:
 
@@ -30,6 +32,7 @@ Run everything:
 python3 -m unittest discover -s tests -p 'test_*.py'
 node --test tests/test_cloudflare_ai_worker.mjs
 python3 scripts/verify-cloudflare-config.py
+node scripts/release-signing.mjs verify-release
 ```
 
 ## Cloudflare and GitHub deployment state
@@ -61,7 +64,7 @@ a dated record.
 - **Mobile:** a tested Android or iOS build. The unlinked stale APK was removed from the public download directory.
 - **ChromeOS:** install and start behaviour on real Chromebook hardware.
 - **Local model:** local-only inference on a machine with enough memory for the selected model. The current host has about 213 MiB available RAM, which is not enough for the intended model. Cloudflare inference is available and verified separately.
-- **Code signing:** Windows/macOS signing certificates and notarisation.
+- **OS code signing:** CA-backed Windows Authenticode and Apple notarisation. The project-level Ed25519 release signature is implemented and published; it proves integrity/origin but does not create SmartScreen or Gatekeeper trust. A trusted CA certificate costs money and is not purchased automatically.
 - **Custom domain:** a StreamioV-controlled domain with its own DNS and certificate. The public `streamiov.pages.dev` site is reachable, but a custom domain is not configured.
 - **Legal review:** music rights, privacy, and platform terms for a public release.
 

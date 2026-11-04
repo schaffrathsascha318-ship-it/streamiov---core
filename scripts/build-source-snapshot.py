@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -24,6 +25,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DOWNLOADS = ROOT / "dist/streamiov-homepage-worker/public/downloads"
 ARCHIVE_NAME = "streamiov-studio-source-20261103.zip"
 PART_COUNT = 7
+SIGNING_SCRIPT = ROOT / "scripts" / "release-signing.mjs"
+SIGNING_KEY = Path.home() / ".config/streamiov/release-signing.key"
 
 EXCLUDED_PARTS = {
     ".git",
@@ -196,6 +199,32 @@ def update_download_page(part_data: list[dict[str, object]], digest: str) -> Non
     target.write_text(html, encoding="utf-8")
 
 
+def sign_downloads() -> dict[str, object]:
+    """Re-sign the manifests when the owner's private key is available.
+
+    The signature files live outside the archive, so signing after the build
+    does not change the archive hash. Without a key the signatures are removed
+    instead of leaving stale ones behind.
+    """
+    signatures = sorted(DOWNLOADS.glob("SHA256SUMS*.sig"))
+    if not shutil.which("node") or not SIGNING_KEY.is_file():
+        for signature in signatures:
+            signature.unlink()
+        return {
+            "signed": False,
+            "reason": "kein privater Release-Schlüssel vorhanden; Signaturen wurden entfernt",
+        }
+    result = subprocess.run(
+        ["node", str(SIGNING_SCRIPT), "sign-release"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise SystemExit(f"Release-Signatur fehlgeschlagen: {result.stderr.strip()}")
+    return json.loads(result.stdout)
+
+
 def write_checksums(archive: Path, parts: list[Path]) -> dict[str, object]:
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     part_data = part_metadata(parts)
@@ -216,6 +245,7 @@ def write_checksums(archive: Path, parts: list[Path]) -> dict[str, object]:
         "bytes": sum(int(item["bytes"]) for item in part_data),
         "sha256": digest,
         "parts": part_data,
+        "signatures": sign_downloads(),
     }
 
 

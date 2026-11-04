@@ -149,7 +149,20 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
               <li><a href="/downloads/streamiov-studio-part-05.bin">Teil 6 von 7</a></li>
               <li><a href="/downloads/streamiov-studio-part-06.bin">Teil 7 von 7</a></li>
             </ul>
-            <small>Gesamtgröße: 587.533 Bytes. SHA-256 des zusammengefügten ZIPs: <code>a63c21daba46d866642d72f09d6315be22cfde9c0be3d28827f8edb6d780bec9</code>. Prüfsummen aller Teile: <a href="/downloads/SHA256SUMS.txt">SHA256SUMS.txt</a>. Nach dem Zusammenfügen ZIP-Datei vor der Nutzung entpacken und prüfen.</small>
+            <small>Gesamtgröße: 605.375 Bytes. SHA-256 des zusammengefügten ZIPs: <code>a445ea3fc4a50dcf166fe1fc21b38a7bf0c22da8c609311f43b6c2befb5d9772</code>. Prüfsummen aller Teile: <a href="/downloads/SHA256SUMS.txt">SHA256SUMS.txt</a>. Nach dem Zusammenfügen ZIP-Datei vor der Nutzung entpacken und prüfen.</small>
+          </div>
+        </details>
+        <details>
+          <summary>Release-Signatur prüfen (Ed25519, kostenlos, ohne Zertifikatskauf)</summary>
+          <div>
+            <p>Die Prüfsummen-Dateien sind mit einem projekt-eigenen Ed25519-Schlüssel signiert. Das ist <strong>keine</strong> Windows-/macOS-Code-Signatur und ersetzt keine Prüfung durch eine Zertifizierungsstelle; SmartScreen- oder Gatekeeper-Vertrauen wird nicht behauptet. Es beweist, dass die Prüfsummen mit dem veröffentlichten Projektschlüssel übereinstimmen.</p>
+            <ul>
+              <li><a href="/downloads/STREAMIOV-RELEASE-KEY.pub">Öffentlicher Schlüssel</a> · Fingerabdruck <code>5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc</code></li>
+              <li><a href="/downloads/SHA256SUMS.txt.sig">Signatur für SHA256SUMS.txt</a></li>
+              <li><a href="/downloads/SHA256SUMS-games.txt.sig">Signatur für SHA256SUMS-games.txt</a></li>
+            </ul>
+            <pre><code>node scripts/release-signing.mjs verify-release --dir &lt;ordner-mit-den-pruefsummen&gt;</code></pre>
+            <small>Der Fingerabdruck ist der SHA-256 des öffentlichen Schlüssels. Vergleiche ihn über einen zweiten Kanal, bevor du ihm vertraust. Stimmt er nicht, stammt die Datei nicht von dieser Quelle.</small>
           </div>
         </details>
       </div>

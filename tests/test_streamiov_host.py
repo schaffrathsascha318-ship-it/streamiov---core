@@ -98,6 +98,9 @@ class HostStaticPathTests(unittest.TestCase):
         published = {
             "SHA256SUMS.txt",
             "SHA256SUMS-games.txt",
+            "SHA256SUMS.txt.sig",
+            "SHA256SUMS-games.txt.sig",
+            "STREAMIOV-RELEASE-KEY.pub",
             *(f"streamiov-studio-part-{index:02d}.bin" for index in range(7)),
             *game_prototypes,
         }

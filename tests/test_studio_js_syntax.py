@@ -135,6 +135,10 @@ class HomepageDownloadPageTests(unittest.TestCase):
         self.assertIn(archive_hash.group(1), html)
         self.assertIn('href="/downloads/SHA256SUMS.txt"', html)
         self.assertIn("inzwischen zusätzlich in Studio 1.0.1 enthalten", html)
+        self.assertIn("Release-Signatur", html)
+        self.assertIn("/downloads/STREAMIOV-RELEASE-KEY.pub", html)
+        self.assertIn("/downloads/SHA256SUMS.txt.sig", html)
+        self.assertIn("5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc", html)
 
     def test_promo_page_uses_real_media_and_states_the_limits(self):
         public = ROOT / "dist" / "streamiov-homepage-worker" / "public"
@@ -171,6 +175,10 @@ class HomepageDownloadPageTests(unittest.TestCase):
         self.assertIn("ZIP_TIMESTAMP", script)
         self.assertIn("zipfile.ZipInfo", script)
         self.assertIn('"dist/streamiov-homepage-worker/public/download/"', script)
+        # Manifests are re-signed after every build when the owner key exists.
+        self.assertIn("def sign_downloads", script)
+        self.assertIn("sign-release", script)
+        self.assertIn("SIGNING_KEY", script)
 
 if __name__ == "__main__":
     unittest.main()

@@ -23,6 +23,12 @@ Die Schutzregie stoppt **weder den Encoder noch eine laufende Aufnahme** und gar
 
 ChromeOS/Crostini nutzt die Linux-DEB-Pakete. Die Web-Regie steht zusätzlich als PWA unter `https://streamiov.pages.dev/app/` bereit.
 
+## Release-Signatur ohne Zertifikatskauf
+
+- Die Prüfsummen (`SHA256SUMS.txt`, `SHA256SUMS-games.txt`) sind mit einem projekt-eigenen Ed25519-Schlüssel signiert. Öffentlicher Schlüssel, Signaturdateien und Fingerabdruck liegen im Download-Bereich.
+- Prüfen mit `node scripts/release-signing.mjs verify-release`; nach jeder Änderung an einer Datei schlägt die Prüfung fehl.
+- Das ist eine Integritäts- und Herkunftssignatur, **keine** Windows-/macOS-Code-Signatur. SmartScreen-/Gatekeeper-Vertrauen bräuchte ein kostenpflichtiges Zertifikat einer Zertifizierungsstelle und wird nicht behauptet oder automatisch gekauft.
+
 ## Dauerhaft kostenlos
 
 StreamioV bleibt ein kostenloses Angebot für alle: **keine Abos, keine Pro-Stufen, keine Werbung, keine Verkäufe und keine Zahlungspflicht**. Es gibt keine künstlichen Bezahlschranken und keinen automatischen kostenpflichtigen Fallback. Internet, Strom, Geräte und externe Plattformen haben eigene Bedingungen und können außerhalb StreamioVs Kosten verursachen.
