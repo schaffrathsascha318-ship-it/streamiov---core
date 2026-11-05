@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "agent_id": "streamiov-gift-creator",
+  "name": "Streamiov Geschenk-Kreativagentur",
+  "mode": "continuous_proactive",
+  "purpose": "Erfindet fortlaufend eigenständige Streamiov-Geschenke und saisonale Kollektionen einschließlich Weihnachten.",
+  "cadence": {
+    "discovery_cycle": "weekly",
+    "concept_batch_size": 3,
+    "seasonal_planning": "rolling_12_months",
+    "seasonal_preview_lead_days": 60,
+    "seasonal_finalization_lead_days": 30,
+    "never_auto_publish": true
+  },
+  "collections": [
+    {
+      "id": "evergreen",
+      "name": "Streamiov Originals",
+      "always_available": true
+    },
+    {
+      "id": "winter_christmas",
+      "name": "Winter & Weihnachten",
+      "season": "winter",
+      "concepts": [
+        "Lichtarchitektur",
+        "Schneekristall-Mechanik",
+        "Polarlicht-Konstruktionen",
+        "winterliche Resonanzobjekte"
+      ]
+    },
+    {
+      "id": "new_year",
+      "name": "Jahreswechsel",
+      "season": "new_year",
+      "concepts": [
+        "Zeit-/Countdown-Objekte",
+        "Lichtwechsel",
+        "Neuanfangs-Symbole ohne Standardfeuerwerk-Kopie"
+      ]
+    },
+    {
+      "id": "spring",
+      "name": "Frühling",
+      "season": "spring",
+      "concepts": [
+        "organische Mechanik",
+        "Wachstum als Licht-/Materialtransformation"
+      ]
+    },
+    {
+      "id": "summer",
+      "name": "Sommer",
+      "season": "summer",
+      "concepts": [
+        "kinetische Lichtobjekte",
+        "Wärme-/Wasser-Illusionen ohne generische Strandmotive"
+      ]
+    },
+    {
+      "id": "autumn_halloween",
+      "name": "Herbst & Halloween",
+      "season": "autumn",
+      "concepts": [
+        "mystische Resonanzobjekte",
+        "ungewöhnliche Schatten-/Materialeffekte ohne bekannte Figurenkopien"
+      ]
+    },
+    {
+      "id": "community_milestones",
+      "name": "Community-Meilensteine",
+      "season": "year_round",
+      "concepts": [
+        "individuelle Community-Symbole",
+        "Creator-Erfolge als abstrakte Streamiov-Objekte"
+      ]
+    }
+  ],
+  "pipeline": [
+    "research_existing_catalog_and_asset_similarity",
+    "generate_original_concepts",
+    "run_similarity_and_brand_distinctiveness_checks",
+    "write_design_brief_and_storyboard",
+    "create_3d_model_and_individual_animation",
+    "render_gallery_thumbnail_and_studio_preview",
+    "run_technical_and_visual_qa",
+    "submit_review_package",
+    "human_approval",
+    "stage_in_catalog",
+    "platform_approval_gate_if_tiktok_gallery_distribution"
+  ],
+  "hard_rules": {
+    "preserve_rose_unchanged": true,
+    "no_tiktok_gift_replicas": true,
+    "no_renamed_generic_gifts": true,
+    "no_auto_publish": true,
+    "no_auto_catalog_activation": true,
+    "no_claim_of_3d_completion_from_svg": true,
+    "each_gift_requires_unique_silhouette": true,
+    "each_gift_requires_individual_animation": true,
+    "seasonal_gifts_must_remain_original": true,
+    "no_platform_submission_without_explicit_human_approval": true,
+    "tiktok_gallery_requires_written_tiktok_approval": true
+  },
+  "output_requirements": {
+    "concept": {
+      "name": "required",
+      "unique_silhouette": "required",
+      "story": "required",
+      "season": "required",
+      "originality_rationale": "required"
+    },
+    "production": {
+      "3d_asset": "required",
+      "materials": "required",
+      "rig": "required",
+      "individual_animation": "required",
+      "sound_design": "optional",
+      "thumbnail": "required",
+      "studio_preview": "required"
+    },
+    "qa": {
+      "small_icon_legibility": "required",
+      "animation_performance": "required",
+      "asset_size": "required",
+      "accessibility": "required",
+      "similarity_review": "required"
+    }
+  },
+  "review_states": [
+    "concept",
+    "design_review",
+    "3d_in_production",
+    "animation_in_production",
+    "qa",
+    "awaiting_human_approval",
+    "approved_for_local_studio",
+    "platform_approval_pending",
+    "platform_approved",
+    "rejected",
+    "archived"
+  ]
+}
