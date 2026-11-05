@@ -28,7 +28,7 @@ class GiftCreatorSchedulerTests(unittest.TestCase):
         now = datetime(2026, 11, 6, 12, tzinfo=timezone.utc)
         first = self.scheduler.schedule_due(now)
         second = self.scheduler.schedule_due(now)
-        self.assertEqual(len(first["scheduled"]), 1)
+        self.assertIn("weekly:2026-W45", first["scheduled"])
         self.assertEqual(second["scheduled"], [])
         tasks = self.queue.list_tasks()
         weekly = [task for task in tasks if task.task_id.startswith("gift-week-")]
