@@ -50,6 +50,38 @@ test("refresh, revoke and disconnect",async()=>{
  await oauth.refresh(); assert.equal(store.load().access_token,"a2");
  assert.equal((await oauth.disconnect()).status,"disconnected"); assert.equal(store.load(),null);
 });
+
+test("successful refresh never reuses a rotated-away refresh token",async()=>{
+ let calls=0;
+ const {oauth,store}=fixture({fetch:async(url,options)=>{
+  calls++;
+  if(calls===1)return {ok:true,json:async()=>({access_token:"a1",refresh_token:"r1",expires_in:3600,refresh_expires_in:15552000,scope:"user.info.basic"})};
+  return {ok:true,json:async()=>({access_token:"a2",expires_in:3600,scope:"user.info.basic"})};
+ }});
+ const a=oauth.createAuthorizationUrl(); await oauth.callback({code:"c",state:a.state});
+ const status=await oauth.refresh();
+ assert.equal(store.load().access_token,"a2");
+ assert.equal(store.load().refresh_token,null);
+ assert.equal(status.refreshAvailable,false);
+ await assert.rejects(()=>oauth.refresh(),/refresh_token_unavailable/);
+ assert.equal(calls,2);
+});
+test("concurrent refresh calls share one token-rotation request",async()=>{
+ let calls=0, release;
+ const {oauth}=fixture({fetch:async()=>{
+  calls++;
+  if(calls===1)return {ok:true,json:async()=>({access_token:"a1",refresh_token:"r1",expires_in:3600,scope:"user.info.basic"})};
+  return await new Promise(resolve=>{release=()=>resolve({ok:true,json:async()=>({access_token:"a2",refresh_token:"r2",expires_in:3600,scope:"user.info.basic"})});});
+ }});
+ const a=oauth.createAuthorizationUrl(); await oauth.callback({code:"c",state:a.state});
+ const first=oauth.refresh();
+ const second=oauth.refresh();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(calls,2);
+ release();
+ await Promise.all([first,second]);
+ assert.equal(calls,2);
+});
 test("environment-bound encryption prevents sandbox/production token crossover",()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"st-isolation-")),p=path.join(dir,"same.json");
  const s=new EncryptedTokenStore({filePath:p,encryptionKey:key,environment:"sandbox"}),prod=new EncryptedTokenStore({filePath:p,encryptionKey:key,environment:"production"});

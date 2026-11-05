@@ -47,7 +47,7 @@ class TikTokOAuth {
     this.clientKey = need(o.clientKey || env[prefix+"_CLIENT_KEY"], "client_key");
     this.clientSecret = need(o.clientSecret || env[prefix+"_CLIENT_SECRET"], "client_secret");
     this.redirectUri = validateRedirectUri(o.redirectUri || env[prefix+"_REDIRECT_URI"], this.environment);
-    this.clock = o.clock || Date.now; this.ttl = o.stateTtlMs || 600000; this.pending = new Map();
+    this.clock = o.clock || Date.now; this.ttl = o.stateTtlMs || 600000; this.pending = new Map(); this.refreshInFlight = null;
     this.fetch = o.fetch || globalThis.fetch;
     this.scopes = [BASIC_SCOPE];
     this.store = o.store || new EncryptedTokenStore({filePath:o.tokenFile || env[prefix+"_TOKEN_FILE"] || path.join(process.cwd(),"data","oauth","tiktok-"+this.environment+".json"), encryptionKey:o.encryptionKey || env[prefix+"_TOKEN_ENCRYPTION_KEY"], environment:this.environment});
@@ -82,10 +82,22 @@ class TikTokOAuth {
     return {ok:true,status:"connected",environment:this.environment};
   }
   async refresh() {
-    const old=this.store.load(); if (!old || !old.refresh_token) throw new Error("refresh_token_unavailable");
-    const next=await this.tokenRequest({client_key:this.clientKey,client_secret:this.clientSecret,grant_type:"refresh_token",refresh_token:old.refresh_token});
-    this.store.save(this.normalize({...next,refresh_token:next.refresh_token||old.refresh_token}));
-    return this.status();
+    if (this.refreshInFlight) return this.refreshInFlight;
+    const operation = (async () => {
+      const old=this.store.load(); if (!old || !old.refresh_token) throw new Error("refresh_token_unavailable");
+      const next=await this.tokenRequest({client_key:this.clientKey,client_secret:this.clientSecret,grant_type:"refresh_token",refresh_token:old.refresh_token});
+      // TikTok invalidates the previous refresh token after a successful rotation.
+      // Never fall back to it when the response omits a replacement.
+      const rotatedRefreshToken = typeof next.refresh_token === "string" && next.refresh_token ? next.refresh_token : null;
+      this.store.save(this.normalize({...next,refresh_token:rotatedRefreshToken}));
+      return this.status();
+    })();
+    this.refreshInFlight = operation;
+    try {
+      return await operation;
+    } finally {
+      if (this.refreshInFlight === operation) this.refreshInFlight = null;
+    }
   }
   async disconnect() {
     const t=this.store.load();
