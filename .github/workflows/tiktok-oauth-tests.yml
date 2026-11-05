@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - "core/integration/tiktok-oauth.js"
+      - "core/integration/tiktok-oauth-registry.js"
+      - "tests/tiktok-oauth-registry.test.js"
       - "tests/tiktok-oauth.test.js"
       - "config/platforms/tiktok/oauth.json"
       - "docs/integrations/tiktok-oauth.md"
@@ -37,7 +39,7 @@ jobs:
         with:
           node-version: "22"
       - name: Run sandbox-only OAuth tests
-        run: node --test tests/tiktok-oauth.test.js
+        run: node --test tests/tiktok-oauth.test.js tests/tiktok-oauth-registry.test.js
       - name: Check Electron Studio JavaScript syntax
         run: |
           node --check dist/streamiov-studio-app/main.js
