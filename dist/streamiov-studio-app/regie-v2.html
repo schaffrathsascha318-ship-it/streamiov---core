@@ -332,6 +332,27 @@ dialog p{color:#aeb8d8}
  .bottom{grid-template-columns:1fr}
 }
 
+
+/* Integrated Streamiov Music panel */
+.music-studio{grid-column:1/-1;overflow:hidden}
+.music-layout{display:grid;grid-template-columns:minmax(220px,1fr) minmax(260px,1.2fr) minmax(220px,1fr);gap:16px;align-items:center;padding:16px}
+.music-now{display:flex;align-items:center;gap:13px;min-width:0}
+.music-art{width:66px;height:66px;flex:0 0 66px;display:grid;place-items:center;border:1px solid #3de4f4;border-radius:12px;background:radial-gradient(circle at 50% 40%,#4b2b8a,#111a36 72%);color:#48e8f4;font-size:30px;box-shadow:0 0 22px #22dff233}
+.music-track{display:grid;gap:7px;min-width:0}
+.music-track strong{overflow-wrap:anywhere;font-size:14px}
+.music-track small,.music-scenes small{color:#9fa9cb;font-size:10px;line-height:1.5}
+.music-file-label{display:inline-block;padding:9px 12px;border:1px solid #4d4380;border-radius:8px;background:#171d39;color:#e8e5ff;font-size:12px;cursor:pointer}
+#studioMusicFile{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#studioMusicAudio{display:block;width:100%;height:36px;margin-top:9px;accent-color:var(--cyan)}
+.music-volume{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:8px;color:#c9c9e6;font-size:10px;letter-spacing:.8px}
+.music-volume input{grid-column:1/-1;width:100%;accent-color:var(--cyan)}
+.music-scenes{display:grid;gap:10px}
+.music-scenes>strong{font-size:11px;letter-spacing:1.2px;color:#c7baff}
+.music-scene-chips{display:flex;flex-wrap:wrap;gap:6px}
+.music-scene-chips span{padding:6px 8px;border:1px solid #4a397b;border-radius:20px;background:#17162e;color:#d8d1ff;font-size:10px}
+@media(max-width:850px){.music-layout{grid-template-columns:1fr 1fr}.music-scenes{grid-column:1/-1}}
+@media(max-width:700px){.music-layout{grid-template-columns:1fr}.music-scenes{grid-column:auto}}
+
 </style>
 </head>
 <body>
@@ -561,6 +582,23 @@ dialog p{color:#aeb8d8}
    <div class="pad"><div class="log">Bereit für lokale Regieaktionen.<br>Keine externe Aktion wird ohne Verbindung ausgeführt.</div></div>
   </div>
  </section>
+
+  <section class="panel music-studio" id="studio-music-panel" aria-labelledby="studioMusicTitle">
+   <div class="panel-title" id="studioMusicTitle">♫ STREAMIOV MUSIC · INTEGRIERTER PLAYER</div>
+   <div class="music-layout">
+    <div class="music-now">
+     <div class="music-art">♫</div>
+     <div class="music-track"><strong id="studioMusicTrack">Noch kein Titel geladen</strong><small id="studioMusicStatus">LOKALE MUSIKVORSCHAU · NICHT LIVE AUSGEGEBEN</small></div>
+    </div>
+    <div class="music-player-controls">
+     <label class="music-file-label" for="studioMusicFile">＋ Musikdatei auswählen</label>
+     <input id="studioMusicFile" type="file" accept="audio/*">
+     <audio id="studioMusicAudio" controls preload="none"></audio>
+     <label class="music-volume" for="studioMusicVolume">PLAYER-LAUTSTÄRKE <output id="studioMusicVolumeValue">70 %</output><input id="studioMusicVolume" type="range" min="0" max="100" value="70"></label>
+    </div>
+    <div class="music-scenes"><strong>SZENEN-PLAYLISTS</strong><div class="music-scene-chips"><span>STARTING SOON</span><span>LIVE</span><span>PAUSE</span><span>ENDING</span></div><small>Vorgesehene Szenen-Zuordnung · Automatische Wiedergabe noch nicht angebunden</small></div>
+   </div>
+  </section>
 
   <section class="bottom" id="creator-settings">
    <div class="panel">
@@ -2079,6 +2117,26 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
  refreshTikTokStatus();
 })();
 </script>
+
+
+const studioMusicFile=document.getElementById("studioMusicFile");
+const studioMusicAudio=document.getElementById("studioMusicAudio");
+const studioMusicVolume=document.getElementById("studioMusicVolume");
+if(studioMusicFile&&studioMusicAudio){
+ studioMusicFile.addEventListener("change",()=>{
+  const file=studioMusicFile.files?.[0];if(!file)return;
+  if(studioMusicAudio.dataset.objectUrl)URL.revokeObjectURL(studioMusicAudio.dataset.objectUrl);
+  const url=URL.createObjectURL(file);studioMusicAudio.dataset.objectUrl=url;studioMusicAudio.src=url;
+  document.getElementById("studioMusicTrack").textContent=file.name;
+  document.getElementById("studioMusicStatus").textContent="DATEI GELADEN · LOKALE VORSCHAU";
+  studioMusicAudio.play().catch(()=>{});
+ });
+ studioMusicVolume?.addEventListener("input",()=>{
+  studioMusicAudio.volume=Number(studioMusicVolume.value)/100;
+  document.getElementById("studioMusicVolumeValue").textContent=studioMusicVolume.value+" %";
+ });
+ studioMusicAudio.volume=0.7;
+}
 
 </body>
 </html>
