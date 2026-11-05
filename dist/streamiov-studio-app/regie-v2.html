@@ -417,6 +417,21 @@ dialog p{color:#aeb8d8}
   input[type="range"]{min-height:32px}
 }
 
+
+/* Pre-LIVE setup flow */
+.prelive-setup{grid-column:1/-1;border-color:#4b3d7b;box-shadow:0 0 24px #7c70ff12}
+.prelive-intro{margin:0 0 12px;color:var(--muted);line-height:1.5}
+.prelive-steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.prelive-steps button{min-height:46px;text-align:left;padding:10px 12px}
+.prelive-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:14px}
+.prelive-checks label{display:flex;align-items:center;gap:9px;padding:10px;border:1px solid var(--line);border-radius:9px;color:var(--text);font-size:12px}
+.prelive-checks input{width:18px;height:18px;accent-color:var(--cyan);flex:0 0 auto}
+.prelive-finish{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:14px}
+#preliveFinish{min-height:48px;padding:12px 18px;border-color:var(--cyan);font-weight:800}
+#preliveFinish:disabled{opacity:.45;cursor:not-allowed}
+#preliveStatus{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+@media(max-width:700px){.prelive-steps,.prelive-checks{grid-template-columns:minmax(0,1fr)}.prelive-steps button{min-height:48px}.prelive-finish{align-items:stretch}#preliveFinish{width:100%}}
+
 </style>
 </head>
 <body>
@@ -491,6 +506,32 @@ dialog p{color:#aeb8d8}
 <button id="mobile-regie-toggle" type="button" aria-controls="studio-regie" aria-expanded="true">REGIE / STUDIO AUSBLENDEN</button>
 
 <main id="studio-regie">
+
+ <section class="panel prelive-setup" id="prelive-setup" aria-labelledby="preliveTitle">
+  <div class="panel-title" id="preliveTitle">VORBEREITUNG · DEINE REGIE VOR DEM LIVE-START</div>
+  <div class="pad">
+   <p class="prelive-intro">Richte deinen Stream in Ruhe ein. Nichts startet automatisch – du entscheidest, wann du wirklich LIVE gehst.</p>
+   <div class="prelive-steps">
+    <button type="button" data-setup-target="scenes">① Szenen &amp; Layout einstellen</button>
+    <button type="button" data-setup-target="studio-music-panel">② Musik &amp; Playlists prüfen</button>
+    <button type="button" data-setup-target="creator-settings">③ Stream-, Bild- &amp; Audioeinstellungen</button>
+    <button type="button" data-setup-target="sourceList">④ Quellen, Kamera &amp; Mikrofon einrichten</button>
+    <button type="button" data-setup-target="platformConnectionState">⑤ TikTok-Verbindung kontrollieren</button>
+   </div>
+   <div class="prelive-checks" aria-label="Vorbereitungscheckliste">
+    <label><input type="checkbox" data-prelive-check="scene"> Szenen und Vorschau kontrolliert</label>
+    <label><input type="checkbox" data-prelive-check="audio"> Mikrofon, Ton und Lautstärken geprüft</label>
+    <label><input type="checkbox" data-prelive-check="camera"> Kamera und Bildquellen geprüft</label>
+    <label><input type="checkbox" data-prelive-check="music"> Musik und gewünschte Wiedergabe geprüft</label>
+    <label><input type="checkbox" data-prelive-check="connection"> TikTok-Verbindung und Stream-Einstellungen geprüft</label>
+   </div>
+   <div class="prelive-finish">
+    <button type="button" id="preliveFinish">VORBEREITUNG ABSCHLIESSEN</button>
+    <p id="preliveStatus" role="status" aria-live="polite">Noch nicht bereit – gehe die Einstellungen durch und bestätige deine Checks.</p>
+   </div>
+  </div>
+ </section>
+
 
  <section class="panel">
   <div class="panel-title">SZENEN / PRODUKTION</div>
@@ -2201,6 +2242,42 @@ if(studioMusicFile&&studioMusicAudio){
  });
  studioMusicAudio.volume=0.7;
 }
+
+
+<script>
+(() => {
+ const panel=document.getElementById("prelive-setup");
+ if(!panel)return;
+ const checks=[...panel.querySelectorAll("[data-prelive-check]")];
+ const status=document.getElementById("preliveStatus");
+ const finish=document.getElementById("preliveFinish");
+ panel.querySelectorAll("[data-setup-target]").forEach(button=>{
+  button.addEventListener("click",()=>{
+   const target=document.getElementById(button.dataset.setupTarget);
+   if(!target)return;
+   target.scrollIntoView({behavior:"smooth",block:"start"});
+   if(target.matches("input,select,textarea,button"))target.focus({preventScroll:true});
+  });
+ });
+ const key="streamiov.studio.prelive-checks.v1";
+ try{const saved=JSON.parse(localStorage.getItem(key)||"{}");checks.forEach(c=>c.checked=saved[c.dataset.preliveCheck]===true);}catch(_){}
+ function update(){
+  const values=Object.fromEntries(checks.map(c=>[c.dataset.preliveCheck,c.checked]));
+  try{localStorage.setItem(key,JSON.stringify(values));}catch(_){}
+  const done=checks.filter(c=>c.checked).length;
+  finish.disabled=done!==checks.length;
+  status.textContent=done===checks.length
+   ?"Alle Vorbereitungschecks bestätigt. Du kannst jetzt in der Regie bewusst LIVE gehen, sobald die echte Streaming-Ausgabe verfügbar und verbunden ist."
+   :done+" von "+checks.length+" Punkten bestätigt. Der LIVE-Start bleibt gesperrt, bis du alle Punkte geprüft hast.";
+ }
+ checks.forEach(c=>c.addEventListener("change",update));
+ finish.addEventListener("click",()=>{
+  if(checks.some(c=>!c.checked))return;
+  status.textContent="Vorbereitung abgeschlossen. Es wurde KEIN Stream gestartet. LIVE muss separat und bewusst in der Regie ausgelöst werden.";
+ });
+ update();
+})();
+</script>
 
 </body>
 </html>
