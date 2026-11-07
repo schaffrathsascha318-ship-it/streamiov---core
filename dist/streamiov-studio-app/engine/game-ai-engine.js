@@ -26,7 +26,7 @@ function normalizeObservation(input = {}) {
   const platform = boundedText(input.platform, 80) || 'unbekannt';
   const signals = Array.isArray(input.availableSignals)
     ? [...new Set(input.availableSignals.filter(item =>
-        ['video', 'ocr', 'audio', 'game_api', 'window_title', 'manual'].includes(item)))].slice(0, 6)
+        ['video', 'ocr', 'audio', 'game_api', 'window_title'].includes(item)))].slice(0, 6)
     : [];
   if (!gameTitle) return { ok: false, error: 'Bitte den erkannten oder gespielten Titel angeben.' };
   if (!evidence && signals.length === 0) {
