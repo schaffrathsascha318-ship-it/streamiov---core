@@ -49,6 +49,7 @@ Before enabling the unit, install dependencies, run the project test suite, veri
 - The worker pool executes only tasks already persisted in the queue. It does not yet ingest GitHub issues automatically.
 - No automatic push, pull request, merge, production deployment, OAuth change, credential rotation, payment, or release is implemented.
 - Specialist write scopes are enforced by ProjectTools, but the service account must also be restricted at the operating-system level.
+- Race-safe workspace file operations currently require POSIX `openat`/`O_NOFOLLOW` support. Windows installations fail closed for workspace file access until a handle-relative Windows implementation and Windows CI coverage are added; CLI installation alone does not mean Windows task execution is supported.
 - Task prompts and model output are untrusted. Review diffs and test results before accepting changes.
 - A worker can resume queued tasks after restart; an interrupted running task becomes eligible again only after its lease expires. Idempotency and duplicate side-effect handling still need dedicated tests.
 - Current built-in test execution is limited to the existing Python test command. Node/Electron/platform build adapters remain future work.
