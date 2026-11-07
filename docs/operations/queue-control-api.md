@@ -3,7 +3,7 @@
 The queue-control HTTP API is disabled unless both configuration values are set:
 
 - `STREAMIOV_TASK_QUEUE_DB`: the exact SQLite database path used by `opencode-core --queue-db` for enqueue/worker operations.
-- `STREAMIOV_QUEUE_ADMIN_USER_IDS`: comma-separated internal user IDs explicitly authorized to operate the queue.
+- `STREAMIOV_QUEUE_ADMIN_USER_IDS_FILE`: path to a dedicated file containing one explicitly authorized internal user ID per line (or `STREAMIOV_QUEUE_ADMIN_USER_IDS` for controlled local development).
 
 The API does not infer administrator rights from a username, accept role or actor fields from requests, or grant permissions to device tokens. Requests must use an active `streamiov_session` cookie. The server derives the audit actor from the authenticated account's immutable user ID. Mutating browser requests require an exact same-origin Origin header; the local Electron main process may use the existing loopback-only `X-Streamiov-Client: studio` exception.
 
