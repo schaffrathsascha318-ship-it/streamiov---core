@@ -152,7 +152,15 @@ class AgentError(RuntimeError):
 
 
 class DevelopmentAgent:
-    def __init__(self, provider: ModelProvider, project_root: str | Path, max_steps: int = 12, specialist: str = "code", learning_store=None) -> None:
+    def __init__(
+        self,
+        provider: ModelProvider,
+        project_root: str | Path,
+        max_steps: int = 12,
+        specialist: str = "code",
+        learning_store=None,
+        writable_prefixes: tuple[str, ...] | list[str] | None = None,
+    ) -> None:
         if not 1 <= max_steps <= 30:
             raise ValueError("max_steps must be between 1 and 30")
         definition = get_specialist(specialist)
@@ -160,10 +168,17 @@ class DevelopmentAgent:
         self.specialist = definition.key
         self.learning_store = learning_store
         self.allow_game_checks = definition.key == "game"
+        selected_scopes = definition.writable_prefixes if writable_prefixes is None else tuple(writable_prefixes)
         self.system_prompt = build_specialist_system_prompt(self.specialist, SYSTEM)
+        if writable_prefixes is not None:
+            self.system_prompt += (
+                "\\n\\nWORKSPACE POLICY: The operator explicitly configured these writable "
+                f"workspace directories: {', '.join(selected_scopes)}. The runtime enforces "
+                "these directories and protected-path denials independently."
+            )
         self.tools = ProjectTools(
             project_root,
-            writable_prefixes=definition.writable_prefixes,
+            writable_prefixes=selected_scopes,
             allow_game_checks=self.allow_game_checks,
         )
         self.max_steps = max_steps
