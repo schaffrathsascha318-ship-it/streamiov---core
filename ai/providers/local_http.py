@@ -148,14 +148,37 @@ def _post(url: str, payload: dict) -> dict:
     return data
 
 
+def _provider_from_settings(kind: str, model: str, base_url: str, token: str = ""):
+    if kind == "cloudflare-workers-ai":
+        from .cloudflare_worker import CloudflareWorkersAIProvider, DEFAULT_MODEL
+        return CloudflareWorkersAIProvider(
+            model=model or DEFAULT_MODEL,
+            base_url=base_url,
+            token=token,
+        )
+    if kind == "ollama":
+        return OllamaProvider(model or "qwen2.5-coder:7b", base_url or "http://127.0.0.1:11434")
+    if kind == "openai-compatible-local":
+        return LocalOpenAICompatibleProvider(model or "qwen2.5-coder:7b", base_url or "http://127.0.0.1:8000/v1")
+    raise ProviderError("Unsupported provider. Choose ollama, openai-compatible-local, or cloudflare-workers-ai.")
+
+
 def provider_from_env():
     kind = os.environ.get("STREAMIOV_MODEL_PROVIDER", "ollama").lower()
-    if kind == "cloudflare-workers-ai":
-        from .cloudflare_worker import provider_from_env as cloudflare_provider_from_env
-        return cloudflare_provider_from_env()
-    model = os.environ.get("STREAMIOV_MODEL", "qwen2.5-coder:7b")
-    if kind == "ollama":
-        return OllamaProvider(model, os.environ.get("STREAMIOV_MODEL_URL", "http://127.0.0.1:11434"))
-    if kind == "openai-compatible-local":
-        return LocalOpenAICompatibleProvider(model, os.environ.get("STREAMIOV_MODEL_URL", "http://127.0.0.1:8000/v1"))
-    raise ProviderError("Unsupported provider. Choose ollama, openai-compatible-local, or the authenticated Streamiov Cloudflare Workers AI gateway.")
+    primary = _provider_from_settings(
+        kind,
+        os.environ.get("STREAMIOV_MODEL", ""),
+        os.environ.get("STREAMIOV_MODEL_URL", ""),
+        os.environ.get("STREAMIOV_AI_WORKER_TOKEN", ""),
+    )
+    fallback_kind = os.environ.get("STREAMIOV_FALLBACK_PROVIDER", "").lower()
+    if not fallback_kind:
+        return primary
+    fallback = _provider_from_settings(
+        fallback_kind,
+        os.environ.get("STREAMIOV_FALLBACK_MODEL", ""),
+        os.environ.get("STREAMIOV_FALLBACK_MODEL_URL", ""),
+        os.environ.get("STREAMIOV_FALLBACK_AI_WORKER_TOKEN", ""),
+    )
+    from .router import FallbackModelProvider
+    return FallbackModelProvider(primary, [fallback])
