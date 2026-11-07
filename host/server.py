@@ -170,7 +170,7 @@ class StreamioVHTTPServer(ThreadingHTTPServer):
             admin_ids = os.environ.get("STREAMIOV_QUEUE_ADMIN_USER_IDS", "")
         self.task_queue = SpecialistTaskQueue(queue_db) if queue_db and queue_db != ":memory:" else None
         self.queue_admin_user_ids = frozenset(
-            item.strip() for item in admin_ids.replace("\\n", ",").split(",")
+            item.strip() for item in admin_ids.replace(chr(10), ",").split(",")
             if len(item.strip()) == 32 and all(ch in "0123456789abcdef" for ch in item.strip())
         )
         self.queue_limiter = RequestRateLimiter(limit=30, window_seconds=60)
