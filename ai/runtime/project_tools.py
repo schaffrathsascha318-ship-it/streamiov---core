@@ -49,13 +49,20 @@ class ProjectTools:
             raise ToolError("Path must be a normalized relative path without traversal.")
         if any(part.lower() in DENIED_PARTS or part.lower().startswith(".env") or any(word in part.lower() for word in ("secret", "credential", "access-token", "refresh-token")) for part in rel.parts) or rel.suffix.lower() in DENIED_SUFFIXES:
             raise ToolError("Access to protected paths and secret-like files is denied.")
-        candidate = self.root.joinpath(*rel.parts)
+
+        # Reject symlinks in every existing path component, not only the leaf.
+        # A symlinked parent could otherwise redirect reads or writes outside
+        # the workspace even when the final target itself is not a symlink.
+        candidate = self.root
+        for part in rel.parts:
+            candidate = candidate / part
+            if candidate.is_symlink():
+                raise ToolError("Symlink access is denied.")
+
         anchor = candidate if candidate.exists() else candidate.parent
         resolved_anchor = anchor.resolve()
         if self.root != resolved_anchor and self.root not in resolved_anchor.parents:
             raise ToolError("Path escapes the project workspace.")
-        if candidate.is_symlink():
-            raise ToolError("Symlink access is denied.")
         return candidate
 
     def _writable_target(self, raw: str) -> tuple[Path, str]:
