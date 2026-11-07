@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#080b12">
-  <meta name="description" content="StreamioV – der Einstieg in die kostenlose Creator-Plattform. Verbunden über den StreamioV Core.">
+  <meta name="description" content="StreamioV – der Einstieg in die kostenlose Creator-Plattform. Funktioniert unabhängig vom StreamioV Core.">
   <title>StreamioV – Willkommen auf deiner Bühne</title>
   <style>
     :root{color-scheme:dark;--bg:#080b12;--panel:#101827;--panel2:#0c1421;--line:#26364c;--text:#f3f7ff;--muted:#aab8ce;--cyan:#42e8ff;--mint:#74ffd1;--violet:#9b86ff;--max:1160px}
@@ -33,55 +33,28 @@
     <div>
       <span class="eyebrow"><i class="dot" aria-hidden="true"></i> Von Streamern für Streamer</span>
       <h1>Dein Einstieg.<br><span>Deine Bühne.</span></h1>
-      <p class="lead">Willkommen bei StreamioV. Von hier aus erreichst du unsere bestehende Plattform. Dazwischen verbindet der StreamioV Core die Einstiegsseite mit Konten, Community, Katalogen und den nächsten Plattformdiensten.</p>
+      <p class="lead">Willkommen bei StreamioV. Diese Einstiegsseite funktioniert eigenständig – ohne Core, Konto oder Backend. Sie führt dich zu den vorhandenen Plattformbereichen. Der StreamioV Core bleibt ein separates, optionales System für Dienste, die ihn benötigen.</p>
       <div class="actions"><a class="btn primary" href="/homepage/">Zur StreamioV-Plattform&nbsp; ↗</a><a class="btn" href="/download/">Downloads ansehen</a></div>
       <div class="status" id="core-status" data-state="wait" role="status" aria-live="polite"><i class="status-mark" aria-hidden="true"></i><div><strong id="core-title">Core-Verbindung wird geprüft …</strong><small id="core-detail">Die Seite fragt den vorhandenen StreamioV Host-Core auf derselben Adresse ab.</small></div></div>
     </div>
     <aside class="core-visual" aria-label="StreamioV Architektur">
-      <div class="core-head"><strong>STREAMIOV · VERBINDUNGSWEG</strong><span class="pill">Ein gemeinsamer Core</span></div>
+      <div class="core-head"><strong>STREAMIOV · UNABHÄNGIGER EINSTIEG</strong><span class="pill">Core optional</span></div>
       <div class="flow">
-        <div class="node"><b>01 · Neue Einstiegsseite</b><small>Willkommen, Orientierung und zentrale Navigation</small></div>
-        <div class="connector" aria-hidden="true">↓</div>
-        <div class="node core"><b>02 · StreamioV Core</b><small>Ein Bindeglied für Status, Konten, Forum und Plattform-APIs</small></div>
-        <div class="connector" aria-hidden="true">↓</div>
-        <div class="node"><b>03 · Bestehende StreamioV-Homepage</b><small>Downloads, Studio, Promo, Spiele, Musik und Community</small></div>
+        <div class="node core"><b>01 · Neue Einstiegsseite</b><small>Eigenständig: Inhalte, Orientierung und Navigation</small></div><div class="connector" aria-hidden="true">↓</div><div class="node"><b>02 · Bestehende StreamioV-Homepage</b><small>Downloads, Studio, Promo, Spiele, Musik und Community</small></div><div class="connector" aria-hidden="true">↕</div><div class="node"><b>03 · StreamioV Core (optional)</b><small>Nur für Funktionen, die einen Backend-Dienst benötigen</small></div>
       </div>
     </aside>
   </div></section>
   <section class="section" id="aufbau"><div class="wrap">
-    <h2>Ein Eingang. Eine Plattform. Ein Core.</h2>
-    <p class="section-intro">Die neue Seite ersetzt nicht deine bisherige Arbeit. Sie ist die vorgeschaltete Orientierung. Die bestehende Homepage bleibt unter ihrem eigenen Pfad erreichbar; die vorhandenen Core-Routen bleiben die zentrale Verbindungsschicht.</p>
+    <h2>Ein Eingang. Eine Plattform. Ohne Core-Zwang.</h2>
+    <p class="section-intro">Die neue Einstiegsseite ist eine statische, eigenständig nutzbare Homepage. Sie bleibt erreichbar, auch wenn Core-, Konto- oder Community-Dienste offline sind. Die bestehende Homepage bleibt unter ihrem eigenen Pfad erhalten.</p>
     <div class="cards">
-      <article class="card"><div class="symbol" aria-hidden="true">◇</div><h3>StreamioV Core</h3><p>Gemeinsamer Einstiegspunkt für Host-Status, Account-Sitzungen, Forum und Katalog-Endpunkte. Nicht als zweites Backend aufgebaut.</p><a href="/homepage/">Bestehende Plattform öffnen →</a></article>
+      <article class="card"><div class="symbol" aria-hidden="true">◇</div><h3>StreamioV Core</h3><p>Der vorhandene Core bleibt ein separates optionales Backend. Die Einstiegsseite hängt nicht davon ab und zeigt auch ohne Core ihre Inhalte und Navigation.</p><a href="/homepage/">Bestehende Plattform öffnen →</a></article>
       <article class="card"><div class="symbol" aria-hidden="true">▣</div><h3>Bestehende Homepage</h3><p>Die bisherige StreamioV-Seite bleibt erhalten – inklusive ihrer vorhandenen Navigation und Download-Bereiche.</p><a href="/homepage/">Bisherige Homepage öffnen →</a></article>
       <article class="card"><div class="symbol" aria-hidden="true">↓</div><h3>Downloads &amp; Studio</h3><p>Direkter Zugang zu den bereits vorhandenen Installern, Web-Regie-Informationen und Projektseiten.</p><a href="/download/">Zum Download-Hub →</a></article>
     </div>
   </div></section>
 </main>
 <footer><div class="wrap foot"><span>StreamioV · Von Streamern für Streamer · Zum Nulltarif</span><span><a href="/impressum/">Rechtliches</a> · <a href="/forum/">Forum</a> · <a href="/account/">Konto</a></span></div></footer>
-<script>
-(async()=>{
-  const panel=document.getElementById('core-status');
-  const title=document.getElementById('core-title');
-  const detail=document.getElementById('core-detail');
-  try{
-    const [healthResponse,statusResponse]=await Promise.all([
-      fetch('/healthz',{cache:'no-store',headers:{'Accept':'application/json'}}),
-      fetch('/api/v1/status',{cache:'no-store',headers:{'Accept':'application/json'}})
-    ]);
-    if(!healthResponse.ok||!statusResponse.ok) throw new Error('Core-Endpunkte nicht erreichbar');
-    const health=await healthResponse.json();
-    const status=await statusResponse.json();
-    if(health.service!=='streamiov-host'||status.service!=='streamiov-host') throw new Error('Keine bestätigte StreamioV-Core-Antwort');
-    panel.dataset.state='ok';
-    title.textContent='StreamioV Core ist verbunden';
-    detail.textContent='Host '+health.version+' erreichbar · Konto-API '+(status.account_api_ready?'aktiv':'nicht bereit')+' · Plattform-API '+(status.api_ready?'bereit':'noch im Aufbau');
-  }catch(_error){
-    panel.dataset.state='warn';
-    title.textContent='Core derzeit nicht erreichbar';
-    detail.textContent='Die Einstiegsseite funktioniert. Für die Live-Verbindung muss sie über den vorhandenen StreamioV Host-Core ausgeliefert werden.';
-  }
-})();
-</script>
+<script>// Keine Core-Abfrage: Die Einstiegsseite lädt vollständig unabhängig.</script>
 </body>
 </html>
