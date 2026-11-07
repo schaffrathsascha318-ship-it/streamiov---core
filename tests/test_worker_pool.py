@@ -4,7 +4,7 @@ import time
 import unittest
 
 from ai.runtime.task_queue import WorkerExecution
-from ai.runtime.worker_service import run_worker_pool
+from ai.runtime.worker_pool import run_worker_pool
 
 
 class SharedFakeQueue:
