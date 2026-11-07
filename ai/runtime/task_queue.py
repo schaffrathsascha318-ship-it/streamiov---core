@@ -192,6 +192,7 @@ class SpecialistTaskQueue:
                     """,
                     (task.task_id, first_order + index, task.specialist, task.prompt, json.dumps(task.depends_on), max_attempts, now, now),
                 )
+                self._audit(connection, "system", "task.enqueued", task.task_id, f"specialist={task.specialist}")
             connection.commit()
         except sqlite3.IntegrityError as exc:
             connection.rollback()
@@ -228,6 +229,10 @@ class SpecialistTaskQueue:
         try:
             connection.execute("BEGIN IMMEDIATE")
             # Recover abandoned leases. A task that exhausted its retry budget fails closed.
+            expired = connection.execute(
+                "SELECT task_id, attempts, max_attempts FROM specialist_tasks WHERE status='running' AND lease_until <= ?",
+                (now,),
+            ).fetchall()
             connection.execute(
                 """
                 UPDATE specialist_tasks
@@ -239,6 +244,9 @@ class SpecialistTaskQueue:
                 """,
                 (now, now),
             )
+            for item in expired:
+                recovered_status = "queued" if item["attempts"] < item["max_attempts"] else "failed"
+                self._audit(connection, "system", "task.lease_recovered", item["task_id"], f"new_status={recovered_status}")
             paused = connection.execute(
                 "SELECT paused FROM queue_control WHERE singleton_id=1"
             ).fetchone()[0]
@@ -264,6 +272,7 @@ class SpecialistTaskQueue:
                         "UPDATE specialist_tasks SET status='skipped', error='A prerequisite task did not succeed.', updated_at=? WHERE task_id=? AND status='queued'",
                         (now, row["task_id"]),
                     )
+                    self._audit(connection, "system", "task.skipped", row["task_id"], "prerequisite did not succeed")
             candidates = connection.execute(
                 "SELECT * FROM specialist_tasks WHERE status='queued' ORDER BY queue_order, task_id"
             ).fetchall()
@@ -295,6 +304,7 @@ class SpecialistTaskQueue:
                 "SELECT * FROM specialist_tasks WHERE task_id=?",
                 (selected["task_id"],),
             ).fetchone()
+            self._audit(connection, worker_id.strip(), "task.claimed", selected["task_id"])
             connection.commit()
             return self._row_to_task(claimed)
         except Exception:
@@ -320,6 +330,7 @@ class SpecialistTaskQueue:
             raise TaskQueueError("Task result must be text no longer than 12,000 characters.")
         now = time.time()
         with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
             cursor = connection.execute(
                 """
                 UPDATE specialist_tasks
@@ -330,6 +341,7 @@ class SpecialistTaskQueue:
             )
             if cursor.rowcount != 1:
                 raise TaskQueueError("Task is not running under this worker lease.")
+            self._audit(connection, worker_id, "task.completed", task_id)
 
     def fail(self, task_id: str, worker_id: str, error: str) -> QueueStatus:
         safe_error = str(error)[:1000]
@@ -354,6 +366,7 @@ class SpecialistTaskQueue:
             )
             if cursor.rowcount != 1:
                 raise TaskQueueError("Task lease expired before failure could be recorded.")
+            self._audit(connection, worker_id, "task.failed" if status == "failed" else "task.retry_queued", task_id, safe_error)
             connection.commit()
             return status
         except Exception:
