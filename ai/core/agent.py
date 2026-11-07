@@ -172,7 +172,7 @@ class DevelopmentAgent:
         self.system_prompt = build_specialist_system_prompt(self.specialist, SYSTEM)
         if writable_prefixes is not None:
             self.system_prompt += (
-                "\\n\\nWORKSPACE POLICY: The operator explicitly configured these writable "
+                "\n\nWORKSPACE POLICY: The operator explicitly configured these writable "
                 f"workspace directories: {', '.join(selected_scopes)}. The runtime enforces "
                 "these directories and protected-path denials independently."
             )
