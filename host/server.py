@@ -165,7 +165,11 @@ class StreamioVHTTPServer(ThreadingHTTPServer):
         admin_ids_file = os.environ.get("STREAMIOV_QUEUE_ADMIN_USER_IDS_FILE", "").strip()
         if admin_ids_file:
             # A dedicated data file avoids allowing a broad EnvironmentFile to override the DB path.
-            admin_ids = Path(admin_ids_file).read_text(encoding="utf-8")
+            # Missing means no operators are authorized; other read errors fail startup closed.
+            try:
+                admin_ids = Path(admin_ids_file).read_text(encoding="utf-8")
+            except FileNotFoundError:
+                admin_ids = ""
         else:
             admin_ids = os.environ.get("STREAMIOV_QUEUE_ADMIN_USER_IDS", "")
         self.task_queue = SpecialistTaskQueue(queue_db) if queue_db and queue_db != ":memory:" else None
