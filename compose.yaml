@@ -1,0 +1,40 @@
+services:
+  opencode-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: opencode-core:local
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    command:
+      - --worker-loop
+      - --project-root
+      - /workspace
+      - --queue-db
+      - /state/queue.sqlite3
+      - --worker-id
+      - opencode-core
+      - --workers
+      - "2"
+      - --write-scope
+      - src/
+      - --write-scope
+      - app/
+      - --write-scope
+      - lib/
+      - --write-scope
+      - tests/
+      - --write-scope
+      - docs/
+    volumes:
+      - ./workspace:/workspace
+      - opencode-state:/state
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  opencode-state:
