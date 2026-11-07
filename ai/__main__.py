@@ -46,6 +46,13 @@ def build_parser() -> argparse.ArgumentParser:
         default="code",
         help="Select the least-privilege STREAMIOV AI specialist role (default: code).",
     )
+    parser.add_argument(
+        "--write-scope",
+        action="append",
+        default=None,
+        metavar="DIRECTORY/",
+        help="Explicit writable workspace directory; repeat for multiple directories. Overrides role defaults for this run.",
+    )
     parser.add_argument("--queue-db", help="SQLite path for the persistent specialist task queue.")
     parser.add_argument("--learning-db", help="Optional SQLite path for retrieval of test-verified lessons.")
     queue_mode = parser.add_mutually_exclusive_group()
@@ -115,6 +122,7 @@ def main(argv: list[str] | None = None) -> int:
                     project_root=Path(args.project_root),
                     max_steps=args.max_steps,
                     specialist=role,
+                    writable_prefixes=args.write_scope,
                     learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
                 ),
             )
@@ -140,6 +148,7 @@ def main(argv: list[str] | None = None) -> int:
                         project_root=Path(args.project_root),
                         max_steps=args.max_steps,
                         specialist=role,
+                    writable_prefixes=args.write_scope,
                     ),
                 )
             stop_event = threading.Event()
@@ -172,6 +181,7 @@ def main(argv: list[str] | None = None) -> int:
             max_steps=args.max_steps,
             specialist=args.specialist,
             learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
+            writable_prefixes=args.write_scope,
         )
         print(agent.run(args.task))
         return 0
