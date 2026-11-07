@@ -86,23 +86,33 @@ class PersistentTaskQueueTests(unittest.TestCase):
         self.queue.enqueue_plan([SpecialistTask("work", "game", "make original game")])
         seen = []
         class Agent:
+            closed = False
             def run(self, prompt):
                 seen.append(prompt)
                 return "game build prepared"
-        worker = SpecialistWorker(self.queue, "worker", lambda role: Agent() if role == "game" else None)
+            def close(self):
+                self.closed = True
+        agent = Agent()
+        worker = SpecialistWorker(self.queue, "worker", lambda role: agent if role == "game" else None)
         result = worker.run_once()
         self.assertEqual(result.status, "succeeded")
         self.assertEqual(seen, ["make original game"])
+        self.assertTrue(agent.closed)
         self.assertEqual(self.queue.get("work").result, "game build prepared")
 
     def test_worker_records_failure_and_uses_retry_budget(self):
         from ai.runtime.task_queue import SpecialistWorker
         self.queue.enqueue_plan([SpecialistTask("work", "testing", "run test")], max_attempts=2)
         class Agent:
+            closed = False
             def run(self, _prompt):
                 raise RuntimeError("test failed")
-        worker = SpecialistWorker(self.queue, "worker", lambda _role: Agent())
+            def close(self):
+                self.closed = True
+        agent = Agent()
+        worker = SpecialistWorker(self.queue, "worker", lambda _role: agent)
         first = worker.run_once()
+        self.assertTrue(agent.closed)
         self.assertEqual(first.status, "queued")
         self.assertEqual(self.queue.get("work").attempts, 1)
         second = worker.run_once()
