@@ -1,4 +1,4 @@
-"""Command-line entry point for the guarded Streamiov development agent."""
+"""Command-line entry point for the guarded OpenCode Core development agent."""
 from __future__ import annotations
 
 import argparse
@@ -23,8 +23,8 @@ from ai.specialists import specialist_names
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="python -m ai",
-        description="Run Streamiov's bounded local development agent.",
+        prog="opencode-core",
+        description="Run the bounded OpenCode Core development agent.",
     )
     parser.add_argument(
         "--task",
@@ -44,7 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--specialist",
         choices=specialist_names(),
         default="code",
-        help="Select the least-privilege STREAMIOV AI specialist role (default: code).",
+        help="Select a least-privilege specialist role (default: code).",
     )
     parser.add_argument(
         "--write-scope",
@@ -186,7 +186,7 @@ def main(argv: list[str] | None = None) -> int:
         print(agent.run(args.task))
         return 0
     except (AgentError, PlannerError, ProviderError, TaskQueueError, sqlite3.Error, OSError, ValueError) as exc:
-        print(f"streamiov-agent: {type(exc).__name__}: {exc}", file=sys.stderr)
+        print(f"opencode-core: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
 
 
