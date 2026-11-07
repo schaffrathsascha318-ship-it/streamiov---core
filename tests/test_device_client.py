@@ -38,6 +38,7 @@ class DeviceClientVaultTests(unittest.TestCase):
 
     def test_enrollment_stores_token_only_in_supported_vault(self):
         class SecretServiceKeyring:
+            __module__ = "keyring.backends.secretservice"
             priority = 1
             def __init__(self):
                 self.saved = {}
@@ -61,6 +62,7 @@ class DeviceClientVaultTests(unittest.TestCase):
 
     def test_status_uses_bearer_token_from_vault(self):
         class WinVaultKeyring:
+            __module__ = "keyring.backends.Windows"
             priority = 1
             def get_password(self, service, username):
                 return "t" * 48
