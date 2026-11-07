@@ -1715,7 +1715,7 @@ async function renderGameAiTool(body){
   option.value=value;option.textContent=label;source.append(option);
  }
  const signals=document.createElement("input");
- signals.value="manual";
+ signals.value="";
  signals.maxLength=120;
  signals.placeholder="video, ocr, audio, game_api, window_title";
  const status=toolNote("Bereit. Die Eingaben werden zunächst validiert und an die sechs spezialisierten KI-Bereiche übergeben.");
