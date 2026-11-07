@@ -23,20 +23,23 @@ Control POST requests accept no body. The API rate-limits mutations. Cancellatio
 
 ## Example server configuration
 
-Set these only in the service environment after verifying the intended account ID and queue database path:
+The checked-in systemd units now agree on one explicit database path:
+
+```text
+/var/lib/streamiov/queue.sqlite3
+```
+
+The worker unit `infrastructure/systemd/streamiov-opencode-core.service` passes that path to `opencode-core --worker-loop`. The host unit `host/systemd/streamiov-host.service` exposes the exact same path to the HTTP API through `STREAMIOV_TASK_QUEUE_DB`. Both units declare the shared `streamiov` state directory and writable path. The host reads the operator allow-list separately from the optional file `/etc/streamiov/queue-admin.env`:
 
 ```sh
-STREAMIOV_TASK_QUEUE_DB=/srv/streamiov/data/tasks.sqlite3
 STREAMIOV_QUEUE_ADMIN_USER_IDS=the-32-character-user-id
 ```
 
-Use the same database path with every enqueue/worker invocation, for example:
+Keep that file owned by root, readable only by the service account/group as required, and mode-restricted (for example `0640`). Do not put queue credentials or user passwords in it. The queue database remains owned by the `streamiov` service account with a private state directory. Enqueue commands must also use `--queue-db /var/lib/streamiov/queue.sqlite3`; never create a second path for the API and worker.
 
-```sh
-opencode-core --queue-db /srv/streamiov/data/tasks.sqlite3 --worker-loop
-```
+The worker is supervised by systemd with SIGTERM shutdown and automatic restart. A task interrupted before completion remains in the SQLite database as a leased running task; after its lease expires, the next worker claim recovers it and either retries it within its retry budget or marks it failed. This is at-least-once task execution: a process may have performed an external side effect immediately before dying. Tasks that perform external writes must therefore use idempotency keys or verify prior state before repeating side effects.
 
-The queue API does not start workers, enqueue new work, expose task prompts/results, or grant workspace access. It is not enabled on any hosted or production system by this code change. Deploying or setting the environment variables requires a separate explicit approval.
+These unit-file changes and tests are configuration artifacts only. No unit was installed, enabled, started, restarted, or deployed. Setting the operator allow-list and installing/reloading services require separate explicit approval.
 
 ## Security boundary
 
