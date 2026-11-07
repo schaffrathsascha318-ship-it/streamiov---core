@@ -187,6 +187,7 @@ dialog::backdrop{background:#000b}
   <span><i class="dot"></i>LOKALER REGIE-MODUS</span>
   <span class="pill" id="connection">NICHT VERBUNDEN</span>
   <span class="pill">ZUM NULLTARIF</span>
+  <span class="pill" id="platformCapabilities" aria-live="polite">GERÄT WIRD ERKANNT …</span>
  </div>
 </header>
 
@@ -1923,6 +1924,38 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
   });
  }
  refreshTikTokStatus();
+})();
+</script>
+
+
+<script>
+(() => {
+ const badge = document.getElementById('platformCapabilities');
+ if (!badge) return;
+ const features = {
+  camera: Boolean(navigator.mediaDevices?.getUserMedia),
+  screenCapture: Boolean(navigator.mediaDevices?.getDisplayMedia),
+  audioOutputRouting: typeof HTMLMediaElement !== 'undefined' &&
+   typeof HTMLMediaElement.prototype.setSinkId === 'function'
+ };
+ if (!window.streamiovStudio?.getPlatformCapabilities) {
+  badge.textContent = 'BROWSER-MODUS · DESKTOP-BRIDGE FEHLT';
+  return;
+ }
+ window.streamiovStudio.getPlatformCapabilities(features).then(result => {
+  const labels = {
+   windows: 'WINDOWS', linux: 'LINUX', chromeos: 'CHROMEOS',
+   android: 'ANDROID', ios: 'IOS', macos: 'MACOS', unknown: 'GERÄT'
+  };
+  const name = labels[result?.platform] || 'GERÄT';
+  const enabled = Object.values(result?.capabilities || {}).filter(Boolean).length;
+  badge.textContent = name + ' · ' + enabled + ' FÄHIGKEITEN ERKANNT';
+  badge.title = Object.entries(result?.capabilities || {})
+   .map(([key, value]) => key + ': ' + (value ? 'verfügbar' : 'nicht verfügbar'))
+   .join(' | ');
+ }).catch(() => {
+  badge.textContent = 'GERÄTEERKENNUNG NICHT VERFÜGBAR';
+ });
 })();
 </script>
 
