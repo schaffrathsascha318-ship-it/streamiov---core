@@ -27,10 +27,23 @@ class WorkspaceScopeTests(unittest.TestCase):
 
     def test_invalid_or_dangerous_scope_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
-            for scope in ("../outside/", "/absolute/", ".git/", ".env/", "src\\\\private/"):
+            for scope in ("../outside/", "/absolute/", ".git/", ".env/", r"src\private/"):
                 with self.subTest(scope=scope):
                     with self.assertRaises(ToolError):
                         ProjectTools(tmp, writable_prefixes=(scope,))
+
+    def test_symlinked_parent_is_rejected_for_reads_and_writes(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as outside:
+            root = Path(tmp)
+            (root / "src").mkdir()
+            outside_root = Path(outside)
+            (outside_root / "private.txt").write_text("outside", encoding="utf-8")
+            (root / "src" / "linked").symlink_to(outside_root, target_is_directory=True)
+            tools = ProjectTools(root, writable_prefixes=("src/",))
+            with self.assertRaises(ToolError):
+                tools.read_file("src/linked/private.txt")
+            with self.assertRaises(ToolError):
+                tools.write_file("src/linked/new.txt", "no")
 
     def test_missing_workspace_root_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
