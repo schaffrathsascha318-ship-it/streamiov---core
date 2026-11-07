@@ -26,9 +26,9 @@ class HostStaticPathTests(unittest.TestCase):
         previous_markup = previous.read_text(encoding="utf-8")
         self.assertIn("StreamioV — Dein Stream. Deine Bühne.", previous_markup)
         self.assertIn('href="/homepage/"', entry)
-        self.assertIn("fetch('/healthz'", entry)
-        self.assertIn("fetch('/api/v1/status'", entry)
-        self.assertIn("Core derzeit nicht erreichbar", entry)
+        self.assertIn("Eigenständig erreichbar", entry)
+        self.assertIn("ohne Core", entry)
+        self.assertNotIn("fetch", entry)
 
     def test_default_site_root_serves_every_local_navigation_link(self):
         """Every local href/src on the homepage must resolve under the served root."""
@@ -208,8 +208,6 @@ class HostStaticPathTests(unittest.TestCase):
                 with urlopen(base + "/", timeout=2) as response:
                     entry = response.read().decode("utf-8")
                 self.assertIn("Willkommen auf deiner Bühne", entry)
-                self.assertIn("fetch('/healthz'", entry)
-                self.assertIn("fetch('/api/v1/status'", entry)
 
                 with urlopen(base + "/homepage/", timeout=2) as response:
                     previous_homepage = response.read().decode("utf-8")
