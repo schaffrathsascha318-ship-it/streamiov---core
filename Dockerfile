@@ -9,7 +9,7 @@ COPY ai ./ai
 COPY docs ./docs
 RUN pip install --no-cache-dir .
 
-RUN useradd --create-home --uid 10001 opencode \
+RUN useradd --create-home --uid 1000 opencode \
     && mkdir -p /workspace /state \
     && chown -R opencode:opencode /workspace /state
 
