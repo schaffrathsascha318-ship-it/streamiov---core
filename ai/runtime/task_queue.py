@@ -76,6 +76,7 @@ class SpecialistTaskQueue:
     def _initialize(self) -> None:
         with self._connection() as connection:
             connection.execute("PRAGMA journal_mode = WAL")
+            connection.execute("BEGIN IMMEDIATE")
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS specialist_tasks (
