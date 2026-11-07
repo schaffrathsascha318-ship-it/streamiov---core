@@ -75,3 +75,38 @@ bereitgestellt und anhand real verfügbarer Fähigkeiten freigeschaltet.
 Dieser Commit legt die gemeinsame Capability-Erkennung samt Tests und die
 verbindliche Plattformarchitektur an. Er erzeugt noch keine fertigen Android-
 oder iOS-Installationspakete und behauptet keine produktive Medienpipeline.
+
+
+## Game-KI – universelle Spielanalyse und LIVE-Ergänzungen
+
+Die Streamiov-Regie erhält sechs fachlich getrennte KI-Bereiche, die für fremde
+und Streamiov-eigene Spiele ausgelegt sind:
+
+1. **Game Analyzer** – Spieltyp, Spielzustand und Ereignisse aus belegten Signalen.
+2. **Interaction AI** – Zuschaueraktionen, Challenges und Community-Interaktionen.
+3. **Overlay AI** – Overlays, Ranglisten und Animationskonzepte.
+4. **Event AI** – LIVE-Ereignisse in kontrollierte Aktionsvorschläge übersetzen.
+5. **Balance AI** – Fairness, Missbrauchsrisiken und Spielbalance bewerten.
+6. **Learning AI** – freigegebene Ergebnisse auswerten und Verbesserungen ableiten.
+
+### Technischer Stand dieses Ausbauschritts
+
+- Ein plattformneutraler Game-AI-Orchestrator validiert Spieltitel, Plattform,
+  Beobachtungsbelege und tatsächlich verfügbare Signalarten.
+- Ein geschützter Electron-IPC-Aufruf verbindet die Regie mit dem Orchestrator.
+- Die Regie enthält ein Game-KI-Werkzeug, das die sechs Agentenbereiche sichtbar
+  macht und Analyseaufträge aus belegten Eingaben vorbereitet.
+- Die sechs Bereiche sind als Architektur-/Modulgrundlage registriert.
+
+### Bewusste Grenzen / noch offene Implementierung
+
+- Der Orchestrator bereitet derzeit Agenten-Aufträge vor; er führt noch kein
+  multimodales Modell und keine sechs autonomen Agenten aus.
+- Automatische Spielerkennung, laufende Bildschirm-/Audioanalyse, OCR,
+  Capture-Card-Adapter und offizielle Game-API-Adapter sind noch nicht angebunden.
+- Der produktive KI-Auftragsausführer im Streamiov Core muss separat verbunden
+  und getestet werden.
+- Chat-, Gift- und sonstige TikTok-LIVE-Ereignisse bleiben deaktiviert, bis ein
+  offizieller und tatsächlich freigegebener Ereignisadapter verfügbar ist.
+- Die KI darf keine Spielprozesse injizieren, Anti-Cheat umgehen oder Aktionen
+  ohne Freigabe der Streamiov-Regie ausführen.
