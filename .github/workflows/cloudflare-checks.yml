@@ -54,6 +54,9 @@ jobs:
       - name: Run Cloudflare AI Worker contract tests
         run: node --test tests/test_cloudflare_ai_worker.mjs
 
+      - name: Run Streamiov Liberty TV Core Worker contract tests
+        run: node --test tests/test_streamiov_liberty_tv_worker.mjs
+
       - name: Run Cloudflare provider and public-site tests
         run: >-
           python -m unittest
