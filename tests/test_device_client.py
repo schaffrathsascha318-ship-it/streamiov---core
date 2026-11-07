@@ -17,6 +17,11 @@ class DeviceClientURLTests(unittest.TestCase):
             "http://127.0.0.1:8080",
         )
 
+    def test_server_url_rejects_malformed_authority(self):
+        for value in ("https://[::1", "https://core.example.com:99999"):
+            with self.subTest(value=value), self.assertRaises(device_client.DeviceClientError):
+                device_client.normalize_server_url(value)
+
     def test_server_url_rejects_embedded_credentials_and_query(self):
         for value in (
             "https://user:pass@core.example.com",
@@ -59,6 +64,20 @@ class DeviceClientVaultTests(unittest.TestCase):
         self.assertEqual(result["platform"], "linux")
         self.assertEqual(len(backend.saved), 1)
         self.assertEqual(next(iter(backend.saved.values())), "t" * 48)
+
+    def test_forget_deletes_only_local_vault_credential(self):
+        class SecretServiceKeyring:
+            __module__ = "keyring.backends.secretservice"
+            priority = 1
+            def __init__(self):
+                self.deleted = []
+            def delete_password(self, service, username):
+                self.deleted.append((service, username))
+        backend = SecretServiceKeyring()
+        fake = types.SimpleNamespace(get_keyring=lambda: backend)
+        with patch.dict(sys.modules, {"keyring": fake}):
+            device_client.forget("https://core.example.com")
+        self.assertEqual(backend.deleted, [(device_client._service("https://core.example.com"), "device-token")])
 
     def test_status_uses_bearer_token_from_vault(self):
         class WinVaultKeyring:
