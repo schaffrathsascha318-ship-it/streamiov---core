@@ -52,6 +52,25 @@ class DeviceStoreTests(unittest.TestCase):
         self.assertIsNone(self.store.enroll_device(code, "Old phone", "android"))
 
 
+class DeviceAccountPageTests(unittest.TestCase):
+    def test_account_page_contains_responsive_device_management_and_no_token_persistence(self):
+        page = Path(__file__).resolve().parents[1] / "dist/streamiov-homepage-worker/public/account/index.html"
+        markup = page.read_text(encoding="utf-8")
+        for required in (
+            'id="login-form"', 'id="pairing-card"', 'id="create-code"',
+            'id="enroll-form"', 'id="device-list"', 'id="connection-status"',
+            "/api/v1/devices/pairing-code", "/api/v1/devices/enroll",
+            "/api/v1/device/status", "/api/v1/devices/", "status:read",
+            "currentDeviceToken", "class=\"device\"", "@media(max-width:700px)",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, markup)
+        self.assertNotIn("localStorage", markup)
+        self.assertNotIn("sessionStorage", markup)
+        self.assertIn("replaceChildren()", markup)
+        self.assertIn("textContent=device.name", markup)
+
+
 class DeviceHostAPITests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

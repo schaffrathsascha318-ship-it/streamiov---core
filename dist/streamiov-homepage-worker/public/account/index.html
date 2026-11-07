@@ -1,39 +1,227 @@
 <!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080b12">
-  <meta name="description" content="Lokales StreamioV-Konto und aktueller Verbindungsstatus.">
-  <title>Konto — StreamioV</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#080b12">
+  <meta name="description" content="StreamioV-Konto, Geräte-Kopplung und Verbindungsstatus.">
+  <title>Konto & Geräte — StreamioV</title>
   <style>
-    :root{color-scheme:dark;--bg:#080b12;--panel:#101827;--line:#2a3850;--text:#f4f7ff;--muted:#aebbd0;--cyan:#42e8ff;--mint:#74ffd1;--amber:#ffc56e}
-    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 70% 0,#29335b55,transparent 50%),var(--bg);color:var(--text);font:16px/1.6 Inter,"Segoe UI",Arial,sans-serif}.wrap{width:min(900px,calc(100% - 32px));margin:auto}.bar{border-bottom:1px solid var(--line);padding:18px 0}.bar a{color:var(--cyan);text-decoration:none;font-weight:750}.main{padding:60px 0}h1{font-size:clamp(36px,7vw,56px);line-height:1.05;margin:0 0 12px;letter-spacing:-.04em}h2{font-size:22px;margin:0 0 8px}p{color:var(--muted)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:28px}.card{border:1px solid var(--line);border-radius:18px;background:#101827dd;padding:24px}.field{display:grid;gap:6px;margin:14px 0}.field label{font-weight:650}.field input{width:100%;padding:12px;border:1px solid #45536b;border-radius:9px;background:#080d16;color:var(--text);font:inherit}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}button{border:1px solid #42e8ff88;border-radius:999px;background:#0c2630;color:var(--cyan);padding:10px 16px;font:inherit;font-weight:700;cursor:pointer}button.secondary{border-color:#53617a;background:transparent;color:var(--text)}button:disabled{opacity:.55;cursor:not-allowed}.notice{min-height:1.5em;color:var(--mint)}.muted{font-size:14px}.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:3px 9px;color:var(--amber);font-size:13px}.wide{grid-column:1/-1}@media(max-width:680px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}.main{padding-top:38px}}
+    :root{color-scheme:dark;--bg:#080b12;--panel:#101827;--line:#2a3850;--text:#f4f7ff;--muted:#aebbd0;--cyan:#42e8ff;--mint:#74ffd1;--amber:#ffc56e;--red:#ff758b}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 70% 0,#29335b55,transparent 50%),var(--bg);color:var(--text);font:16px/1.6 Inter,"Segoe UI",Arial,sans-serif}
+    .wrap{width:min(1040px,calc(100% - 32px));margin:auto}.bar{border-bottom:1px solid var(--line);padding:18px 0}.bar a{color:var(--cyan);text-decoration:none;font-weight:750}
+    .main{padding:46px 0 64px}h1{font-size:clamp(34px,7vw,54px);line-height:1.05;margin:0 0 12px;letter-spacing:-.04em}h2{font-size:21px;margin:0 0 8px}h3{font-size:16px;margin:0 0 6px}p{color:var(--muted);margin:8px 0}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:24px}.card{border:1px solid var(--line);border-radius:16px;background:#101827ee;padding:22px;min-width:0}.wide{grid-column:1/-1}
+    .field{display:grid;gap:6px;margin:12px 0}.field label{font-weight:650}.field input,.field select{width:100%;padding:11px 12px;border:1px solid #45536b;border-radius:9px;background:#080d16;color:var(--text);font:inherit}
+    .actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}button{border:1px solid #42e8ff88;border-radius:999px;background:#0c2630;color:var(--cyan);padding:10px 16px;font:inherit;font-weight:700;cursor:pointer}button.secondary{border-color:#53617a;background:transparent;color:var(--text)}button.danger{border-color:#9c4358;background:#321521;color:#ffc0cc}button:disabled{opacity:.5;cursor:not-allowed}
+    .notice{min-height:1.5em;color:var(--mint)}.muted{font-size:13px}.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:3px 9px;color:var(--amber);font-size:13px}.ok{color:var(--mint)}.bad{color:var(--red)}
+    .device-list{display:grid;gap:10px;margin-top:14px}.device{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:13px;border:1px solid var(--line);border-radius:11px;background:#0b121c}.device-meta{font-size:13px;color:var(--muted);overflow-wrap:anywhere}.device-name{font-weight:750}.code{font:700 clamp(18px,4vw,28px)/1.3 ui-monospace,monospace;letter-spacing:.06em;overflow-wrap:anywhere;color:var(--mint);padding:14px;background:#071018;border:1px dashed #41606a;border-radius:10px}
+    .token{font:12px/1.5 ui-monospace,monospace;overflow-wrap:anywhere;word-break:break-all;padding:12px;border:1px solid #66552d;border-radius:9px;background:#17140d;color:#ffe0a4}.hidden{display:none!important}
+    .topline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.subhead{color:var(--muted);font-size:14px}
+    @media(max-width:700px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}.main{padding-top:34px}.card{padding:18px}.device{grid-template-columns:1fr}.device button{justify-self:start}}
   </style>
 </head>
 <body>
-  <header class="bar"><div class="wrap"><a href="/">← StreamioV Startseite</a></div></header>
-  <main class="wrap main">
-    <h1>Dein StreamioV-Konto</h1><p>Dieses Konto wird auf dem StreamioV-Host gespeichert. Es ist getrennt von deinem TikTok-Konto.</p>
-    <p id="host-state" class="pill" role="status">Host wird geprüft …</p>
-    <div class="grid">
-      <section class="card" aria-labelledby="login-title"><h2 id="login-title">Anmelden</h2>
-        <form id="login-form"><div class="field"><label for="login-name">Benutzername</label><input id="login-name" name="username" autocomplete="username" minlength="3" maxlength="24" required></div><div class="field"><label for="login-password">Passwort</label><input id="login-password" name="password" type="password" autocomplete="current-password" required></div><button>Anmelden</button></form>
-      </section>
-      <section class="card" aria-labelledby="register-title"><h2 id="register-title">Konto erstellen</h2><p id="registration-note" class="muted">Die Registrierung ist standardmäßig geschlossen. Der Betreiber kann sie am eigenen Host ausdrücklich freischalten.</p>
-        <form id="register-form"><div class="field"><label for="register-name">Benutzername</label><input id="register-name" name="username" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_.-]{3,24}" required></div><div class="field"><label for="register-password">Passwort (mindestens 12 Zeichen)</label><input id="register-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="1024" required></div><button id="register-button" disabled>Konto erstellen</button></form>
-      </section>
-      <section class="card wide" aria-labelledby="connected-title"><h2 id="connected-title">Verbundene Dienste</h2><p>Die offizielle TikTok-Anmeldung ist noch nicht eingerichtet. Dafür fehlen die veröffentlichte TikTok-App-Konfiguration und deren Freigabe. Diese Seite fragt keine TikTok-Zugangsdaten ab.</p><button type="button" disabled aria-describedby="tiktok-note">TikTok verbinden (noch nicht verfügbar)</button><p id="tiktok-note" class="muted">TikTok-Geschenke, Events und Auszahlungen werden von TikTok verwaltet. StreamioV verarbeitet kein Geld.</p></section>
-      <section id="session-card" class="card wide" hidden><h2>Angemeldet</h2><p id="session-user"></p><button id="logout-button" class="secondary" type="button">Abmelden</button></section>
-    </div>
-    <p id="message" class="notice" role="status" aria-live="polite"></p>
-  </main>
-  <script>
-    const $=id=>document.getElementById(id), message=$('message');
-    async function request(path,body){const response=await fetch(path,{method:body?'POST':'GET',credentials:'same-origin',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);return data}
-    function credentials(form){return Object.fromEntries(new FormData(form))}
-    async function refresh(){try{const status=await request('/api/v1/status');$('host-state').textContent=status.auth_ready?'StreamioV-Host verbunden':'Kontoservice nicht bereit';$('register-button').disabled=!status.registration_open;$('registration-note').textContent=status.registration_open?'Die Registrierung ist auf diesem Host geöffnet.':'Die Registrierung ist standardmäßig geschlossen. Der Betreiber kann sie am eigenen Host ausdrücklich freischalten.';try{const current=await request('/api/v1/auth/me');$('session-card').hidden=false;$('session-user').textContent=`Angemeldet als ${current.user.username}`;}catch{$('session-card').hidden=true;}}catch{$('host-state').textContent='Kein StreamioV-Kontoservice unter dieser Adresse';$('registration-note').textContent='Die statische Website ist erreichbar, aber der eigene StreamioV-Host für Konten ist hier nicht verbunden.';$('register-button').disabled=true;}}
-    for(const [id,path,label] of [['login-form','/api/v1/auth/login','Anmeldung'],['register-form','/api/v1/auth/register','Konto']])$(id).addEventListener('submit',async event=>{event.preventDefault();const button=event.currentTarget.querySelector('button');button.disabled=true;message.textContent=`${label} wird verarbeitet …`;try{const result=await request(path,credentials(event.currentTarget));message.textContent=`Willkommen, ${result.user.username}.`;$('login-password').value='';$('register-password').value='';await refresh()}catch(error){message.textContent=error.message==='registration_closed'?'Die Registrierung ist auf diesem Host geschlossen.':error.message==='request_origin_not_allowed'?'Die Anfrage wurde aus Sicherheitsgründen abgelehnt.':error.message==='username_taken'?'Dieser Benutzername ist bereits vergeben.':`Aktion fehlgeschlagen: ${error.message}`}finally{button.disabled=id==='register-form'&&!$('register-button').disabled}});
-    $('logout-button').addEventListener('click',async()=>{try{await request('/api/v1/auth/logout',{});message.textContent='Du wurdest abgemeldet.';await refresh()}catch(error){message.textContent=`Abmelden fehlgeschlagen: ${error.message}`}});
-    refresh();
-  </script>
+<header class="bar"><div class="wrap"><a href="/">← StreamioV Startseite</a></div></header>
+<main class="wrap main">
+  <h1>Konto & Geräte</h1>
+  <p>Ein gemeinsames Konto für deine Geräte. Der Core-Host bleibt die geschützte Zentrale für Workspace, Ausführung und Zugangsdaten.</p>
+  <p id="host-state" class="pill" role="status">Host wird geprüft …</p>
+  <div class="grid">
+    <section class="card" aria-labelledby="login-title">
+      <h2 id="login-title">Anmelden</h2>
+      <form id="login-form">
+        <div class="field"><label for="login-name">Benutzername</label><input id="login-name" name="username" autocomplete="username" minlength="3" maxlength="24" required></div>
+        <div class="field"><label for="login-password">Passwort</label><input id="login-password" name="password" type="password" autocomplete="current-password" required></div>
+        <button>Anmelden</button>
+      </form>
+    </section>
+    <section class="card" aria-labelledby="register-title">
+      <h2 id="register-title">Konto erstellen</h2>
+      <p id="registration-note" class="muted">Die Registrierung ist standardmäßig geschlossen. Der Host-Betreiber kann sie lokal ausdrücklich freischalten.</p>
+      <form id="register-form">
+        <div class="field"><label for="register-name">Benutzername</label><input id="register-name" name="username" autocomplete="username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_.-]{3,24}" required></div>
+        <div class="field"><label for="register-password">Passwort (mindestens 12 Zeichen)</label><input id="register-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="1024" required></div>
+        <button id="register-button" disabled>Konto erstellen</button>
+      </form>
+    </section>
+
+    <section id="session-card" class="card wide hidden" aria-labelledby="session-title">
+      <div class="topline"><h2 id="session-title">Deine Sitzung</h2><span id="session-state" class="pill">Angemeldet</span></div>
+      <p id="session-user"></p>
+      <div class="actions"><button id="refresh-devices" class="secondary" type="button">Gerätestatus aktualisieren</button><button id="logout-button" class="secondary" type="button">Abmelden</button></div>
+    </section>
+
+    <section id="pairing-card" class="card" aria-labelledby="pairing-title">
+      <h2 id="pairing-title">Neues Gerät verbinden</h2>
+      <p>Erzeuge auf einem bereits angemeldeten Gerät einen einmaligen Kopplungscode. Gib ihn anschließend auf dem neuen Gerät ein. Der Code ist fünf Minuten gültig und nur einmal nutzbar.</p>
+      <button id="create-code" type="button" disabled>Kopplungscode erzeugen</button>
+      <div id="pairing-result" class="hidden" aria-live="polite">
+        <p class="muted">Einmaliger Code – nur auf dem neuen Gerät eingeben:</p>
+        <div id="pairing-code" class="code"></div>
+        <p id="pairing-expiry" class="muted"></p>
+        <div class="actions"><button id="copy-code" class="secondary" type="button">Code kopieren</button><button id="hide-code" class="secondary" type="button">Ausblenden</button></div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="enroll-title">
+      <h2 id="enroll-title">Dieses Gerät koppeln</h2>
+      <p>Auf dem bereits angemeldeten Gerät zuerst einen Kopplungscode erzeugen. Hier Code, Gerätename und Plattform eingeben.</p>
+      <form id="enroll-form">
+        <div class="field"><label for="pairing-input">Einmaliger Kopplungscode</label><input id="pairing-input" name="pairing_code" autocomplete="one-time-code" minlength="40" maxlength="128" required></div>
+        <div class="field"><label for="device-name">Gerätename</label><input id="device-name" name="name" maxlength="80" placeholder="z. B. Chromebook Wohnzimmer" required></div>
+        <div class="field"><label for="device-platform">Plattform</label><select id="device-platform" name="platform" required><option value="windows">Windows</option><option value="linux">Linux</option><option value="macos">macOS</option><option value="chromeos" selected>ChromeOS / Chromebook</option><option value="android">Android</option><option value="ios">iPhone / iPad (iOS)</option></select></div>
+        <button id="enroll-button">Gerät sicher koppeln</button>
+      </form>
+      <div id="enroll-result" class="hidden" aria-live="polite">
+        <p class="ok"><strong>Gerät gekoppelt.</strong> Dieser Zugang wird nur einmal angezeigt. Er wird absichtlich nicht im Browser gespeichert.</p>
+        <div id="device-token" class="token"></div>
+        <div class="actions"><button id="copy-token" type="button">Gerätezugang kopieren</button><button id="hide-token" class="secondary" type="button">Zugang ausblenden</button></div>
+        <p class="muted">Ein fertiger nativer Client muss den Zugang im sicheren Schlüsselbund des Betriebssystems speichern. Bis dahin ist dies eine manuelle Testkopplung.</p>
+      </div>
+    </section>
+
+    <section class="card wide" aria-labelledby="devices-title">
+      <div class="topline"><h2 id="devices-title">Verbundene Geräte</h2><span id="device-count" class="pill">Anmeldung erforderlich</span></div>
+      <p class="subhead">Hier kannst du Geräte sehen und einzelne Zugänge sofort widerrufen.</p>
+      <div id="device-list" class="device-list"><p class="muted">Melde dich an, um deine Geräte zu verwalten.</p></div>
+    </section>
+
+    <section class="card wide" aria-labelledby="status-title">
+      <h2 id="status-title">Verbindungsstatus dieses Geräts</h2>
+      <p id="connection-status" role="status" class="muted">Noch kein Gerätezugang in dieser Sitzung geprüft.</p>
+      <p class="muted">Der aktuelle Gerätezugang erlaubt ausschließlich <code>status:read</code>. Aufgabensteuerung und Workspace-Zugriff sind noch nicht freigegeben.</p>
+    </section>
+
+    <section class="card wide" aria-labelledby="services-title">
+      <h2 id="services-title">Weitere Dienste</h2>
+      <p>TikTok-Anmeldung und Plattformverbindungen bleiben getrennt und werden hier nicht über Passworteingaben oder gespeicherte Plattform-Zugangsdaten eingerichtet.</p>
+    </section>
+  </div>
+  <p id="message" class="notice" role="status" aria-live="polite"></p>
+</main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const message=$('message');
+let currentUser=null;
+let currentDeviceToken=null;
+let currentPairingCode=null;
+async function request(path,{method='GET',body,headers={}}={}) {
+  const options={method,credentials:'same-origin',headers:{...headers}};
+  if(body!==undefined){options.headers['Content-Type']='application/json';options.body=JSON.stringify(body);}
+  const response=await fetch(path,options);
+  let data={};try{data=await response.json();}catch{}
+  if(!response.ok)throw new Error(data.error||'request_failed');
+  return data;
+}
+function formData(form){return Object.fromEntries(new FormData(form));}
+function errorText(error){
+  const known={
+    authentication_required:'Bitte melde dich zuerst an.',
+    device_authentication_required:'Der Gerätezugang ist ungültig oder wurde widerrufen.',
+    invalid_or_expired_pairing_code:'Der Kopplungscode ist ungültig, abgelaufen oder bereits verwendet.',
+    request_origin_not_allowed:'Die Anfrage wurde aus Sicherheitsgründen abgelehnt.',
+    secure_transport_required:'Die Geräte-Kopplung benötigt eine sichere HTTPS-Verbindung.',
+    too_many_attempts:'Zu viele Versuche. Bitte warte und versuche es später erneut.',
+    registration_closed:'Die Registrierung ist auf diesem Host geschlossen.',
+    username_taken:'Dieser Benutzername ist bereits vergeben.'
+  };
+  return known[error.message]||error.message||'Unbekannter Fehler';
+}
+function setMessage(text,isError=false){message.textContent=text;message.classList.toggle('bad',isError);message.classList.toggle('ok',!isError);}
+function showSession(user){
+  currentUser=user;
+  $('session-card').classList.toggle('hidden',!user);
+  $('pairing-card').querySelector('#create-code').disabled=!user;
+  $('session-user').textContent=user?('Angemeldet als '+user.username):'';
+}
+async function refreshDevices(){
+  if(!currentUser){$('device-count').textContent='Anmeldung erforderlich';$('device-list').innerHTML='<p class="muted">Melde dich an, um deine Geräte zu verwalten.</p>';return;}
+  const data=await request('/api/v1/devices');
+  const devices=data.devices||[];
+  $('device-count').textContent=devices.length+' Gerät'+(devices.length===1?'':'e');
+  const list=$('device-list');list.replaceChildren();
+  if(!devices.length){const p=document.createElement('p');p.className='muted';p.textContent='Noch keine Geräte gekoppelt.';list.append(p);return;}
+  for(const device of devices){
+    const row=document.createElement('article');row.className='device';
+    const info=document.createElement('div');
+    const name=document.createElement('div');name.className='device-name';name.textContent=device.name;
+    const meta=document.createElement('div');meta.className='device-meta';
+    const date=value=>value?new Date(value*1000).toLocaleString():'Noch nicht verbunden';
+    meta.textContent=device.platform+' · '+(device.scopes||[]).join(', ')+' · zuletzt aktiv: '+date(device.last_seen_at)+' · gültig bis: '+date(device.expires_at);
+    const state=document.createElement('div');state.className='device-meta '+(device.revoked_at?'bad':'ok');state.textContent=device.revoked_at?'Widerrufen':'Aktiv';
+    info.append(name,meta,state);row.append(info);
+    if(!device.revoked_at){
+      const revoke=document.createElement('button');revoke.type='button';revoke.className='danger';revoke.textContent='Zugang widerrufen';
+      revoke.addEventListener('click',async()=>{
+        if(!window.confirm('Gerätezugang für „'+device.name+'“ widerrufen?'))return;
+        revoke.disabled=true;
+        try{await request('/api/v1/devices/'+encodeURIComponent(device.device_id)+'/revoke',{method:'POST',body:{}});setMessage('Gerätezugang widerrufen.');await refreshDevices();}
+        catch(error){setMessage(errorText(error),true);revoke.disabled=false;}
+      });
+      row.append(revoke);
+    }
+    list.append(row);
+  }
+}
+async function refresh(){
+  try{
+    const status=await request('/api/v1/status');
+    $('host-state').textContent=status.auth_ready?'StreamioV-Host verbunden':'Kontoservice nicht bereit';
+    $('registration-note').textContent=status.registration_open?'Die Registrierung ist auf diesem Host geöffnet.':'Die Registrierung ist standardmäßig geschlossen. Der Betreiber kann sie lokal freischalten.';
+    $('register-button').disabled=!status.registration_open;
+    try{const me=await request('/api/v1/auth/me');showSession(me.user);await refreshDevices();}
+    catch{showSession(null);await refreshDevices();}
+  }catch{
+    $('host-state').textContent='Kein StreamioV-Kontoservice unter dieser Adresse';
+    $('registration-note').textContent='Die statische Website ist erreichbar, aber der eigene StreamioV-Host für Konten ist hier nicht verbunden.';
+    $('register-button').disabled=true;showSession(null);
+  }
+}
+for(const [id,path,label] of [['login-form','/api/v1/auth/login','Anmeldung'],['register-form','/api/v1/auth/register','Konto']]){
+  $(id).addEventListener('submit',async event=>{
+    event.preventDefault();const form=event.currentTarget;const button=form.querySelector('button');button.disabled=true;setMessage(label+' wird verarbeitet …');
+    try{
+      const result=await request(path,{method:'POST',body:formData(form)});
+      form.reset();showSession(result.user);await refreshDevices();setMessage('Willkommen, '+result.user.username+'.');
+    }catch(error){setMessage(errorText(error),true);}
+    finally{button.disabled=id==='register-form'&&!$('register-button').disabled;}
+  });
+}
+$('logout-button').addEventListener('click',async()=>{
+  try{await request('/api/v1/auth/logout',{method:'POST',body:{}});showSession(null);currentPairingCode=null;$('pairing-result').classList.add('hidden');await refreshDevices();setMessage('Du wurdest abgemeldet.');}
+  catch(error){setMessage(errorText(error),true);}
+});
+$('refresh-devices').addEventListener('click',async()=>{try{await refreshDevices();setMessage('Geräteliste aktualisiert.');}catch(error){setMessage(errorText(error),true);}});
+$('create-code').addEventListener('click',async()=>{
+  const button=$('create-code');button.disabled=true;
+  try{
+    const result=await request('/api/v1/devices/pairing-code',{method:'POST',body:{}});
+    currentPairingCode=result.pairing_code;$('pairing-code').textContent=currentPairingCode;
+    $('pairing-expiry').textContent='Gültig bis '+new Date(result.expires_at*1000).toLocaleTimeString()+'. Der Code kann nur einmal verwendet werden.';
+    $('pairing-result').classList.remove('hidden');setMessage('Einmaliger Kopplungscode erzeugt.');
+  }catch(error){setMessage(errorText(error),true);}
+  finally{button.disabled=!currentUser;}
+});
+$('copy-code').addEventListener('click',async()=>{if(!currentPairingCode)return;try{await navigator.clipboard.writeText(currentPairingCode);setMessage('Kopplungscode kopiert.');}catch{setMessage('Kopieren nicht möglich. Bitte Code manuell übertragen.',true);}});
+$('hide-code').addEventListener('click',()=>{currentPairingCode=null;$('pairing-code').textContent='';$('pairing-result').classList.add('hidden');});
+$('enroll-form').addEventListener('submit',async event=>{
+  event.preventDefault();const button=$('enroll-button');button.disabled=true;currentDeviceToken=null;$('enroll-result').classList.add('hidden');
+  try{
+    const data=formData(event.currentTarget);
+    const result=await request('/api/v1/devices/enroll',{method:'POST',body:data});
+    currentDeviceToken=result.device_token;$('device-token').textContent=currentDeviceToken;$('enroll-result').classList.remove('hidden');
+    $('connection-status').textContent='Gerät gekoppelt. Status wird geprüft …';$('connection-status').className='muted';
+    const status=await request('/api/v1/device/status',{headers:{Authorization:'Bearer '+currentDeviceToken}});
+    $('connection-status').textContent='Verbunden mit '+status.service+' · '+status.device.name+' · Berechtigung: '+status.device.scopes.join(', ');
+    $('connection-status').className='ok';$('pairing-input').value='';setMessage('Gerät erfolgreich gekoppelt.');
+  }catch(error){$('connection-status').textContent='Keine Verbindung: '+errorText(error);$('connection-status').className='bad';setMessage(errorText(error),true);}
+  finally{button.disabled=false;}
+});
+$('copy-token').addEventListener('click',async()=>{if(!currentDeviceToken)return;try{await navigator.clipboard.writeText(currentDeviceToken);setMessage('Gerätezugang kopiert. Nicht in Chats oder Tickets teilen.');}catch{setMessage('Kopieren nicht möglich. Gerätezugang bitte nicht ungeschützt weitergeben.',true);}});
+$('hide-token').addEventListener('click',()=>{currentDeviceToken=null;$('device-token').textContent='';$('enroll-result').classList.add('hidden');$('connection-status').textContent='Gerätezugang ausgeblendet; es wurde nichts im Browser gespeichert.';});
+refresh();
+</script>
 </body>
 </html>
