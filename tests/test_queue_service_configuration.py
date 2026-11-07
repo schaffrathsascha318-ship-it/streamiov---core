@@ -15,7 +15,7 @@ class QueueServiceConfigurationTests(unittest.TestCase):
         self.assertIn(f"Environment=STREAMIOV_TASK_QUEUE_DB={QUEUE_DB}", worker)
         self.assertIn(f"--queue-db {QUEUE_DB}", worker)
         self.assertIn(f"Environment=STREAMIOV_TASK_QUEUE_DB={QUEUE_DB}", host)
-        self.assertIn("EnvironmentFile=-/etc/streamiov/queue-admin.env", host)
+        self.assertIn("Environment=STREAMIOV_QUEUE_ADMIN_USER_IDS_FILE=/etc/streamiov/queue-admin-user-ids", host)
         self.assertIn("StateDirectory=streamiov", worker)
         self.assertIn("StateDirectory=streamiov-host streamiov", host)
         self.assertIn("ReadWritePaths=/var/lib/streamiov", worker)
