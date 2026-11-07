@@ -18,7 +18,7 @@ from ai.core.orchestrator import SpecialistTask, TaskOrchestrator, TaskPlanError
 from ai.specialists.registry import get_specialist
 
 
-QueueStatus = Literal["queued", "running", "succeeded", "failed", "skipped"]
+QueueStatus = Literal["queued", "running", "succeeded", "failed", "skipped", "cancelled"]
 
 
 @dataclass(frozen=True)
@@ -99,9 +99,68 @@ class SpecialistTaskQueue:
             columns = {row[1] for row in connection.execute("PRAGMA table_info(specialist_tasks)")}
             if "queue_order" not in columns:
                 connection.execute("ALTER TABLE specialist_tasks ADD COLUMN queue_order INTEGER NOT NULL DEFAULT 0")
+            table_sql = connection.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='specialist_tasks'"
+            ).fetchone()[0]
+            if "'cancelled'" not in table_sql:
+                connection.execute("DROP INDEX IF EXISTS idx_specialist_tasks_claim")
+                connection.execute("ALTER TABLE specialist_tasks RENAME TO specialist_tasks_legacy")
+                connection.execute(
+                    """
+                    CREATE TABLE specialist_tasks (
+                        task_id TEXT PRIMARY KEY,
+                        queue_order INTEGER NOT NULL DEFAULT 0,
+                        specialist TEXT NOT NULL,
+                        prompt TEXT NOT NULL,
+                        depends_on TEXT NOT NULL,
+                        status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded','failed','skipped','cancelled')),
+                        attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts >= 0),
+                        max_attempts INTEGER NOT NULL CHECK(max_attempts BETWEEN 1 AND 5),
+                        result TEXT NOT NULL DEFAULT '',
+                        error TEXT NOT NULL DEFAULT '',
+                        worker_id TEXT NOT NULL DEFAULT '',
+                        lease_until REAL,
+                        created_at REAL NOT NULL,
+                        updated_at REAL NOT NULL
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    INSERT INTO specialist_tasks
+                    (task_id, queue_order, specialist, prompt, depends_on, status, attempts,
+                     max_attempts, result, error, worker_id, lease_until, created_at, updated_at)
+                    SELECT task_id, queue_order, specialist, prompt, depends_on, status, attempts,
+                           max_attempts, result, error, worker_id, lease_until, created_at, updated_at
+                    FROM specialist_tasks_legacy
+                    """
+                )
+                connection.execute("DROP TABLE specialist_tasks_legacy")
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_specialist_tasks_claim "
                 "ON specialist_tasks(status, queue_order, task_id)"
+            )
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS queue_control (singleton_id INTEGER PRIMARY KEY CHECK(singleton_id=1), paused INTEGER NOT NULL CHECK(paused IN (0,1)))"
+            )
+            connection.execute("INSERT OR IGNORE INTO queue_control(singleton_id, paused) VALUES (1, 0)")
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS queue_audit (
+                    audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    occurred_at REAL NOT NULL,
+                    actor TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    task_id TEXT NOT NULL DEFAULT '',
+                    details TEXT NOT NULL DEFAULT ''
+                )
+                """
+            )
+            connection.execute(
+                "CREATE TRIGGER IF NOT EXISTS queue_audit_no_update BEFORE UPDATE ON queue_audit BEGIN SELECT RAISE(ABORT, 'audit records are append-only'); END"
+            )
+            connection.execute(
+                "CREATE TRIGGER IF NOT EXISTS queue_audit_no_delete BEFORE DELETE ON queue_audit BEGIN SELECT RAISE(ABORT, 'audit records are append-only'); END"
             )
 
     def enqueue_plan(
@@ -179,6 +238,12 @@ class SpecialistTaskQueue:
                 """,
                 (now, now),
             )
+            paused = connection.execute(
+                "SELECT paused FROM queue_control WHERE singleton_id=1"
+            ).fetchone()[0]
+            if paused:
+                connection.commit()
+                return None
             # Dependants of terminal failures are skipped, never run with missing prerequisites.
             rows = connection.execute(
                 "SELECT task_id, depends_on FROM specialist_tasks WHERE status = 'queued'"
@@ -193,7 +258,7 @@ class SpecialistTaskQueue:
                     dependencies,
                 ).fetchall()
                 state_by_id = {item["task_id"]: item["status"] for item in states}
-                if any(state_by_id.get(dep) in {"failed", "skipped"} for dep in dependencies):
+                if any(state_by_id.get(dep) in {"failed", "skipped", "cancelled"} for dep in dependencies):
                     connection.execute(
                         "UPDATE specialist_tasks SET status='skipped', error='A prerequisite task did not succeed.', updated_at=? WHERE task_id=? AND status='queued'",
                         (now, row["task_id"]),
@@ -295,6 +360,82 @@ class SpecialistTaskQueue:
             raise
         finally:
             connection.close()
+
+    @staticmethod
+    def _validate_actor(actor: str) -> str:
+        if not isinstance(actor, str) or not actor.strip() or len(actor.strip()) > 128:
+            raise TaskQueueError("actor must contain 1–128 characters.")
+        return actor.strip()
+
+    @staticmethod
+    def _audit(connection: sqlite3.Connection, actor: str, action: str, task_id: str = "", details: str = "") -> None:
+        connection.execute(
+            "INSERT INTO queue_audit(occurred_at, actor, action, task_id, details) VALUES (?, ?, ?, ?, ?)",
+            (time.time(), actor, action, task_id, details[:1000]),
+        )
+
+    def pause(self, *, actor: str) -> bool:
+        actor = self._validate_actor(actor)
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            current = connection.execute("SELECT paused FROM queue_control WHERE singleton_id=1").fetchone()[0]
+            changed = not bool(current)
+            if changed:
+                connection.execute("UPDATE queue_control SET paused=1 WHERE singleton_id=1")
+                self._audit(connection, actor, "queue.paused")
+            return changed
+
+    def resume(self, *, actor: str) -> bool:
+        actor = self._validate_actor(actor)
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            current = connection.execute("SELECT paused FROM queue_control WHERE singleton_id=1").fetchone()[0]
+            changed = bool(current)
+            if changed:
+                connection.execute("UPDATE queue_control SET paused=0 WHERE singleton_id=1")
+                self._audit(connection, actor, "queue.resumed")
+            return changed
+
+    def is_paused(self) -> bool:
+        with self._connect() as connection:
+            row = connection.execute("SELECT paused FROM queue_control WHERE singleton_id=1").fetchone()
+        return bool(row[0])
+
+    def cancel_task(self, task_id: str, *, actor: str) -> QueuedTask:
+        actor = self._validate_actor(actor)
+        if not isinstance(task_id, str) or not task_id.strip() or len(task_id) > 128:
+            raise TaskQueueError("task_id must contain 1–128 characters.")
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT * FROM specialist_tasks WHERE task_id=?", (task_id.strip(),)
+            ).fetchone()
+            if row is None:
+                raise TaskQueueError("Task does not exist.")
+            if row["status"] != "queued":
+                if row["status"] == "running":
+                    raise TaskQueueError("Running tasks cannot be force-cancelled; stop the worker safely first.")
+                raise TaskQueueError("Only queued tasks can be cancelled.")
+            now = time.time()
+            connection.execute(
+                "UPDATE specialist_tasks SET status='cancelled', error='Cancelled by operator.', updated_at=? WHERE task_id=? AND status='queued'",
+                (now, task_id.strip()),
+            )
+            self._audit(connection, actor, "task.cancelled", task_id.strip())
+            updated = connection.execute(
+                "SELECT * FROM specialist_tasks WHERE task_id=?", (task_id.strip(),)
+            ).fetchone()
+            return self._row_to_task(updated)
+
+    def audit_log(self, *, limit: int = 100) -> list[dict[str, object]]:
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1000:
+            raise TaskQueueError("audit limit must be between 1 and 1000.")
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT audit_id, occurred_at, actor, action, task_id, details FROM queue_audit ORDER BY audit_id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def get(self, task_id: str) -> QueuedTask | None:
         with self._connect() as connection:
