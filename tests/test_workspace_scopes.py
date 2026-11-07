@@ -45,6 +45,43 @@ class WorkspaceScopeTests(unittest.TestCase):
             with self.assertRaises(ToolError):
                 tools.write_file("src/linked/new.txt", "no")
 
+    def test_leaf_symlinks_are_rejected_for_read_and_write(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as outside:
+            root = Path(tmp)
+            (root / "src").mkdir()
+            outside_file = Path(outside) / "private.txt"
+            outside_file.write_text("outside", encoding="utf-8")
+            (root / "src" / "linked.txt").symlink_to(outside_file)
+            tools = ProjectTools(root, writable_prefixes=("src/",))
+            with self.assertRaises(ToolError):
+                tools.read_file("src/linked.txt")
+            with self.assertRaises(ToolError):
+                tools.replace_text("src/linked.txt", "outside", "changed")
+            self.assertEqual(outside_file.read_text(encoding="utf-8"), "outside")
+
+    def test_raw_dot_and_repeated_separator_paths_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "src").mkdir()
+            (root / "src" / "file.txt").write_text("safe", encoding="utf-8")
+            tools = ProjectTools(root, writable_prefixes=("src/",))
+            for path in ("src/./file.txt", "src//file.txt", "src/../outside.txt"):
+                with self.subTest(path=path):
+                    with self.assertRaises(ToolError):
+                        tools.read_file(path)
+
+    def test_file_operations_use_regular_files_and_preserve_exact_edit_rules(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "src").mkdir()
+            (root / "src" / "file.txt").write_text("before", encoding="utf-8")
+            tools = ProjectTools(root, writable_prefixes=("src/",))
+            self.assertEqual(tools.read_file("src/file.txt"), "before")
+            tools.replace_text("src/file.txt", "before", "after")
+            self.assertEqual(tools.read_file("src/file.txt"), "after")
+            with self.assertRaises(ToolError):
+                tools.write_file("src/file.txt", "overwrite")
+
     def test_missing_workspace_root_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             missing = Path(tmp) / "not-created"
