@@ -10,8 +10,12 @@ readme = "docs/operations/opencode-core.md"
 requires-python = ">=3.10"
 dependencies = []
 
+[project.optional-dependencies]
+device = ["keyring>=25.6,<26"]
+
 [project.scripts]
 opencode-core = "ai.__main__:main"
+opencode-core-device = "ai.device_client:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
