@@ -18,6 +18,18 @@ class HostStaticPathTests(unittest.TestCase):
         self.assertEqual(homepage, DEFAULT_SITE_ROOT / "index.html")
         self.assertTrue(homepage.is_file())
 
+    def test_new_entry_homepage_preserves_the_previous_homepage(self):
+        entry = (DEFAULT_SITE_ROOT / "index.html").read_text(encoding="utf-8")
+        previous = resolve_public_file(DEFAULT_SITE_ROOT, "/homepage/")
+        self.assertEqual(previous, DEFAULT_SITE_ROOT / "homepage" / "index.html")
+        self.assertTrue(previous.is_file())
+        previous_markup = previous.read_text(encoding="utf-8")
+        self.assertIn("StreamioV — Dein Stream. Deine Bühne.", previous_markup)
+        self.assertIn('href="/homepage/"', entry)
+        self.assertIn("fetch('/healthz'", entry)
+        self.assertIn("fetch('/api/v1/status'", entry)
+        self.assertIn("Core derzeit nicht erreichbar", entry)
+
     def test_default_site_root_serves_every_local_navigation_link(self):
         """Every local href/src on the homepage must resolve under the served root."""
         index = DEFAULT_SITE_ROOT / "index.html"
