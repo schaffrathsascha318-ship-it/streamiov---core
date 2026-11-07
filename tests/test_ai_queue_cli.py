@@ -64,11 +64,12 @@ class QueueCliTests(unittest.TestCase):
         from ai.__main__ import build_parser
         args = build_parser().parse_args([
             "--worker-loop", "--queue-db", "/tmp/streamiov-queue.sqlite3",
-            "--worker-id", "service-worker", "--poll-seconds", "3", "--max-tasks", "4",
+            "--worker-id", "service-worker", "--poll-seconds", "3", "--max-tasks", "4", "--workers", "3",
         ])
         self.assertTrue(args.worker_loop)
         self.assertEqual(args.poll_seconds, 3)
         self.assertEqual(args.max_tasks, 4)
+        self.assertEqual(args.workers, 3)
 
 
     def test_core_planner_splits_goal_and_enqueues_specialist_tasks(self):
