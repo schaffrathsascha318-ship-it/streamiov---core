@@ -35,10 +35,28 @@ def run_worker_pool(
     reserved = 0
     had_failure = False
 
+    def report(payload: dict) -> None:
+        nonlocal had_failure
+        try:
+            emit(json.dumps(payload, ensure_ascii=False))
+        except Exception:
+            with lock:
+                had_failure = True
+
     def run_one(worker_index: int) -> None:
         nonlocal reserved, had_failure
         worker_id = f"{worker_id_prefix}-{worker_index + 1}"
-        worker = worker_factory(worker_id)
+        try:
+            worker = worker_factory(worker_id)
+        except Exception as exc:
+            with lock:
+                had_failure = True
+            report({
+                "worker_id": worker_id,
+                "status": "worker_error",
+                "error": f"{type(exc).__name__}: {str(exc)[:500]}",
+            })
+            return
         while not stop_event.is_set():
             with lock:
                 if max_tasks and reserved >= max_tasks:
@@ -50,11 +68,11 @@ def run_worker_pool(
                 with lock:
                     reserved -= 1
                     had_failure = True
-                emit(json.dumps({
+                report({
                     "worker_id": worker_id,
                     "status": "worker_error",
                     "error": f"{type(exc).__name__}: {str(exc)[:500]}",
-                }, ensure_ascii=False))
+                })
                 return
             if execution is None:
                 with lock:
@@ -64,13 +82,13 @@ def run_worker_pool(
             if execution.status != "succeeded":
                 with lock:
                     had_failure = True
-            emit(json.dumps({
+            report({
                 "worker_id": worker_id,
                 "task_id": execution.task_id,
                 "status": execution.status,
                 "result": execution.result,
                 "error": execution.error,
-            }, ensure_ascii=False))
+            })
         return
 
     threads = [
