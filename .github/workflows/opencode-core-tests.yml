@@ -1,0 +1,26 @@
+name: OpenCode Core tests
+
+on:
+  push:
+    branches:
+      - feat/opencode-core-foundation
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run complete Python test suite
+        run: python -m unittest discover -s tests -v
