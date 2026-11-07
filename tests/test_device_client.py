@@ -42,7 +42,7 @@ class DeviceClientVaultTests(unittest.TestCase):
                 device_client._keyring()
 
     def test_enrollment_stores_token_only_in_supported_vault(self):
-        class SecretServiceKeyring:
+        class Keyring:
             __module__ = "keyring.backends.secretservice"
             priority = 1
             def __init__(self):
@@ -66,7 +66,7 @@ class DeviceClientVaultTests(unittest.TestCase):
         self.assertEqual(next(iter(backend.saved.values())), "t" * 48)
 
     def test_forget_deletes_only_local_vault_credential(self):
-        class SecretServiceKeyring:
+        class Keyring:
             __module__ = "keyring.backends.secretservice"
             priority = 1
             def __init__(self):
