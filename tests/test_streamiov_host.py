@@ -18,6 +18,18 @@ class HostStaticPathTests(unittest.TestCase):
         self.assertEqual(homepage, DEFAULT_SITE_ROOT / "index.html")
         self.assertTrue(homepage.is_file())
 
+    def test_new_entry_homepage_preserves_the_previous_homepage(self):
+        entry = (DEFAULT_SITE_ROOT / "index.html").read_text(encoding="utf-8")
+        previous = resolve_public_file(DEFAULT_SITE_ROOT, "/homepage/")
+        self.assertEqual(previous, DEFAULT_SITE_ROOT / "homepage" / "index.html")
+        self.assertTrue(previous.is_file())
+        previous_markup = previous.read_text(encoding="utf-8")
+        self.assertIn("StreamioV — Dein Stream. Deine Bühne.", previous_markup)
+        self.assertIn('href="/homepage/"', entry)
+        self.assertIn("Eigenständig erreichbar", entry)
+        self.assertIn("ohne Core", entry)
+        self.assertNotIn("fetch", entry)
+
     def test_default_site_root_serves_every_local_navigation_link(self):
         """Every local href/src on the homepage must resolve under the served root."""
         index = DEFAULT_SITE_ROOT / "index.html"
@@ -182,6 +194,37 @@ class HostStaticPathTests(unittest.TestCase):
             except (OSError, NotImplementedError):
                 self.skipTest("Symlinks are unavailable on this platform.")
             self.assertIsNone(resolve_public_file(root, "/link.txt"))
+
+    def test_entry_homepage_uses_the_existing_core_and_preserves_the_platform_route(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            server = StreamioVHTTPServer(
+                ("127.0.0.1", 0), Handler, DEFAULT_SITE_ROOT, root / "state", trust_loopback_proxy=True
+            )
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            base = f"http://127.0.0.1:{server.server_port}"
+            try:
+                with urlopen(base + "/", timeout=2) as response:
+                    entry = response.read().decode("utf-8")
+                self.assertIn("Willkommen auf deiner Bühne", entry)
+
+                with urlopen(base + "/homepage/", timeout=2) as response:
+                    previous_homepage = response.read().decode("utf-8")
+                self.assertIn("StreamioV — Dein Stream. Deine Bühne.", previous_homepage)
+
+                with urlopen(base + "/healthz", timeout=2) as response:
+                    health = json.loads(response.read())
+                with urlopen(base + "/api/v1/status", timeout=2) as response:
+                    status = json.loads(response.read())
+                self.assertEqual(health["service"], "streamiov-host")
+                self.assertEqual(status["service"], "streamiov-host")
+                self.assertTrue(status["account_api_ready"])
+                self.assertFalse(status["api_ready"])
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
 
     def test_local_host_serves_home_health_and_honest_status_without_write_routes(self):
         with tempfile.TemporaryDirectory() as directory:
