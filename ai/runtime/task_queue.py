@@ -85,7 +85,7 @@ class SpecialistTaskQueue:
                     specialist TEXT NOT NULL,
                     prompt TEXT NOT NULL,
                     depends_on TEXT NOT NULL,
-                    status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded','failed','skipped')),
+                    status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded','failed','skipped','cancelled')),
                     attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts >= 0),
                     max_attempts INTEGER NOT NULL CHECK(max_attempts BETWEEN 1 AND 5),
                     result TEXT NOT NULL DEFAULT '',
@@ -341,7 +341,7 @@ class SpecialistTaskQueue:
             )
             if cursor.rowcount != 1:
                 raise TaskQueueError("Task is not running under this worker lease.")
-            self._audit(connection, worker_id, "task.completed", task_id)
+            self._audit(connection, worker_id, "task.completed", task_id, occurred_at=now)
 
     def fail(self, task_id: str, worker_id: str, error: str) -> QueueStatus:
         safe_error = str(error)[:1000]
@@ -382,10 +382,18 @@ class SpecialistTaskQueue:
         return actor.strip()
 
     @staticmethod
-    def _audit(connection: sqlite3.Connection, actor: str, action: str, task_id: str = "", details: str = "") -> None:
+    def _audit(
+        connection: sqlite3.Connection,
+        actor: str,
+        action: str,
+        task_id: str = "",
+        details: str = "",
+        *,
+        occurred_at: float | None = None,
+    ) -> None:
         connection.execute(
             "INSERT INTO queue_audit(occurred_at, actor, action, task_id, details) VALUES (?, ?, ?, ?, ?)",
-            (time.time(), actor, action, task_id, details[:1000]),
+            (time.time() if occurred_at is None else occurred_at, actor, action, task_id, details[:1000]),
         )
 
     def pause(self, *, actor: str) -> bool:
