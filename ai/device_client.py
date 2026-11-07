@@ -60,7 +60,7 @@ def _keyring():
             raise DeviceClientError("Der Betriebssystem-Tresor ist nicht verfügbar.")
     except (AttributeError, TypeError, ValueError) as exc:
         raise DeviceClientError("Der Betriebssystem-Tresor konnte nicht verifiziert werden.") from exc
-    return keyring
+    return backend
 
 
 def _service(server: str) -> str:
