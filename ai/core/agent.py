@@ -183,6 +183,17 @@ class DevelopmentAgent:
         )
         self.max_steps = max_steps
 
+    def close(self) -> None:
+        """Release resources owned by this agent."""
+        self.tools.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        return False
+
     def run(self, task: str) -> str:
         if not isinstance(task, str) or not task.strip() or len(task) > 8000:
             raise ValueError("Task must contain 1–8000 characters.")
