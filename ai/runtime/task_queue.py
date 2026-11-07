@@ -346,22 +346,35 @@ class SpecialistWorker:
 
         heartbeat_thread = threading.Thread(target=renew_lease, name=f"streamiov-lease-{task.task_id[:16]}", daemon=True)
         heartbeat_thread.start()
+        agent = None
+        task_error: Exception | None = None
+        result = ""
         try:
-            result = self.agent_factory(task.specialist).run(task.prompt)
+            agent = self.agent_factory(task.specialist)
+            result = agent.run(task.prompt)
             if not isinstance(result, str):
                 raise TypeError("Specialist agent returned a non-text result.")
         except Exception as exc:
+            task_error = exc
+        finally:
             stop_heartbeat.set()
             heartbeat_thread.join(timeout=interval + 1)
-            error = f"{type(exc).__name__}: {str(exc)[:500]}"
+            close = getattr(agent, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception as exc:
+                    if task_error is None:
+                        task_error = exc
+
+        if task_error is not None:
+            error = f"{type(task_error).__name__}: {str(task_error)[:500]}"
             try:
                 status = self.queue.fail(task.task_id, self.worker_id, error)
             except TaskQueueError as lease_error:
                 return WorkerExecution(task.task_id, "failed", error=f"{error}; lease update rejected: {lease_error}")
             return WorkerExecution(task.task_id, status, error=error)
 
-        stop_heartbeat.set()
-        heartbeat_thread.join(timeout=interval + 1)
         try:
             self.queue.complete(task.task_id, self.worker_id, result)
         except TaskQueueError as exc:
