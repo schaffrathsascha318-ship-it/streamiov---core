@@ -9,6 +9,7 @@ const { pathToFileURL } = require('node:url');
 const { buildSyntheticAvPipelineArgs } = require('./media-pipeline');
 const { StudioSourceModel } = require('./engine/source-model');
 const { StudioSceneEngine } = require('./engine/scene-engine');
+const { getStudioCapabilities } = require('./platform-capabilities');
 
 const { execFile, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
@@ -183,6 +184,21 @@ function isTrustedStudioSender(event) {
   return isStudioDocument(event.sender.getURL()) &&
     isStudioDocument(frame.url);
 }
+
+
+ipcMain.handle('studio:get-platform-capabilities', async (event, rendererFeatures = {}) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  const safeFeatures = {
+    getUserMedia: rendererFeatures.camera === true,
+    getDisplayMedia: rendererFeatures.screenCapture === true
+  };
+  return getStudioCapabilities({
+    runtime: { electron: true },
+    nodePlatform: process.platform,
+    mediaDevices: safeFeatures,
+    audioElement: { setSinkId: rendererFeatures.audioOutputRouting === true }
+  });
+});
 
 const streamiovChatState = {
   chat: 'offline',
