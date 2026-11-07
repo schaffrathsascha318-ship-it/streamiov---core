@@ -183,8 +183,11 @@ def main(argv: list[str] | None = None) -> int:
             learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
             writable_prefixes=args.write_scope,
         )
-        print(agent.run(args.task))
-        return 0
+        try:
+            print(agent.run(args.task))
+            return 0
+        finally:
+            agent.close()
     except (AgentError, PlannerError, ProviderError, TaskQueueError, sqlite3.Error, OSError, ValueError) as exc:
         print(f"opencode-core: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
