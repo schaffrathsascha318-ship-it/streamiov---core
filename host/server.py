@@ -163,7 +163,7 @@ class StreamioVHTTPServer(ThreadingHTTPServer):
         self.forum_store = ForumStore(data_dir)
         queue_db = os.environ.get("STREAMIOV_TASK_QUEUE_DB", "").strip()
         admin_ids = os.environ.get("STREAMIOV_QUEUE_ADMIN_USER_IDS", "")
-        self.task_queue = SpecialistTaskQueue(queue_db) if queue_db else None
+        self.task_queue = SpecialistTaskQueue(queue_db) if queue_db and queue_db != ":memory:" else None
         self.queue_admin_user_ids = frozenset(
             item.strip() for item in admin_ids.split(",")
             if len(item.strip()) == 32 and all(ch in "0123456789abcdef" for ch in item.strip())
