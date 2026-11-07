@@ -21,7 +21,7 @@ class FakeProvider:
 
 class SpecialistRegistryTests(unittest.TestCase):
     def test_all_required_specialist_roles_are_registered(self):
-        expected = {"core", "code", "game", "design", "gifts", "testing", "repair", "integration", "studio", "server", "general"}
+        expected = {"core", "code", "game", "design", "gifts", "testing", "repair", "integration", "studio", "server", "general", "audio", "tiktok", "compliance", "data"}
         self.assertTrue(expected.issubset(set(specialist_names())))
 
     def test_unknown_specialist_is_rejected(self):
@@ -33,7 +33,7 @@ class SpecialistRegistryTests(unittest.TestCase):
         from ai.__main__ import build_parser
 
         names = specialist_names()
-        self.assertEqual(len(names), 11)
+        self.assertEqual(len(names), 15)
         self.assertEqual(set(names), set(SPECIALISTS))
         parser_names = set(build_parser()._option_string_actions["--specialist"].choices)
         self.assertEqual(parser_names, set(names))
