@@ -40,6 +40,14 @@ class ProjectTools:
             normalized.append(value)
         self.writable_prefixes = tuple(normalized)
         self.allow_game_checks = allow_game_checks
+        self._root_fd: int | None = None
+        if (
+            os.name == "posix"
+            and hasattr(os, "O_NOFOLLOW")
+            and hasattr(os, "O_DIRECTORY")
+            and os.open in os.supports_dir_fd
+        ):
+            self._root_fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
 
     def _resolve(self, raw: str) -> Path:
         if not isinstance(raw, str) or not raw or "\x00" in raw:
@@ -71,6 +79,13 @@ class ProjectTools:
         if not any(normalized.startswith(prefix) for prefix in self.writable_prefixes):
             raise ToolError("Writes are restricted to configured AI, documentation, and test directories.")
         return target, normalized
+
+
+    def close(self) -> None:
+        """Release the pinned workspace root descriptor."""
+        if self._root_fd is not None:
+            os.close(self._root_fd)
+            self._root_fd = None
 
     def _path_parts(self, raw: str) -> tuple[str, ...]:
         if not isinstance(raw, str) or not raw or "\x00" in raw or "\\" in raw:
@@ -105,7 +120,9 @@ class ProjectTools:
     def _open_directory(self, parts: tuple[str, ...], *, create: bool = False) -> int:
         self._require_dirfd_support()
         flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-        fd = os.open(self.root, flags)
+        if self._root_fd is None:
+            raise ToolError("The project workspace root is not safely pinned.")
+        fd = os.dup(self._root_fd)
         try:
             for part in parts:
                 try:
