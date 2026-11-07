@@ -278,7 +278,9 @@ class MusicLibrary:
     """Read-only local library. It does not fetch tracks or authorize rights."""
 
     def __init__(self, tracks: Iterable[MusicTrack], music_root: str | Path) -> None:
-        self.music_root = Path(music_root).resolve()
+        # Preserve the caller's absolute path spelling for returned paths;
+        # containment checks below use the canonical root separately.
+        self.music_root = Path(music_root).absolute()
         self.tracks = {track.track_id: track for track in tracks}
 
     @classmethod
@@ -307,10 +309,10 @@ class MusicLibrary:
                 return None
         try:
             resolved = candidate.resolve(strict=True)
-            resolved.relative_to(self.music_root)
+            resolved.relative_to(self.music_root.resolve())
         except (OSError, ValueError):
             return None
-        return resolved if resolved.is_file() else None
+        return candidate if resolved.is_file() else None
 
     def assess(
         self,

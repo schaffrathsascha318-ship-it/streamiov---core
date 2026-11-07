@@ -52,15 +52,19 @@ def _safe_repo_file(repository_root: Path, relative: object) -> Path | None:
 
 def audit_game(manifest_path: str | Path, repository_root: str | Path) -> dict:
     manifest_path = Path(os.path.abspath(Path(manifest_path)))
-    root = Path(repository_root).resolve()
+    root_path = Path(os.path.abspath(Path(repository_root)))
     errors: list[str] = []
     warnings: list[str] = []
     try:
-        manifest_relative = manifest_path.relative_to(root)
+        manifest_relative = manifest_path.relative_to(root_path)
     except ValueError:
         return {"valid": False, "release_ready": False, "errors": ["manifest file is outside the repository"], "warnings": []}
-    if manifest_path.is_symlink() or any((root / part).is_symlink() for part in _prefixes(manifest_relative)):
+    if manifest_path.is_symlink() or any((root_path / part).is_symlink() for part in _prefixes(manifest_relative)):
         return {"valid": False, "release_ready": False, "errors": ["manifest path contains a symlink"], "warnings": []}
+    # Canonicalize only after lexical containment and symlink checks. This
+    # handles macOS /var -> /private/var without weakening the boundary.
+    root = root_path.resolve()
+    manifest_path = root.joinpath(*manifest_relative.parts)
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"), object_pairs_hook=_strict_object)
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:

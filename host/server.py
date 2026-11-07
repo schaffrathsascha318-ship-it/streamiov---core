@@ -89,7 +89,10 @@ def local_ai_status() -> dict:
 
 def resolve_public_file(site_root: str | Path, request_path: str) -> Path | None:
     """Resolve a static URL inside site_root, rejecting traversal and symlinks."""
-    root = Path(site_root).resolve()
+    # Keep the lexical root for returned paths while using its resolved
+    # form for the security boundary (notably /var vs /private/var on macOS).
+    root = Path(site_root).absolute()
+    resolved_root = root.resolve()
     try:
         decoded = unquote(urlsplit(request_path).path, errors="strict")
     except (UnicodeDecodeError, ValueError):
@@ -118,10 +121,10 @@ def resolve_public_file(site_root: str | Path, request_path: str) -> Path | None
             return None
     try:
         resolved = candidate.resolve(strict=True)
-        resolved.relative_to(root)
+        resolved.relative_to(resolved_root)
     except (OSError, ValueError):
         return None
-    return resolved if resolved.is_file() else None
+    return candidate if resolved.is_file() else None
 
 
 def validate_tls_settings(host: str, cert_file: str | None, key_file: str | None) -> bool:

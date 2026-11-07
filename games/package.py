@@ -63,12 +63,17 @@ def _output_path(root: Path, relative: object) -> Path:
 
 
 def build_package(manifest_path: str | Path, repository_root: str | Path, *, force: bool = False) -> dict:
-    root = Path(repository_root).resolve()
+    # Keep caller paths lexical for containment checks. On macOS, temporary
+    # directories commonly appear under /var while resolve() canonicalizes
+    # them to /private/var; comparing one canonical and one lexical path would
+    # incorrectly reject a manifest that is inside the repository.
+    root_path = Path(os.path.abspath(Path(repository_root)))
     manifest_file = Path(os.path.abspath(Path(manifest_path)))
     try:
-        manifest_relative = manifest_file.relative_to(root).as_posix()
+        manifest_relative = manifest_file.relative_to(root_path).as_posix()
     except ValueError as exc:
         raise ValueError("Manifest must be inside the repository.") from exc
+    root = root_path.resolve()
     manifest_file = _repo_path(root, manifest_relative)
     if not manifest_file.is_file():
         raise ValueError("Manifest must be a regular repository file.")
