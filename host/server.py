@@ -20,7 +20,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from http.cookies import SimpleCookie
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 
 VERSION = "0.1.0"
@@ -44,6 +44,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from host.auth import AuthError, AuthStore, RequestRateLimiter
 from host.data_store import DataStore
 from host.forum import ForumError, ForumStore
+from ai.runtime.task_queue import SpecialistTaskQueue, TaskQueueError
 
 
 def local_ai_status() -> dict:
@@ -160,6 +161,11 @@ class StreamioVHTTPServer(ThreadingHTTPServer):
         self.auth_store = AuthStore(data_dir)
         self.data_store = DataStore(data_dir, raw_data_root)
         self.forum_store = ForumStore(data_dir)
+        queue_db = os.environ.get("STREAMIOV_TASK_QUEUE_DB", "").strip()
+        admin_ids = os.environ.get("STREAMIOV_QUEUE_ADMIN_USER_IDS", "")
+        self.task_queue = SpecialistTaskQueue(queue_db) if queue_db else None
+        self.queue_admin_user_ids = frozenset(item.strip() for item in admin_ids.split(",") if item.strip())
+        self.queue_limiter = RequestRateLimiter(limit=30, window_seconds=60)
         self.auth_limiter = RequestRateLimiter()
         self.device_pairing_limiter = RequestRateLimiter(limit=5, window_seconds=900)
         self.device_enroll_limiter = RequestRateLimiter(limit=10, window_seconds=900)
@@ -556,6 +562,87 @@ class Handler(BaseHTTPRequestHandler):
             "ai_execution_ready": False,
         })
 
+
+    def _queue_request(self, path: str) -> bool:
+        """Authenticated, allow-listed operator controls for the durable task queue."""
+        is_read = self.command == "GET" and path in {
+            "/api/v1/queue/status", "/api/v1/queue/audit"
+        }
+        is_write = self.command == "POST" and path in {
+            "/api/v1/queue/pause", "/api/v1/queue/resume"
+        }
+        prefix = "/api/v1/queue/tasks/"
+        is_cancel = self.command == "POST" and path.startswith(prefix) and path.endswith("/cancel")
+        if not (is_read or is_write or is_cancel):
+            return False
+        user = self.server.auth_store.user_for_token(self._auth_cookie_token())
+        if user is None:
+            self._json_with_headers(401, {"error": "authentication_required"})
+            return True
+        if user.user_id not in self.server.queue_admin_user_ids:
+            self._json_with_headers(403, {"error": "queue_operator_forbidden"})
+            return True
+        if self.server.task_queue is None:
+            self._json_with_headers(503, {"error": "queue_api_not_configured"})
+            return True
+        if is_write or is_cancel:
+            if not self._request_origin_allowed() and not self._studio_client_request():
+                self._json_with_headers(403, {"error": "request_origin_not_allowed"})
+                return True
+            if not self.server.queue_limiter.allow("queue_control", self._client_address()):
+                self._json_with_headers(429, {"error": "too_many_requests"}, (("Retry-After", "60"),))
+                return True
+            raw_length = self.headers.get("Content-Length", "0")
+            if not raw_length.isdigit() or int(raw_length) != 0:
+                self._json_with_headers(400, {"error": "request_body_not_allowed"})
+                return True
+        queue = self.server.task_queue
+        try:
+            if path == "/api/v1/queue/status":
+                tasks = queue.list_tasks()
+                counts = {name: 0 for name in ("queued", "running", "succeeded", "failed", "skipped", "cancelled")}
+                for task in tasks:
+                    counts[task.status] = counts.get(task.status, 0) + 1
+                self._json(200, {"ok": True, "paused": queue.is_paused(),
+                                 "task_counts": counts, "total_tasks": len(tasks)})
+                return True
+            if path == "/api/v1/queue/audit":
+                query = parse_qs(urlsplit(self.path).query, keep_blank_values=True, strict_parsing=True)
+                if set(query) - {"limit"} or len(query.get("limit", ["100"])) != 1:
+                    raise ValueError("Only one limit query parameter is supported.")
+                raw_limit = query.get("limit", ["100"])[0]
+                if not raw_limit.isdigit():
+                    raise ValueError("limit must be an integer between 1 and 1000.")
+                entries = queue.audit_log(limit=int(raw_limit))
+                safe_entries = [{key: item[key] for key in ("audit_id", "occurred_at", "actor", "action", "task_id")}
+                                for item in entries]
+                self._json(200, {"ok": True, "entries": safe_entries})
+                return True
+            actor = user.user_id
+            if path == "/api/v1/queue/pause":
+                changed = queue.pause(actor=actor)
+                self._json(200, {"ok": True, "paused": True, "changed": changed})
+                return True
+            if path == "/api/v1/queue/resume":
+                changed = queue.resume(actor=actor)
+                self._json(200, {"ok": True, "paused": False, "changed": changed})
+                return True
+            task_id = path[len(prefix):-len("/cancel")]
+            if not task_id or "/" in task_id:
+                self._json_with_headers(404, {"error": "task_not_found"})
+                return True
+            task = queue.cancel_task(task_id, actor=actor)
+            self._json(200, {"ok": True, "task_id": task.task_id, "status": task.status})
+            return True
+        except TaskQueueError as exc:
+            message = str(exc)
+            status = 404 if message == "Task does not exist." else 409
+            self._json_with_headers(status, {"error": message})
+            return True
+        except (ValueError, TypeError) as exc:
+            self._json_with_headers(400, {"error": str(exc)})
+            return True
+
     def _catalog_request(self, path: str) -> bool:
         """Serve the read-only catalog built from repository raw data."""
         kind = CATALOG_ROUTES.get(path)
@@ -656,6 +743,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self._auth_request(path):
             return
+        if self._queue_request(path):
+            return
         if self._catalog_request(path):
             return
         if self._forum_request(path):
@@ -724,6 +813,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/v1/ai/tasks":
             self._ai_task_request()
+            return
+        if self._queue_request(path):
             return
         if self._forum_request(path):
             return
