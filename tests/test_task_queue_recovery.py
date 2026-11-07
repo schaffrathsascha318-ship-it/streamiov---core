@@ -114,5 +114,30 @@ class TaskQueueRecoveryTests(unittest.TestCase):
         self.assertEqual(current.worker_id, "worker-new")
 
 
+    def test_heartbeat_rejects_boolean_and_non_integer_lease_values(self):
+        task = SpecialistTask("heartbeat-validation", "testing", "validate lease input")
+        self.queue.enqueue_plan([task])
+        self.queue.claim_next("worker-one", lease_seconds=30)
+
+        for invalid in (True, False, 10.5, "30"):
+            with self.subTest(lease_seconds=invalid):
+                with self.assertRaisesRegex(TaskQueueError, "lease_seconds"):
+                    self.queue.heartbeat("heartbeat-validation", "worker-one", lease_seconds=invalid)
+
+    def test_complete_uses_a_single_clock_read_for_lease_check_and_update(self):
+        task = SpecialistTask("single-clock", "testing", "use one clock value")
+        with patch("ai.runtime.task_queue.time.time", return_value=5000.0):
+            self.queue.enqueue_plan([task])
+            self.queue.claim_next("worker-one", lease_seconds=30)
+
+        with patch("ai.runtime.task_queue.time.time", side_effect=[5001.0, AssertionError("clock read twice")]) as clock:
+            self.queue.complete("single-clock", "worker-one", "done")
+
+        self.assertEqual(clock.call_count, 1)
+        stored = self.queue.get("single-clock")
+        self.assertEqual(stored.status, "succeeded")
+        self.assertEqual(stored.result, "done")
+
+
 if __name__ == "__main__":
     unittest.main()
