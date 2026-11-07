@@ -4,6 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: opencode-core:local
+    user: "1000:1000"
     restart: unless-stopped
     env_file:
       - path: .env
