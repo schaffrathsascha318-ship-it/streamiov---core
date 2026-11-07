@@ -42,6 +42,7 @@ class ProjectTools:
         self.writable_prefixes = tuple(normalized)
         self.allow_game_checks = allow_game_checks
         self._root_fd: int | None = None
+        self._windows_backend = None
         if (
             os.name == "posix"
             and hasattr(os, "O_NOFOLLOW")
@@ -49,6 +50,12 @@ class ProjectTools:
             and os.open in os.supports_dir_fd
         ):
             self._root_fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        elif os.name == "nt":
+            try:
+                from ai.runtime.windows_workspace import WindowsWorkspaceBackend
+                self._windows_backend = WindowsWorkspaceBackend(self.root)
+            except (OSError, AttributeError) as exc:
+                raise ToolError("The secure Windows workspace backend could not be initialized; access is disabled.") from exc
 
     def _resolve(self, raw: str) -> Path:
         if not isinstance(raw, str) or not raw or "\x00" in raw:
@@ -83,10 +90,13 @@ class ProjectTools:
 
 
     def close(self) -> None:
-        """Release the pinned workspace root descriptor."""
+        """Release pinned workspace root handles."""
         if self._root_fd is not None:
             os.close(self._root_fd)
             self._root_fd = None
+        if self._windows_backend is not None:
+            self._windows_backend.close()
+            self._windows_backend = None
 
     def _path_parts(self, raw: str) -> tuple[str, ...]:
         if not isinstance(raw, str) or not raw or "\x00" in raw or "\\" in raw:
@@ -175,6 +185,11 @@ class ProjectTools:
         """List bounded, non-symlink children using a pinned directory."""
         import stat
         parts = self._path_parts(path)
+        if self._windows_backend is not None:
+            try:
+                return self._windows_backend.list_files(parts, DENIED_PARTS, DENIED_SUFFIXES)
+            except OSError as exc:
+                raise ToolError("Could not safely list the requested Windows workspace directory.") from exc
         fd = self._open_directory(parts)
         try:
             entries = []
@@ -209,6 +224,11 @@ class ProjectTools:
         parts = self._path_parts(path)
         if not parts:
             raise ToolError("A file path is required.")
+        if self._windows_backend is not None:
+            try:
+                return self._windows_backend.read_file(parts)
+            except (OSError, UnicodeError) as exc:
+                raise ToolError("Requested Windows workspace file is missing, unsafe, or not accessible.") from exc
         parent_fd = self._open_directory(parts[:-1])
         try:
             try:
@@ -233,6 +253,12 @@ class ProjectTools:
             raise ToolError("Writes are restricted to configured AI, documentation, and test directories.")
         if not isinstance(content, str) or len(content.encode("utf-8")) > 100_000:
             raise ToolError("Content must be text no larger than 100 KB.")
+        if self._windows_backend is not None:
+            try:
+                self._windows_backend.write_file(parts, content)
+            except OSError as exc:
+                raise ToolError("Could not safely create the requested Windows workspace file.") from exc
+            return f"Created {normalized} ({len(content)} characters)."
         parent_fd = self._open_directory(parts[:-1], create=True)
         try:
             try:
@@ -262,6 +288,12 @@ class ProjectTools:
             raise ToolError("old_text must be a non-empty string.")
         if not isinstance(new_text, str) or old_text == new_text:
             raise ToolError("new_text must be text different from old_text.")
+        if self._windows_backend is not None:
+            try:
+                self._windows_backend.replace_text(parts, old_text, new_text)
+            except (OSError, UnicodeError) as exc:
+                raise ToolError("Could not safely edit the requested Windows workspace file.") from exc
+            return f"Updated {normalized}: one exact match replaced."
         parent_fd = self._open_directory(parts[:-1])
         try:
             try:
