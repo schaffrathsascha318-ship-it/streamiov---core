@@ -161,6 +161,8 @@ class StreamioVHTTPServer(ThreadingHTTPServer):
         self.data_store = DataStore(data_dir, raw_data_root)
         self.forum_store = ForumStore(data_dir)
         self.auth_limiter = RequestRateLimiter()
+        self.device_pairing_limiter = RequestRateLimiter(limit=5, window_seconds=900)
+        self.device_enroll_limiter = RequestRateLimiter(limit=10, window_seconds=900)
         self.forum_thread_limiter = RequestRateLimiter(limit=5, window_seconds=600)
         self.forum_reply_limiter = RequestRateLimiter(limit=20, window_seconds=600)
         self.auth_work_slots = threading.BoundedSemaphore(4)
@@ -212,6 +214,13 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
+
+    def _bearer_token(self) -> str | None:
+        value = self.headers.get("Authorization", "")
+        if not value.startswith("Bearer "):
+            return None
+        token = value[7:].strip()
+        return token if 40 <= len(token) <= 128 else None
 
     def _auth_cookie_token(self) -> str | None:
         raw_cookie = self.headers.get("Cookie", "")
@@ -380,6 +389,141 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             self.server.auth_work_slots.release()
 
+    def _device_request(self, path: str) -> bool:
+        """Device enrollment, owner management, and scoped device status API."""
+        if path == "/api/v1/devices" and self.command == "GET":
+            user = self.server.auth_store.user_for_token(self._auth_cookie_token())
+            if user is None:
+                self._json_with_headers(401, {"error": "authentication_required"})
+                return True
+            devices = self.server.auth_store.list_devices(user.user_id)
+            self._json(200, {"ok": True, "devices": [{
+                "device_id": item.device_id,
+                "name": item.name,
+                "platform": item.platform,
+                "scopes": list(item.scopes),
+                "created_at": item.created_at,
+                "last_seen_at": item.last_seen_at,
+                "expires_at": item.expires_at,
+                "revoked_at": item.revoked_at,
+            } for item in devices]})
+            return True
+
+        if path == "/api/v1/device/status" and self.command == "GET":
+            result = self.server.auth_store.user_for_device_token(
+                self._bearer_token(), required_scope="status:read"
+            )
+            if result is None:
+                self._json_with_headers(401, {"error": "device_authentication_required"})
+                return True
+            user, device = result
+            self._json(200, {
+                "ok": True,
+                "service": "streamiov-host",
+                "version": VERSION,
+                "user_id": user.user_id,
+                "device": {
+                    "device_id": device.device_id,
+                    "name": device.name,
+                    "platform": device.platform,
+                    "scopes": list(device.scopes),
+                    "expires_at": device.expires_at,
+                },
+                "task_api_ready": False,
+                "workspace_access": False,
+            })
+            return True
+
+        if self.command != "POST":
+            return False
+
+        if path == "/api/v1/devices/pairing-code":
+            user = self.server.auth_store.user_for_token(self._auth_cookie_token())
+            if user is None:
+                self._json_with_headers(401, {"error": "authentication_required"})
+                return True
+            if not self._request_origin_allowed() and not self._studio_client_request():
+                self._json_with_headers(403, {"error": "request_origin_not_allowed"})
+                return True
+            if not self.server.device_pairing_limiter.allow("device_pairing", self._client_address()):
+                self._json_with_headers(429, {"error": "too_many_attempts"}, (("Retry-After", "900"),))
+                return True
+            try:
+                code, expires_at = self.server.auth_store.create_device_pairing_code(user.user_id)
+            except AuthError as exc:
+                self._json_with_headers(400, {"error": str(exc)})
+                return True
+            self._json(201, {
+                "ok": True,
+                "pairing_code": code,
+                "expires_at": expires_at,
+                "expires_in_seconds": max(0, expires_at - int(time.time())),
+                "single_use": True,
+            })
+            return True
+
+        if path == "/api/v1/devices/enroll":
+            try:
+                peer = ipaddress.ip_address(self.client_address[0])
+            except (ValueError, TypeError, IndexError):
+                self._json_with_headers(403, {"error": "secure_transport_required"})
+                return True
+            if not peer.is_loopback and not self._secure_request():
+                self._json_with_headers(403, {"error": "secure_transport_required"})
+                return True
+            if not self.server.device_enroll_limiter.allow("device_enroll", self._client_address()):
+                self._json_with_headers(429, {"error": "too_many_attempts"}, (("Retry-After", "900"),))
+                return True
+            try:
+                payload = self._read_json_object(max_bytes=4096)
+                if set(payload) != {"pairing_code", "name", "platform"}:
+                    raise AuthError("Request must contain only pairing_code, name, and platform.")
+                enrolled = self.server.auth_store.enroll_device(
+                    payload["pairing_code"], payload["name"], payload["platform"]
+                )
+            except AuthError as exc:
+                self._json_with_headers(400, {"error": str(exc)})
+                return True
+            if enrolled is None:
+                self._json_with_headers(401, {"error": "invalid_or_expired_pairing_code"})
+                return True
+            device, token = enrolled
+            self._json(201, {
+                "ok": True,
+                "device": {
+                    "device_id": device.device_id,
+                    "name": device.name,
+                    "platform": device.platform,
+                    "scopes": list(device.scopes),
+                    "expires_at": device.expires_at,
+                },
+                "device_token": token,
+                "token_delivery": "shown_once",
+            })
+            return True
+
+        prefix = "/api/v1/devices/"
+        suffix = "/revoke"
+        if path.startswith(prefix) and path.endswith(suffix):
+            user = self.server.auth_store.user_for_token(self._auth_cookie_token())
+            if user is None:
+                self._json_with_headers(401, {"error": "authentication_required"})
+                return True
+            if not self._request_origin_allowed() and not self._studio_client_request():
+                self._json_with_headers(403, {"error": "request_origin_not_allowed"})
+                return True
+            device_id = path[len(prefix):-len(suffix)]
+            if not device_id or len(device_id) != 32 or any(ch not in "0123456789abcdef" for ch in device_id):
+                self._json_with_headers(404, {"error": "device_not_found"})
+                return True
+            if not self.server.auth_store.revoke_device(user.user_id, device_id):
+                self._json_with_headers(404, {"error": "device_not_found"})
+                return True
+            self._json(200, {"ok": True, "revoked": True, "device_id": device_id})
+            return True
+
+        return False
+
     def _ai_task_request(self) -> None:
         """Authenticated placeholder for the Studio AI bridge.
 
@@ -508,6 +652,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = urlsplit(self.path).path
+        if self._device_request(path):
+            return
         if self._auth_request(path):
             return
         if self._catalog_request(path):
@@ -574,6 +720,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlsplit(self.path).path
+        if self._device_request(path):
+            return
         if path == "/api/v1/ai/tasks":
             self._ai_task_request()
             return
