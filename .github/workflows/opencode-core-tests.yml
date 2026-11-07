@@ -56,8 +56,10 @@ jobs:
       - name: Install wheel and smoke-test CLI
         shell: pwsh
         run: |
+          $wheel = Get-ChildItem -Path dist -Filter *.whl | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $wheel) { throw "No wheel was built." }
           python -m venv .venv-package-check
-          .\.venv-package-check\Scripts\python.exe -m pip install --no-deps dist/*.whl
-          .\.venv-package-check\Scripts\opencode-core.exe --help
+          & .\.venv-package-check\Scripts\python.exe -m pip install --no-deps $wheel
+          & .\.venv-package-check\Scripts\opencode-core.exe --help
       - name: Verify workspace access fails closed on Windows
         run: python -m unittest discover -s tests -p test_windows_guard.py -v
