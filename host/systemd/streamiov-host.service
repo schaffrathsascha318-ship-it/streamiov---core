@@ -10,7 +10,7 @@ WorkingDirectory=/opt/streamiov
 StateDirectory=streamiov-host streamiov
 StateDirectoryMode=0700
 Environment=STREAMIOV_TASK_QUEUE_DB=/var/lib/streamiov/queue.sqlite3
-EnvironmentFile=-/etc/streamiov/queue-admin.env
+Environment=STREAMIOV_QUEUE_ADMIN_USER_IDS_FILE=/etc/streamiov/queue-admin-user-ids
 ExecStart=/usr/bin/python3 /opt/streamiov/host/server.py --host 127.0.0.1 --port 8765 --site-root /opt/streamiov/dist/streamiov-homepage-worker/public --data-dir /var/lib/streamiov-host --trust-loopback-proxy
 Restart=on-failure
 RestartSec=3
