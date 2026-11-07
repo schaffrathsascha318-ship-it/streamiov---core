@@ -157,6 +157,24 @@ class QueueControlAPITests(unittest.TestCase):
         finally:
             configured.server_close()
 
+
+    def test_missing_operator_allowlist_file_keeps_queue_api_fail_closed(self):
+        missing = Path(self.temp.name) / "not-created-yet"
+        with patch.dict(os.environ, {
+            "STREAMIOV_QUEUE_ADMIN_USER_IDS_FILE": str(missing),
+            "STREAMIOV_QUEUE_ADMIN_USER_IDS": "",
+            "STREAMIOV_TASK_QUEUE_DB": str(self.queue_db),
+        }):
+            configured = StreamioVHTTPServer(
+                ("127.0.0.1", 0), Handler, Path(self.temp.name) / "site",
+                Path(self.temp.name) / "missing-file-state",
+                trust_loopback_proxy=True, registration_open=False,
+            )
+        try:
+            self.assertEqual(configured.queue_admin_user_ids, frozenset())
+        finally:
+            configured.server_close()
+
     def test_api_is_disabled_without_explicit_queue_database(self):
         self.server.task_queue = None
         status, body = self.request("/api/v1/queue/status", session=self.admin_session)
