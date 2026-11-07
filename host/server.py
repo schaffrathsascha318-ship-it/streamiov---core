@@ -164,7 +164,10 @@ class StreamioVHTTPServer(ThreadingHTTPServer):
         queue_db = os.environ.get("STREAMIOV_TASK_QUEUE_DB", "").strip()
         admin_ids = os.environ.get("STREAMIOV_QUEUE_ADMIN_USER_IDS", "")
         self.task_queue = SpecialistTaskQueue(queue_db) if queue_db else None
-        self.queue_admin_user_ids = frozenset(item.strip() for item in admin_ids.split(",") if item.strip())
+        self.queue_admin_user_ids = frozenset(
+            item.strip() for item in admin_ids.split(",")
+            if len(item.strip()) == 32 and all(ch in "0123456789abcdef" for ch in item.strip())
+        )
         self.queue_limiter = RequestRateLimiter(limit=30, window_seconds=60)
         self.auth_limiter = RequestRateLimiter()
         self.device_pairing_limiter = RequestRateLimiter(limit=5, window_seconds=900)
@@ -611,7 +614,7 @@ class Handler(BaseHTTPRequestHandler):
                 if set(query) - {"limit"} or len(query.get("limit", ["100"])) != 1:
                     raise ValueError("Only one limit query parameter is supported.")
                 raw_limit = query.get("limit", ["100"])[0]
-                if not raw_limit.isdigit():
+                if not raw_limit.isdigit() or not 1 <= int(raw_limit) <= 1000:
                     raise ValueError("limit must be an integer between 1 and 1000.")
                 entries = queue.audit_log(limit=int(raw_limit))
                 safe_entries = [{key: item[key] for key in ("audit_id", "occurred_at", "actor", "action", "task_id")}
