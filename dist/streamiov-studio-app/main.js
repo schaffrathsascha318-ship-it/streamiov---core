@@ -9,6 +9,8 @@ const { pathToFileURL } = require('node:url');
 const { buildSyntheticAvPipelineArgs } = require('./media-pipeline');
 const { StudioSourceModel } = require('./engine/source-model');
 const { StudioSceneEngine } = require('./engine/scene-engine');
+const { getStudioCapabilities } = require('./platform-capabilities');
+const { createGameAiAnalysis } = require('./engine/game-ai-engine');
 
 const { execFile, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
@@ -183,6 +185,21 @@ function isTrustedStudioSender(event) {
   return isStudioDocument(event.sender.getURL()) &&
     isStudioDocument(frame.url);
 }
+
+
+ipcMain.handle('studio:get-platform-capabilities', async (event, rendererFeatures = {}) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  const safeFeatures = {
+    getUserMedia: rendererFeatures.camera === true,
+    getDisplayMedia: rendererFeatures.screenCapture === true
+  };
+  return getStudioCapabilities({
+    runtime: { electron: true },
+    nodePlatform: process.platform,
+    mediaDevices: safeFeatures,
+    audioElement: { setSinkId: rendererFeatures.audioOutputRouting === true }
+  });
+});
 
 const streamiovChatState = {
   chat: 'offline',
@@ -733,6 +750,12 @@ ipcMain.handle('studio:get-module-status', async (event) => {
     verification: 'repository_capability_inventory',
     live_stream_verified: false,
     modules: [
+      { id: 'ai-game-analyzer', status: 'foundation_ready', note: 'Spieltyp, Spielsituation und Ereignisse aus belegten Signalen erkennen.' },
+      { id: 'ai-interaction-ai', status: 'foundation_ready', note: 'Zuschaueraktionen und Challenges passend zum Spiel entwerfen.' },
+      { id: 'ai-overlay-ai', status: 'foundation_ready', note: 'Overlay-, Ranglisten- und Animationskonzepte vorbereiten.' },
+      { id: 'ai-event-ai', status: 'foundation_ready', note: 'Freigegebene LIVE-Ereignisse zu sicheren Aktionsvorschlägen zuordnen.' },
+      { id: 'ai-balance-ai', status: 'foundation_ready', note: 'Fairness, Missbrauchsrisiken und Spielbalance bewerten.' },
+      { id: 'ai-learning-ai', status: 'foundation_ready', note: 'Ergebnisse auswerten und überprüfbare Verbesserungen ableiten.' },
       { id: 'scene-engine', status: 'automated_tested', note: 'Preview/Program-Zustand und TAKE; keine gerenderte Videoausgabe.' },
       { id: 'source-model', status: 'automated_tested', note: 'Quellen-Metadaten werden lokal gespeichert; keine Capture-/Encoder-Verbindung.' },
       { id: 'local-camera-preview', status: 'renderer_local_only', note: 'Getrennte lokale MediaDevices-Vorschau; nicht in Program/Encoder eingebunden.' },
@@ -1090,6 +1113,13 @@ ipcMain.handle('studio:ai-submit', async (event, payload = {}) => {
     };
   }
 });
+ipcMain.handle('studio:game-ai-analyze', async (event, payload = {}) => {
+  if (!isTrustedStudioSender(event)) {
+    throw new Error('Nicht autorisierter Studio-Aufruf');
+  }
+  return createGameAiAnalysis(payload);
+});
+
 // Read-only catalog bridge. The allowlist maps Studio panel names to host
 // endpoints; arbitrary paths are never forwarded from the renderer.
 const STUDIO_DATA_PATHS = Object.freeze({
