@@ -82,6 +82,25 @@ class WorkspaceScopeTests(unittest.TestCase):
             with self.assertRaises(ToolError):
                 tools.write_file("src/file.txt", "overwrite")
 
+    def test_pinned_workspace_root_cannot_be_redirected_after_initialization(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as outside:
+            parent = Path(tmp)
+            root = parent / "workspace"
+            root.mkdir()
+            (root / "src").mkdir()
+            (root / "src" / "file.txt").write_text("inside", encoding="utf-8")
+            outside_root = Path(outside)
+            (outside_root / "src").mkdir()
+            (outside_root / "src" / "file.txt").write_text("outside", encoding="utf-8")
+            tools = ProjectTools(root, writable_prefixes=("src/",))
+            moved_root = parent / "workspace-moved"
+            root.rename(moved_root)
+            root.symlink_to(outside_root, target_is_directory=True)
+            try:
+                self.assertEqual(tools.read_file("src/file.txt"), "inside")
+            finally:
+                tools.close()
+
     def test_missing_workspace_root_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             missing = Path(tmp) / "not-created"
