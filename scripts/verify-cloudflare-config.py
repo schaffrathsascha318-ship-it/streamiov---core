@@ -20,6 +20,9 @@ HOMEPAGE_CONFIG = ROOT / "dist" / "streamiov-homepage-worker" / "wrangler.jsonc"
 HOMEPAGE_PUBLIC = ROOT / "dist" / "streamiov-homepage-worker" / "public"
 AI_CONFIG = ROOT / "infrastructure" / "cloudflare" / "streamiov-ai-worker" / "wrangler.jsonc"
 AI_SOURCE = ROOT / "infrastructure" / "cloudflare" / "streamiov-ai-worker" / "src" / "index.mjs"
+LIBERTY_CONFIG = ROOT / "infrastructure" / "cloudflare" / "streamiov-liberty-tv-worker" / "wrangler.jsonc"
+LIBERTY_SOURCE = ROOT / "infrastructure" / "cloudflare" / "streamiov-liberty-tv-worker" / "src" / "index.mjs"
+LIBERTY_PUBLIC = ROOT / "infrastructure" / "cloudflare" / "streamiov-liberty-tv-worker" / "public"
 DEPLOY_SCRIPT = ROOT / "scripts" / "deploy-streamiov-ai-worker.sh"
 DEPLOY_WORKFLOW = ROOT / ".github" / "workflows" / "cloudflare-deploy.yml"
 CHECKS_WORKFLOW = ROOT / ".github" / "workflows" / "cloudflare-checks.yml"
@@ -93,7 +96,7 @@ def verify() -> dict[str, Any]:
     errors: list[str] = []
     checks: list[str] = []
 
-    for path in (HOMEPAGE_CONFIG, AI_CONFIG, AI_SOURCE, DEPLOY_SCRIPT, DEPLOY_WORKFLOW, CHECKS_WORKFLOW):
+    for path in (HOMEPAGE_CONFIG, AI_CONFIG, AI_SOURCE, LIBERTY_CONFIG, LIBERTY_SOURCE, LIBERTY_PUBLIC / "index.html", LIBERTY_PUBLIC / "site.css", DEPLOY_SCRIPT, DEPLOY_WORKFLOW, CHECKS_WORKFLOW):
         if not path.is_file():
             errors.append(f"missing required Cloudflare file: {path.relative_to(ROOT)}")
     if errors:
@@ -155,6 +158,26 @@ def verify() -> dict[str, Any]:
         if _contains_secret_like_key(ai):
             errors.append("AI Worker config contains a secret-like key")
         checks.append("AI Worker binding and entry point are configured")
+
+    liberty = load_jsonc(LIBERTY_CONFIG)
+    if liberty.get("name") != "streamiov-liberty-tv-core":
+        errors.append("Liberty TV Worker name must be streamiov-liberty-tv-core")
+    if liberty.get("main") != "src/index.mjs":
+        errors.append("Liberty TV Worker main must be src/index.mjs")
+    if not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", str(liberty.get("compatibility_date", ""))):
+        errors.append("Liberty TV Worker compatibility_date must be YYYY-MM-DD")
+    assets = liberty.get("assets")
+    if not isinstance(assets, dict) or assets.get("directory") != "./public" or assets.get("binding") != "ASSETS" or assets.get("run_worker_first") is not True:
+        errors.append("Liberty TV Worker must route requests through the ASSETS binding and ./public")
+    if _contains_secret_like_key(liberty):
+        errors.append("Liberty TV Worker config contains a secret-like key")
+    liberty_source = LIBERTY_SOURCE.read_text(encoding="utf-8")
+    for required in ('url.pathname === "/healthz"', 'env.ASSETS.fetch(request)', 'Content-Security-Policy', 'X-Content-Type-Options'):
+        if required not in liberty_source:
+            errors.append(f"Liberty TV Worker source is missing: {required}")
+    if not (LIBERTY_PUBLIC / "index.html").is_file() or not (LIBERTY_PUBLIC / "site.css").is_file():
+        errors.append("Liberty TV Worker public site entry point or stylesheet is missing")
+    checks.append("Liberty TV Core Worker has a separate asset site, health route, and security headers")
 
     source = AI_SOURCE.read_text(encoding="utf-8")
     if PINNED_MODEL not in source:
