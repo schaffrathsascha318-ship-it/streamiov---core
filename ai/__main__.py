@@ -147,8 +147,8 @@ def main(argv: list[str] | None = None) -> int:
                         provider=provider_from_env(),
                         project_root=Path(args.project_root),
                         max_steps=args.max_steps,
-                        specialist=role,
-                    writable_prefixes=args.write_scope,
+                            specialist=role,
+                        writable_prefixes=args.write_scope,
                     ),
                 )
             stop_event = threading.Event()
