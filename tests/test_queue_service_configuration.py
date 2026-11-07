@@ -18,7 +18,7 @@ class QueueServiceConfigurationTests(unittest.TestCase):
         self.assertIn("Environment=STREAMIOV_QUEUE_ADMIN_USER_IDS_FILE=/etc/streamiov/queue-admin-user-ids", host)
         self.assertIn("StateDirectory=streamiov", worker)
         self.assertIn("StateDirectory=streamiov-host streamiov", host)
-        self.assertIn("ReadWritePaths=/var/lib/streamiov", worker)
+        self.assertIn("ReadWritePaths=/opt/streamiov /var/lib/streamiov", worker)
         self.assertIn("ReadWritePaths=/var/lib/streamiov", host)
 
     def test_worker_is_supervised_and_stops_with_sigterm(self):
