@@ -162,10 +162,15 @@ class StreamioVHTTPServer(ThreadingHTTPServer):
         self.data_store = DataStore(data_dir, raw_data_root)
         self.forum_store = ForumStore(data_dir)
         queue_db = os.environ.get("STREAMIOV_TASK_QUEUE_DB", "").strip()
-        admin_ids = os.environ.get("STREAMIOV_QUEUE_ADMIN_USER_IDS", "")
+        admin_ids_file = os.environ.get("STREAMIOV_QUEUE_ADMIN_USER_IDS_FILE", "").strip()
+        if admin_ids_file:
+            # A dedicated data file avoids allowing a broad EnvironmentFile to override the DB path.
+            admin_ids = Path(admin_ids_file).read_text(encoding="utf-8")
+        else:
+            admin_ids = os.environ.get("STREAMIOV_QUEUE_ADMIN_USER_IDS", "")
         self.task_queue = SpecialistTaskQueue(queue_db) if queue_db and queue_db != ":memory:" else None
         self.queue_admin_user_ids = frozenset(
-            item.strip() for item in admin_ids.split(",")
+            item.strip() for item in admin_ids.replace("\\n", ",").split(",")
             if len(item.strip()) == 32 and all(ch in "0123456789abcdef" for ch in item.strip())
         )
         self.queue_limiter = RequestRateLimiter(limit=30, window_seconds=60)
