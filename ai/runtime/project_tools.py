@@ -21,7 +21,24 @@ MAX_LIST_ENTRIES = 100
 class ProjectTools:
     def __init__(self, root: str | Path, writable_prefixes: tuple[str, ...] = ("ai/", "docs/ai-development/", "tests/"), *, allow_game_checks: bool = False) -> None:
         self.root = Path(root).resolve()
-        self.writable_prefixes = writable_prefixes
+        if not self.root.is_dir():
+            raise ToolError("Project workspace root must be an existing directory.")
+        if not isinstance(writable_prefixes, (tuple, list)) or not writable_prefixes:
+            raise ToolError("At least one explicit writable directory scope is required.")
+        normalized = []
+        for prefix in writable_prefixes:
+            if not isinstance(prefix, str) or not prefix or "\\\\" in prefix or "\\x00" in prefix:
+                raise ToolError("Writable scopes must be normalized relative directory paths.")
+            candidate = PurePosixPath(prefix)
+            if candidate.is_absolute() or any(part in {"", ".", ".."} for part in candidate.parts):
+                raise ToolError("Writable scopes may not be absolute or contain path traversal.")
+            if any(part.lower() in DENIED_PARTS or part.lower().startswith(".env") for part in candidate.parts):
+                raise ToolError("Writable scopes may not include protected directories.")
+            value = candidate.as_posix().rstrip("/") + "/"
+            if value == "/" or value in normalized:
+                raise ToolError("Writable scopes must be unique project subdirectories.")
+            normalized.append(value)
+        self.writable_prefixes = tuple(normalized)
         self.allow_game_checks = allow_game_checks
 
     def _resolve(self, raw: str) -> Path:
