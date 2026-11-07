@@ -72,7 +72,8 @@ class TaskQueueControlTests(unittest.TestCase):
                 connection.execute("DELETE FROM queue_audit WHERE audit_id=1")
 
     def test_existing_queue_database_migrates_without_losing_tasks(self):
-        with sqlite3.connect(self.database) as connection:
+        legacy_database = Path(self.temp_dir.name) / "legacy.sqlite3"
+        with sqlite3.connect(legacy_database) as connection:
             connection.execute(
                 """
                 CREATE TABLE specialist_tasks (
@@ -97,7 +98,7 @@ class TaskQueueControlTests(unittest.TestCase):
                 "INSERT INTO specialist_tasks(task_id, specialist, prompt, depends_on, status, max_attempts, created_at, updated_at) VALUES ('legacy-task', 'testing', 'keep me', '[]', 'queued', 1, 1, 1)"
             )
 
-        migrated = SpecialistTaskQueue(self.database)
+        migrated = SpecialistTaskQueue(legacy_database)
         self.assertEqual(migrated.get("legacy-task").status, "queued")
         cancelled = migrated.cancel_task("legacy-task", actor="migration-test")
         self.assertEqual(cancelled.status, "cancelled")
