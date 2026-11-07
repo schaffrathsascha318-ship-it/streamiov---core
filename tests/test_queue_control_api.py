@@ -138,6 +138,25 @@ class QueueControlAPITests(unittest.TestCase):
         status, body = self.request("/api/v1/queue/audit?limit=0", session=self.admin_session)
         self.assertEqual(status, 400)
 
+
+    def test_operator_allowlist_can_be_loaded_from_dedicated_file(self):
+        allowlist = Path(self.temp.name) / "queue-admin-user-ids"
+        allowlist.write_text(self.admin.user_id + "\\n", encoding="utf-8")
+        data_dir = Path(self.temp.name) / "file-config-state"
+        with patch.dict(os.environ, {
+            "STREAMIOV_QUEUE_ADMIN_USER_IDS_FILE": str(allowlist),
+            "STREAMIOV_QUEUE_ADMIN_USER_IDS": "",
+            "STREAMIOV_TASK_QUEUE_DB": str(self.queue_db),
+        }):
+            configured = StreamioVHTTPServer(
+                ("127.0.0.1", 0), Handler, Path(self.temp.name) / "site",
+                data_dir, trust_loopback_proxy=True, registration_open=False,
+            )
+        try:
+            self.assertEqual(configured.queue_admin_user_ids, frozenset({self.admin.user_id}))
+        finally:
+            configured.server_close()
+
     def test_api_is_disabled_without_explicit_queue_database(self):
         self.server.task_queue = None
         status, body = self.request("/api/v1/queue/status", session=self.admin_session)
