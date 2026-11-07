@@ -163,22 +163,27 @@ def _provider_from_settings(kind: str, model: str, base_url: str, token: str = "
     raise ProviderError("Unsupported provider. Choose ollama, openai-compatible-local, or cloudflare-workers-ai.")
 
 
+def _setting(name: str, legacy_name: str, default: str = "") -> str:
+    """Prefer product-neutral OPENCODE_* settings, retaining STREAMIOV_* compatibility."""
+    return os.environ.get(name, os.environ.get(legacy_name, default))
+
+
 def provider_from_env():
-    kind = os.environ.get("STREAMIOV_MODEL_PROVIDER", "ollama").lower()
+    kind = _setting("OPENCODE_MODEL_PROVIDER", "STREAMIOV_MODEL_PROVIDER", "ollama").lower()
     primary = _provider_from_settings(
         kind,
-        os.environ.get("STREAMIOV_MODEL", ""),
-        os.environ.get("STREAMIOV_MODEL_URL", ""),
-        os.environ.get("STREAMIOV_AI_WORKER_TOKEN", ""),
+        _setting("OPENCODE_MODEL", "STREAMIOV_MODEL"),
+        _setting("OPENCODE_MODEL_URL", "STREAMIOV_MODEL_URL"),
+        _setting("OPENCODE_AI_WORKER_TOKEN", "STREAMIOV_AI_WORKER_TOKEN"),
     )
-    fallback_kind = os.environ.get("STREAMIOV_FALLBACK_PROVIDER", "").lower()
+    fallback_kind = _setting("OPENCODE_FALLBACK_PROVIDER", "STREAMIOV_FALLBACK_PROVIDER").lower()
     if not fallback_kind:
         return primary
     fallback = _provider_from_settings(
         fallback_kind,
-        os.environ.get("STREAMIOV_FALLBACK_MODEL", ""),
-        os.environ.get("STREAMIOV_FALLBACK_MODEL_URL", ""),
-        os.environ.get("STREAMIOV_FALLBACK_AI_WORKER_TOKEN", ""),
+        _setting("OPENCODE_FALLBACK_MODEL", "STREAMIOV_FALLBACK_MODEL"),
+        _setting("OPENCODE_FALLBACK_MODEL_URL", "STREAMIOV_FALLBACK_MODEL_URL"),
+        _setting("OPENCODE_FALLBACK_AI_WORKER_TOKEN", "STREAMIOV_FALLBACK_AI_WORKER_TOKEN"),
     )
     from .router import FallbackModelProvider
     return FallbackModelProvider(primary, [fallback])
