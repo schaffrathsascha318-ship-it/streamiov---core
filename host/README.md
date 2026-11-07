@@ -2,6 +2,8 @@
 
 This is the first self-hosted host component. It uses only Python's standard library, serves the complete static site from `dist/streamiov-homepage-worker/public`, and exposes non-sensitive diagnostic routes:
 
+The StreamioV entry homepage is served at `/`. The previous full platform homepage is preserved at `/homepage/`; its existing child paths such as `/download/`, `/studio/`, `/forum/`, and `/account/` remain at their current URLs. The entry page checks this same host through `GET /healthz` and `GET /api/v1/status`, so no browser-side cross-origin API or second Core is introduced. When the same static files are served by the assets-only Cloudflare Pages Worker without this host, the Core indicator correctly reports that the host API is unavailable.
+
 - `GET /healthz` reports process health, version, and uptime.
 - `GET /api/v1/status` reports that local account routes are enabled while the broader application API remains unavailable, plus read-only catalog counts and import errors.
 - `GET /api/v1/catalog`, `/api/v1/catalog/gifts`, `/api/v1/catalog/games`, `/api/v1/music/library`, and `/api/v1/studio/templates` expose the read-only catalog seeded from the repository JSON files under `data/`. They never read or modify the legacy `data/db/*.sqlite3` databases and never import accounts, sessions, devices, or platform credentials.
