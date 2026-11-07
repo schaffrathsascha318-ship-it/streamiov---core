@@ -12,7 +12,6 @@ StateDirectoryMode=0700
 WorkingDirectory=/opt/streamiov
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=-/etc/streamiov/opencode-core.env
-EnvironmentFile=-/etc/streamiov/queue.env
 Environment=STREAMIOV_TASK_QUEUE_DB=/var/lib/streamiov/queue.sqlite3
 ExecStart=/opt/streamiov/.venv/bin/python -m ai --worker-loop --project-root /opt/streamiov --queue-db /var/lib/streamiov/queue.sqlite3 --worker-id opencode-core --workers 4 --poll-seconds 5
 Restart=always
