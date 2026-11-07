@@ -71,6 +71,22 @@ class WorkerPoolTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(len(output), 2)
 
+    def test_worker_factory_failure_is_reported_and_returns_failure(self):
+        output = []
+        def broken_factory(worker_id):
+            raise RuntimeError("startup failed")
+        code = run_worker_pool(broken_factory, threading.Event(), workers=2, emit=output.append)
+        self.assertEqual(code, 1)
+        self.assertEqual(len(output), 2)
+        self.assertTrue(all(json.loads(line)["status"] == "worker_error" for line in output))
+
+    def test_output_callback_failure_marks_pool_failed(self):
+        queue = SharedFakeQueue(1)
+        def broken_emit(_line):
+            raise RuntimeError("logging unavailable")
+        code = run_worker_pool(queue.worker, threading.Event(), workers=1, max_tasks=1, emit=broken_emit)
+        self.assertEqual(code, 1)
+
     def test_invalid_worker_bounds_are_rejected(self):
         with self.assertRaises(ValueError):
             run_worker_pool(lambda _id: None, threading.Event(), workers=0)
