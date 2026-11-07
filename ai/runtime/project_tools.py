@@ -1,5 +1,6 @@
 """Constrained project tools: safe file access and fixed test commands only."""
 from __future__ import annotations
+import errno
 import os
 import shutil
 import subprocess
@@ -140,7 +141,7 @@ class ProjectTools:
             return fd
         except OSError as exc:
             os.close(fd)
-            if exc.errno in {2, 20, 40,  NotADirectoryError.errno if hasattr(NotADirectoryError, "errno") else 20}:
+            if exc.errno in {errno.ENOENT, errno.ENOTDIR, errno.ELOOP}:
                 raise ToolError("Path is missing, not a directory, or uses a symlink.") from exc
             raise
         except Exception:
