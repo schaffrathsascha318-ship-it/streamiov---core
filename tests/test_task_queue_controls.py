@@ -71,6 +71,37 @@ class TaskQueueControlTests(unittest.TestCase):
             with self.assertRaisesRegex(sqlite3.IntegrityError, "append-only"):
                 connection.execute("DELETE FROM queue_audit WHERE audit_id=1")
 
+    def test_existing_queue_database_migrates_without_losing_tasks(self):
+        with sqlite3.connect(self.database) as connection:
+            connection.execute(
+                """
+                CREATE TABLE specialist_tasks (
+                    task_id TEXT PRIMARY KEY,
+                    queue_order INTEGER NOT NULL DEFAULT 0,
+                    specialist TEXT NOT NULL,
+                    prompt TEXT NOT NULL,
+                    depends_on TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded','failed','skipped')),
+                    attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts >= 0),
+                    max_attempts INTEGER NOT NULL CHECK(max_attempts BETWEEN 1 AND 5),
+                    result TEXT NOT NULL DEFAULT '',
+                    error TEXT NOT NULL DEFAULT '',
+                    worker_id TEXT NOT NULL DEFAULT '',
+                    lease_until REAL,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                "INSERT INTO specialist_tasks(task_id, specialist, prompt, depends_on, status, max_attempts, created_at, updated_at) VALUES ('legacy-task', 'testing', 'keep me', '[]', 'queued', 1, 1, 1)"
+            )
+
+        migrated = SpecialistTaskQueue(self.database)
+        self.assertEqual(migrated.get("legacy-task").status, "queued")
+        cancelled = migrated.cancel_task("legacy-task", actor="migration-test")
+        self.assertEqual(cancelled.status, "cancelled")
+
     def test_invalid_actors_and_audit_limits_are_rejected(self):
         with self.assertRaises(TaskQueueError):
             self.queue.pause(actor=" ")
