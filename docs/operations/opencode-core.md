@@ -44,12 +44,16 @@ The unit file at `infrastructure/systemd/streamiov-opencode-core.service` is a d
 
 Before enabling the unit, install dependencies, run the project test suite, verify `python -m ai --doctor`, and check filesystem ownership and available disk space. Then install the unit into the systemd unit directory, reload systemd, and start it. This branch does not deploy the service or provision a server.
 
+## Platform coverage
+
+The device and operating-system target matrix, host-versus-client distinction, security requirements, and release gates are defined in [platform support](platform-support.md). Windows, Linux, macOS, ChromeOS, Android, and iOS are all project targets; their support status is tracked separately and must not be inferred from a generic package build.
+
 ## Safety and current limitations
 
 - The worker pool executes only tasks already persisted in the queue. It does not yet ingest GitHub issues automatically.
 - No automatic push, pull request, merge, production deployment, OAuth change, credential rotation, payment, or release is implemented.
 - Specialist write scopes are enforced by ProjectTools, but the service account must also be restricted at the operating-system level.
-- Race-safe workspace file operations currently use POSIX `openat`/`O_NOFOLLOW`. The Windows CI job verifies wheel installation, CLI startup, and that workspace reads/writes fail closed; it does **not** provide Windows workspace editing. A handle-relative Windows backend and adversarial Windows filesystem tests are still required before Windows task execution can be enabled.
+- Race-safe workspace file operations currently use POSIX `openat`/`O_NOFOLLOW`. The Windows CI job verifies wheel installation, CLI startup, and that workspace reads/writes fail closed; it does **not** provide Windows workspace editing. macOS has a separate package and Python-suite CI job. ChromeOS, Android, and iOS client implementations and real-device verification remain future work. A handle-relative Windows backend and adversarial Windows filesystem tests are still required before Windows task execution can be enabled.
 - Task prompts and model output are untrusted. Review diffs and test results before accepting changes.
 - A worker can resume queued tasks after restart; an interrupted running task becomes eligible again only after its lease expires. Idempotency and duplicate side-effect handling still need dedicated tests.
 - Current built-in test execution is limited to the existing Python test command. Node/Electron/platform build adapters remain future work.
