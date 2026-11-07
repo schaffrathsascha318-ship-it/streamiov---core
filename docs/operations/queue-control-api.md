@@ -29,13 +29,13 @@ The checked-in systemd units now agree on one explicit database path:
 /var/lib/streamiov/queue.sqlite3
 ```
 
-The worker unit `infrastructure/systemd/streamiov-opencode-core.service` passes that path to `opencode-core --worker-loop`. The host unit `host/systemd/streamiov-host.service` exposes the exact same path to the HTTP API through `STREAMIOV_TASK_QUEUE_DB`. Both units declare the shared `streamiov` state directory and writable path. The host reads the operator allow-list separately from the optional file `/etc/streamiov/queue-admin.env`:
+The worker unit `infrastructure/systemd/streamiov-opencode-core.service` passes that path to `opencode-core --worker-loop`. The host unit `host/systemd/streamiov-host.service` exposes the exact same path to the HTTP API through `STREAMIOV_TASK_QUEUE_DB`. Both units declare the shared `streamiov` state directory and writable path. The host reads the operator allow-list from the dedicated data file `/etc/streamiov/queue-admin-user-ids` (one 32-character lowercase hexadecimal user ID per line):
 
-```sh
-STREAMIOV_QUEUE_ADMIN_USER_IDS=the-32-character-user-id
+```text
+the-32-character-lowercase-hex-user-id
 ```
 
-Keep that file owned by root, readable only by the service account/group as required, and mode-restricted (for example `0640`). Do not put queue credentials or user passwords in it. The queue database remains owned by the `streamiov` service account with a private state directory. Enqueue commands must also use `--queue-db /var/lib/streamiov/queue.sqlite3`; never create a second path for the API and worker.
+Keep that file owned by root, readable only by the `streamiov` service group (for example owner `root`, group `streamiov`, mode `0640`). It contains only allow-listed user IDs; do not put queue credentials or user passwords in it. The service receives only the file path, so the allow-list file cannot override the queue database path. The queue database remains owned by the `streamiov` service account with a private state directory. Enqueue commands must also use `--queue-db /var/lib/streamiov/queue.sqlite3`; never create a second path for the API and worker.
 
 The worker is supervised by systemd with SIGTERM shutdown and automatic restart. A task interrupted before completion remains in the SQLite database as a leased running task; after its lease expires, the next worker claim recovers it and either retries it within its retry budget or marks it failed. This is at-least-once task execution: a process may have performed an external side effect immediately before dying. Tasks that perform external writes must therefore use idempotency keys or verify prior state before repeating side effects.
 
