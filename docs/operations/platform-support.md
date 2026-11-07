@@ -14,9 +14,9 @@ A phone or tablet does not need to run the full worker service locally to be a s
 
 | Device / OS | Intended role | Architecture targets | Current evidence |
 |---|---|---|---|
-| Windows 10/11 desktop and laptop | Host and client | x64 first; ARM64 where dependencies permit | Windows 2025 CI verifies wheel installation, CLI startup, and fail-closed workspace access. Secure workspace editing is not implemented. |
-| Linux desktop, laptop, and server | Host and client | x86_64 and aarch64 | Ubuntu 24.04 CI runs the full Python suite and wheel/CLI smoke test. Other distributions need dedicated packaging tests. |
-| macOS desktop and laptop | Host and client | Apple Silicon arm64; Intel x86_64 where supported | macOS 15 CI runs the full Python suite and wheel/CLI smoke test. Real hardware and signing/notarization remain unverified. |
+| Windows 10/11 desktop and laptop | Host and client | x64 first; ARM64 where dependencies permit | Windows x64 and ARM64 CI verify wheel installation, CLI startup, and fail-closed workspace access. Secure workspace editing is not implemented on either architecture. |
+| Linux desktop, laptop, and server | Host and client | x86_64 and aarch64 | Ubuntu 24.04 x64 and ARM64 CI run the full Python suite and wheel/CLI smoke test. Other distributions need dedicated packaging tests. |
+| macOS desktop and laptop | Host and client | Apple Silicon arm64; Intel x86_64 where supported | macOS 15 Apple Silicon and Intel CI run the full Python suite and wheel/CLI smoke test. Real hardware and signing/notarization remain unverified. |
 | ChromeOS / Chromebook | Primarily client; optional Linux host through Crostini where supported | Device CPU architecture | No dedicated ChromeOS hardware CI yet. Crostini is a Linux compatibility route, not proof of native ChromeOS support. |
 | Android phone and tablet | Client/control device; optional local lightweight tools | arm64; additional ABIs subject to testing | No Android app or device verification is claimed yet. |
 | iPhone and iPad | Client/control device | Apple mobile architectures | No iOS app or device verification is claimed yet. |
@@ -39,8 +39,14 @@ A platform is production-supported only after all relevant checks pass:
 - real hardware verification is recorded for at least one representative device per supported architecture;
 - release artifacts, update path, and platform-specific security/signing requirements are verified.
 
+## Client/API readiness
+
+The local host currently exposes account/session and status routes. Its AI request route is an authenticated not-ready placeholder; there is no approved task-submission/control API, device enrollment or revocation flow, or native OpenCode Core client yet. ChromeOS, Android, and iOS are therefore product targets, not released or verified Core clients. The separate Streamiov Studio PWA is not evidence of OpenCode Core client support.
+
+Before remote device access is enabled, implement TLS-only remote transport, per-device enrollment with scoped credentials and revocation, account/workspace authorization, rate limits and audit, task queue control endpoints, and reconnect/offline behavior. Provider credentials and direct workspace access must remain on the trusted Core host.
+
 ## Current status
 
-The Linux CI baseline covers Python 3.10, 3.12, and 3.13. Windows CI currently verifies package/CLI compatibility and the deliberate fail-closed filesystem guard; it does not enable Windows workspace editing. macOS CI is being added as a separate host-platform check. ChromeOS, Android, and iOS remain explicit targets but are not yet verified or released as native clients.
+Linux x86_64 CI covers Python 3.10, 3.12, and 3.13; Linux aarch64 runs the full Python suite and wheel/CLI smoke test on Python 3.12. Windows x64 and ARM64 CI verify wheel installation, CLI startup, and the deliberate fail-closed filesystem guard; neither enables Windows workspace editing. macOS 15 CI runs the full Python suite and wheel/CLI smoke test on Apple Silicon and Intel. Real-device verification and signing/notarization remain separate release gates. ChromeOS, Android, and iOS remain explicit targets but are not yet verified or released as native clients.
 
 No platform is considered fully complete until its relevant release gates are evidenced.
