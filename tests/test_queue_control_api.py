@@ -51,11 +51,13 @@ class QueueControlAPITests(unittest.TestCase):
         self.env.stop()
         self.temp.cleanup()
 
-    def request(self, path, *, method="GET", session=None, payload=None):
+    def request(self, path, *, method="GET", session=None, bearer=None, payload=None):
         body = None if payload is None else json.dumps(payload).encode()
         headers = {"X-Forwarded-Proto": "https"}
         if session:
             headers["Cookie"] = "streamiov_session=" + session
+        if bearer:
+            headers["Authorization"] = "Bearer " + bearer
         if method == "POST":
             headers["Origin"] = self.origin
         if body is not None:
@@ -113,6 +115,28 @@ class QueueControlAPITests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertFalse(self.queue.is_paused())
         self.assertFalse(any(item["actor"] == "attacker" for item in self.queue.audit_log()))
+
+
+    def test_device_bearer_token_is_not_a_queue_operator_session(self):
+        auth = self.server.auth_store
+        code, _expires = auth.create_device_pairing_code(self.admin.user_id)
+        _device, device_token = auth.enroll_device(code, "Read-only device", "linux")
+        status, body = self.request("/api/v1/queue/status", bearer=device_token)
+        self.assertEqual(status, 401)
+        self.assertEqual(body["error"], "authentication_required")
+
+    def test_running_task_cannot_be_force_cancelled(self):
+        self.queue.claim_next("test-worker")
+        status, body = self.request(
+            f"/api/v1/queue/tasks/{self.task_id}/cancel",
+            method="POST", session=self.admin_session,
+        )
+        self.assertEqual(status, 409)
+        self.assertEqual(self.queue.get(self.task_id).status, "running")
+
+    def test_audit_limit_is_bounded(self):
+        status, body = self.request("/api/v1/queue/audit?limit=0", session=self.admin_session)
+        self.assertEqual(status, 400)
 
     def test_api_is_disabled_without_explicit_queue_database(self):
         self.server.task_queue = None
