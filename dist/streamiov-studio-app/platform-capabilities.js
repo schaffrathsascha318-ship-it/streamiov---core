@@ -38,7 +38,7 @@ function getStudioCapabilities(input = {}) {
   const platform = detectPlatform(input);
   const runtime = input.runtime || {};
   const mediaDevices = input.mediaDevices || {};
-  const mediaStream = input.mediaStream || {};
+  const nativeCapabilities = input.nativeCapabilities || {};
   const audioElement = input.audioElement || {};
 
   const isElectron = Boolean(runtime.electron);
@@ -54,14 +54,14 @@ function getStudioCapabilities(input = {}) {
     deviceClass: isMobile ? 'mobile' : platform === 'chromeos' ? 'chromebook' :
       ['windows', 'linux', 'macos'].includes(platform) ? 'desktop' : 'unknown',
     capabilities: Object.freeze({
-      camera: browserCapture || isNativeMobile,
-      microphone: browserCapture || isNativeMobile,
-      screenCapture: isElectron || screenCapture,
-      systemAudioCapture: isElectron,
-      independentAudioOutputs: audioOutputRouting || isElectron || isNativeMobile,
-      nativeNotifications: isElectron || isNativeMobile,
-      localFileAccess: isElectron || isNativeMobile,
-      hardwareEncoding: isElectron || isNativeMobile
+      camera: browserCapture || nativeCapabilities.camera === true,
+      microphone: browserCapture || nativeCapabilities.microphone === true,
+      screenCapture: isElectron || screenCapture || nativeCapabilities.screenCapture === true,
+      systemAudioCapture: (isElectron && input.nodePlatform === 'win32') || nativeCapabilities.systemAudioCapture === true,
+      independentAudioOutputs: audioOutputRouting || nativeCapabilities.independentAudioOutputs === true,
+      nativeNotifications: isElectron || nativeCapabilities.nativeNotifications === true,
+      localFileAccess: isElectron || nativeCapabilities.localFileAccess === true,
+      hardwareEncoding: nativeCapabilities.hardwareEncoding === true
     }),
     limitations: Object.freeze({
       browserScreenCaptureRequiresUserGesture: !isElectron && !isNativeMobile,
