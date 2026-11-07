@@ -8,9 +8,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import platform as platform_module
 import sys
-import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit, urlunsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -23,8 +21,13 @@ class DeviceClientError(RuntimeError):
 def normalize_server_url(value: str) -> str:
     if not isinstance(value, str) or len(value) > 2048:
         raise DeviceClientError("Ungültige Core-Server-Adresse.")
-    parsed = urlsplit(value.strip())
-    if parsed.scheme not in {"https", "http"} or not parsed.hostname:
+    try:
+        parsed = urlsplit(value.strip())
+        hostname = parsed.hostname
+        parsed.port  # Validate malformed and out-of-range ports before any request.
+    except ValueError as exc:
+        raise DeviceClientError("Ungültige Core-Server-Adresse.") from exc
+    if parsed.scheme not in {"https", "http"} or not hostname:
         raise DeviceClientError("Die Server-Adresse muss mit https:// beginnen.")
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise DeviceClientError("Die Server-Adresse darf keine Zugangsdaten oder Zusatzparameter enthalten.")
