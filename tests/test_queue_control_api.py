@@ -141,7 +141,7 @@ class QueueControlAPITests(unittest.TestCase):
 
     def test_operator_allowlist_can_be_loaded_from_dedicated_file(self):
         allowlist = Path(self.temp.name) / "queue-admin-user-ids"
-        allowlist.write_text(self.admin.user_id + "\\n", encoding="utf-8")
+        allowlist.write_text(self.admin.user_id + chr(10), encoding="utf-8")
         data_dir = Path(self.temp.name) / "file-config-state"
         with patch.dict(os.environ, {
             "STREAMIOV_QUEUE_ADMIN_USER_IDS_FILE": str(allowlist),
