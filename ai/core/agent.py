@@ -7,7 +7,7 @@ from ai.runtime.project_tools import ProjectTools, ToolError
 from ai.providers.base import ModelProvider
 from ai.specialists.registry import build_specialist_system_prompt, get_specialist
 
-SYSTEM = """You are Streamiov's coding agent. Work only on the supplied project task.
+SYSTEM = """You are OpenCode Core's project-development agent. Work only on the supplied project task.
 You may request exactly one JSON object per response:
 {"tool":"list_files","arguments":{"path":"."}}
 {"tool":"read_file","arguments":{"path":"relative/path"}}
