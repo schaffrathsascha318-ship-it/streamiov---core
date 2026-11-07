@@ -238,7 +238,7 @@ class SpecialistTaskQueue:
             connection.close()
 
     def heartbeat(self, task_id: str, worker_id: str, *, lease_seconds: int = 300) -> None:
-        if not 10 <= lease_seconds <= 3600:
+        if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or not 10 <= lease_seconds <= 3600:
             raise TaskQueueError("lease_seconds must be between 10 and 3600.")
         now = time.time()
         with self._connection() as connection:
@@ -252,6 +252,7 @@ class SpecialistTaskQueue:
     def complete(self, task_id: str, worker_id: str, result: str) -> None:
         if not isinstance(result, str) or len(result) > 12000:
             raise TaskQueueError("Task result must be text no longer than 12,000 characters.")
+        now = time.time()
         with self._connection() as connection:
             cursor = connection.execute(
                 """
@@ -259,7 +260,7 @@ class SpecialistTaskQueue:
                 SET status='succeeded', result=?, error='', worker_id='', lease_until=NULL, updated_at=?
                 WHERE task_id=? AND worker_id=? AND status='running' AND lease_until>?
                 """,
-                (result, time.time(), task_id, worker_id, time.time()),
+                (result, now, task_id, worker_id, now),
             )
             if cursor.rowcount != 1:
                 raise TaskQueueError("Task is not running under this worker lease.")
