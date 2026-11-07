@@ -61,7 +61,7 @@ class DeviceAccountPageTests(unittest.TestCase):
             'id="enroll-form"', 'id="device-list"', 'id="connection-status"',
             "/api/v1/devices/pairing-code", "/api/v1/devices/enroll",
             "/api/v1/device/status", "/api/v1/devices/", "status:read",
-            "currentDeviceToken", "class=\"device\"", "@media(max-width:700px)",
+            "currentDeviceToken", "row.className='device'", "@media(max-width:700px)",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, markup)
