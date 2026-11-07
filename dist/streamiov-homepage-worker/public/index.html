@@ -4,175 +4,84 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#080b12">
-  <meta name="description" content="StreamioV ist die kostenlose Creator-Plattform mit eigener Regie, Spielen und Werkzeugen für Streamer.">
-  <title>StreamioV — Dein Stream. Deine Bühne.</title>
+  <meta name="description" content="StreamioV – der Einstieg in die kostenlose Creator-Plattform. Verbunden über den StreamioV Core.">
+  <title>StreamioV – Willkommen auf deiner Bühne</title>
   <style>
-    :root{color-scheme:dark;--bg:#080b12;--panel:#0e1421;--panel2:#101a2b;--text:#f4f7ff;--muted:#aebbd0;--line:#243147;--cyan:#42e8ff;--mint:#74ffd1;--violet:#9b86ff;--amber:#ffc56e;--max:1180px}
-    *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:90px}
-    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 Inter,"Avenir Next","Segoe UI",Arial,sans-serif}
-    a{color:var(--cyan)}a:focus-visible,button:focus-visible{outline:3px solid var(--mint);outline-offset:4px}
-    .wrap{width:min(var(--max),calc(100% - 40px));margin-inline:auto}
-    .topbar{position:sticky;top:0;z-index:20;border-bottom:1px solid #253044cc;background:#080b12eF;backdrop-filter:blur(16px)}
-    .nav{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:28px}
-    .brand{display:flex;align-items:center;flex:none}.brand img{display:block;width:186px;height:auto}
-    .links{display:flex;align-items:center;justify-content:flex-end;gap:22px;flex-wrap:wrap}.links a{text-decoration:none;color:#ced7e7;font-size:14px;font-weight:650}.links a:hover{color:var(--cyan)}
-    .links .nav-cta{padding:9px 15px;border:1px solid #42e8ff77;border-radius:999px;color:var(--cyan)}
-    .hero{position:relative;isolation:isolate;overflow:hidden;padding:92px 0 78px;background:radial-gradient(ellipse 48% 70% at 78% 15%,#442c812b,transparent 72%),radial-gradient(ellipse 50% 80% at 82% 92%,#20c4d11b,transparent 76%)}
-    .hero:after{content:"";position:absolute;z-index:-1;width:420px;height:420px;right:6%;top:5%;border:1px solid #42e8ff15;border-radius:50%;box-shadow:0 0 100px #42e8ff0c,inset 0 0 80px #9b86ff0b}
-    .hero-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr);gap:52px;align-items:center}
-    .eyebrow{display:inline-flex;align-items:center;gap:9px;padding:7px 12px;border:1px solid #3d5470;border-radius:999px;color:#a7edff;background:#0c1421;font-size:12px;font-weight:750;letter-spacing:.1em;text-transform:uppercase}
-    .eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 12px var(--mint)}
-    h1,h2,h3,p{margin-top:0}h1{margin:24px 0 20px;max-width:800px;font-size:clamp(48px,7vw,88px);line-height:.99;letter-spacing:-.065em}
-    h1 span{color:var(--cyan);text-shadow:0 0 38px #42e8ff22}.lead{max-width:660px;color:#bcc8d9;font-size:clamp(17px,2vw,20px);line-height:1.65}
-    .actions{display:flex;gap:13px;flex-wrap:wrap;margin-top:30px}.btn{display:inline-flex;min-height:48px;align-items:center;justify-content:center;padding:12px 19px;border:1px solid transparent;border-radius:12px;text-decoration:none;font-weight:800;transition:transform .18s,border-color .18s,background .18s}.btn:hover{transform:translateY(-2px)}
-    .btn-main{background:linear-gradient(105deg,var(--cyan),var(--mint));color:#061018;box-shadow:0 10px 32px #42e8ff1e}.btn-secondary{border-color:#394961;background:#0c111c;color:#e4ebf6}.micro{margin:16px 0 0;color:#91a0b6;font-size:13px}
-    .hero-art{position:relative;display:grid;place-items:center;min-height:330px}.hero-art .halo{position:absolute;width:min(84%,320px);aspect-ratio:1;border:1px solid #42e8ff20;border-radius:50%;box-shadow:0 0 70px #42e8ff12,inset 0 0 70px #9b86ff0b}.hero-art .halo:before,.hero-art .halo:after{content:"";position:absolute;inset:12%;border:1px solid #9b86ff24;border-radius:50%;transform:rotate(38deg) scaleX(.68)}.hero-art .halo:after{inset:23%;border-color:#74ffd129;transform:rotate(-34deg) scaleX(.72)}.hero-art img{position:relative;width:min(46%,175px);filter:drop-shadow(0 0 35px #42e8ff4c)}
-    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;border-block:1px solid var(--line);background:var(--line)}.stat{padding:22px 26px;background:#0a0e17}.stat b{display:block;color:var(--text);font-size:15px}.stat span{color:#97a6bd;font-size:13px}
-    section{padding:82px 0;border-bottom:1px solid #1c2636}.section-head{max-width:740px;margin-bottom:34px}.kicker{margin-bottom:10px;color:var(--cyan);font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}h2{margin-bottom:12px;font-size:clamp(30px,4vw,46px);line-height:1.12;letter-spacing:-.04em}.section-head p,.copy{color:var(--muted);font-size:17px}
-    .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.card{min-height:220px;padding:25px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#111a29,#0c111b 70%)}.card:hover{border-color:#4a6885}.icon{display:grid;place-items:center;width:42px;height:42px;margin-bottom:19px;border:1px solid #42e8ff35;border-radius:13px;background:#42e8ff0d;color:var(--cyan);font-size:19px}.card h3{margin-bottom:8px;font-size:20px}.card p{margin:0;color:#aebbd0}.tag{display:inline-flex;margin-top:18px;padding:4px 9px;border:1px solid #37455c;border-radius:999px;color:#b8c5da;font-size:11px;font-weight:750;letter-spacing:.04em;text-decoration:none;text-transform:uppercase}.tag-ready{border-color:#327765;color:#8df1ce}.tag-work{border-color:#76603b;color:#ffd28c}.tag-blocked{border-color:#7b4650;color:#ffb2be}
-    code{padding:1px 5px;border:1px solid #2b3a50;border-radius:5px;background:#080d15;color:#cfe8ff;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em;overflow-wrap:anywhere}
-    .split{display:grid;grid-template-columns:.85fr 1.15fr;gap:52px;align-items:start}.panel{padding:26px;border:1px solid var(--line);border-radius:18px;background:var(--panel)}.panel h3{margin-bottom:10px}.panel p{color:var(--muted)}.list{display:grid;gap:12px;margin:20px 0 0;padding:0;list-style:none}.list li{display:flex;gap:11px;align-items:flex-start;color:#c6d0df}.check{flex:none;color:var(--mint);font-weight:900}
-    .platforms{display:flex;gap:9px;flex-wrap:wrap;margin:24px 0}.platform{padding:8px 12px;border:1px solid #35445b;border-radius:10px;background:#0d1420;color:#d4deee;font-size:13px;font-weight:750}.platform small{display:block;color:#8798b0;font-size:10px;font-weight:600}
-    .timeline{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.status-card{display:grid;grid-template-columns:104px 1fr;gap:16px;padding:19px;border:1px solid var(--line);border-radius:14px;background:#0c121d}.status-label{align-self:start;color:var(--amber);font-size:11px;font-weight:850;letter-spacing:.09em;text-transform:uppercase}.status-card h3{margin:0 0 4px;font-size:15px}.status-card p{margin:0;color:#98a8be;font-size:13px;line-height:1.55}
-    .notice{padding:23px 25px;border-left:3px solid var(--cyan);border-radius:0 14px 14px 0;background:#0d1522;color:#bfccdd}.notice strong{color:#f2f7ff}.notice a{white-space:nowrap}
-    footer{padding:36px 0 48px;background:#06080e}.footer-row{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}.footer-brand{display:flex;align-items:center;gap:12px;color:#94a2b7;font-size:13px}.footer-brand img{width:34px;height:34px}footer nav{display:flex;gap:16px;flex-wrap:wrap}footer nav a{color:#aab7ca;text-decoration:none;font-size:13px}footer nav a:hover{color:var(--cyan)}.copyright{width:100%;margin:0;color:#748198;font-size:12px}
-    @media(max-width:850px){.nav{align-items:flex-start;padding:16px 0;flex-direction:column;gap:14px}.links{justify-content:flex-start;gap:12px 18px}.hero-grid{grid-template-columns:1fr;gap:16px}.hero{padding:65px 0 55px}.hero-art{position:absolute;right:-80px;top:70px;width:310px;min-height:310px;opacity:.26;pointer-events:none}.hero-art img{width:120px}.hero-grid>div:first-child{position:relative;z-index:1}.split{grid-template-columns:1fr;gap:24px}.stats{grid-template-columns:1fr}.stat{padding:15px 20px}}
-    @media(max-width:620px){.wrap{width:min(var(--max),calc(100% - 30px))}.brand img{width:164px}.links{gap:9px 14px}.links a{font-size:13px}.links .nav-cta{padding:7px 11px}.hero{padding:50px 0 42px}h1{font-size:clamp(44px,13vw,68px)}.hero-art{right:-145px;top:30px;opacity:.19}.cards,.timeline{grid-template-columns:1fr}.card{min-height:0;padding:21px}.status-card{grid-template-columns:90px 1fr;padding:15px;gap:10px}section{padding:62px 0}.footer-row{align-items:flex-start;flex-direction:column}}
-    @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+    :root{color-scheme:dark;--bg:#080b12;--panel:#101827;--panel2:#0c1421;--line:#26364c;--text:#f3f7ff;--muted:#aab8ce;--cyan:#42e8ff;--mint:#74ffd1;--violet:#9b86ff;--max:1160px}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(ellipse at 75% 8%,#35236c44,transparent 34%),radial-gradient(ellipse at 12% 65%,#0a849022,transparent 35%),var(--bg);color:var(--text);font:16px/1.65 Inter,"Segoe UI",Arial,sans-serif}
+    a{color:inherit}a:focus-visible{outline:3px solid var(--mint);outline-offset:4px}.wrap{width:min(var(--max),calc(100% - 40px));margin:auto}
+    header{border-bottom:1px solid #26364c;background:#080b12d9;backdrop-filter:blur(16px)}.nav{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font-weight:950;letter-spacing:-.06em;font-size:25px;text-decoration:none}.brand span{color:var(--cyan)}.navlinks{display:flex;gap:20px;align-items:center;flex-wrap:wrap}.navlinks a{text-decoration:none;color:#c4d0e2;font-size:14px;font-weight:700}.navlinks a:hover{color:var(--cyan)}
+    .hero{padding:100px 0 76px}.hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:60px;align-items:center}.eyebrow{display:inline-flex;align-items:center;gap:9px;border:1px solid #3d5470;border-radius:999px;padding:7px 13px;background:#0c1421;color:#b8f4ff;font-size:12px;font-weight:850;letter-spacing:.13em;text-transform:uppercase}.dot{width:8px;height:8px;border-radius:50%;background:var(--mint);box-shadow:0 0 14px var(--mint)}
+    h1{font-size:clamp(48px,7vw,82px);line-height:.98;letter-spacing:-.065em;margin:25px 0 20px}h1 span{color:var(--cyan);text-shadow:0 0 38px #42e8ff33}.lead{max-width:660px;color:#becadd;font-size:clamp(17px,2vw,20px)}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:49px;padding:12px 19px;border:1px solid #3c506b;border-radius:12px;background:#111a29;text-decoration:none;font-weight:850}.btn.primary{background:linear-gradient(110deg,var(--cyan),var(--mint));border:0;color:#061018}.btn:hover{transform:translateY(-2px);border-color:var(--cyan)}
+    .core-visual{position:relative;padding:26px;border:1px solid #3b5270;border-radius:24px;background:linear-gradient(145deg,#111d30ed,#0b111df2);box-shadow:0 25px 90px #0008,inset 0 0 50px #42e8ff09}.core-visual:before{content:"";position:absolute;inset:-1px;border-radius:24px;background:linear-gradient(140deg,#42e8ff55,transparent 35%,#9b86ff55);z-index:-1;filter:blur(18px)}
+    .core-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:20px}.core-head strong{font-size:14px;letter-spacing:.1em}.pill{padding:5px 9px;border:1px solid #45546c;border-radius:999px;color:#b8c7dc;font-size:11px;font-weight:800}.flow{display:grid;gap:10px}.node{padding:15px 17px;border:1px solid #31445e;border-radius:13px;background:#0b1422}.node b{display:block;font-size:15px}.node small{color:#9eafc6}.node.core{border-color:#42e8ff80;background:linear-gradient(100deg,#103044,#191735)}.connector{text-align:center;color:var(--cyan);font-size:20px;line-height:1}
+    .section{padding:65px 0;border-top:1px solid #1e2a3d}.section h2{font-size:clamp(29px,4vw,42px);letter-spacing:-.04em;margin:0 0 12px}.section-intro{max-width:720px;color:var(--muted);font-size:17px}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:28px}.card{padding:23px;border:1px solid var(--line);border-radius:17px;background:linear-gradient(145deg,#111b2a,#0b111c)}.card .symbol{font-size:22px;color:var(--cyan)}.card h3{margin:12px 0 7px}.card p{margin:0;color:var(--muted);font-size:14px}.card a{display:inline-block;margin-top:16px;color:var(--cyan);font-size:14px;font-weight:800;text-decoration:none}
+    .status{display:flex;align-items:center;gap:12px;padding:17px 19px;border:1px solid var(--line);border-radius:14px;background:#0d1522;margin-top:25px}.status-mark{width:10px;height:10px;border-radius:50%;background:#8997aa;flex:none}.status[data-state="ok"] .status-mark{background:var(--mint);box-shadow:0 0 12px var(--mint)}.status[data-state="warn"] .status-mark{background:#ffc56e}.status strong{display:block}.status small{display:block;color:var(--muted)}
+    footer{padding:30px 0 42px;color:#8998af;font-size:13px}.foot{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}.foot a{color:#b9c8dc;text-decoration:none}
+    @media(max-width:820px){.hero{padding:65px 0 55px}.hero-grid{grid-template-columns:1fr;gap:35px}.core-visual{max-width:560px}.cards{grid-template-columns:1fr 1fr}.nav{padding:15px 0;align-items:flex-start;flex-direction:column}}
+    @media(max-width:560px){.wrap{width:calc(100% - 30px)}.cards{grid-template-columns:1fr}.navlinks{gap:10px 16px}.hero{padding-top:48px}.core-visual{padding:18px}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
   </style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="wrap nav">
-      <a class="brand" href="/" aria-label="StreamioV Startseite"><img src="/assets/streamiov-wordmark.svg" alt="StreamioV"></a>
-      <nav class="links" aria-label="Hauptnavigation">
-        <a href="#downloads">Downloads</a><a href="/promo/">Promo</a><a href="#studio">Studio</a><a href="#ki">KI</a><a href="#spiele">Spiele</a><a href="#musik">Musik</a><a href="#tiktok">TikTok</a><a href="#status">Projektstand</a><a href="/forum/">Forum</a><a href="/account/">Konto</a><a class="nav-cta" href="/download/">Download-Hub</a>
-      </nav>
+<header><div class="wrap nav">
+  <a class="brand" href="/" aria-label="StreamioV"><span>STREAM</span>IOV</a>
+  <nav class="navlinks" aria-label="Hauptnavigation"><a href="#aufbau">So funktioniert's</a><a href="/homepage/">Bisherige Homepage</a><a href="/download/">Downloads</a><a href="/forum/">Community</a></nav>
+</div></header>
+<main>
+  <section class="hero"><div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow"><i class="dot" aria-hidden="true"></i> Von Streamern für Streamer</span>
+      <h1>Dein Einstieg.<br><span>Deine Bühne.</span></h1>
+      <p class="lead">Willkommen bei StreamioV. Von hier aus erreichst du unsere bestehende Plattform. Dazwischen verbindet der StreamioV Core die Einstiegsseite mit Konten, Community, Katalogen und den nächsten Plattformdiensten.</p>
+      <div class="actions"><a class="btn primary" href="/homepage/">Zur StreamioV-Plattform&nbsp; ↗</a><a class="btn" href="/download/">Downloads ansehen</a></div>
+      <div class="status" id="core-status" data-state="wait" role="status" aria-live="polite"><i class="status-mark" aria-hidden="true"></i><div><strong id="core-title">Core-Verbindung wird geprüft …</strong><small id="core-detail">Die Seite fragt den vorhandenen StreamioV Host-Core auf derselben Adresse ab.</small></div></div>
     </div>
-  </header>
-
-  <main>
-    <section class="hero">
-      <div class="wrap hero-grid">
-        <div>
-          <span class="eyebrow"><i aria-hidden="true"></i> Von Streamern für Streamer</span>
-          <h1>Dein Stream.<br><span>Deine Bühne.</span></h1>
-          <p class="lead">StreamioV entwickelt eine eigene Regie, kreative Spiele und smarte Werkzeuge für Creator – ohne Abo und ohne verpflichtende externe KI- oder Streamingdienste.</p>
-          <div class="actions"><a class="btn btn-main" href="/download/">Alle Downloads öffnen <span aria-hidden="true">&nbsp;↗</span></a><a class="btn btn-secondary" href="/promo/">Promo &amp; Demo ansehen</a><a class="btn btn-secondary" href="#downloads">Was ist verfügbar?</a></div>
-          <p class="micro">Kostenlos – ohne Werbung, Verkäufe, Abos oder Einnahmen für StreamioV. Installer, Quellcode-Snapshot, PWA und Spiel-Prototypen sind gebündelt und, wo vorhanden, mit SHA-256-Prüfsumme ausgewiesen.</p>
-        </div>
-        <div class="hero-art" aria-hidden="true"><div class="halo"></div><img src="/assets/streamiov-symbol.svg" alt=""></div>
+    <aside class="core-visual" aria-label="StreamioV Architektur">
+      <div class="core-head"><strong>STREAMIOV · VERBINDUNGSWEG</strong><span class="pill">Ein gemeinsamer Core</span></div>
+      <div class="flow">
+        <div class="node"><b>01 · Neue Einstiegsseite</b><small>Willkommen, Orientierung und zentrale Navigation</small></div>
+        <div class="connector" aria-hidden="true">↓</div>
+        <div class="node core"><b>02 · StreamioV Core</b><small>Ein Bindeglied für Status, Konten, Forum und Plattform-APIs</small></div>
+        <div class="connector" aria-hidden="true">↓</div>
+        <div class="node"><b>03 · Bestehende StreamioV-Homepage</b><small>Downloads, Studio, Promo, Spiele, Musik und Community</small></div>
       </div>
-    </section>
-
-    <div class="wrap stats" aria-label="StreamioV in Kürze">
-      <div class="stat"><b>Gebaut: Windows &amp; Linux</b><span>Studio 1.0.1 vom 3.11.2026 · Gerätetests offen</span></div>
-      <div class="stat"><b>5 Spiel-Prototypen</b><span>Checksumiert · kein Release</span></div>
-      <div class="stat"><b>11 KI-Spezialisten</b><span>Rollen und Queue getestet · Modell extern blockiert</span></div>
+    </aside>
+  </div></section>
+  <section class="section" id="aufbau"><div class="wrap">
+    <h2>Ein Eingang. Eine Plattform. Ein Core.</h2>
+    <p class="section-intro">Die neue Seite ersetzt nicht deine bisherige Arbeit. Sie ist die vorgeschaltete Orientierung. Die bestehende Homepage bleibt unter ihrem eigenen Pfad erreichbar; die vorhandenen Core-Routen bleiben die zentrale Verbindungsschicht.</p>
+    <div class="cards">
+      <article class="card"><div class="symbol" aria-hidden="true">◇</div><h3>StreamioV Core</h3><p>Gemeinsamer Einstiegspunkt für Host-Status, Account-Sitzungen, Forum und Katalog-Endpunkte. Nicht als zweites Backend aufgebaut.</p><a href="/healthz">Core-Gesundheit prüfen →</a></article>
+      <article class="card"><div class="symbol" aria-hidden="true">▣</div><h3>Bestehende Homepage</h3><p>Die bisherige StreamioV-Seite bleibt erhalten – inklusive ihrer vorhandenen Navigation und Download-Bereiche.</p><a href="/homepage/">Bisherige Homepage öffnen →</a></article>
+      <article class="card"><div class="symbol" aria-hidden="true">↓</div><h3>Downloads &amp; Studio</h3><p>Direkter Zugang zu den bereits vorhandenen Installern, Web-Regie-Informationen und Projektseiten.</p><a href="/download/">Zum Download-Hub →</a></article>
     </div>
-
-    <section id="downloads">
-      <div class="wrap">
-        <div class="section-head"><div class="kicker">Downloads</div><h2>Alles an einem Ort – mit Prüfsumme und Status.</h2><p>Der Download-Hub bündelt die vorhandenen Installer, den aktuellen Quellcode-Snapshot, die Web-Regie und die Spiel-Prototypen. Jede Karte nennt, ob sie gebaut, getestet oder noch extern blockiert ist.</p></div>
-        <div class="cards">
-          <article class="card"><div class="icon" aria-hidden="true">↓</div><h3>Studio-Installer</h3><p>Windows x64/ARM64 und Linux x64/ARM64 als Studio 1.0.1 vom 3.11.2026. Die Installer enthalten die Regie inklusive Schutzregie, aber noch keinen gebündelten FFmpeg-Encoder.</p><a class="tag tag-ready" href="/download/#installer">Installer ansehen</a></article>
-          <article class="card"><div class="icon" aria-hidden="true">▤</div><h3>Quellcode-Snapshot</h3><p>Sieben Teile mit fester Größe und SHA-256, im Browser zusammensetzbar. Ausdrücklich ein Quellpaket, kein Installer und ohne Zugangsdaten.</p><a class="tag tag-ready" href="/download/#quellcode">Quellpaket ansehen</a></article>
-          <article class="card"><div class="icon" aria-hidden="true">▢</div><h3>Web-Regie / PWA</h3><p>Für Handy, Tablet und Chromebook im Browser installierbar. Kein APK- oder App-Store-Paket; Kamera-, Mikrofon- und Live-Verhalten sind nicht auf jedem Gerät geprüft.</p><a class="tag tag-work" href="/download/#pwa">PWA ansehen</a></article>
-          <article class="card"><div class="icon" aria-hidden="true">◇</div><h3>5 Spiel-Prototypen</h3><p>Echo Grid, Neon Relay, Pulse Defender, Signal Weave und Star Defender als kleine, offline lauffähige ZIPs. Automatisierte Quelltests vorhanden, kein Release.</p><a class="tag tag-work" href="/download/#spiele">Prototypen ansehen</a></article>
-          <article class="card"><div class="icon" aria-hidden="true">◎</div><h3>Konto &amp; Forum</h3><p>Das Forum ist eine echte Host-Funktion: öffentliches Lesen, Schreiben nur mit lokaler Konto-Sitzung, Same-Origin-Prüfung und Rate-Limits. Kein öffentlicher Rollout.</p><a class="tag tag-ready" href="/forum/">Forum öffnen</a></article>
-          <article class="card"><div class="icon" aria-hidden="true">▣</div><h3>Prüfstatus</h3><p>Eine Tabelle trennt gebaut, lokal verifiziert, Prototyp und extern blockiert – inklusive der offenen Punkte bei TikTok, Livestream, Hardware und Hosting.</p><a class="tag tag-work" href="/download/#pruefung">Prüfstatus ansehen</a></article>
-        </div>
-        <div class="actions"><a class="btn btn-main" href="/download/">Zum vollständigen Download-Hub</a><a class="btn btn-secondary" href="/promo/">Promo mit echten Screenshots</a><a class="btn btn-secondary" href="/download/#pruefung">Was noch fehlt</a></div>
-      </div>
-    </section>
-
-    <section id="studio">
-      <div class="wrap">
-        <div class="section-head"><div class="kicker">StreamioV Studio</div><h2>Eine eigene Regie für deinen Stream.</h2><p>Das Studio wird als installierbare Anwendung entwickelt. Szenen, Vorschau, Audio, Geräte und lokale Medien sollen aus einem StreamioV-eigenen Arbeitsbereich steuerbar werden.</p></div>
-        <div class="cards">
-          <article class="card"><div class="icon" aria-hidden="true">▣</div><h3>Dein Setup, deine Regie</h3><p>Eigene Szenenverwaltung, Quellen, Audio-Routing und Geräte-Diagnose. Die Medienverarbeitung soll auf deinem Gerät laufen, ohne OBS als Laufzeitvoraussetzung.</p><span class="tag tag-work">In Entwicklung</span></article>
-          <article class="card"><div class="icon" aria-hidden="true">⏸</div><h3>Schutzregie / Privacy Shield</h3><p>Ein Hotkey (Ctrl+Shift+P) schaltet das Programm sofort auf PAUSE und den lokalen Mikrofon-Mix auf 0 %. Beim Aufheben werden die vorherige Programmszene und der Mikrofonpegel exakt wiederhergestellt. Lokal, kostenlos und ohne Cloud.</p><span class="tag tag-ready">In 1.0.1 · Engine getestet</span></article>
-          <article class="card"><div class="icon" aria-hidden="true">↓</div><h3>Installierbare Downloads</h3><p>Auf der Download-Seite stehen die vorhandenen Desktop-Pakete und ihre bekannten Einschränkungen. Eine gelistete Version ist kein Nachweis, dass jede Funktion auf jedem Gerät geprüft wurde.</p><a class="tag tag-ready" href="/download/">Downloads und Hinweise ansehen</a></article>
-        </div>
-        <div class="notice"><strong>Ehrliche Grenze der Schutzregie:</strong> Sie stoppt weder den Encoder noch eine laufende Aufnahme und garantiert keine Plattform-Privatsphäre. Sie schaltet die Programmszene und den lokalen Mikrofon-Mix; Plattform- und Aufnahme-Privatsphäre müssen separat geprüft werden. Die Schutzregie ist in Studio 1.0.1 und in der Web-Regie/PWA enthalten. Die Linux-x64-DEB wurde auf Inhalt und Prüfsumme geprüft; echte Gerätetests stehen weiterhin aus.</div>
-      </div>
-    </section>
-
-    <section id="plattformen">
-      <div class="wrap split">
-        <div><div class="kicker">Für deine Geräte</div><h2>Ein Studio-Kern. Viele Bildschirmgrößen.</h2><p class="copy">StreamioV wird für Desktop, Chromebook, Tablet und Smartphone entwickelt. Die Oberfläche passt sich an; gerätespezifische Funktionen werden pro Betriebssystem getestet und ausgewiesen.</p><div class="platforms" aria-label="Zielplattformen"><span class="platform">Windows<small>Installer gebaut</small></span><span class="platform">Linux<small>Installer gebaut</small></span><span class="platform">ChromeOS<small>PWA + DEB</small></span><span class="platform">Android<small>PWA, kein APK</small></span><span class="platform">iOS<small>PWA, kein App Store</small></span></div><p class="micro">Ein gebauter Installer ist nicht gleichbedeutend mit einem bestandenen Gerätetest. Aktuelle Builds, Prüfsummen und bekannte Einschränkungen stehen auf der <a href="/download/">Download-Seite</a>.</p></div>
-        <aside class="panel"><h3>Lokal und kostenbewusst</h3><p>Kamera, Mikrofon, Vorschau, lokale Musik und unterstützte Encoder sollen direkt auf dem jeweiligen Gerät arbeiten. Ein ausgeschalteter eigener Host kann keine Online-Aufgaben ausführen; die App soll dann klar anzeigen, was lokal weiter funktioniert.</p><ul class="list"><li><span class="check">✓</span><span>Kein verpflichtender Cloud-Encoder</span></li><li><span class="check">✓</span><span>Kein kostenpflichtiger KI-Dienst als Kernvoraussetzung</span></li><li><span class="check">✓</span><span>Vorhandene Hardware statt automatischer Tarif-Upgrades</span></li></ul></aside>
-      </div>
-    </section>
-
-    <section id="ki">
-      <div class="wrap">
-        <div class="section-head"><div class="kicker">StreamioV KI</div><h2>Fachspezialisten mit klaren Grenzen.</h2><p>Die elf Spezialisten-Rollen, der Core-Planer, die persistente Task-Queue, die rollenspezifischen Schreibgrenzen und der Worker sind implementiert und durch automatisierte Tests abgedeckt. Die echte Modell-Inferenz läuft über den separat deployten Cloudflare-AI-Worker; die lokale Ollama-Variante bleibt auf dieser Maschine wegen des knappen RAMs nicht nutzbar.</p></div>
-        <div class="cards">
-          <article class="card"><div class="icon" aria-hidden="true">⌘</div><h3>11 Rollen, getestet</h3><p>Core, Code, Game, Design, Gifts, Testing, Repair, Integration, Studio, Server und General. Jede Rolle hat eine eigene Mission und einen erzwungenen Schreibbereich; die Queue kann Aufgaben planen, speichern und abarbeiten.</p><span class="tag tag-ready">Implementiert · Tests grün</span></article>
-          <article class="card"><div class="icon" aria-hidden="true">◌</div><h3>Cloudflare-KI erreichbar</h3><p><code>python -m ai --doctor</code> meldet mit dem Owner-Zugang <code>ready: true</code>; eine Mini-Inferenz an den deployten Worker antwortete am 3.11.2026 mit <code>STREAMIOV_AI_OK</code>. Das Modell ist fest auf <code>@cf/zai-org/glm-4.7-flash</code> begrenzt, nutzt das Workers-AI-Free-Tier und hat keinen bezahlten Fallback.</p><span class="tag tag-ready">Deployt · Inferenz verifiziert</span></article>
-        </div>
-        <div class="notice"><strong>Keine vorgetäuschte Autonomie:</strong> Die KI darf Aufgaben im freigegebenen Arbeitsbereich selbst bearbeiten, protokollieren und prüfen. TikTok-Freigaben, öffentliche Releases, Zahlungen und andere externe Aktionen brauchen eigene Berechtigungen und belastbare Nachweise. Ein grüner Testlauf ist kein Beweis für ein laufendes Modell.</div>
-      </div>
-    </section>
-
-    <section id="spiele">
-      <div class="wrap split">
-        <div><div class="kicker">Spiele und Game AI</div><h2>Eigene Spiele über viele Genres.</h2><p class="copy">Fünf eigenständige Prototypen sind bereits als kleine, offline lauffähige ZIPs im Download-Hub: Echo Grid, Neon Relay, Pulse Defender, Signal Weave und Star Defender. Automatisierte Paket- und Quelltests sind vorhanden; menschliche Spielbarkeit, Barrierefreiheit, Rechteprüfung und Zielgerätetests stehen aus.</p><div class="actions"><a class="btn btn-main" href="/download/#spiele">Spiel-Prototypen herunterladen</a><a class="btn btn-secondary" href="/zukunft/">StreamioVs Zukunft ansehen</a></div></div>
-        <aside class="panel"><h3>Originalität mit Herkunftsnachweis</h3><p>Die Galerie zeigt eigene Prototypen mit dokumentierter Herkunft. Namen, Figuren, Musik, Schriften, Bilder und Code werden auf Nutzungsrechte geprüft. Ein StreamioV-Logo macht fremde Inhalte nicht zu eigenem Eigentum. Keiner der fünf Prototypen ist als fertiges Spiel veröffentlicht.</p><span class="tag tag-work">5 Prototypen · kein Release</span></aside>
-      </div>
-    </section>
-
-    <section id="musik">
-      <div class="wrap split">
-        <div><div class="kicker">Musik im Studio</div><h2>Lokale Musikbibliothek mit Rechteprüfung.</h2><p class="copy">Die lokale Bibliothek, Playlists und getrennte Stream-/Kopfhörer-Ausgänge sind angebunden; Rechteprüfung und Quellenrecherche sind implementiert. Der aktuelle Katalog ist ein Read-only-Seed mit einem einzigen Testtrack (<code>test-only</code>); der Rechte-Katalog ist noch leer. Ungeprüfte Songs werden nicht automatisch aus dem Internet geladen.</p></div>
-        <aside class="panel"><h3>Rechte zuerst</h3><p>Für lokale Wiedergabe, Livestream und gespeicherte Aufzeichnungen können unterschiedliche Nutzungsrechte gelten. Unklare Titel bleiben gesperrt, bis die Rechte belegt sind. Der Startkatalog soll auf eigener Musik, kostenfrei freigegebenen Titeln und geprüftem gemeinfreiem Material beruhen.</p><span class="tag tag-work">Implementiert · Katalog noch Testdaten</span></aside>
-      </div>
-    </section>
-
-    <section id="tiktok">
-      <div class="wrap">
-        <div class="section-head"><div class="kicker">TikTok-Anbindung</div><h2>Login und Geschenk-Galerie, transparent getrennt.</h2><p>StreamioV plant eine offizielle TikTok-Kontoanmeldung und eine Galerie, die TikTok-eigene Geschenke von StreamioV-eigenen Geschenken unterscheidet.</p></div>
-        <div class="cards">
-          <article class="card"><div class="icon" aria-hidden="true">↗</div><h3>TikTok-Login</h3><p>Login Kit, genau angeforderte Berechtigungen und sichere serverseitige Token-Verarbeitung. Nutzung hängt von TikToks App-Prüfung und den tatsächlich genehmigten Scopes ab.</p><span class="tag tag-work">In Planung / Freigabe erforderlich</span></article>
-          <article class="card"><div class="icon" aria-hidden="true">◇</div><h3>Geschenk-Galerie</h3><p>TikTok-Geschenke sollen über TikToks eigene, offiziell verfügbare Funktion laufen. StreamioV nimmt nichts an und zieht nichts ab. TikTok bestimmt Guthaben, Belohnungen und Auszahlung; eine Auszahlung des Kaufpreises 1:1 wird nicht zugesagt.</p><span class="tag tag-work">Datenzugriff noch nicht verifiziert</span></article>
-        </div>
-      </div>
-    </section>
-
-    <section id="status">
-      <div class="wrap">
-        <div class="section-head"><div class="kicker">Offener Projektstand</div><h2>Was da ist und was noch entsteht.</h2><p>Wir unterscheiden zwischen vorhandenen Downloads, laufender Entwicklung, Planung und externen Freigaben. Ein Plan oder CI-Erfolg ist kein Beweis für einen getesteten Livestream.</p></div>
-        <div class="timeline">
-          <article class="status-card"><span class="status-label" style="color:var(--mint)">Gebaut</span><div><h3>Installer und Quell-Snapshot</h3><p>Windows- und Linux-Installer als Studio 1.0.1 vom 3.11.2026 sowie ein siebenteiliger Quellcode-Snapshot mit SHA-256. Der Snapshot ist kein Installer; Gerätetests stehen aus.</p></div></article>
-          <article class="status-card"><span class="status-label" style="color:var(--mint)">Lokal verifiziert</span><div><h3>Forum, Konto, Katalog, KI-Queue</h3><p>Automatisierte Tests decken Forum-Schreibregeln, lokale Konten, den Read-only-Katalog, die KI-Spezialisten, die Task-Queue und den Cloudflare-Worker-Vertrag ab.</p></div></article>
-          <article class="status-card"><span class="status-label">In Arbeit</span><div><h3>Regie und Medienpipeline</h3><p>Szenen, Geräte, Audio-/Video-Verarbeitung und bestätigte Live-Ausgabe werden schrittweise umgesetzt und getrennt geprüft. FFmpeg ist noch nicht gebündelt.</p></div></article>
-          <article class="status-card"><span class="status-label">Prototyp</span><div><h3>Fünf Spiele</h3><p>Checksumierte ZIPs mit automatisierten Quelltests, aber ohne abgeschlossene Spielbarkeits-, Barrierefreiheits-, Rechte- und Geräteprüfung.</p></div></article>
-          <article class="status-card"><span class="status-label" style="color:var(--mint)">Erreichbar</span><div><h3>Cloudflare-KI</h3><p>Der AI-Worker ist deployt, authentifiziert erreichbar und hat eine echte Mini-Inferenz beantwortet. Lokale Ollama-Inferenz bleibt auf dieser Maschine nicht möglich; der Worker nutzt ausschließlich das Workers-AI-Free-Tier.</p></div></article>
-          <article class="status-card"><span class="status-label">Extern blockiert</span><div><h3>TikTok und Live</h3><p>TikTok-Freigaben, genehmigte Scopes und ein real von einem Dienst empfangener Livestream fehlen weiterhin.</p></div></article>
-          <article class="status-card"><span class="status-label">Zielmatrix</span><div><h3>Windows, Linux, ChromeOS, Android, iOS</h3><p>Windows/Linux haben Installer; ChromeOS, Android und iOS nutzen die PWA. Unterstützt wird ein Ziel erst nach passendem Build und Gerätetest.</p></div></article>
-        </div>
-      </div>
-    </section>
-
-    <section id="kosten">
-      <div class="wrap split">
-        <div><div class="kicker">Kostenversprechen</div><h2>StreamioV nimmt kein Geld ein.</h2><p class="copy">Keine Werbung, Abos, Pro-Stufen, Verkäufe, bezahlten StreamioV-Geschenke, Spenden an StreamioV oder Zahlungsabwicklung durch StreamioV.</p></div>
-        <aside class="panel"><h3>Keine versteckten Käufe</h3><p>Wir planen mit vorhandener Hardware und ohne automatische Käufe, Upgrades oder bezahlte Rückfall-Dienste. Internet, Strom, Geräte und externe Plattformen haben eigene Bedingungen und können außerhalb StreamioVs Kosten verursachen. StreamioV erhebt dafür keine Gebühr.</p></aside>
-      </div>
-    </section>
-
-    <section id="community">
-      <div class="wrap"><div class="section-head"><div class="kicker">Gemeinschaft</div><h2>Unterschiedliche Menschen. Gemeinsamer Respekt.</h2><p>Unterschiedliche Meinungen dürfen sein. Regeln gegen Hass, Bedrohung und gezielte Erniedrigung gelten transparent und unabhängig von politischer Richtung.</p><p>Das Forum ist bereits eine echte Host-Funktion: Lesen ist öffentlich, Schreiben benötigt eine lokale Konto-Sitzung und dieselbe Origin. Die statische Cloudflare-Seite allein kann keine Beiträge speichern; dafür muss der StreamioV-Host laufen.</p><div class="actions"><a class="btn btn-main" href="/forum/">Forum öffnen</a><a class="btn btn-secondary" href="/account/">Konto &amp; Anmeldung</a></div></div></div>
-    </section>
-  </main>
-
-  <footer>
-    <div class="wrap footer-row">
-      <div class="footer-brand"><img src="/assets/streamiov-symbol.svg" alt=""><span>StreamioV · Von Streamern für Streamer</span></div>
-      <nav aria-label="Rechtliches und Informationen"><a href="/download/">Downloads</a><a href="/geschichte/">Unsere Geschichte</a><a href="/forum/">Community</a><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="/nutzungsbedingungen/">Nutzungsbedingungen</a><a href="/compliance/">Compliance</a></nav>
-      <p class="copyright">© 2026 StreamioV. Produkt- und Plattformstatus gemäß den jeweiligen Projekt- und Download-Hinweisen.</p>
-    </div>
-  </footer>
+  </div></section>
+</main>
+<footer><div class="wrap foot"><span>StreamioV · Von Streamern für Streamer · Zum Nulltarif</span><span><a href="/legal/">Rechtliches</a> · <a href="/forum/">Forum</a> · <a href="/account/">Konto</a></span></div></footer>
+<script>
+(async()=>{
+  const panel=document.getElementById('core-status');
+  const title=document.getElementById('core-title');
+  const detail=document.getElementById('core-detail');
+  try{
+    const [healthResponse,statusResponse]=await Promise.all([
+      fetch('/healthz',{cache:'no-store',headers:{'Accept':'application/json'}}),
+      fetch('/api/v1/status',{cache:'no-store',headers:{'Accept':'application/json'}})
+    ]);
+    if(!healthResponse.ok||!statusResponse.ok) throw new Error('Core-Endpunkte nicht erreichbar');
+    const health=await healthResponse.json();
+    const status=await statusResponse.json();
+    if(health.service!=='streamiov-host'||status.service!=='streamiov-host') throw new Error('Keine bestätigte StreamioV-Core-Antwort');
+    panel.dataset.state='ok';
+    title.textContent='StreamioV Core ist verbunden';
+    detail.textContent='Host '+health.version+' erreichbar · Konto-API '+(status.account_api_ready?'aktiv':'nicht bereit')+' · Plattform-API '+(status.api_ready?'bereit':'noch im Aufbau');
+  }catch(_error){
+    panel.dataset.state='warn';
+    title.textContent='Core derzeit nicht erreichbar';
+    detail.textContent='Die Einstiegsseite funktioniert. Für die Live-Verbindung muss sie über den vorhandenen StreamioV Host-Core ausgeliefert werden.';
+  }
+})();
+</script>
 </body>
 </html>
