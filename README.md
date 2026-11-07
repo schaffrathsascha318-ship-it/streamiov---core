@@ -39,7 +39,7 @@ python3 scripts/verify-cloudflare-config.py
 node scripts/release-signing.mjs verify-release
 ```
 
-They cover the local host, accounts, the read-only raw-data catalog, the 11 AI specialist roles and task queue, AI-worker contract, Studio source and inline-script syntax, scene model, UI wiring, download-part sizes and SHA-256 checksums, game-prototype checksums, Ed25519 release signatures, music rights, game packaging, and agent behaviour. These are automated checks, not real-device or live-platform evidence.
+They cover the local host, accounts, the read-only raw-data catalog, the 15 AI specialist roles and task queue, AI-worker contract, Studio source and inline-script syntax, scene model, UI wiring, download-part sizes and SHA-256 checksums, game-prototype checksums, Ed25519 release signatures, music rights, game packaging, and agent behaviour. These are automated checks, not real-device or live-platform evidence.
 
 For the external checks, use [`docs/operations/external-verification.md`](docs/operations/external-verification.md), `scripts/stream-audio-check.py` (local RTMP audio proof, no purchase needed) and `scripts/collect-hardware-report.py` (per-device evidence report).
 
@@ -108,3 +108,17 @@ Lokale Secrets, Token-Dateien, Wunschbox-Anfragen, Laufzeitprotokolle und PID-Da
 Der verbindliche Fertigstellungs- und Abnahmestand wird in
 [Issue #3](https://github.com/schaffrathsascha318-ship-it/streamiov---core/issues/3) geführt.
 Die verbleibenden Integrations- und Sicherheitsarbeiten sind dort einzeln dokumentiert.
+
+
+## OpenCode Core — for other developers and teams
+
+This repository also contains **OpenCode Core**, a self-hosted, project-agnostic development worker. It can be installed separately and pointed at another software repository. Users configure their own model provider, project workspace, writable directory scopes, and persistent task queue.
+
+- [Self-hosted quick start](docs/OPEN-CODE-CORE-QUICKSTART.md)
+- [Core architecture and operations](docs/operations/opencode-core.md)
+- Installable CLI: `pip install .` then `opencode-core --help`
+- Docker: `docker compose up --build -d`
+
+The current release is self-hosted per person or team; it is **not** a multi-tenant hosted service. Each team must use its own workspace, database, credentials, and server account. A hosted multi-user service needs a separate authentication, authorization, tenant-isolation, and security implementation.
+
+**Licensing is not yet assigned.** The public repository is not automatically licensed for third-party redistribution or commercial use. The project owner must approve and add a license before broader reuse.
