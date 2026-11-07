@@ -164,7 +164,7 @@ def verify() -> dict[str, Any]:
         errors.append("Liberty TV Worker name must be streamiov-liberty-tv-core")
     if liberty.get("main") != "src/index.mjs":
         errors.append("Liberty TV Worker main must be src/index.mjs")
-    if not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", str(liberty.get("compatibility_date", ""))):
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(liberty.get("compatibility_date", ""))):
         errors.append("Liberty TV Worker compatibility_date must be YYYY-MM-DD")
     assets = liberty.get("assets")
     if not isinstance(assets, dict) or assets.get("directory") != "./public" or assets.get("binding") != "ASSETS" or assets.get("run_worker_first") is not True:
