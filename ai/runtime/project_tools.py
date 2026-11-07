@@ -138,6 +138,11 @@ class ProjectTools:
                 os.close(fd)
                 fd = next_fd
             return fd
+        except OSError as exc:
+            os.close(fd)
+            if exc.errno in {2, 20, 40,  NotADirectoryError.errno if hasattr(NotADirectoryError, "errno") else 20}:
+                raise ToolError("Path is missing, not a directory, or uses a symlink.") from exc
+            raise
         except Exception:
             os.close(fd)
             raise
@@ -205,7 +210,10 @@ class ProjectTools:
             raise ToolError("A file path is required.")
         parent_fd = self._open_directory(parts[:-1])
         try:
-            fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent_fd)
+            try:
+                fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent_fd)
+            except OSError as exc:
+                raise ToolError("Requested file is missing, unsafe, or not accessible.") from exc
             try:
                 if not stat.S_ISREG(os.fstat(fd).st_mode):
                     raise ToolError("Requested path is not a regular file.")
@@ -226,7 +234,12 @@ class ProjectTools:
             raise ToolError("Content must be text no larger than 100 KB.")
         parent_fd = self._open_directory(parts[:-1], create=True)
         try:
-            fd = os.open(parts[-1], os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644, dir_fd=parent_fd)
+            try:
+                fd = os.open(parts[-1], os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644, dir_fd=parent_fd)
+            except FileExistsError as exc:
+                raise ToolError("Refusing to overwrite an existing file.") from exc
+            except OSError as exc:
+                raise ToolError("Could not safely create the requested file.") from exc
             try:
                 self._write_all(fd, content.encode("utf-8"))
             finally:
@@ -250,7 +263,10 @@ class ProjectTools:
             raise ToolError("new_text must be text different from old_text.")
         parent_fd = self._open_directory(parts[:-1])
         try:
-            fd = os.open(parts[-1], os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent_fd)
+            try:
+                fd = os.open(parts[-1], os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent_fd)
+            except OSError as exc:
+                raise ToolError("Requested edit target is missing or unsafe.") from exc
             try:
                 if not stat.S_ISREG(os.fstat(fd).st_mode):
                     raise ToolError("Exact-match edits require an existing regular file.")
