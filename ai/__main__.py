@@ -15,6 +15,7 @@ from ai.providers.local_http import ProviderError, provider_from_env
 from ai.runtime.task_queue import SpecialistTaskQueue, SpecialistWorker, TaskQueueError
 from ai.runtime.learning_store import VerifiedLearningStore
 from ai.runtime.worker_service import run_worker_loop
+from ai.runtime.worker_pool import run_worker_pool
 from ai.core.orchestrator import SpecialistTask
 from ai.core.planner import PlannerError, SpecialistPlanner
 from ai.specialists import specialist_names
@@ -52,7 +53,8 @@ def build_parser() -> argparse.ArgumentParser:
     queue_mode.add_argument("--plan-and-enqueue", action="store_true", help="Ask Core AI to split --task across specialists and persist the validated plan.")
     queue_mode.add_argument("--worker-once", action="store_true", help="Claim and execute at most one queued specialist task, then exit.")
     queue_mode.add_argument("--worker-loop", action="store_true", help="Run a supervised worker until SIGINT/SIGTERM or --max-tasks.")
-    parser.add_argument("--poll-seconds", type=int, default=5, help="Idle polling interval for --worker-loop (1–60 seconds).")
+    parser.add_argument("--poll-seconds", type=int, default=5, help="Idle polling interval for worker mode (1–60 seconds).")
+    parser.add_argument("--workers", type=int, default=2, help="Parallel worker count for --worker-loop (1–8, default: 2).")
     parser.add_argument("--max-tasks", type=int, default=0, help="Stop --worker-loop after this many tasks; 0 means run until stopped.")
     parser.add_argument("--worker-id", default="local-worker", help="Worker identity used for queue leases.")
     parser.add_argument(
@@ -83,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--poll-seconds must be between 1 and 60")
         if args.worker_loop and args.max_tasks < 0:
             parser.error("--max-tasks must be zero or greater")
+        if args.worker_loop and not 1 <= args.workers <= 8:
+            parser.error("--workers must be between 1 and 8")
     elif not args.doctor and not args.task:
         parser.error("provide --task, use --doctor, or select a queue mode")
     if args.doctor and args.task:
@@ -127,16 +131,17 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if execution.status == "succeeded" else 1
         if args.worker_loop:
             queue = SpecialistTaskQueue(args.queue_db)
-            worker = SpecialistWorker(
-                queue,
-                args.worker_id,
-                lambda role: DevelopmentAgent(
-                    provider=provider_from_env(),
-                    project_root=Path(args.project_root),
-                    max_steps=args.max_steps,
-                    specialist=role,
-                ),
-            )
+            def worker_factory(worker_id):
+                return SpecialistWorker(
+                    queue,
+                    worker_id,
+                    lambda role: DevelopmentAgent(
+                        provider=provider_from_env(),
+                        project_root=Path(args.project_root),
+                        max_steps=args.max_steps,
+                        specialist=role,
+                    ),
+                )
             stop_event = threading.Event()
             def request_stop(_signum, _frame):
                 stop_event.set()
@@ -145,11 +150,13 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 for item in watched_signals:
                     signal.signal(item, request_stop)
-                return run_worker_loop(
-                    worker,
+                return run_worker_pool(
+                    worker_factory,
                     stop_event,
+                    workers=args.workers,
                     poll_seconds=args.poll_seconds,
                     max_tasks=args.max_tasks,
+                    worker_id_prefix=args.worker_id,
                 )
             finally:
                 for item, handler in previous_handlers.items():
