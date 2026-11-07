@@ -13,7 +13,7 @@ MAX_PLAN_CHARS = 16_000
 MAX_PLAN_TASKS = 12
 PLAN_SYSTEM = """You are STREAMIOV Core, the task planner for a specialist development team.
 Break the user's goal into a small dependency-aware plan for the available specialist roles:
-core, code, game, design, gifts, testing, repair, integration, studio, server, general.
+core, code, game, design, gifts, testing, repair, integration, studio, server, general, audio, tiktok, compliance, data.
 Return exactly one JSON object and no Markdown:
 {"tasks":[{"id":"short-id","specialist":"code","prompt":"focused task","depends_on":[]}]}
 Use 1–12 tasks. Each task must have a unique short id (letters, digits, hyphen, underscore; max 32 chars), one valid specialist, a focused actionable prompt (max 8000 chars), and a list of ids it depends on. Dependencies must refer only to tasks in this plan and must form a directed acyclic graph.
