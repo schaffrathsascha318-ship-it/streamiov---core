@@ -1,6 +1,10 @@
 """Recovery and concurrent-claim regression tests for the durable task queue."""
 from __future__ import annotations
 
+import json
+import sqlite3
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -34,6 +38,45 @@ class TaskQueueRecoveryTests(unittest.TestCase):
         self.assertEqual(second.status, "running")
         self.assertEqual(second.worker_id, "worker-two")
         self.assertEqual(second.attempts, 2)
+
+
+    def test_abrupt_process_exit_recovers_persisted_lease_after_restart(self):
+        task = SpecialistTask("process-restart", "testing", "recover after process restart")
+        self.queue.enqueue_plan([task], max_attempts=2)
+        script = """
+import sys
+from ai.runtime.task_queue import SpecialistTaskQueue
+queue = SpecialistTaskQueue(sys.argv[1])
+task = queue.claim_next("crashed-process", lease_seconds=10)
+assert task is not None and task.status == "running"
+print(task.task_id)
+"""
+        completed = subprocess.run(
+            [sys.executable, "-c", script, str(self.database)],
+            check=True, capture_output=True, text=True,
+        )
+        self.assertEqual(completed.stdout.strip(), "process-restart")
+        # The child process has exited without completing or releasing its lease.
+        with sqlite3.connect(self.database) as connection:
+            lease_until = connection.execute(
+                "SELECT lease_until FROM specialist_tasks WHERE task_id=?",
+                ("process-restart",),
+            ).fetchone()[0]
+        restarted_queue = SpecialistTaskQueue(self.database)
+        with patch("ai.runtime.task_queue.time.time", return_value=lease_until + 1):
+            recovered = restarted_queue.claim_next("restarted-service", lease_seconds=30)
+        self.assertIsNotNone(recovered)
+        self.assertEqual(recovered.task_id, "process-restart")
+        self.assertEqual(recovered.status, "running")
+        self.assertEqual(recovered.worker_id, "restarted-service")
+        self.assertEqual(recovered.attempts, 2)
+        events = restarted_queue.audit_log(limit=20)
+        self.assertTrue(any(
+            item["action"] == "task.lease_recovered"
+            and item["task_id"] == "process-restart"
+            and item["details"] == "new_status=queued"
+            for item in events
+        ))
 
     def test_expired_lease_exhausting_retry_budget_fails_closed(self):
         task = SpecialistTask("no-retry", "testing", "verify exhausted lease")
