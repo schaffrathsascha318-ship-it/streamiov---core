@@ -86,3 +86,75 @@ jobs:
           /tmp/opencode-core-package-check/bin/python -m pip install --no-deps dist/*.whl
           cd /tmp
           /tmp/opencode-core-package-check/bin/opencode-core --help
+
+
+  linux-arm64-package-and-tests:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Run complete Python test suite
+        run: python -m unittest discover -s tests -v
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build --wheel
+      - name: Install wheel and smoke-test CLI
+        run: |
+          python -m venv /tmp/opencode-core-package-check
+          /tmp/opencode-core-package-check/bin/python -m pip install --no-deps dist/*.whl
+          cd /tmp
+          /tmp/opencode-core-package-check/bin/opencode-core --help
+
+  windows-arm64-package-and-security-guard:
+    runs-on: windows-11-arm
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build --wheel
+      - name: Install wheel and smoke-test CLI
+        shell: pwsh
+        run: |
+          $wheel = Get-ChildItem -Path dist -Filter *.whl | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $wheel) { throw "No wheel was built." }
+          python -m venv .venv-package-check
+          & .\\.venv-package-check\\Scripts\\python.exe -m pip install --no-deps $wheel
+          & .\\.venv-package-check\\Scripts\\opencode-core.exe --help
+      - name: Verify workspace access fails closed on Windows ARM64
+        run: python -m unittest discover -s tests -p test_windows_guard.py -v
+
+  macos-intel-package-and-tests:
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Run complete Python test suite
+        run: python -m unittest discover -s tests -v
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build --wheel
+      - name: Install wheel and smoke-test CLI
+        run: |
+          python -m venv /tmp/opencode-core-package-check
+          /tmp/opencode-core-package-check/bin/python -m pip install --no-deps dist/*.whl
+          cd /tmp
+          /tmp/opencode-core-package-check/bin/opencode-core --help
