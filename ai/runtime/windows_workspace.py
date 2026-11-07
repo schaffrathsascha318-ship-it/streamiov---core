@@ -185,10 +185,20 @@ class WindowsWorkspaceBackend:
         owned = []
         try:
             for part in parts:
-                child = self._open_relative(
-                    current, part, directory=True, create=create,
-                    access=FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
-                )
+                access = FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | SYNCHRONIZE
+                try:
+                    child = self._open_relative(current, part, directory=True, access=access)
+                except FileNotFoundError:
+                    if not create:
+                        raise
+                    try:
+                        child = self._open_relative(
+                            current, part, directory=True, create=True, access=access,
+                        )
+                    except FileExistsError:
+                        # Another process created the directory after our open
+                        # attempt. Re-open it relative to the pinned parent.
+                        child = self._open_relative(current, part, directory=True, access=access)
                 owned.append(child)
                 current = child
             return current, owned
