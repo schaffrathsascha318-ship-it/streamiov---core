@@ -1,5 +1,7 @@
 'use strict';
 
+const { buildSpecialistDirectory } = require('./ai-work-orchestrator');
+
 const AGENTS = Object.freeze([
   { id: 'game-analyzer', name: 'Game Analyzer', purpose: 'Spieltyp, Spielsituation und Ereignisse aus belegten Signalen erkennen.' },
   { id: 'interaction-ai', name: 'Interaction AI', purpose: 'Zuschaueraktionen und Challenges passend zum Spiel entwerfen.' },
@@ -83,6 +85,7 @@ function createGameAiAnalysis(input) {
       signals: observation.availableSignals
     },
     agents: buildAgentTasks(observation),
+    specialistDirectory: buildSpecialistDirectory(),
     limitations: [
       'Dies ist die validierte Übergabe an die sechs KI-Bereiche, noch keine bestätigte Spielanalyse.',
       'Automatische Erkennung benötigt eine aktive Capture-/OCR-/Audio- oder offizielle Game-API-Quelle.',
