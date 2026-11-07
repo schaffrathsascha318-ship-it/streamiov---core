@@ -54,7 +54,7 @@ class TikTokOAuth {
   }
   createAuthorizationUrl() {
     const state=crypto.randomBytes(32).toString("base64url"), verifier=crypto.randomBytes(48).toString("base64url");
-    const challenge=crypto.createHash("sha256").update(verifier).digest("base64url");
+    const challenge=crypto.createHash("sha256").update(verifier).digest("hex");
     this.pending.set(state,{verifier,created:this.clock()});
     const u=new URL(AUTH); u.search=new URLSearchParams({client_key:this.clientKey,response_type:"code",scope:this.scopes.join(","),redirect_uri:this.redirectUri,state,code_challenge:challenge,code_challenge_method:"S256"}).toString();
     return {url:u.toString(),state,expiresInSeconds:this.ttl/1000};
