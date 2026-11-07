@@ -1729,15 +1729,24 @@ async function renderGameAiTool(body){
   });
   output.textContent=JSON.stringify(result,null,2);
   status.textContent=result?.ok
-   ?"Eingaben validiert. Sechs Agenten-Aufträge vorbereitet; eine echte KI-Ausführung ist noch nicht verbunden."
+   ?"Eingaben validiert. Sechs Game-LIVE-Aufträge und neun bestehende Entwicklungsrollen sind registriert; die autonome Ausführung ist noch nicht verbunden."
    :"Keine Analyse vorbereitet: "+(result?.error||"Unbekannter Fehler");
  });
  const agentList=toolNode("div","tool-grid");
  for(const [name,description] of [
+  ["Game-KI","Streamiov-Spiele entwickeln und alle belegbar beobachtbaren Fremdspiele analysieren"],
+  ["Code-KI","Programmcode entwickeln und verbessern"],
+  ["Design-KI","Originalgrafiken, Overlays, 3D-Objekte und Animationen gestalten"],
+  ["Gifts-KI","Eigenständige Streamiov-Geschenke entwickeln"],
+  ["Testing-KI","Änderungen unabhängig testen"],
+  ["Repair-KI","Bestätigte Fehler gezielt beheben"],
+  ["Integration-KI","Geprüfte Module und Schnittstellen integrieren"],
+  ["Studio-KI","Studio, Regie und Medienpipeline weiterentwickeln"],
+  ["General-KI","Allgemeine Aufgaben koordinieren"],
   ["Game Analyzer","Spiele und Spielsituationen analysieren"],
   ["Interaction AI","Zuschaueraktionen und Challenges entwickeln"],
   ["Overlay AI","Overlays und Animationen erstellen"],
-  ["Event AI","LIVE-Ereignisse verarbeiten"],
+  ["Event AI","Verfügbare LIVE-Ereignisse verarbeiten"],
   ["Balance AI","Fairness und Spielbalance prüfen"],
   ["Learning AI","Ergebnisse auswerten und Verbesserungen entwickeln"]
  ]){
@@ -1750,7 +1759,7 @@ async function renderGameAiTool(body){
   toolField("Spiel",game),toolField("Plattform",platform),
   toolField("Datenquelle",source),toolField("Beobachtung / Belege",evidence),
   toolField("Vorhandene Signale (kommagetrennt)",signals),
-  run,status,toolNode("h3",null,"Die sechs KI-Bereiche"),agentList,output
+  run,status,toolNode("h3",null,"Alle 15 KI-Rollen – neun bestehende Spezialisten plus sechs Game-LIVE-Agenten"),agentList,output
  );
 }
 async function renderDevicesTool(body){
