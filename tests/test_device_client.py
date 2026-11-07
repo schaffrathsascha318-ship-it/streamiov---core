@@ -49,7 +49,7 @@ class DeviceClientVaultTests(unittest.TestCase):
                 self.saved = {}
             def set_password(self, service, username, password):
                 self.saved[(service, username)] = password
-        backend = SecretServiceKeyring()
+        backend = Keyring()
         fake = types.SimpleNamespace(get_keyring=lambda: backend)
         payload = {
             "device": {"device_id": "a" * 32, "name": "Linux laptop", "platform": "linux"},
@@ -73,7 +73,7 @@ class DeviceClientVaultTests(unittest.TestCase):
                 self.deleted = []
             def delete_password(self, service, username):
                 self.deleted.append((service, username))
-        backend = SecretServiceKeyring()
+        backend = Keyring()
         fake = types.SimpleNamespace(get_keyring=lambda: backend)
         with patch.dict(sys.modules, {"keyring": fake}):
             device_client.forget("https://core.example.com")
