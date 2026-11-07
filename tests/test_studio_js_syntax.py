@@ -29,6 +29,25 @@ class StudioJavaScriptSyntaxTests(unittest.TestCase):
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_account_page_inline_scripts_parse(self):
+        account = ROOT / "dist" / "streamiov-homepage-worker" / "public" / "account" / "index.html"
+        html = account.read_text(encoding="utf-8")
+        scripts = re.findall(r"<script[^>]*>(.*?)</script>", html, flags=re.IGNORECASE | re.DOTALL)
+        self.assertTrue(scripts, "No account UI script found")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for index, script in enumerate(scripts):
+                if not script.strip():
+                    continue
+                path = Path(temp_dir) / f"account-inline-{index}.js"
+                path.write_text(script, encoding="utf-8")
+                result = subprocess.run(
+                    ["node", "--check", str(path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=20,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_homepage_download_combiner_parses(self):
         script = HOMEPAGE / "combine.js"
         result = subprocess.run(
