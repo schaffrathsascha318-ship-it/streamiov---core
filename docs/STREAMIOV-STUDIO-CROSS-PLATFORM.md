@@ -89,6 +89,20 @@ und Streamiov-eigene Spiele ausgelegt sind:
 5. **Balance AI** – Fairness, Missbrauchsrisiken und Spielbalance bewerten.
 6. **Learning AI** – freigegebene Ergebnisse auswerten und Verbesserungen ableiten.
 
+### Vollständige KI-Rollenstruktur (additiv)
+
+Die neun vorhandenen Entwicklungsrollen bleiben erhalten: Game-KI, Code-KI,
+Design-KI, Gifts-KI, Testing-KI, Repair-KI, Integration-KI, Studio-KI und
+General-KI. Zusätzlich sind die sechs Game-LIVE-Agenten Game Analyzer,
+Interaction AI, Overlay AI, Event AI, Balance AI und Learning AI registriert.
+Die Regie zeigt alle 15 Rollen gemeinsam an. Die Game-KI ist für fremde und
+eigene Spiele vorgesehen; sie ist nicht auf Streamiov-Spiele beschränkt.
+
+Die Registry ist eine Aufgaben- und Zuständigkeitsdefinition, kein Beleg für
+bereits autonome Agentenausführung. Jede Rolle bleibt ausdrücklich als
+"Ausführung nicht verifiziert" markiert, bis der jeweilige Core-Auftragsausführer
+angebunden, getestet und mit echten Ergebnissen nachgewiesen wurde.
+
 ### Technischer Stand dieses Ausbauschritts
 
 - Ein plattformneutraler Game-AI-Orchestrator validiert Spieltitel, Plattform,
@@ -96,7 +110,7 @@ und Streamiov-eigene Spiele ausgelegt sind:
 - Ein geschützter Electron-IPC-Aufruf verbindet die Regie mit dem Orchestrator.
 - Die Regie enthält ein Game-KI-Werkzeug, das die sechs Agentenbereiche sichtbar
   macht und Analyseaufträge aus belegten Eingaben vorbereitet.
-- Die sechs Bereiche sind als Architektur-/Modulgrundlage registriert.
+- Alle neun bisherigen Entwicklungsrollen und sechs Game-LIVE-Agenten sind in einer additiven Registry erfasst und in der Regie sichtbar.
 
 ### Bewusste Grenzen / noch offene Implementierung
 
