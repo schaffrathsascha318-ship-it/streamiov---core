@@ -13,7 +13,7 @@ import sys
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit, urlunsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 class DeviceClientError(RuntimeError):
@@ -68,6 +68,16 @@ def _service(server: str) -> str:
     return f"opencode-core-device:{digest}"
 
 
+class _NoRedirect(HTTPRedirectHandler):
+    """Never forward a device bearer token through an HTTP redirect."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = build_opener(_NoRedirect())
+
+
 def _request(server: str, path: str, *, method: str = "GET", payload=None, token=None):
     headers = {"Accept": "application/json"}
     data = None
@@ -78,7 +88,7 @@ def _request(server: str, path: str, *, method: str = "GET", payload=None, token
         headers["Authorization"] = f"Bearer {token}"
     request = Request(server + path, data=data, headers=headers, method=method)
     try:
-        with urlopen(request, timeout=12) as response:
+        with _OPENER.open(request, timeout=12) as response:
             raw = response.read(65537)
             if len(raw) > 65536:
                 raise DeviceClientError("Die Serverantwort ist unerwartet groß.")
