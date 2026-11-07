@@ -27,7 +27,7 @@ class ProjectTools:
             raise ToolError("At least one explicit writable directory scope is required.")
         normalized = []
         for prefix in writable_prefixes:
-            if not isinstance(prefix, str) or not prefix or "\\\\" in prefix or "\\x00" in prefix:
+            if not isinstance(prefix, str) or not prefix or "\\" in prefix or "\x00" in prefix:
                 raise ToolError("Writable scopes must be normalized relative directory paths.")
             candidate = PurePosixPath(prefix)
             if candidate.is_absolute() or any(part in {"", ".", ".."} for part in candidate.parts):
