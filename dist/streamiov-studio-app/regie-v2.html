@@ -344,6 +344,16 @@ dialog::backdrop{background:#000b}
    </div>
    <p id="mixerStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted);margin:0 12px 12px">Regler wirken auf den lokalen Stream-Mix. Musik-, Spiel- und Alert-Kanäle sind noch nicht als eigene Quellen angebunden.</p>
   </div>
+  <div class="panel section" id="audio-output-routing">
+   <div class="panel-title">GETRENNTE AUDIO-AUSGÄNGE</div>
+   <div class="pad">
+    <p style="color:var(--muted);font-size:12px;margin-top:0">Jeder Ausgang hat eigene Lautstärke, Stummschaltung und Gerätezuordnung. Diese Einstellungen werden lokal gespeichert. Die native Audio-Engine ist noch nicht angeschlossen; Änderungen schalten derzeit keinen physischen Ton um.</p>
+    <div id="audioOutputControls" class="grid2"></div>
+    <div class="panel-title" style="margin:14px -12px 8px">QUELLEN-ZUORDNUNG</div>
+    <div id="audioRouteMatrix" style="overflow-x:auto"></div>
+    <p id="audioRoutingStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Audio-Konfiguration wird geladen …</p>
+   </div>
+  </div>
  </section>
 
  <aside class="right-stack">
@@ -1809,6 +1819,133 @@ $("closeGameLibrary").onclick=()=>{$("game-library-panel").hidden=true;};
 document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("input",()=>{
  r.closest(".channel").querySelector(".meter i").style.width=r.value+"%";
 }));
+
+// Getrennte Ausgangs-Konfiguration. Status bleibt ehrlich: ohne nativen Adapter kein physischer Ton-Routing-Effekt.
+const AUDIO_OUTPUTS=[
+ {id:"stream",label:"Stream-Ausgabe"},
+ {id:"monitor",label:"Monitor-Ausgabe"},
+ {id:"headphones",label:"Kopfhörer"},
+ {id:"communications",label:"Kommunikation"}
+];
+const AUDIO_SOURCES=[
+ {id:"microphone",label:"Mikrofon"},
+ {id:"music",label:"Musik"},
+ {id:"game",label:"Spiel"},
+ {id:"alerts",label:"Alerts"},
+ {id:"tts",label:"TTS"}
+];
+let audioRoutingState=null;
+let audioOutputDevices=[];
+const audioOutputHost=$("audioOutputControls");
+const audioRouteHost=$("audioRouteMatrix");
+const audioStatus=$("audioRoutingStatus");
+function audioElement(tag,attrs={},labelText){
+ const el=document.createElement(tag);
+ for(const [key,value] of Object.entries(attrs))el.setAttribute(key,String(value));
+ if(labelText!==undefined)el.textContent=labelText;
+ return el;
+}
+async function refreshAudioOutputDevices(){
+ try{
+  const devices=await navigator.mediaDevices?.enumerateDevices?.()||[];
+  audioOutputDevices=devices.filter(device=>device.kind==="audiooutput");
+ }catch{audioOutputDevices=[];}
+}
+function renderAudioRouting(){
+ if(!audioRoutingState)return;
+ audioOutputHost.replaceChildren();
+ for(const output of AUDIO_OUTPUTS){
+  const config=audioRoutingState.outputs[output.id];
+  const card=audioElement("div",{class:"channel"});
+  const heading=audioElement("b",{},output.label);
+  const volumeLabel=audioElement("label",{}, "Lautstärke: "+config.volume+"%");
+  volumeLabel.style.display="block";volumeLabel.style.marginTop="8px";
+  const slider=audioElement("input",{type:"range",min:0,max:100,value:config.volume,"aria-label":output.label+" Lautstärke"});
+  slider.addEventListener("input",()=>{
+   volumeLabel.textContent="Lautstärke: "+slider.value+"%";
+  });
+  slider.addEventListener("change",()=>updateAudioOutput(output.id,{volume:Number(slider.value)}));
+  const muteLabel=audioElement("label");
+  muteLabel.style.display="block";muteLabel.style.margin="8px 0";
+  const mute=audioElement("input",{type:"checkbox"});
+  mute.checked=config.muted;
+  mute.addEventListener("change",()=>updateAudioOutput(output.id,{muted:mute.checked}));
+  muteLabel.append(mute,document.createTextNode(" Stumm"));
+  const deviceLabel=audioElement("label",{},"Ausgabegerät");
+  deviceLabel.style.display="block";
+  const select=audioElement("select",{"aria-label":output.label+" Gerät"});
+  select.style.width="100%";select.style.marginTop="5px";
+  select.append(audioElement("option",{value:"default"},"Systemstandard"));
+  for(const device of audioOutputDevices){
+   const option=audioElement("option",{value:device.deviceId},device.label||"Audioausgang");
+   select.append(option);
+  }
+  select.value=config.deviceId;
+  if(select.value!==config.deviceId)select.value="default";
+  select.addEventListener("change",()=>updateAudioOutput(output.id,{deviceId:select.value}));
+  const adapter=audioElement("small",{}, "Engine: "+(config.adapterStatus==="connected"?"verbunden":"noch nicht verbunden"));
+  adapter.style.display="block";adapter.style.color="var(--amber)";adapter.style.marginTop="8px";
+  card.append(heading,volumeLabel,slider,muteLabel,deviceLabel,select,adapter);
+  audioOutputHost.append(card);
+ }
+ const table=audioElement("table");
+ table.style.width="100%";table.style.borderCollapse="collapse";table.style.fontSize="12px";
+ const head=audioElement("tr");
+ head.append(audioElement("th",{},"Quelle"));
+ for(const output of AUDIO_OUTPUTS)head.append(audioElement("th",{},output.label));
+ const thead=audioElement("thead");thead.append(head);table.append(thead);
+ const tbody=audioElement("tbody");
+ for(const source of AUDIO_SOURCES){
+  const row=audioElement("tr");
+  const name=audioElement("td",{},source.label);name.style.padding="8px 4px";row.append(name);
+  for(const output of AUDIO_OUTPUTS){
+   const cell=audioElement("td");cell.style.textAlign="center";cell.style.padding="8px 4px";
+   const check=audioElement("input",{type:"checkbox","aria-label":source.label+" an "+output.label});
+   check.checked=audioRoutingState.routes[source.id].includes(output.id);
+   check.addEventListener("change",()=>{
+    const next=new Set(audioRoutingState.routes[source.id]);
+    if(check.checked)next.add(output.id);else next.delete(output.id);
+    updateAudioRoutes(source.id,[...next]);
+   });
+   cell.append(check);row.append(cell);
+  }
+  tbody.append(row);
+ }
+ table.append(tbody);audioRouteHost.replaceChildren(table);
+}
+async function persistAudioRouting(action){
+ if(!window.streamiovStudio?.audioRoutingAction){
+  audioStatus.textContent="Audio-Konfiguration benötigt die installierte Desktop-App.";
+  return false;
+ }
+ const result=await window.streamiovStudio.audioRoutingAction(action);
+ if(!result?.ok){audioStatus.textContent="Audio-Einstellung nicht gespeichert: "+(result?.error||"unbekannter Fehler");return false;}
+ audioRoutingState=result.state;renderAudioRouting();
+ audioStatus.textContent="Konfiguration lokal gespeichert · native Ausgänge noch nicht verbunden.";
+ return true;
+}
+async function updateAudioOutput(outputId,patch){
+ await persistAudioRouting({action:"update-output",outputId,patch});
+}
+async function updateAudioRoutes(sourceId,outputIds){
+ await persistAudioRouting({action:"set-source-routes",sourceId,outputIds});
+}
+async function loadAudioRouting(){
+ if(!window.streamiovStudio?.audioRoutingAction){
+  audioStatus.textContent="Audio-Konfiguration benötigt die installierte Desktop-App.";return;
+ }
+ try{
+  await refreshAudioOutputDevices();
+  const result=await window.streamiovStudio.audioRoutingAction({action:"load"});
+  if(!result?.ok)throw new Error(result.error||"Konfiguration konnte nicht geladen werden.");
+  audioRoutingState=result.state;renderAudioRouting();
+  audioStatus.textContent="Konfiguration geladen · native Ausgänge noch nicht verbunden.";
+ }catch(error){audioStatus.textContent="Audio-Konfiguration: "+String(error.message||error).slice(0,160);}
+}
+if(navigator.mediaDevices?.addEventListener){
+ navigator.mediaDevices.addEventListener("devicechange",()=>refreshAudioOutputDevices().then(renderAudioRouting));
+}
+loadAudioRouting();
 </script>
 
 <script>
