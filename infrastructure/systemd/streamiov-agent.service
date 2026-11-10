@@ -1,0 +1,25 @@
+[Unit]
+Description=STREAMIOV bounded autonomous development worker
+Documentation=https://github.com/schaffrathsascha318-ship-it/streamiov---core
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/streamiov
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-%h/.config/streamiov/agent.env
+ExecStart=%h/streamiov/.venv/bin/python -m ai --worker-loop --project-root %h/streamiov --queue-db %h/streamiov/data/ai-development/queue.sqlite3 --learning-db %h/streamiov/data/ai-development/verified-learning.sqlite3 --worker-id chromebook-agent --poll-seconds 10 --max-steps 12
+Restart=on-failure
+RestartSec=30
+StartLimitIntervalSec=300
+StartLimitBurst=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+UMask=0077
+
+[Install]
+WantedBy=default.target
