@@ -64,9 +64,16 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _validate_task(parser: argparse.ArgumentParser, task: object) -> None:
+    if not isinstance(task, str) or not task.strip() or len(task) > 8000:
+        parser.error("--task must be a non-empty string of 1–8000 characters")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.task is not None and not args.doctor and not args.worker_once and not args.worker_loop:
+        _validate_task(parser, args.task)
     if args.enqueue:
         if not args.task or not args.queue_db or args.doctor:
             parser.error("--enqueue requires --task and --queue-db and cannot be combined with --doctor")
