@@ -107,7 +107,9 @@ ipcMain.handle('studio:start-stream', async (event, payload = {}) => {
       // Never forward or persist raw FFmpeg output.
       diagnosticBuffer = (diagnosticBuffer + data.toString('utf8')).slice(-8192);
       if (diagnosticBuffer.includes('Output #0, flv')) {
-        publishStreamStatus('live');
+        // FFmpeg has initialized its FLV output. This is not proof that the
+        // remote RTMP server accepted media or that TikTok published the LIVE.
+        publishStreamStatus('output_ready', 'Encoder-Ausgabe initialisiert; RTMP-Empfang und Plattform-LIVE sind noch nicht bestätigt.');
         diagnosticBuffer = '';
       }
     });
