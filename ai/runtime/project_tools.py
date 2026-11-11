@@ -10,7 +10,9 @@ from pathlib import Path, PurePosixPath
 class ToolError(RuntimeError):
     pass
 
-DENIED_PARTS = {".git", ".github", ".env", ".wrangler", "node_modules", "__pycache__", "secrets", "oauth", ".ssh"}\nDENIED_FILE_NAMES = {"auth.json", "oauth.json", "token.json", "tokens.json", "credentials.json", "client_secret.json", "tiktok-oauth.js"}\nDENIED_PATH_PREFIXES = {"scripts/autonomous"}
+DENIED_PARTS = {".git", ".github", ".env", ".wrangler", "node_modules", "__pycache__", "secrets", "oauth", ".ssh"}
+DENIED_FILE_NAMES = {"auth.json", "oauth.json", "token.json", "tokens.json", "credentials.json", "client_secret.json", "tiktok-oauth.js"}
+DENIED_PATH_PREFIXES = {"scripts/autonomous"}
 DENIED_SUFFIXES = {".pem", ".key", ".p12", ".pfx"}
 TEST_COMMANDS = {
     "python -m unittest discover -s tests": [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
