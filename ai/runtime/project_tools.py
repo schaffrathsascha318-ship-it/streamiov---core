@@ -10,7 +10,7 @@ from pathlib import Path, PurePosixPath
 class ToolError(RuntimeError):
     pass
 
-DENIED_PARTS = {".git", ".env", ".wrangler", "node_modules", "__pycache__", "secrets", "oauth", ".ssh"}
+DENIED_PARTS = {".git", ".github", ".env", ".wrangler", "node_modules", "__pycache__", "secrets", "oauth", ".ssh"}\nDENIED_FILE_NAMES = {"auth.json", "oauth.json", "token.json", "tokens.json", "credentials.json", "client_secret.json", "tiktok-oauth.js"}\nDENIED_PATH_PREFIXES = {"scripts/autonomous"}
 DENIED_SUFFIXES = {".pem", ".key", ".p12", ".pfx"}
 TEST_COMMANDS = {
     "python -m unittest discover -s tests": [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
@@ -19,10 +19,25 @@ MAX_FILE_BYTES = 200_000
 MAX_LIST_ENTRIES = 100
 
 class ProjectTools:
-    def __init__(self, root: str | Path, writable_prefixes: tuple[str, ...] = ("ai/", "docs/ai-development/", "tests/"), *, allow_game_checks: bool = False) -> None:
+    def __init__(self, root: str | Path, writable_prefixes: tuple[str, ...] = ("",), *, allow_game_checks: bool = False) -> None:
         self.root = Path(root).resolve()
         self.writable_prefixes = writable_prefixes
         self.allow_game_checks = allow_game_checks
+
+    def _is_protected_relative(self, relative: str) -> bool:
+        rel = PurePosixPath(relative)
+        lowered = [part.lower() for part in rel.parts]
+        if any(
+            part in DENIED_PARTS
+            or part.startswith(".env")
+            or any(word in part for word in ("secret", "credential", "access-token", "refresh-token"))
+            for part in lowered
+        ):
+            return True
+        if rel.name.lower() in DENIED_FILE_NAMES or rel.suffix.lower() in DENIED_SUFFIXES:
+            return True
+        normalized = rel.as_posix().lower()
+        return any(normalized == prefix or normalized.startswith(prefix + "/") for prefix in DENIED_PATH_PREFIXES)
 
     def _resolve(self, raw: str) -> Path:
         if not isinstance(raw, str) or not raw or "\x00" in raw:
@@ -30,7 +45,7 @@ class ProjectTools:
         rel = PurePosixPath(raw)
         if rel.is_absolute() or any(part in {"", ".", ".."} for part in rel.parts):
             raise ToolError("Path must be a normalized relative path without traversal.")
-        if any(part.lower() in DENIED_PARTS or part.lower().startswith(".env") or any(word in part.lower() for word in ("secret", "credential", "access-token", "refresh-token")) for part in rel.parts) or rel.suffix.lower() in DENIED_SUFFIXES:
+        if self._is_protected_relative(rel.as_posix()):
             raise ToolError("Access to protected paths and secret-like files is denied.")
         candidate = self.root.joinpath(*rel.parts)
         anchor = candidate if candidate.exists() else candidate.parent
@@ -45,7 +60,7 @@ class ProjectTools:
         target = self._resolve(raw)
         normalized = target.relative_to(self.root).as_posix()
         if not any(normalized.startswith(prefix) for prefix in self.writable_prefixes):
-            raise ToolError("Writes are restricted to configured AI, documentation, and test directories.")
+            raise ToolError("Writes are restricted to the project workspace; protected control-plane and credential paths are excluded.")
         return target, normalized
 
     def list_files(self, path: str = ".") -> str:
@@ -55,14 +70,10 @@ class ProjectTools:
             raise ToolError("Requested path is not a project directory.")
         entries = []
         for child in sorted(target.iterdir(), key=lambda item: item.name.lower()):
-            lowered = child.name.lower()
             if child.is_symlink():
                 continue
-            if lowered in DENIED_PARTS or lowered.startswith(".env"):
-                continue
-            if any(word in lowered for word in ("secret", "credential", "access-token", "refresh-token")):
-                continue
-            if child.suffix.lower() in DENIED_SUFFIXES:
+            relative = child.relative_to(self.root).as_posix()
+            if self._is_protected_relative(relative):
                 continue
             kind = "dir" if child.is_dir() else "file" if child.is_file() else "other"
             if kind == "other":
