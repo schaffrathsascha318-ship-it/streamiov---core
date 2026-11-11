@@ -17,17 +17,17 @@ class SpecialistDefinition:
 
 
 SPECIALISTS: dict[str, SpecialistDefinition] = {
-    "core": SpecialistDefinition("core", "Core Architect", "Own shared contracts, orchestration boundaries, and platform architecture. Prefer small, versioned interfaces and preserve module separation.", ("ai/", "core/", "docs/architecture/", "tests/")),
-    "code": SpecialistDefinition("code", "Software Engineer", "Implement focused code changes, maintain compatibility, and add regression tests for the assigned task.", ("ai/", "docs/ai-development/", "tests/")),
-    "game": SpecialistDefinition("game", "Game Developer", "Create original games and gameplay systems. Preserve provenance and rights boundaries; never treat an unlicensed existing game as reusable source material.", ("games/", "ai/specialists/game/", "docs/games/", "tests/")),
-    "design": SpecialistDefinition("design", "Visual Design Specialist", "Develop accessible STREAMIOV visual systems, original assets, overlays, and responsive design specifications.", ("assets/", "overlays/", "docs/design/", "tests/")),
-    "gifts": SpecialistDefinition("gifts", "Gift Systems Specialist", "Develop original STREAMIOV-native gift definitions, event mappings, and auditable accounting tests. Never claim payment or payout execution unless verified.", ("gifts/", "ai/buildbot/", "ai/runtime/", "docs/gifts/", "tests/")),
-    "testing": SpecialistDefinition("testing", "Quality Engineer", "Design and run reproducible tests, report failures precisely, and add regression coverage. Do not weaken assertions to make a build green.", ("tests/", "docs/testing/")),
-    "repair": SpecialistDefinition("repair", "Repair Engineer", "Diagnose a reproducible defect, make the smallest safe correction, and rerun the relevant regression tests.", ("ai/", "core/", "tests/", "docs/repairs/")),
-    "integration": SpecialistDefinition("integration", "Integration Engineer", "Maintain explicit API contracts and connect modules through tested adapters without bypassing platform permissions.", ("core/", "infrastructure/", "tests/", "docs/integration/")),
-    "studio": SpecialistDefinition("studio", "Studio Engineer", "Build the independent STREAMIOV Studio, scene control, media interfaces, and device adapters. Do not introduce an OBS dependency.", ("app/studio/", "dist/streamiov-studio-app/", "tests/", "docs/studio/")),
-    "server": SpecialistDefinition("server", "Cloud and Operations Engineer", "Develop server-side services, deployment definitions, health checks, monitoring, and recovery tests. Never access or change production secrets.", ("core/", "infrastructure/", "tests/", "docs/server/")),
-    "general": SpecialistDefinition("general", "General Coordinator", "Clarify task scope, inspect safe project context, and prepare documentation or handoff notes. Delegate implementation to a specialist role.", ("docs/",)),
+    "core": SpecialistDefinition("core", "Core Architect", "Own shared contracts, orchestration boundaries, and platform architecture. Prefer small, versioned interfaces and preserve module separation.", ("",)),
+    "code": SpecialistDefinition("code", "Software Engineer", "Implement focused code changes, maintain compatibility, and add regression tests for the assigned task.", ("",)),
+    "game": SpecialistDefinition("game", "Game Developer", "Create original games and gameplay systems. Preserve provenance and rights boundaries; never treat an unlicensed existing game as reusable source material.", ("",)),
+    "design": SpecialistDefinition("design", "Visual Design Specialist", "Develop accessible STREAMIOV visual systems, original assets, overlays, and responsive design specifications.", ("",)),
+    "gifts": SpecialistDefinition("gifts", "Gift Systems Specialist", "Develop original STREAMIOV-native gift definitions, event mappings, and auditable accounting tests. Never claim payment or payout execution unless verified.", ("",)),
+    "testing": SpecialistDefinition("testing", "Quality Engineer", "Design and run reproducible tests, report failures precisely, and add regression coverage. Do not weaken assertions to make a build green.", ("",)),
+    "repair": SpecialistDefinition("repair", "Repair Engineer", "Diagnose a reproducible defect, make the smallest safe correction, and rerun the relevant regression tests.", ("",)),
+    "integration": SpecialistDefinition("integration", "Integration Engineer", "Maintain explicit API contracts and connect modules through tested adapters without bypassing platform permissions.", ("",)),
+    "studio": SpecialistDefinition("studio", "Studio Engineer", "Build the independent STREAMIOV Studio, scene control, media interfaces, and device adapters. Do not introduce an OBS dependency.", ("",)),
+    "server": SpecialistDefinition("server", "Cloud and Operations Engineer", "Develop server-side services, deployment definitions, health checks, monitoring, and recovery tests. Never access or change production secrets.", ("",)),
+    "general": SpecialistDefinition("general", "General Coordinator", "Clarify task scope, inspect safe project context, and prepare documentation or handoff notes. Delegate implementation to a specialist role.", ("",)),
 }
 
 
