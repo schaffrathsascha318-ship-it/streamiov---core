@@ -72,6 +72,23 @@ class ProjectToolTests(unittest.TestCase):
     def test_protected_paths(self):
         for path in ("../outside", ".env", ".env.production", "secrets/admin.json", "config/oauth/token.json", "data/access-token.json", "keys/private-key.pem"):
             with self.subTest(path=path), self.assertRaises(ToolError): self.tools.read_file(path)
+    def test_control_plane_and_oauth_paths_are_protected_and_hidden(self):
+        (self.root / ".github").mkdir()
+        (self.root / ".github/workflows").mkdir()
+        (self.root / ".github/workflows/ci.yml").write_text("workflow")
+        (self.root / "scripts/autonomous").mkdir(parents=True)
+        (self.root / "scripts/autonomous/run_issue.py").write_text("runner")
+        (self.root / "dist").mkdir()
+        (self.root / "dist/tiktok-oauth.js").write_text("oauth")
+        listing = self.tools.list_files(".")
+        self.assertNotIn(".github", listing)
+        self.assertNotIn("tiktok-oauth.js", listing)
+        for protected in (".github/workflows/ci.yml", "scripts/autonomous/run_issue.py", "dist/tiktok-oauth.js"):
+            with self.subTest(path=protected), self.assertRaises(ToolError):
+                self.tools.read_file(protected)
+            with self.subTest(path=protected), self.assertRaises(ToolError):
+                self.tools.replace_text(protected, "workflow", "changed")
+
     def test_dangling_symlink_is_rejected(self):
         (self.root / "ai").mkdir()
         link = self.root / "ai/dangling.py"
@@ -81,11 +98,16 @@ class ProjectToolTests(unittest.TestCase):
             self.skipTest("Symlinks are unavailable on this platform.")
         with self.assertRaises(ToolError):
             self.tools.write_file("ai/dangling.py", "unsafe")
-    def test_no_overwrite_or_unapproved_write(self):
-        with self.assertRaises(ToolError): self.tools.write_file("core/app.py", "x")
+    def test_full_project_write_scope_still_refuses_overwrite_and_protected_paths(self):
+        self.tools.write_file("core/app.py", "x")
+        self.assertEqual((self.root / "core/app.py").read_text(encoding="utf-8"), "x")
         (self.root / "ai").mkdir()
         (self.root / "ai/existing.py").write_text("safe")
-        with self.assertRaises(ToolError): self.tools.write_file("ai/existing.py", "overwrite")
+        with self.assertRaises(ToolError):
+            self.tools.write_file("ai/existing.py", "overwrite")
+        for path in (".github/workflows/unsafe.yml", "scripts/autonomous/run_issue.py", "oauth/client.json"):
+            with self.subTest(path=path), self.assertRaises(ToolError):
+                self.tools.write_file(path, "unsafe")
     def test_fixed_test_command(self):
         with self.assertRaises(ToolError): self.tools.run_tests("rm -rf .")
     def test_game_checks_are_not_available_to_general_tools(self):
@@ -133,19 +155,22 @@ class AgentTests(unittest.TestCase):
             response = '{"tool":"read_file","arguments":{"path":"README.md"},"final":"fake"}'
             with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider([response]), tmp).run("Do task")
 
-    def test_specialist_role_sets_prompt_and_enforced_write_scope(self):
+    def test_specialist_role_guides_mission_without_blocking_cross_module_work(self):
         with tempfile.TemporaryDirectory() as tmp:
             class CapturingProvider(FakeProvider):
                 def generate(self, **kwargs):
                     self.system = kwargs["system"]
-                    return super().generate(**kwargs)
+                    return super().generate(kwargs)
             provider = CapturingProvider(['{"final":"Review complete."}'])
             agent = DevelopmentAgent(provider, tmp, specialist="game")
             self.assertEqual(agent.run("Plan an original puzzle game."), "Review complete.")
             self.assertIn("SPECIALIST ROLE: Game Developer (game)", provider.system)
+            self.assertIn("full project workspace", provider.system)
             agent.tools.write_file("games/sample.py", "print('original')\n")
+            agent.tools.write_file("dist/streamiov-studio-app/sample.js", "module.exports = {};\n")
+            self.assertTrue((Path(tmp) / "dist/streamiov-studio-app/sample.js").is_file())
             with self.assertRaises(ToolError):
-                agent.tools.write_file("dist/streamiov-studio-app/sample.js", "unsafe scope")
+                agent.tools.write_file(".github/workflows/unsafe.yml", "unsafe")
 
     def test_games_specialist_runs_bounded_local_game_checks(self):
         with tempfile.TemporaryDirectory() as tmp:
