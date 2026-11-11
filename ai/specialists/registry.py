@@ -48,7 +48,7 @@ def build_specialist_system_prompt(name: str, base_prompt: str) -> str:
         f"{base_prompt.strip()}\n\n"
         f"SPECIALIST ROLE: {specialist.title} ({specialist.key})\n"
         f"MISSION: {specialist.mission}\n"
-        f"WRITE SCOPE: You may create or edit files only under these assigned prefixes: {scope}. "
-        "The runtime enforces this scope independently; do not attempt to bypass it. "
-        "If a task belongs to another specialist, explain the handoff instead of editing outside your scope."
+        "WRITE SCOPE: You may work across the full project workspace. "
+        "Your specialist mission guides ownership and review focus, but does not block necessary cross-module implementation. "
+        "The runtime independently protects CI control-plane, autonomous-runner, OAuth, and credential paths."
     )
