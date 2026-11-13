@@ -94,6 +94,13 @@ class ProjectToolTests(unittest.TestCase):
         self.assertIn("exit_code=0", output)
         self.assertIn("python-ready", output)
 
+    def test_run_python_reports_nonzero_exit_code(self):
+        (self.root / "ai").mkdir()
+        script = self.root / "ai" / "failing.py"
+        script.write_text("raise SystemExit(7)\\n", encoding="utf-8")
+        output = self.tools.run_python("ai/failing.py")
+        self.assertIn("exit_code=7", output)
+
     def test_run_python_rejects_non_python_and_missing_files(self):
         (self.root / "ai").mkdir()
         (self.root / "ai" / "note.txt").write_text("not code", encoding="utf-8")
