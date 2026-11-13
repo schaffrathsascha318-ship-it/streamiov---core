@@ -7,6 +7,7 @@ and source changes are checkpointed to a dedicated draft-PR branch.
 """
 from __future__ import annotations
 
+import base64
 import json
 import os
 import signal
@@ -78,7 +79,7 @@ def main() -> int:
     if not encoded:
         return fail("No approved mission input was supplied.")
     try:
-        issue = json.loads(__import__("base64").b64decode(encoded, validate=True))
+        issue = json.loads(base64.b64decode(encoded, validate=True))
     except (ValueError, json.JSONDecodeError):
         return fail("Mission input is not valid base64 JSON.")
     if not isinstance(issue, dict):
@@ -171,6 +172,11 @@ def main() -> int:
             "attempts": result.attempts,
             "summary": result.summary,
         }, ensure_ascii=False), flush=True)
+        output_path = os.environ.get("GITHUB_OUTPUT")
+        if output_path:
+            with open(output_path, "a", encoding="utf-8") as output:
+                output.write(f"status={result.status}\\n")
+                output.write(f"mission_id={result.mission_id}\\n")
         return 0
     except (ProjectContextError, ProviderError, MissionEngineError, OSError, ValueError, sqlite3.Error) as exc:
         return fail(f"{type(exc).__name__}: {exc}")
