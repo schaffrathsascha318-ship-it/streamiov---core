@@ -112,6 +112,21 @@ class ProjectTools:
         target.write_text(updated, encoding="utf-8")
         return f"Updated {normalized}: one exact match replaced."
 
+    def run_python(self, path: str) -> str:
+        """Execute one Python source file inside the project workspace with a hard timeout."""
+        target = self._resolve(path)
+        if target.suffix.lower() != ".py" or not target.is_file():
+            raise ToolError("Python execution requires an existing .py file inside the project workspace.")
+        if target.stat().st_size > MAX_FILE_BYTES:
+            raise ToolError("Python source exceeds the 200 KB execution limit.")
+        result = subprocess.run(
+            [sys.executable, "-I", str(target)], cwd=self.root,
+            capture_output=True, text=True, timeout=120, check=False,
+            env={"PATH": os.environ.get("PATH", ""), "PYTHONIOENCODING": "utf-8"},
+        )
+        output = (result.stdout + "\\n" + result.stderr).strip()
+        return f"exit_code={result.returncode}\\n{output[-12000:]}"
+
     def run_tests(self, command: str) -> str:
         argv = TEST_COMMANDS.get(command)
         if argv is None:
