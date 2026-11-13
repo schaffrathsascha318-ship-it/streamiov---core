@@ -318,7 +318,7 @@ class ContinuousDevelopmentEngine:
             summary = "A separate testing specialist must verify the mission before it can be marked complete."
         return MissionPlan("continue", summary, (task,))
 
-    def _store_plan(self, mission_id: str, worker_id: str, cycle: int, plan: MissionPlan) -> None:
+    def _store_plan(self, mission_id: str, worker_id: str, cycle: int, plan: MissionPlan) -> MissionPlan:
         if not isinstance(plan, MissionPlan) or plan.state not in {"continue", "completed"}:
             raise MissionEngineError("Planner returned an invalid mission plan.")
         if not isinstance(plan.summary, str) or not plan.summary.strip():
@@ -366,7 +366,7 @@ class ContinuousDevelopmentEngine:
                     SET status='completed',summary=?,planning_owner='',planning_lease_until=NULL,updated_at=?
                     WHERE mission_id=?
                 """, (plan.summary, now, mission_id))
-                return
+                return plan
             for task in ordered:
                 get_specialist(task.specialist)
                 if not task.task_id or len(task.task_id) > 96 or not task.prompt.strip():
@@ -385,6 +385,7 @@ class ContinuousDevelopmentEngine:
                 SET cycle=?,summary=?,planning_owner='',planning_lease_until=NULL,updated_at=?
                 WHERE mission_id=?
             """, (cycle, plan.summary, now, mission_id))
+        return plan
 
     def _heartbeat_planning(self, mission_id: str, worker_id: str) -> None:
         now = time.time()
@@ -592,7 +593,7 @@ class ContinuousDevelopmentEngine:
             try:
                 progress = self._progress_context(mission_id)
                 plan = self._plan_with_heartbeat(goal, progress, mission_id, cycle, worker_id)
-                self._store_plan(mission_id, worker_id, cycle, plan)
+                plan = self._store_plan(mission_id, worker_id, cycle, plan)
                 emit(json.dumps({
                     "event": "plan_saved", "mission_id": mission_id,
                     "cycle": cycle, "state": plan.state,
