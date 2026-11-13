@@ -148,6 +148,7 @@ jobs:
         env:
           REQUESTED_VERSION: ${{ inputs.release_version }}
           EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           APP_VERSION=$(node -p "require('./dist/streamiov-studio-app/package.json').version")
