@@ -154,7 +154,7 @@ jobs:
 
       - name: Validate the complete project diff and run acceptance tests
         id: validation
-        if: steps.pick.outputs.issue_number != ''
+        if: always() && steps.pick.outputs.issue_number != ''
         continue-on-error: true
         env:
           RUNNER_TEMP: ${{ runner.temp }}
