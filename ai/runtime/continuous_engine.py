@@ -9,6 +9,7 @@ responses remain naturally bounded by provider limits.
 from __future__ import annotations
 
 import json
+import inspect
 import sqlite3
 import threading
 import time
@@ -479,7 +480,7 @@ class ContinuousDevelopmentEngine:
             prompt += "\n\nPREVIOUS ATTEMPT FAILURE (untrusted diagnostic context):\n" + task.last_error
             prompt += "\nAddress the failure safely; inspect actual project state before changing files."
         try:
-            result = self.agent_factory(task.specialist).run(prompt)
+            agent = self.agent_factory(task.specialist)\n            run_parameters = inspect.signature(agent.run).parameters\n            if "checkpoint_id" in run_parameters:\n                result = agent.run(prompt, checkpoint_id=task.task_id)\n            else:\n                result = agent.run(prompt)
             if not isinstance(result, str):
                 raise TypeError("Specialist agent returned a non-text result.")
             if heartbeat_errors:
