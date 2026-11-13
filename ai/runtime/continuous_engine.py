@@ -486,6 +486,9 @@ class ContinuousDevelopmentEngine:
             if heartbeat_errors:
                 raise MissionEngineError(heartbeat_errors[-1])
             self._finish_task(task.task_id, worker_id, result=result)
+            checkpoint_store = getattr(agent, "checkpoints", None)
+            if checkpoint_store is not None:
+                checkpoint_store.complete(task.task_id)
             emit(json.dumps({
                 "event": "task_succeeded", "task_id": task.task_id,
                 "specialist": task.specialist, "attempt": task.attempts,
