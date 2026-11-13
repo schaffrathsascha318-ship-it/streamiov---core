@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tempfile
 from pathlib import Path, PurePosixPath
 
 class ToolError(RuntimeError):
@@ -113,19 +114,25 @@ class ProjectTools:
         return f"Updated {normalized}: one exact match replaced."
 
     def run_python(self, path: str) -> str:
-        """Execute one Python source file inside the project workspace with a hard timeout."""
+        """Run a project Python file as an unprivileged user with a clean environment."""
         target = self._resolve(path)
         if target.suffix.lower() != ".py" or not target.is_file():
             raise ToolError("Python execution requires an existing .py file inside the project workspace.")
         if target.stat().st_size > MAX_FILE_BYTES:
             raise ToolError("Python source exceeds the 200 KB execution limit.")
-        result = subprocess.run(
-            [sys.executable, "-I", str(target)], cwd=self.root,
-            capture_output=True, text=True, timeout=120, check=False,
-            env={"PATH": os.environ.get("PATH", ""), "PYTHONIOENCODING": "utf-8"},
-        )
-        output = (result.stdout + "\n" + result.stderr).strip()
-        return f"exit_code={result.returncode}\n{output[-12000:]}"
+        setpriv = shutil.which("setpriv")
+        if setpriv is None or os.name != "posix":
+            raise ToolError("Safe Python execution requires Linux setpriv; refusing to run with the developer's account privileges.")
+        with tempfile.TemporaryDirectory(prefix="streamiov-python-home-") as home:
+            os.chmod(home, 0o755)
+            env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": home, "PYTHONIOENCODING": "utf-8"}
+            result = subprocess.run(
+                [setpriv, "--reuid=65534", "--regid=65534", "--clear-groups", "--no-new-privs",
+                 "--", sys.executable, "-I", str(target)],
+                cwd=self.root, capture_output=True, text=True, timeout=120, check=False, env=env,
+            )
+        output = (result.stdout + "\\n" + result.stderr).strip()
+        return f"exit_code={result.returncode}\\n{output[-12000:]}"
 
     def run_tests(self, command: str) -> str:
         argv = TEST_COMMANDS.get(command)
