@@ -480,7 +480,12 @@ class ContinuousDevelopmentEngine:
             prompt += "\n\nPREVIOUS ATTEMPT FAILURE (untrusted diagnostic context):\n" + task.last_error
             prompt += "\nAddress the failure safely; inspect actual project state before changing files."
         try:
-            agent = self.agent_factory(task.specialist)\n            run_parameters = inspect.signature(agent.run).parameters\n            if "checkpoint_id" in run_parameters:\n                result = agent.run(prompt, checkpoint_id=task.task_id)\n            else:\n                result = agent.run(prompt)
+            agent = self.agent_factory(task.specialist)
+            run_parameters = inspect.signature(agent.run).parameters
+            if "checkpoint_id" in run_parameters:
+                result = agent.run(prompt, checkpoint_id=task.task_id)
+            else:
+                result = agent.run(prompt)
             if not isinstance(result, str):
                 raise TypeError("Specialist agent returned a non-text result.")
             if heartbeat_errors:
