@@ -113,7 +113,7 @@ class SpecialistRegistryTests(unittest.TestCase):
                 tools.replace_text("ai/runtime/project_tools.py", "guard = True", "guard = False")
 
             specialist_registry = root / "ai" / "specialists" / "registry.py"
-            specialist_registry.parent.mkdir(parents=True)
+            specialist_registry.parent.mkdir(parents=True, exist_ok=True)
             specialist_registry.write_text("SPECIALISTS = {}\n", encoding="utf-8")
             tools.replace_text("ai/specialists/registry.py", "SPECIALISTS = {}", "SPECIALISTS = {'code': 'updated'}")
             self.assertIn("updated", specialist_registry.read_text(encoding="utf-8"))
