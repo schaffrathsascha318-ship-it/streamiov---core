@@ -1,3 +1,4 @@
+import sqlite3
 import tempfile
 import threading
 import unittest
@@ -61,13 +62,18 @@ class MissionEngineTests(unittest.TestCase):
 
         engine = self.make_engine(planner, lambda role: Agent(role))
         mission_id = engine.create_mission("Complete the platform")
-        result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=lambda _: None)
+        events = []
+        result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=events.append)
 
         self.assertEqual(result.status, "completed")
         self.assertEqual(result.cycle, 3)
         self.assertEqual(result.completed_tasks, 3)
         self.assertEqual([item[0] for item in calls], ["core", "testing", "testing"])
         self.assertEqual(len(planner.calls), 4)
+        saved_plans = [json.loads(event) for event in events if '"event": "plan_saved"' in event]
+        enforced_verification = next(item for item in saved_plans if item["cycle"] == 3)
+        self.assertEqual(enforced_verification["state"], "continue")
+        self.assertEqual(enforced_verification["task_count"], 1)
 
     def test_failed_task_retries_without_a_fixed_attempt_ceiling_and_recovers(self):
         planner = SequencePlanner([
@@ -187,6 +193,29 @@ class MissionEngineTests(unittest.TestCase):
         result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=lambda _: None)
         self.assertEqual(result.status, "completed")
         self.assertEqual(calls, ["code", "testing", "repair", "testing"])
+
+    def test_expired_planning_lease_cannot_commit_a_stale_plan(self):
+        planner = SequencePlanner([])
+        engine = self.make_engine(planner, lambda _role: None)
+        mission_id = engine.create_mission("Reject stale planner output")
+        claim = engine._claim_planning(mission_id, "worker-one")
+        self.assertIsNotNone(claim)
+
+        with sqlite3.connect(self.db) as db:
+            db.execute(
+                "UPDATE development_missions SET planning_lease_until=0 WHERE mission_id=?",
+                (mission_id,),
+            )
+
+        with self.assertRaisesRegex(Exception, "Planning lease was lost"):
+            engine._store_plan(
+                mission_id, "worker-one", 1,
+                MissionPlan("continue", "This stale plan must not be saved.", (
+                    SpecialistTask("stale", "code", "must not run"),
+                )),
+            )
+        self.assertEqual(engine.get_mission(mission_id).cycle, 0)
+        self.assertEqual(engine.get_mission(mission_id).pending_tasks, 0)
 
     def test_transient_planner_failure_is_retried_without_abandoning_the_mission(self):
         class FlakyPlanner:
