@@ -97,6 +97,24 @@ class AgentTests(unittest.TestCase):
             Path(tmp, "README.md").write_text("Streamiov")
             p = FakeProvider(['{"tool":"read_file","arguments":{"path":"README.md"}}', '{"final":"Read complete."}'])
             self.assertEqual(DevelopmentAgent(p, tmp).run("Inspect README"), "Read complete.")
+    def test_agent_continues_beyond_thirty_model_tool_turns(self):
+        class CountingProvider(FakeProvider):
+            def __init__(self, outputs):
+                super().__init__(outputs)
+                self.calls = 0
+            def generate(self, **kwargs):
+                self.calls += 1
+                return super().generate(**kwargs)
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "README.md").write_text("Streamiov")
+            outputs = ['{"tool":"read_file","arguments":{"path":"README.md"}}' for _ in range(35)]
+            outputs.append('{"final":"Completed after thirty-five tool turns."}')
+            provider = CountingProvider(outputs)
+            self.assertEqual(
+                DevelopmentAgent(provider, tmp, max_steps=1).run("Continue until complete"),
+                "Completed after thirty-five tool turns.",
+            )
+            self.assertEqual(provider.calls, 36)
     def test_agent_lists_project_files_then_finishes(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "README.md").write_text("Streamiov")
