@@ -258,12 +258,82 @@ class ContinuousDevelopmentEngine:
             """, (worker_id, now + self.lease_seconds, now, mission_id))
             return mission["goal"], cycle
 
+    def _latest_final_verification(self, mission_id: str, cycle: int) -> dict | None:
+        marker = "STREAMIOV_FINAL_VERIFICATION"
+        with self._connection() as db:
+            row = db.execute("""
+                SELECT prompt,result FROM development_mission_tasks
+                WHERE mission_id=? AND cycle=? AND specialist='testing' AND status='succeeded'
+                ORDER BY updated_at DESC LIMIT 1
+            """, (mission_id, cycle)).fetchone()
+        if row is None or marker not in row["prompt"]:
+            return None
+        try:
+            payload = json.loads(row["result"])
+        except (TypeError, json.JSONDecodeError):
+            return {"verdict": "invalid", "findings": ["Verifier did not return the required JSON report."]}
+        if (
+            not isinstance(payload, dict)
+            or set(payload) != {"verdict", "evidence", "findings"}
+            or payload.get("verdict") not in {"passed", "failed"}
+            or not isinstance(payload.get("evidence"), list)
+            or not isinstance(payload.get("findings"), list)
+        ):
+            return {"verdict": "invalid", "findings": ["Verifier report did not match the required schema."]}
+        if payload["verdict"] == "passed" and not payload["evidence"]:
+            return {"verdict": "invalid", "findings": ["Verifier supplied no concrete evidence."]}
+        return payload
+
+    def _require_final_verification(self, mission_id: str, cycle: int, goal: str) -> MissionPlan | None:
+        """Refuse planner-only completion; require a separate testing-role evidence report."""
+        verification = self._latest_final_verification(mission_id, cycle - 1)
+        if verification and verification["verdict"] == "passed":
+            return None
+        if verification and verification["verdict"] == "failed" and verification["findings"]:
+            findings = json.dumps(verification["findings"], ensure_ascii=False)[:5000]
+            task = SpecialistTask(
+                "repair-after-final-verification",
+                "repair",
+                "STREAMIOV_FINAL_VERIFICATION_REPAIR: Repair the verified failures below in the existing AI Chief development work. "
+                "Inspect the actual source and test output, make targeted safe changes, and run the relevant tests. "
+                "Do not weaken tests or alter production/OAuth/security settings. Findings: " + findings,
+            )
+            summary = "Independent verification found failures; a repair task is required before completion."
+        else:
+            prior = ""
+            if verification:
+                prior = " Previous verifier findings: " + json.dumps(verification["findings"], ensure_ascii=False)[:3000]
+            task = SpecialistTask(
+                "mandatory-final-verification",
+                "testing",
+                "STREAMIOV_FINAL_VERIFICATION: Independently inspect the actual project changes for the original mission. "
+                "Run the relevant automated tests and verify the requested behavior from source and test evidence. "
+                "Do not edit implementation files. Return exactly one JSON object with exactly these fields: "
+                '{"verdict":"passed" or "failed","evidence":["specific commands and observed results"],"findings":["specific unresolved defects"]}. '
+                "Use verdict=passed only when the requested work is demonstrably correct and relevant tests pass. "
+                "If anything is incomplete or tests fail, use verdict=failed and list the exact findings."
+                + prior + "\nORIGINAL MISSION: " + goal,
+            )
+            summary = "A separate testing specialist must verify the mission before it can be marked complete."
+        return MissionPlan("continue", summary, (task,))
+
     def _store_plan(self, mission_id: str, worker_id: str, cycle: int, plan: MissionPlan) -> None:
         if not isinstance(plan, MissionPlan) or plan.state not in {"continue", "completed"}:
             raise MissionEngineError("Planner returned an invalid mission plan.")
         if not isinstance(plan.summary, str) or not plan.summary.strip():
             raise MissionEngineError("Every mission plan needs a progress summary.")
         tasks = tuple(plan.tasks)
+        if plan.state == "completed":
+            with self._connection() as db:
+                mission_row = db.execute(
+                    "SELECT goal FROM development_missions WHERE mission_id=?", (mission_id,)
+                ).fetchone()
+            if mission_row is None:
+                raise MissionEngineError("Mission not found during completion verification.")
+            required = self._require_final_verification(mission_id, cycle, mission_row["goal"])
+            if required is not None:
+                plan = required
+                tasks = tuple(plan.tasks)
         if plan.state == "completed" and tasks:
             raise MissionEngineError("A completed mission plan cannot contain more tasks.")
         if plan.state == "continue" and not tasks:
@@ -497,7 +567,7 @@ The mission is persistent and may require any number of planning cycles. Never
 declare completion merely because one batch finished. Evaluate the original
 goal against the accumulated progress and actual task outcomes. If work remains,
 return a focused next batch. If and only if every requested objective is
-verified complete, return state=completed and no tasks.
+verified complete, return state=completed and no tasks. The engine enforces a separate testing-specialist final verification report before accepting completion.
 Return exactly one JSON object:
 {"state":"continue","summary":"what is verified and what comes next","tasks":[{"id":"short-id","specialist":"code","prompt":"actionable implementation task","depends_on":[]}]}
 or {"state":"completed","summary":"evidence-based completion statement","tasks":[]}
