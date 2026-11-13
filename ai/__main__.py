@@ -105,7 +105,9 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--doctor and --task cannot be used together")
     try:
         if args.mission_create or args.mission_run or args.mission_status:
-            provider = provider_from_env()
+            # Creating a mission and inspecting its persisted status are local
+            # database operations; neither should require a live model endpoint.
+            provider = provider_from_env() if args.mission_run else None
             engine = ContinuousDevelopmentEngine(
                 args.mission_db,
                 ModelMissionPlanner(provider),
