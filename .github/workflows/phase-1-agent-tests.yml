@@ -46,6 +46,8 @@ jobs:
         run: node --test tests/test_cloudflare_ai_worker.mjs
       - name: Check autonomous runner Python syntax
         run: python -m py_compile scripts/autonomous/run_issue.py
+      - name: Compile all AI Python modules
+        run: python -m compileall -q ai
       - name: Verify every AI specialist helper is registered
         run: |
           python -m ai --help > /dev/null
