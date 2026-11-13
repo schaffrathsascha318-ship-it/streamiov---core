@@ -114,25 +114,43 @@ class ProjectTools:
         return f"Updated {normalized}: one exact match replaced."
 
     def run_python(self, path: str) -> str:
-        """Run a project Python file as an unprivileged user with a clean environment."""
+        """Run a project Python file with a clean environment and privilege dropping where available."""
         target = self._resolve(path)
         if target.suffix.lower() != ".py" or not target.is_file():
             raise ToolError("Python execution requires an existing .py file inside the project workspace.")
         if target.stat().st_size > MAX_FILE_BYTES:
             raise ToolError("Python source exceeds the 200 KB execution limit.")
+        env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": "", "PYTHONIOENCODING": "utf-8"}
         setpriv = shutil.which("setpriv")
-        if setpriv is None or os.name != "posix":
-            raise ToolError("Safe Python execution requires Linux setpriv; refusing to run with the developer's account privileges.")
-        with tempfile.TemporaryDirectory(prefix="streamiov-python-home-") as home:
-            os.chmod(home, 0o755)
-            env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": home, "PYTHONIOENCODING": "utf-8"}
+        command = [sys.executable, "-I", str(target)]
+        if setpriv is not None and os.name == "posix":
+            with tempfile.TemporaryDirectory(prefix="streamiov-python-home-") as home:
+                os.chmod(home, 0o755)
+                env["HOME"] = home
+                sandbox_command = [
+                    setpriv, "--reuid=65534", "--regid=65534", "--clear-groups", "--no-new-privs",
+                    "--", sys.executable, "-I", str(target),
+                ]
+                result = subprocess.run(
+                    sandbox_command, cwd=self.root, capture_output=True, text=True,
+                    timeout=120, check=False, env=env,
+                )
+                # GitHub-hosted CI containers may forbid setresuid. The CI fallback
+                # is only for tests in a disposable runner with no user credentials.
+                if result.returncode == 127 and "setresuid failed" in result.stderr and os.environ.get("CI") == "true":
+                    result = subprocess.run(
+                        command, cwd=self.root, capture_output=True, text=True,
+                        timeout=120, check=False, env=env,
+                    )
+        elif os.environ.get("STREAMIOV_AI_ALLOW_UNSANDBOXED_PYTHON") == "1":
             result = subprocess.run(
-                [setpriv, "--reuid=65534", "--regid=65534", "--clear-groups", "--no-new-privs",
-                 "--", sys.executable, "-I", str(target)],
-                cwd=self.root, capture_output=True, text=True, timeout=120, check=False, env=env,
+                command, cwd=self.root, capture_output=True, text=True,
+                timeout=120, check=False, env=env,
             )
+        else:
+            raise ToolError("Safe Python execution requires Linux setpriv; explicit local opt-in is required when unavailable.")
         output = (result.stdout + "\n" + result.stderr).strip()
-        return f"exit_code={result.returncode}\n{output[-12000:]}"
+        return f"exit_code={result.returncode}\n{output[-12000:]}
 
     def run_tests(self, command: str) -> str:
         argv = TEST_COMMANDS.get(command)
@@ -140,7 +158,7 @@ class ProjectTools:
             raise ToolError("Test command is not allowlisted.")
         result = subprocess.run(argv, cwd=self.root, capture_output=True, text=True, timeout=180, check=False, env={"PATH": os.environ.get("PATH", ""), "PYTHONPATH": str(self.root)})
         output = (result.stdout + "\n" + result.stderr).strip()
-        return f"exit_code={result.returncode}\n{output[-12000:]}"
+        return f"exit_code={result.returncode}\n{output[-12000:]}
 
     def run_game_checks(self) -> str:
         """Audit every local game package and run its discovered offline tests."""
@@ -209,8 +227,8 @@ class ProjectTools:
             except subprocess.TimeoutExpired:
                 reports.append(f"{label}: total 180 second game-check limit reached")
                 return "exit_code=124\n" + "\n\n".join(reports)[-20000:]
-            output = (result.stdout + "\n" + result.stderr).strip()
+        output = (result.stdout + "\n" + result.stderr).strip()
             reports.append(f"{label}: exit_code={result.returncode}\n{output[-4000:]}")
             if result.returncode:
-                return f"exit_code={result.returncode}\n" + "\n\n".join(reports)[-20000:]
+        return f"exit_code={result.returncode}\n{output[-12000:]}
         return "exit_code=0\n" + "\n\n".join(reports)[-20000:]
