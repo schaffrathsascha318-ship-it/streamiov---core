@@ -131,8 +131,8 @@ class ProjectTools:
                  "--", sys.executable, "-I", str(target)],
                 cwd=self.root, capture_output=True, text=True, timeout=120, check=False, env=env,
             )
-        output = (result.stdout + "\\n" + result.stderr).strip()
-        return f"exit_code={result.returncode}\\n{output[-12000:]}"
+        output = (result.stdout + "\n" + result.stderr).strip()
+        return f"exit_code={result.returncode}\n{output[-12000:]}"
 
     def run_tests(self, command: str) -> str:
         argv = TEST_COMMANDS.get(command)
