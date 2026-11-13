@@ -195,6 +195,42 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(result.status, "completed")
         self.assertEqual(calls, ["code", "testing", "repair", "testing"])
 
+    def test_checkpoint_cleanup_failure_does_not_turn_a_saved_success_into_a_retry(self):
+        planner = SequencePlanner([
+            MissionPlan("continue", "Implement the component.", (
+                SpecialistTask("component", "code", "implement the component"),
+            )),
+            MissionPlan("completed", "Implementation is ready for final verification."),
+            MissionPlan("completed", "Final verification passed."),
+        ])
+        events = []
+
+        class BrokenCheckpointStore:
+            def complete(self, _task_id):
+                raise OSError("temporary checkpoint cleanup failure")
+
+        class Agent:
+            def __init__(self):
+                self.checkpoints = BrokenCheckpointStore()
+
+            def run(self, prompt):
+                if "STREAMIOV_FINAL_VERIFICATION" in prompt:
+                    return '{"verdict":"passed","evidence":["component tests passed"],"findings":[]}'
+                return "component implemented"
+
+        engine = self.make_engine(planner, lambda _role: Agent())
+        mission_id = engine.create_mission("Keep persisted task success truthful")
+        result = engine.run(
+            mission_id, threading.Event(), poll_seconds=0.01,
+            emit=events.append,
+        )
+
+        parsed = [json.loads(event) for event in events]
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(sum(item["event"] == "task_succeeded" for item in parsed), 2)
+        self.assertEqual(sum(item["event"] == "checkpoint_cleanup_warning" for item in parsed), 2)
+        self.assertFalse(any(item["event"] == "task_retry_scheduled" for item in parsed))
+
     def test_expired_planning_lease_cannot_commit_a_stale_plan(self):
         planner = SequencePlanner([])
         engine = self.make_engine(planner, lambda _role: None)
