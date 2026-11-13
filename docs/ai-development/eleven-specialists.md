@@ -27,6 +27,16 @@ Der AI Chief Developer ist der übergeordnete Planer und Koordinator. Er zerlegt
 - Fehler werden an den zuständigen Spezialisten zurückgegeben; der Chief koordiniert Reparatur, erneute Tests und Integration.
 - Rollen, Prompts, Werkzeuge, Fähigkeiten und die Aufteilung der elf Arbeitsbereiche dürfen vom Chief weiterentwickelt oder neu geschrieben werden. Änderungen an der zentralen Berechtigungsdurchsetzung, Secrets, OAuth, Produktionszugängen sowie geschützten Workflow-/Runner-Kontrollen bleiben davon getrennt und benötigen die vorgesehenen Freigaben.
 
+## Eigenständige Produktentwicklung und Integration
+
+Der AI Chief arbeitet nicht nur eine statische Aufgabenliste ab. Er soll das gesamte Repository und den dokumentierten Produktzustand fortlaufend untersuchen, fehlende Fähigkeiten, technische Schulden, Sicherheits- und Zuverlässigkeitsrisiken sowie sinnvolle neue Produktideen erkennen und daraus selbstständig priorisierte Arbeitspakete erstellen.
+
+Er darf neue Module, interne Dienste, Werkzeuge, Tests, Dokumentation, Build- und Diagnosefunktionen sowie sinnvolle Produktverbesserungen hinzufügen, wenn sie dem Streamiov-Ziel dienen. Er soll Nutzen, Abhängigkeiten, Risiken, Betriebskosten und Wartbarkeit bewerten, kleine überprüfbare Schritte wählen und Ergebnisse mit unabhängigen Tests belegen. Nach Abschluss einer Aufgabe soll er den nächsten sinnvollen, nicht blockierten Punkt aus seinem Backlog beginnen, statt auf einen neuen Einzelauftrag zu warten.
+
+Erfolgreich unabhängig geprüfte Änderungen dürfen über den geschützten Integrationsworkflow automatisch in den Hauptzweig übernommen werden, sobald alle erforderlichen GitHub-Prüfungen erfolgreich sind. Produktionsbereitstellungen und Releases dürfen nur über dafür vorgesehene, vertrauenswürdige Deployment- und Release-Pipelines mit passenden Zugangsdaten, Prüfungen, Gesundheitskontrollen und Rollback-Möglichkeit erfolgen. Fehlende Zugangsdaten oder fehlende sichere Deployment-Infrastruktur sind als konkrete Blockade zu melden, nicht zu umgehen.
+
+Die zentrale Berechtigungsdurchsetzung, Secrets, Identitäts- und OAuth-Grenzen sowie geschützte Runner-/Workflow-Steuerung bleiben gegen Selbständerung geschützt. Der Chief darf Verbesserungen dafür vorschlagen und Tests ergänzen, aber keine Kontrollen abschalten, um sich selbst mehr Rechte zu geben.
+
 ## Ehrliche technische Einordnung
 
 Die elf Spezialisten sind derzeit elf getrennt konfigurierte Rollen und Arbeitsprofile innerhalb des gemeinsamen Modell-/Agenten-Runtimes. Das bedeutet nicht, dass bereits elf unabhängig gehostete oder separat trainierte Sprachmodelle laufen. Die Architektur soll die spätere getrennte Ausführung mit eigenen Modellkonfigurationen ermöglichen, wenn sie technisch und wirtschaftlich sinnvoll ist.
