@@ -21,8 +21,8 @@ class FakeProvider:
 
 class SpecialistRegistryTests(unittest.TestCase):
     def test_all_required_specialist_roles_are_registered(self):
-        expected = {"core", "code", "game", "design", "gifts", "testing", "repair", "integration", "studio", "server", "general"}
-        self.assertTrue(expected.issubset(set(specialist_names())))
+        expected = {"code", "studio", "music", "tts", "events", "homepage", "server", "research", "game", "gifts", "testing"}
+        self.assertEqual(set(specialist_names()), expected)
 
     def test_unknown_specialist_is_rejected(self):
         with self.assertRaises(ValueError):
@@ -39,6 +39,7 @@ class SpecialistRegistryTests(unittest.TestCase):
         parser_names = set(build_parser()._option_string_actions["--specialist"].choices)
         self.assertEqual(parser_names, set(names))
         self.assertEqual(PROJECT_WRITE_SCOPE, ("*",))
+        self.assertEqual(len(names), 11)
         for name in names:
             definition = SPECIALISTS[name]
             self.assertTrue(definition.title.strip())
@@ -113,7 +114,7 @@ class SpecialistRegistryTests(unittest.TestCase):
                 integration_tools.write_file("services/oauth/new_provider.py", "# protected OAuth path\n")
 
     def test_specialist_prompt_states_protected_paths_remain_blocked(self):
-        prompt = build_specialist_system_prompt("integration", "Base instructions")
+        prompt = build_specialist_system_prompt("server", "Base instructions")
         self.assertIn("Protected OAuth, credential, secret, provider, core AI control-plane, deployment-config, workflow, runner-permission, and access-control paths remain inaccessible", prompt)
 
     def test_development_agent_uses_role_prompt_and_scope(self):
