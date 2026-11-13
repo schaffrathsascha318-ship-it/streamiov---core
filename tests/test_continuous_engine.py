@@ -44,7 +44,8 @@ class MissionEngineTests(unittest.TestCase):
             MissionPlan("continue", "Second phase recorded.", (
                 SpecialistTask("verification", "testing", "verify foundation"),
             )),
-            MissionPlan("completed", "All requested objectives verified."),
+            MissionPlan("completed", "Planner confirms all objectives."),
+            MissionPlan("completed", "Final independent verification passed."),
         ])
         calls = []
 
@@ -54,6 +55,8 @@ class MissionEngineTests(unittest.TestCase):
 
             def run(self, prompt):
                 calls.append((self.role, prompt))
+                if "STREAMIOV_FINAL_VERIFICATION" in prompt:
+                    return '{"verdict":"passed","evidence":["unit tests completed successfully"],"findings":[]}'
                 return f"verified: {prompt}"
 
         engine = self.make_engine(planner, lambda role: Agent(role))
@@ -71,13 +74,16 @@ class MissionEngineTests(unittest.TestCase):
             MissionPlan("continue", "Implement a component.", (
                 SpecialistTask("component", "code", "implement component"),
             )),
-            MissionPlan("completed", "Component verified after retry."),
+            MissionPlan("completed", "Planner confirms component work."),
+            MissionPlan("completed", "Final independent verification passed."),
         ])
         attempts = []
 
         class Agent:
             def run(self, prompt):
                 attempts.append(prompt)
+                if "STREAMIOV_FINAL_VERIFICATION" in prompt:
+                    return '{"verdict":"passed","evidence":["component tests passed"],"findings":[]}'
                 if len(attempts) < 3:
                     raise RuntimeError("transient model/tool failure")
                 return "component implemented and tested"
@@ -87,7 +93,7 @@ class MissionEngineTests(unittest.TestCase):
         result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=lambda _: None)
 
         self.assertEqual(result.status, "completed")
-        self.assertEqual(result.attempts, 3)
+        self.assertEqual(result.attempts, 4)
         self.assertIn("transient model/tool failure", attempts[1])
         self.assertIn("transient model/tool failure", attempts[2])
 
@@ -96,7 +102,8 @@ class MissionEngineTests(unittest.TestCase):
             MissionPlan("continue", "First work unit.", (
                 SpecialistTask("persist", "core", "persist this work"),
             )),
-            MissionPlan("completed", "Resumed and completed."),
+            MissionPlan("completed", "Planner confirms resumed work."),
+            MissionPlan("completed", "Final independent verification passed."),
         ])
         should_stop = threading.Event()
 
@@ -113,13 +120,14 @@ class MissionEngineTests(unittest.TestCase):
 
         class RecoveryAgent:
             def run(self, prompt):
-                self_prompt = prompt
-                return "recovered: " + self_prompt
+                if "STREAMIOV_FINAL_VERIFICATION" in prompt:
+                    return '{"verdict":"passed","evidence":["recovery tests passed"],"findings":[]}'
+                return "recovered: " + prompt
 
         second = self.make_engine(planner, lambda _role: RecoveryAgent())
         completed = second.run(mission_id, threading.Event(), poll_seconds=0.01, emit=lambda _: None)
         self.assertEqual(completed.status, "completed")
-        self.assertEqual(completed.attempts, 2)
+        self.assertEqual(completed.attempts, 3)
 
     def test_dependency_order_is_respected_within_a_mission_batch(self):
         planner = SequencePlanner([
@@ -127,7 +135,8 @@ class MissionEngineTests(unittest.TestCase):
                 SpecialistTask("integrate", "integration", "integrate", ("foundation",)),
                 SpecialistTask("foundation", "core", "create contract"),
             )),
-            MissionPlan("completed", "Both tasks succeeded."),
+            MissionPlan("completed", "Planner confirms both tasks succeeded."),
+            MissionPlan("completed", "Final independent verification passed."),
         ])
         calls = []
 
@@ -137,6 +146,8 @@ class MissionEngineTests(unittest.TestCase):
 
             def run(self, prompt):
                 calls.append((self.role, prompt))
+                if "STREAMIOV_FINAL_VERIFICATION" in prompt:
+                    return '{"verdict":"passed","evidence":["dependency and integration tests passed"],"findings":[]}'
                 return "ok"
 
         engine = self.make_engine(planner, lambda role: Agent(role))
@@ -145,6 +156,36 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(result.status, "completed")
         self.assertEqual(calls[0], ("core", "create contract"))
         self.assertEqual(calls[1], ("integration", "integrate"))
+
+
+    def test_failed_independent_verification_forces_repair_and_a_new_verification(self):
+        planner = SequencePlanner([
+            MissionPlan("continue", "Implement the change.", (
+                SpecialistTask("change", "code", "implement the change"),
+            )),
+            MissionPlan("completed", "Planner prematurely proposes completion."),
+            MissionPlan("completed", "Planner again proposes completion after repair."),
+            MissionPlan("completed", "Final verification now passed."),
+        ])
+        calls = []
+
+        class Agent:
+            def __init__(self, role):
+                self.role = role
+
+            def run(self, prompt):
+                calls.append(self.role)
+                if "STREAMIOV_FINAL_VERIFICATION" in prompt:
+                    if calls.count("testing") == 1:
+                        return '{"verdict":"failed","evidence":["unit test failed"],"findings":["fix failing assertion"]}'
+                    return '{"verdict":"passed","evidence":["unit tests passed after repair"],"findings":[]}'
+                return "repair applied and tests rerun"
+
+        engine = self.make_engine(planner, lambda role: Agent(role))
+        mission_id = engine.create_mission("Implement and verify a change")
+        result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=lambda _: None)
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(calls, ["code", "testing", "repair", "testing"])
 
     def test_invalid_empty_continuation_is_rejected_and_not_marked_complete(self):
         planner = SequencePlanner([MissionPlan("continue", "No work listed.", ())])
