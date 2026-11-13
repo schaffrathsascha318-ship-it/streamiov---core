@@ -150,7 +150,7 @@ class ProjectTools:
         else:
             raise ToolError("Safe Python execution requires Linux setpriv; explicit local opt-in is required when unavailable.")
         output = (result.stdout + "\n" + result.stderr).strip()
-        return f"exit_code={result.returncode}\n{output[-12000:]}
+        return f"exit_code={result.returncode}\n{output[-12000:]}"
 
     def run_tests(self, command: str) -> str:
         argv = TEST_COMMANDS.get(command)
@@ -158,7 +158,7 @@ class ProjectTools:
             raise ToolError("Test command is not allowlisted.")
         result = subprocess.run(argv, cwd=self.root, capture_output=True, text=True, timeout=180, check=False, env={"PATH": os.environ.get("PATH", ""), "PYTHONPATH": str(self.root)})
         output = (result.stdout + "\n" + result.stderr).strip()
-        return f"exit_code={result.returncode}\n{output[-12000:]}
+        return f"exit_code={result.returncode}\n{output[-12000:]}"
 
     def run_game_checks(self) -> str:
         """Audit every local game package and run its discovered offline tests."""
@@ -230,5 +230,5 @@ class ProjectTools:
         output = (result.stdout + "\n" + result.stderr).strip()
             reports.append(f"{label}: exit_code={result.returncode}\n{output[-4000:]}")
             if result.returncode:
-        return f"exit_code={result.returncode}\n{output[-12000:]}
+        return f"exit_code={result.returncode}\n{output[-12000:]}"
         return "exit_code=0\n" + "\n\n".join(reports)[-20000:]
