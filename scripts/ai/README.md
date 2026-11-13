@@ -62,6 +62,6 @@ The mission engine stores plans, task outcomes, retries and leases in SQLite. Ag
 
 Provider request sizes and individual model responses remain subject to the provider's natural limits. The agent continues across multiple turns and the mission engine chunks work into planning batches instead of treating those protocol limits as a mission-wide task or runtime ceiling.
 
-The Python file tool runs only on POSIX/Linux systems with `setpriv`; it drops to UID/GID 65534, clears supplementary groups, sets `no-new-privs`, and passes a clean environment without the developer's tokens. It is not a complete network or syscall sandbox; do not run untrusted third-party Python source with it. The runner fails closed if privilege dropping is unavailable.
+The Python file tool prefers Linux `setpriv`: it drops to UID/GID 65534, clears supplementary groups, sets `no-new-privs`, and passes a clean environment without the developer's tokens. This is not a complete network or syscall sandbox; do not run untrusted third-party Python source with it. On local systems where `setpriv` is unavailable, execution is disabled unless the user explicitly sets `STREAMIOV_AI_ALLOW_UNSANDBOXED_PYTHON=1` in the private runtime environment. GitHub-hosted CI has a narrowly scoped fallback because its disposable runner may forbid UID changes and contains no user credentials.
 
 The service runner does not authorize production deployment, public release, OAuth/security changes, or irreversible external actions. Those remain approval-gated.
