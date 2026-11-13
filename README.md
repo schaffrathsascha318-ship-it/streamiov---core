@@ -67,7 +67,7 @@ npm run dist:linux
 npm run dist:linux:arm64
 ```
 
-Installer builds are also configured in `.github/workflows/studio-build.yml`.
+Installer builds are configured in `.github/workflows/studio-build.yml`. After a verified change to the Studio app is integrated into `main`, the workflow builds the supported platform installers and publishes a versioned GitHub Release automatically; the package version must be bumped for each new release. The manual owner-triggered release path remains available.
 
 ## Repository map
 
