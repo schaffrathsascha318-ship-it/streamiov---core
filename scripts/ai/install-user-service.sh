@@ -36,8 +36,10 @@ if ! grep -Eq '^STREAMIOV_AI_MISSION_ID=.+$' "${HOME}/.config/streamiov/ai-chief
 fi
 
 mkdir -p "${UNIT_DIR}"
-WORKDIR_ESCAPED="$(systemd-escape --path "${PROJECT_ROOT}")"
-RUNNER_ESCAPED="$(systemd-escape --path "${RUNNER}")"
+if [[ "${PROJECT_ROOT}" == *" "* || "${RUNNER}" == *" "* ]]; then
+  echo "Project paths containing spaces are not supported by this installer." >&2
+  exit 1
+fi
 cat > "${UNIT_FILE}" <<EOF
 [Unit]
 Description=Streamiov AI Chief Developer mission runner
@@ -46,8 +48,8 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-WorkingDirectory=${WORKDIR_ESCAPED}
-ExecStart=/bin/bash ${RUNNER_ESCAPED}
+WorkingDirectory=${PROJECT_ROOT}
+ExecStart=/bin/bash ${RUNNER}
 Restart=on-failure
 RestartSec=5
 KillSignal=SIGTERM
