@@ -188,6 +188,43 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(result.status, "completed")
         self.assertEqual(calls, ["code", "testing", "repair", "testing"])
 
+    def test_transient_planner_failure_is_retried_without_abandoning_the_mission(self):
+        class FlakyPlanner:
+            def __init__(self):
+                self.calls = 0
+
+            def plan(self, goal, progress, *, mission_id, cycle):
+                self.calls += 1
+                if self.calls == 1:
+                    raise RuntimeError("temporary model endpoint failure")
+                if self.calls == 2:
+                    return MissionPlan("continue", "Implement the requested component.", (
+                        SpecialistTask("component", "code", "implement the component"),
+                    ))
+                if self.calls == 3:
+                    return MissionPlan("completed", "Implementation is ready for independent verification.")
+                return MissionPlan("completed", "Independent verification passed.")
+
+        planner = FlakyPlanner()
+        events = []
+
+        class Agent:
+            def run(self, prompt):
+                if "STREAMIOV_FINAL_VERIFICATION" in prompt:
+                    return '{"verdict":"passed","evidence":["component test suite passed"],"findings":[]}'
+                return "component implemented"
+
+        engine = self.make_engine(planner, lambda _role: Agent())
+        mission_id = engine.create_mission("Complete a component despite a temporary planner outage")
+        result = engine.run(
+            mission_id, threading.Event(), poll_seconds=0.01,
+            emit=events.append,
+        )
+
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(planner.calls, 4)
+        self.assertTrue(any('"event": "planning_retry_scheduled"' in event for event in events))
+
     def test_invalid_empty_continuation_is_rejected_and_not_marked_complete(self):
         planner = SequencePlanner([MissionPlan("continue", "No work listed.", ())])
         engine = self.make_engine(planner, lambda _role: None)
