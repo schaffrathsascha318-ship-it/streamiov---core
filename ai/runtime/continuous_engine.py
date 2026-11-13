@@ -636,9 +636,14 @@ Return exactly one JSON object:
 {"state":"continue","summary":"what is verified and what comes next","tasks":[{"id":"short-id","specialist":"code","prompt":"actionable implementation task","depends_on":[]}]}
 or {"state":"completed","summary":"evidence-based completion statement","tasks":[]}
 Available roles: """ + ", ".join(specialist_names()) + """
-Each batch may contain 1–12 tasks to fit one model response. This is not a
-mission-wide task or cycle limit. IDs must be unique within the batch, 1–32
-letters/digits/hyphens/underscores. Dependencies refer to IDs in this batch.
+Each batch may contain 1–11 tasks: at most one task per specialist in
+a cycle. This gives the eleven specialists distinct, non-overlapping deliverables
+instead of duplicate work. If one specialist has more work, assign the next part
+in a later cycle after its current result is recorded. For a whole-platform goal,
+use all eleven workstreams when relevant; for a focused goal, use only the
+specialists that materially contribute. The Code specialist owns cross-cutting
+work not owned by a dedicated specialist. IDs must be unique within the batch,
+1–32 letters/digits/hyphens/underscores. Dependencies refer to IDs in this batch.
 Do not plan public releases, production deployments, credential/OAuth/security
 changes, payments, or external irreversible actions. Preserve existing work.
 Do not treat a previous model claim as evidence; rely on recorded task results.
@@ -687,13 +692,20 @@ Use testing/repair specialists when verification or correction is needed."""
                 raise MissionEngineError("Mission task IDs must be unique within a batch.")
             id_map[local_id] = f"{prefix}-{local_id}"
         tasks = []
+        assigned_specialists: set[str] = set()
         for item in raw_tasks:
             dependencies = item["depends_on"]
             if not isinstance(dependencies, list) or any(dep not in id_map for dep in dependencies):
                 raise MissionEngineError("Mission task dependencies must refer to this batch.")
             if not isinstance(item["prompt"], str) or not item["prompt"].strip() or len(item["prompt"]) > 8000:
                 raise MissionEngineError("Mission task prompts must contain 1–8000 characters.")
-            get_specialist(item["specialist"])
+            specialist = get_specialist(item["specialist"])
+            if specialist.key in assigned_specialists:
+                raise MissionEngineError(
+                    f"Specialist '{specialist.key}' received multiple tasks in one planning cycle; "
+                    "split distinct work across later cycles."
+                )
+            assigned_specialists.add(specialist.key)
             tasks.append(SpecialistTask(
                 id_map[item["id"]], item["specialist"], item["prompt"].strip(),
                 tuple(id_map[dep] for dep in dependencies),
