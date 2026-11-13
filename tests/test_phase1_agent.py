@@ -142,6 +142,17 @@ class AgentTests(unittest.TestCase):
             self.assertEqual(resumed.run("Create checkpointed file", checkpoint_id="mission-task-1"), "Resumed and completed.")
             self.assertIn("ACTION 1 (write_file)", second.messages[-1]["content"])
             self.assertEqual(target.read_text(encoding="utf-8"), "value = 7\\n")
+            class MustNotRunProvider(FakeProvider):
+                def generate(self, **kwargs):
+                    raise AssertionError("completed result should be restored from checkpoint")
+            recovered_final = DevelopmentAgent(
+                MustNotRunProvider([]), root, checkpoint_db=checkpoint_db
+            )
+            self.assertEqual(
+                recovered_final.run("Create checkpointed file", checkpoint_id="mission-task-1"),
+                "Resumed and completed.",
+            )
+            recovered_final.checkpoints.complete("mission-task-1")
     def test_agent_lists_project_files_then_finishes(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "README.md").write_text("Streamiov")
