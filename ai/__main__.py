@@ -24,7 +24,7 @@ from ai.specialists import specialist_names
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m ai",
-        description="Run Streamiov's bounded local development agent.",
+        description="Run Streamiov's continuously working local development agent.",
     )
     parser.add_argument(
         "--task",
@@ -66,7 +66,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--max-steps",
         type=int,
         default=12,
-        help="Maximum model/tool turns (1–30, default: 12).",
+        help="Deprecated compatibility option; agent tasks have no fixed turn ceiling.",
+        default=None,
     )
     return parser
 
@@ -80,8 +81,8 @@ def main(argv: list[str] | None = None) -> int:
     elif args.mission_run:
         if args.task or args.doctor or args.enqueue or args.plan_and_enqueue or args.worker_once or args.worker_loop:
             parser.error("--mission-run cannot be combined with --task, --doctor or queue modes")
-        if not 1 <= args.max_steps <= 30 or args.mission_poll_seconds <= 0:
-            parser.error("--mission-run requires --max-steps 1–30 and a positive --mission-poll-seconds")
+        if args.mission_poll_seconds <= 0:
+            parser.error("--mission-run requires a positive --mission-poll-seconds")
     elif args.mission_status:
         if args.task or args.doctor or args.enqueue or args.plan_and_enqueue or args.worker_once or args.worker_loop:
             parser.error("--mission-status cannot be combined with --task, --doctor or queue modes")
@@ -95,8 +96,6 @@ def main(argv: list[str] | None = None) -> int:
         mode = "--worker-loop" if args.worker_loop else "--worker-once"
         if not args.queue_db or args.task or args.doctor:
             parser.error(f"{mode} requires --queue-db and cannot be combined with --task or --doctor")
-        if not 1 <= args.max_steps <= 30:
-            parser.error("--max-steps must be between 1 and 30")
         if args.worker_loop and not 1 <= args.poll_seconds <= 60:
             parser.error("--poll-seconds must be between 1 and 60")
         if args.worker_loop and args.max_tasks < 0:
