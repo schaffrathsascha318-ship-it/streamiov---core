@@ -93,11 +93,12 @@ class ContinuousDevelopmentEngine:
         if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or lease_seconds < 10:
             raise ValueError("lease_seconds must be at least 10")
         self.database_path = str(database_path)
-        if self.database_path != ":memory:":
-            path = Path(self.database_path)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            if path.is_symlink():
-                raise MissionEngineError("Mission database must not be a symlink.")
+        if self.database_path == ":memory:":
+            raise MissionEngineError("Continuous missions require a durable on-disk database.")
+        path = Path(self.database_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.is_symlink():
+            raise MissionEngineError("Mission database must not be a symlink.")
         self.planner = planner
         self.agent_factory = agent_factory
         self.retry_base_seconds = float(retry_base_seconds)
@@ -109,6 +110,14 @@ class ContinuousDevelopmentEngine:
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys=ON")
         return db
+
+    @contextmanager
+    def _connection(self):
+        db = self._connect()
+        try:
+            yield db
+        finally:
+            db.close()
 
     @contextmanager
     def _transaction(self):
@@ -124,7 +133,7 @@ class ContinuousDevelopmentEngine:
             db.close()
 
     def _initialize(self) -> None:
-        with self._connect() as db:
+        with self._connection() as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.execute("""
                 CREATE TABLE IF NOT EXISTS development_missions (
