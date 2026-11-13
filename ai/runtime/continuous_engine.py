@@ -534,14 +534,6 @@ class ContinuousDevelopmentEngine:
             if heartbeat_errors:
                 raise MissionEngineError(heartbeat_errors[-1])
             self._finish_task(task.task_id, worker_id, result=result)
-            checkpoint_store = getattr(agent, "checkpoints", None)
-            if checkpoint_store is not None:
-                checkpoint_store.complete(task.task_id)
-            emit(json.dumps({
-                "event": "task_succeeded", "task_id": task.task_id,
-                "specialist": task.specialist, "attempt": task.attempts,
-                "result": result[:2000],
-            }, ensure_ascii=False))
         except Exception as exc:
             error = f"{type(exc).__name__}: {str(exc)[:3500]}"
             try:
@@ -552,6 +544,22 @@ class ContinuousDevelopmentEngine:
                 "event": "task_retry_scheduled", "task_id": task.task_id,
                 "specialist": task.specialist, "attempt": task.attempts,
                 "error": error,
+            }, ensure_ascii=False))
+        else:
+            checkpoint_store = getattr(agent, "checkpoints", None)
+            if checkpoint_store is not None:
+                try:
+                    checkpoint_store.complete(task.task_id)
+                except Exception as cleanup_error:
+                    emit(json.dumps({
+                        "event": "checkpoint_cleanup_warning", "task_id": task.task_id,
+                        "specialist": task.specialist,
+                        "error": f"{type(cleanup_error).__name__}: {str(cleanup_error)[:1000]}",
+                    }, ensure_ascii=False))
+            emit(json.dumps({
+                "event": "task_succeeded", "task_id": task.task_id,
+                "specialist": task.specialist, "attempt": task.attempts,
+                "result": result[:2000],
             }, ensure_ascii=False))
         finally:
             stop.set()
