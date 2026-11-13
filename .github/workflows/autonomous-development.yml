@@ -6,11 +6,6 @@ on:
   issues:
     types: [labeled]
   workflow_dispatch:
-    inputs:
-      goal:
-        description: "Optional owner-approved development focus (leave empty for the continuous platform mission)"
-        required: false
-        type: string
 
 concurrency:
   group: streamiov-autonomous-development
@@ -43,7 +38,6 @@ jobs:
         id: pick
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DISPATCH_GOAL: ${{ inputs.goal }}
         shell: bash
         run: |
           set -euo pipefail
@@ -60,7 +54,7 @@ jobs:
           if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
             issue_number=0
             issue_title="STREAMIOV continuous platform development"
-            issue_body="${DISPATCH_GOAL:-Continue building and verifying the complete Streamiov platform. First make the AI Chief Developer and its eleven distinct specialist workstreams reliable; then advance Core, Studio, own infrastructure, AI platform, games, gifts, creator tools, and all remaining roadmap areas. Work in safe, reviewable increments, run real tests, preserve existing work, and report evidence. Do not merge, deploy, publish publicly, change secrets/OAuth/credentials, activate paid resources, or alter protected permission enforcement.}"
+            issue_body="Continue building and verifying the complete Streamiov platform. First make the AI Chief Developer and its eleven distinct specialist workstreams reliable; then advance Core, Studio, own infrastructure, AI platform, games, gifts, creator tools, and all remaining roadmap areas. Work in safe, reviewable increments, run real tests, preserve existing work, and report evidence. Do not merge, deploy, publish publicly, change secrets/OAuth/credentials, activate paid resources, or alter protected permission enforcement."
             issue_json="$(jq -cn --arg title "$issue_title" --arg body "$issue_body" '{number:0,title:$title,body:$body}')"
           else
             issue_number="$(jq -r '.[0].number' <<< "$issue_json")"
