@@ -115,6 +115,33 @@ class AgentTests(unittest.TestCase):
                 "Completed after thirty-five tool turns.",
             )
             self.assertEqual(provider.calls, 36)
+    def test_agent_restores_checkpoint_after_interruption_without_replaying_completed_tool(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            checkpoint_db = root / "agent-checkpoints.sqlite3"
+            target = root / "ai" / "checkpointed.py"
+            class InterruptingProvider(FakeProvider):
+                def generate(self, **kwargs):
+                    if not hasattr(self, "called"):
+                        self.called = True
+                        return super().generate(**kwargs)
+                    raise RuntimeError("simulated interruption")
+            first = InterruptingProvider([
+                '{"tool":"write_file","arguments":{"path":"ai/checkpointed.py","content":"value = 7\\n"}}'
+            ])
+            agent = DevelopmentAgent(first, root, checkpoint_db=checkpoint_db)
+            with self.assertRaises(RuntimeError):
+                agent.run("Create checkpointed file", checkpoint_id="mission-task-1")
+            self.assertEqual(target.read_text(encoding="utf-8"), "value = 7\\n")
+            class FinishProvider(FakeProvider):
+                def generate(self, **kwargs):
+                    self.messages = kwargs["messages"]
+                    return super().generate(**kwargs)
+            second = FinishProvider(['{"final":"Resumed and completed."}'])
+            resumed = DevelopmentAgent(second, root, checkpoint_db=checkpoint_db)
+            self.assertEqual(resumed.run("Create checkpointed file", checkpoint_id="mission-task-1"), "Resumed and completed.")
+            self.assertIn("ACTION 1 (write_file)", second.messages[-1]["content"])
+            self.assertEqual(target.read_text(encoding="utf-8"), "value = 7\\n")
     def test_agent_lists_project_files_then_finishes(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "README.md").write_text("Streamiov")
