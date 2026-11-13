@@ -113,11 +113,11 @@ class ProjectToolTests(unittest.TestCase):
         protected.write_text("safe", encoding="utf-8")
         script = self.root / "ai" / "write_attempt.py"
         script.write_text(
-            "from pathlib import Path\\n"
-            "target = Path(__file__).parents[1] / 'protected.txt'\\n"
-            "try:\\n    target.write_text('changed')\\n"
-            "except PermissionError:\\n    print('write-blocked')\\n"
-            "else:\\n    raise SystemExit(9)\\n",
+            "from pathlib import Path\n"
+            "target = Path(__file__).parents[1] / 'protected.txt'\n"
+            "try:\n    target.write_text('changed')\n"
+            "except PermissionError:\n    print('write-blocked')\n"
+            "else:\n    raise SystemExit(9)\n",
             encoding="utf-8",
         )
         output = self.tools.run_python("ai/write_attempt.py")
