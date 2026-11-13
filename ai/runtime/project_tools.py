@@ -227,8 +227,8 @@ class ProjectTools:
             except subprocess.TimeoutExpired:
                 reports.append(f"{label}: total 180 second game-check limit reached")
                 return "exit_code=124\n" + "\n\n".join(reports)[-20000:]
-        output = (result.stdout + "\n" + result.stderr).strip()
+            output = (result.stdout + "\n" + result.stderr).strip()
             reports.append(f"{label}: exit_code={result.returncode}\n{output[-4000:]}")
             if result.returncode:
-        return f"exit_code={result.returncode}\n{output[-12000:]}"
+                return f"exit_code={result.returncode}\n" + "\n\n".join(reports)[-20000:]
         return "exit_code=0\n" + "\n\n".join(reports)[-20000:]
