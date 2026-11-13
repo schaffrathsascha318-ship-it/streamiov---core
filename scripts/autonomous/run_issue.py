@@ -55,6 +55,8 @@ def build_task(issue: dict, project_root: Path) -> str:
         "Create new modules, tests, documentation, tooling, and specialist work packages "
         "when they materially improve Streamiov. Keep a prioritized, evidence-backed backlog "
         "and continue with the highest-value unblocked work after each completed task. "
+        "After every completed work package, reassess the roadmap, dependencies, newly "
+        "discovered gaps, and whether a better implementation path is now available. "
         "Run independent verification before declaring completion. Never expose secrets, "
         "weaken central permission enforcement, bypass required checks, or alter protected "
         "identity and credential boundaries.\n\n"
