@@ -67,7 +67,7 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(result.cycle, 3)
         self.assertEqual(result.completed_tasks, 3)
         self.assertEqual([item[0] for item in calls], ["core", "testing", "testing"])
-        self.assertEqual(len(planner.calls), 3)
+        self.assertEqual(len(planner.calls), 4)
 
     def test_failed_task_retries_without_a_fixed_attempt_ceiling_and_recovers(self):
         planner = SequencePlanner([
