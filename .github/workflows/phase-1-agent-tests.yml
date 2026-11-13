@@ -5,8 +5,10 @@ on:
       - "ai/**"
       - "infrastructure/cloudflare/streamiov-ai-worker/**"
       - "scripts/deploy-streamiov-ai-worker.sh"
+      - "scripts/ai/**"
       - "tests/**"
       - "scripts/autonomous/**"
+      - "scripts/ai/**"
       - ".github/workflows/autonomous-development.yml"
       - ".github/workflows/phase-1-agent-tests.yml"
   push:
@@ -38,6 +40,8 @@ jobs:
           node-version: 22
       - name: Check Cloudflare deployment script syntax
         run: bash -n scripts/deploy-streamiov-ai-worker.sh
+      - name: Check AI Chief service scripts syntax
+        run: bash -n scripts/ai/run-chief-mission.sh scripts/ai/install-user-service.sh
       - name: Run Cloudflare AI Worker tests
         run: node --test tests/test_cloudflare_ai_worker.mjs
       - name: Check autonomous runner Python syntax
