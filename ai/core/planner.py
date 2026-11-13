@@ -7,6 +7,7 @@ import uuid
 
 from ai.core.orchestrator import SpecialistTask, TaskOrchestrator, TaskPlanError
 from ai.providers.base import ModelProvider
+from ai.specialists.registry import get_specialist
 
 
 MAX_PLAN_CHARS = 16_000
