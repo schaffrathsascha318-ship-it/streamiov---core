@@ -6,6 +6,11 @@ on:
   issues:
     types: [labeled]
   workflow_dispatch:
+    inputs:
+      goal:
+        description: "Optional owner-approved development focus (leave empty for the continuous platform mission)"
+        required: false
+        type: string
 
 concurrency:
   group: streamiov-autonomous-development
@@ -26,6 +31,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           ref: main
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Python
@@ -33,41 +39,82 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Select one explicitly approved issue
+      - name: Select an approved issue or the continuous platform mission
         id: pick
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DISPATCH_GOAL: ${{ inputs.goal }}
         shell: bash
         run: |
           set -euo pipefail
-          gh label create agent-ready --color 5319E7 --description "Eligible for bounded autonomous STREAMIOV development" --force >/dev/null
-          issue_json="$(gh issue list --state open --label agent-ready --limit 1 --json number,title,body)"
+          gh label create agent-ready --color 5319E7 --description "Eligible for autonomous STREAMIOV development" --force >/dev/null
+          gh label create agent-in-progress --color 1D76DB --description "Being processed by the persistent STREAMIOV AI Chief" --force >/dev/null
+          gh label create agent-review --color 0E8A16 --description "AI Chief prepared a draft pull request for review" --force >/dev/null
+          gh label create agent-blocked --color B60205 --description "AI Chief is blocked and needs investigation" --force >/dev/null
+
+          issue_json="$(gh issue list --state open --label agent-in-progress --limit 1 --json number,title,body)"
           if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
-            echo "No issue carries the agent-ready label."
-            exit 0
+            issue_json="$(gh issue list --state open --label agent-ready --limit 1 --json number,title,body)"
           fi
-          issue_number="$(jq -r '.[0].number' <<< "$issue_json")"
-          issue_author_association="$(gh api "repos/$GITHUB_REPOSITORY/issues/$issue_number" --jq '.author_association')"
-          gh label create agent-in-progress --color 1D76DB --description "Being processed by the bounded STREAMIOV agent" --force >/dev/null
-          gh label create agent-review --color 0E8A16 --description "Agent prepared a draft pull request for review" --force >/dev/null
-          gh label create agent-blocked --color B60205 --description "Agent could not safely complete this task" --force >/dev/null
-          case "$issue_author_association" in
-            OWNER|MEMBER|COLLABORATOR) ;;
-            *)
-              gh issue edit "$issue_number" --remove-label agent-ready --add-label agent-blocked
-              gh issue comment "$issue_number" --body "Autonomous execution is limited to issues submitted by repository owners, members, or collaborators. This issue was not executed."
-              echo "Issue author is not an authorized repository collaborator; skipping execution."
-              exit 0
-              ;;
-          esac
+
+          if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
+            issue_number=0
+            issue_title="STREAMIOV continuous platform development"
+            issue_body="${DISPATCH_GOAL:-Continue building and verifying the complete Streamiov platform. First make the AI Chief Developer and its eleven distinct specialist workstreams reliable; then advance Core, Studio, own infrastructure, AI platform, games, gifts, creator tools, and all remaining roadmap areas. Work in safe, reviewable increments, run real tests, preserve existing work, and report evidence. Do not merge, deploy, publish publicly, change secrets/OAuth/credentials, activate paid resources, or alter protected permission enforcement.}"
+            issue_json="$(jq -cn --arg title "$issue_title" --arg body "$issue_body" '{number:0,title:$title,body:$body}')"
+          else
+            issue_number="$(jq -r '.[0].number' <<< "$issue_json")"
+            issue_author_association="$(gh api "repos/$GITHUB_REPOSITORY/issues/$issue_number" --jq '.author_association')"
+            case "$issue_author_association" in
+              OWNER|MEMBER|COLLABORATOR) ;;
+              *)
+                gh issue edit "$issue_number" --remove-label agent-ready --add-label agent-blocked
+                gh issue comment "$issue_number" --body "Autonomous execution is limited to issues submitted by repository owners, members, or collaborators. This issue was not executed."
+                echo "Issue author is not an authorized repository collaborator; skipping execution."
+                exit 0
+                ;;
+            esac
+            gh issue edit "$issue_number" --remove-label agent-ready --add-label agent-in-progress
+            issue_title="$(jq -r '.[0].title' <<< "$issue_json")"
+          fi
+
           issue_b64="$(jq -r '.[0] | @base64' <<< "$issue_json")"
-          issue_title="$(jq -r '.[0].title' <<< "$issue_json")"
-          gh issue edit "$issue_number" --remove-label agent-ready --add-label agent-in-progress
           {
             echo "issue_number=$issue_number"
             echo "issue_title=$issue_title"
             echo "issue_b64=$issue_b64"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Restore the persistent development branch
+        if: steps.pick.outputs.issue_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="agent/streamiov-continuous-mission"
+          gh auth setup-git
+          git fetch origin main
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            git fetch origin "$branch"
+            git switch --track -c "$branch" "origin/$branch"
+            git merge --no-edit origin/main
+          else
+            git switch -c "$branch"
+          fi
+
+      - name: Restore durable AI Chief mission state
+        if: steps.pick.outputs.issue_number != ''
+        run: mkdir -p "${{ runner.temp }}/streamiov-ai-missions"
+
+      - name: Restore previous mission database
+        if: steps.pick.outputs.issue_number != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/streamiov-ai-missions
+          key: streamiov-ai-missions-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            streamiov-ai-missions-
 
       - name: Verify Cloudflare AI gateway configuration
         if: steps.pick.outputs.issue_number != ''
@@ -82,80 +129,146 @@ jobs:
             exit 1
           fi
 
-      - name: Execute bounded specialist plan
+      - name: Run or resume the persistent AI Chief mission
+        id: mission
         if: steps.pick.outputs.issue_number != ''
         env:
           STREAMIOV_AGENT_ISSUE_B64: ${{ steps.pick.outputs.issue_b64 }}
+          STREAMIOV_MISSION_ID: ${{ steps.pick.outputs.issue_number == '0' && 'streamiov-platform' || format('streamiov-issue-{0}', steps.pick.outputs.issue_number) }}
+          STREAMIOV_MISSION_DB: ${{ runner.temp }}/streamiov-ai-missions/missions.sqlite3
           STREAMIOV_AI_WORKER_TOKEN: ${{ secrets.STREAMIOV_AI_WORKER_TOKEN }}
           STREAMIOV_MODEL_URL: ${{ vars.STREAMIOV_MODEL_URL }}
+          STREAMIOV_MODEL_PROVIDER: cloudflare-workers-ai
           RUNNER_TEMP: ${{ runner.temp }}
-        run: python scripts/autonomous/run_issue.py
-
-      - name: Validate changed paths and run acceptance tests
-        if: steps.pick.outputs.issue_number != ''
         shell: bash
         run: |
           set -euo pipefail
+          timeout --preserve-status --signal=INT --kill-after=90s 18m python scripts/autonomous/run_issue.py
+
+      - name: Save durable AI Chief mission state
+        if: always() && steps.pick.outputs.issue_number != '' && steps.mission.outcome != 'skipped'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/streamiov-ai-missions
+          key: streamiov-ai-missions-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Validate the complete project diff and run acceptance tests
+        id: validation
+        if: steps.pick.outputs.issue_number != ''
+        continue-on-error: true
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+        shell: bash
+        run: |
+          set -uo pipefail
           mapfile -t changed < <({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)
           if [[ ${#changed[@]} -eq 0 ]]; then
-            echo "::error::The agent produced no reviewable file changes."
-            exit 1
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "tests_passed=false" >> "$GITHUB_OUTPUT"
+            echo "No source changes in this execution slice; mission state was saved."
+            exit 0
           fi
+          echo "has_changes=true" >> "$GITHUB_OUTPUT"
           for path in "${changed[@]}"; do
-            case "$path" in
-              ai/*|docs/ai-development/*|tests/*) ;;
-              *) echo "::error::Agent changed a path outside its allowlist: $path"; exit 1 ;;
+            lower="${path,,}"
+            case "$lower" in
+              .github/*|scripts/autonomous/*|scripts/ai/*|ai/providers/*|ai/__main__.py|ai/core/agent.py|ai/runtime/continuous_engine.py|ai/runtime/project_tools.py|*wrangler.jsonc|*wrangler.toml|*.pem|*.key|*.p12|*.pfx|.env*|*/.env*|*secret*|*credential*|*oauth*)
+                echo "::error::Protected control-plane or sensitive path changed: $path"
+                exit 1
+                ;;
             esac
+            if [[ -L "$path" ]]; then
+              echo "::error::Symlink changes are not accepted: $path"
+              exit 1
+            fi
           done
           if [[ -n "$(git diff --diff-filter=D --name-only)" ]]; then
             echo "::error::Autonomous deletion is not permitted."
             exit 1
           fi
-          git diff --check
+          if ! git diff --check; then
+            echo "tests_passed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          set +e
+          python -m compileall -q ai
+          compile_status=$?
           python -m unittest discover -s tests -v
+          test_status=$?
+          node --test tests/test_cloudflare_ai_worker.mjs
+          node_status=$?
+          set -e
+          if [[ $compile_status -eq 0 && $test_status -eq 0 && $node_status -eq 0 ]]; then
+            echo "tests_passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tests_passed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Acceptance checks failed. The source diff will be preserved on the draft branch for the AI Chief's next repair cycle."
+          fi
 
-      - name: Publish a draft pull request
-        if: steps.pick.outputs.issue_number != ''
+      - name: Preserve the development checkpoint and update its draft pull request
+        if: always() && steps.pick.outputs.issue_number != '' && steps.validation.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ steps.pick.outputs.issue_number }}
           ISSUE_TITLE: ${{ steps.pick.outputs.issue_title }}
+          TESTS_PASSED: ${{ steps.validation.outputs.tests_passed }}
+          MISSION_STATUS: ${{ steps.mission.outputs.status }}
         shell: bash
         run: |
           set -euo pipefail
-          branch="agent/issue-${ISSUE_NUMBER}-run-${GITHUB_RUN_ID}"
+          branch="agent/streamiov-continuous-mission"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           gh auth setup-git
-          git switch -c "$branch"
-          git add -A -- ai tests
-          if [[ -d docs/ai-development ]]; then git add -A -- docs/ai-development; fi
-          if git diff --cached --quiet; then
-            echo "::error::No staged changes remain after path validation."
-            exit 1
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "agent: checkpoint STREAMIOV AI Chief mission"
+            git push origin "$branch"
           fi
-          git commit -m "agent: address issue #${ISSUE_NUMBER}"
-          git push origin "$branch"
-          gh pr create --draft --base main --head "$branch" \
-            --title "agent: ${ISSUE_TITLE}" \
-            --body "## Autonomous development result
 
-          Addresses #${ISSUE_NUMBER}.
+          pr_number="$(gh pr list --state open --head "$branch" --json number --jq '.[0].number // empty')"
+          if [[ -z "$pr_number" ]]; then
+            gh pr create --draft --base main --head "$branch" \
+              --title "STREAMIOV AI Chief – continuous development" \
+              --body "## Persistent autonomous development checkpoint
 
-          - Generated by the bounded STREAMIOV specialist worker.
-          - Changes restricted to ai/, docs/ai-development/, and tests/.
-          - Python unit tests passed in GitHub Actions.
-          - This is a draft PR; no merge, deployment, credential change, OAuth change, or release was performed.
+          - Mission: ${MISSION_STATUS:-active}
+          - Triggered by: ${ISSUE_NUMBER}
+          - Independent acceptance checks: ${TESTS_PASSED:-not completed}
+          - Eleven specialist workstreams share distinct responsibilities and coordinate through the persistent mission planner.
+          - The mission database and per-agent checkpoints are resumed between execution slices.
+          - Changes are preserved on this draft branch for owner review.
 
-          Please review the diff and CI evidence before acceptance."
-          gh issue edit "$ISSUE_NUMBER" --remove-label agent-in-progress --add-label agent-review
+          No merge, production deployment, public release, credential/OAuth change, paid-resource activation, or irreversible external action is performed automatically."
+          else
+            gh pr edit "$pr_number" --title "STREAMIOV AI Chief – continuous development" \
+              --body "## Persistent autonomous development checkpoint
 
-      - name: Mark failed task as blocked
-        if: failure() && steps.pick.outputs.issue_number != ''
+          - Mission: ${MISSION_STATUS:-active}
+          - Latest request: ${ISSUE_TITLE}
+          - Independent acceptance checks: ${TESTS_PASSED:-not completed}
+          - Eleven specialist workstreams share distinct responsibilities and coordinate through the persistent mission planner.
+          - The mission database and per-agent checkpoints are resumed between execution slices.
+          - Changes are preserved on this draft branch for owner review.
+
+          No merge, production deployment, public release, credential/OAuth change, paid-resource activation, or irreversible external action is performed automatically."
+          fi
+
+          if [[ "$ISSUE_NUMBER" != "0" ]]; then
+            if [[ "$TESTS_PASSED" == "true" && "${MISSION_STATUS:-active}" == "completed" ]]; then
+              gh issue edit "$ISSUE_NUMBER" --remove-label agent-in-progress --add-label agent-review
+              gh issue comment "$ISSUE_NUMBER" --body "The AI Chief completed its mission and the independent acceptance checks passed. A draft pull request is available for owner review."
+            elif [[ "$TESTS_PASSED" == "false" ]]; then
+              gh issue comment "$ISSUE_NUMBER" --body "The AI Chief preserved its current development checkpoint. Acceptance checks still need repair; the draft PR records the current evidence."
+            fi
+          fi
+
+      - name: Mark failed runner execution as blocked
+        if: failure() && steps.pick.outputs.issue_number != '' && steps.pick.outputs.issue_number != '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ steps.pick.outputs.issue_number }}
         shell: bash
         run: |
           gh issue edit "$ISSUE_NUMBER" --remove-label agent-in-progress --add-label agent-blocked || true
-          gh issue comment "$ISSUE_NUMBER" --body "The autonomous runner stopped safely. No pull request was published. Review the workflow log and correct the blocker before re-queueing this issue with the `agent-ready` label." || true
+          gh issue comment "$ISSUE_NUMBER" --body "The autonomous runner stopped safely. No merge, deployment, credential change, OAuth change, or release was performed. Review the workflow log before re-queueing the issue." || true
