@@ -115,7 +115,8 @@ TOOL_ARGUMENTS = {
     "read_file": ({"path"}, {"path"}),
     "write_file": ({"path", "content"}, {"path", "content"}),
     "replace_text": ({"path", "old_text", "new_text"}, {"path", "old_text", "new_text"}),
-    "run_python": ({"path"}, {"path"}),\n    "run_tests": ({"command"}, {"command"}),
+    "run_python": ({"path"}, {"path"}),
+    "run_tests": ({"command"}, {"command"}),
     "run_game_checks": (set(), set()),
 }
 
@@ -254,7 +255,8 @@ class DevelopmentAgent:
             writable_prefixes=definition.writable_prefixes,
             allow_game_checks=self.allow_game_checks,
         )
-        self.max_steps = None  # no per-task turn ceiling\n        self.checkpoints = AgentCheckpointStore(checkpoint_db) if checkpoint_db else None
+        self.max_steps = None  # no per-task turn ceiling
+        self.checkpoints = AgentCheckpointStore(checkpoint_db) if checkpoint_db else None
 
 
     def run(self, task: str, *, checkpoint_id: str | None = None) -> str:
@@ -314,7 +316,9 @@ class DevelopmentAgent:
                             result = self.tools.write_file(args["path"], args["content"])
                         elif tool == "replace_text":
                             result = self.tools.replace_text(args["path"], args["old_text"], args["new_text"])
-                        elif tool == "run_python":\n                            result = self.tools.run_python(args["path"])\n                        elif tool == "run_game_checks":
+                        elif tool == "run_python":
+                            result = self.tools.run_python(args["path"])
+                        elif tool == "run_game_checks":
                             if args:
                                 raise ToolError("run_game_checks takes no arguments.")
                             result = self.tools.run_game_checks()
