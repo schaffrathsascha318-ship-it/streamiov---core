@@ -24,7 +24,6 @@ PROTECTED_WRITE_FILES = {
     "ai/core/agent.py",
     "ai/runtime/continuous_engine.py",
     "ai/runtime/project_tools.py",
-    "ai/specialists/registry.py",
 }
 PROTECTED_WRITE_NAMES = {"wrangler.jsonc", "wrangler.toml"}
 TEST_COMMANDS = {
