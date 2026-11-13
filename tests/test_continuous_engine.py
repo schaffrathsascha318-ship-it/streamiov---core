@@ -8,7 +8,9 @@ from pathlib import Path
 from ai.core.orchestrator import SpecialistTask
 from ai.runtime.continuous_engine import (
     ContinuousDevelopmentEngine,
+    MissionEngineError,
     MissionPlan,
+    ModelMissionPlanner,
 )
 
 
@@ -37,6 +39,45 @@ class MissionEngineTests(unittest.TestCase):
             self.db, planner, agent_factory, retry_base_seconds=0.01,
             lease_seconds=10, **kwargs,
         )
+
+    def test_model_planner_assigns_distinct_work_to_all_eleven_specialists(self):
+        roles = ["code", "studio", "music", "tts", "events", "homepage", "server", "research", "game", "gifts", "testing"]
+
+        class Provider:
+            def __init__(self, tasks):
+                self.tasks = tasks
+
+            def generate(self, *, system, messages):
+                self.system = system
+                return type("Reply", (), {
+                    "content": json.dumps({
+                        "state": "continue",
+                        "summary": "Eleven independent workstreams.",
+                        "tasks": self.tasks,
+                    })
+                })()
+
+        distinct_tasks = [
+            {"id": role, "specialist": role, "prompt": f"Deliver the {role} workstream.", "depends_on": []}
+            for role in roles
+        ]
+        provider = Provider(distinct_tasks)
+        plan = ModelMissionPlanner(provider).plan(
+            "Build the complete Streamiov platform.", "No work completed yet.",
+            mission_id="eleven-specialists", cycle=1,
+        )
+        self.assertEqual([task.specialist for task in plan.tasks], roles)
+        self.assertIn("at most one task per specialist", provider.system)
+        self.assertEqual(len({task.prompt for task in plan.tasks}), 11)
+
+        duplicate_aliases = [
+            {"id": "legacy-core", "specialist": "core", "prompt": "Research the model runtime.", "depends_on": []},
+            {"id": "research", "specialist": "research", "prompt": "Build the model runtime.", "depends_on": []},
+        ]
+        with self.assertRaisesRegex(MissionEngineError, "multiple tasks in one planning cycle"):
+            ModelMissionPlanner(Provider(duplicate_aliases)).plan(
+                "Build AI infrastructure.", "", mission_id="duplicate-specialist", cycle=1,
+            )
 
     def test_mission_continues_across_unbounded_planning_cycles_until_explicit_completion(self):
         planner = SequencePlanner([
