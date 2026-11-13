@@ -9,6 +9,9 @@ from ai.providers.local_http import (ProviderError, _local_url, OllamaProvider, 
 from ai.runtime.project_tools import ProjectTools, ToolError
 from ai.core.agent import DevelopmentAgent, AgentError, MAX_CONTEXT_CHARS, MAX_TOOL_RESULT_CHARS, _trim_context
 from ai.__main__ import build_parser, main
+from contextlib import redirect_stdout
+from io import StringIO
+from unittest.mock import patch
 
 class FakeProvider:
     def __init__(self, outputs):
@@ -141,6 +144,30 @@ class ProjectToolTests(unittest.TestCase):
         with self.assertRaises(ToolError): self.tools.run_game_checks()
 
 class AgentTests(unittest.TestCase):
+    def test_mission_create_and_status_do_not_require_model_configuration(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "missions.sqlite3"
+            created = StringIO()
+            with patch("ai.__main__.provider_from_env", side_effect=AssertionError("model provider must not be loaded")):
+                with redirect_stdout(created):
+                    self.assertEqual(main([
+                        "--mission-create", "--task", "Complete a local test mission",
+                        "--mission-db", str(database),
+                    ]), 0)
+                payload = json.loads(created.getvalue())
+                self.assertEqual(payload["status"], "active")
+                mission_id = payload["mission_id"]
+
+                status = StringIO()
+                with redirect_stdout(status):
+                    self.assertEqual(main([
+                        "--mission-status", mission_id,
+                        "--mission-db", str(database),
+                    ]), 0)
+                snapshot = json.loads(status.getvalue())
+                self.assertEqual(snapshot["mission_id"], mission_id)
+                self.assertEqual(snapshot["status"], "active")
+
     def test_read_then_finish(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "README.md").write_text("Streamiov")
