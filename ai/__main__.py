@@ -65,7 +65,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-steps",
         type=int,
-        default=12,
         help="Deprecated compatibility option; agent tasks have no fixed turn ceiling.",
         default=None,
     )
