@@ -13,6 +13,15 @@ class ToolError(RuntimeError):
 
 DENIED_PARTS = {".git", ".env", ".wrangler", "node_modules", "__pycache__", "secrets", "oauth", ".ssh"}
 DENIED_SUFFIXES = {".pem", ".key", ".p12", ".pfx"}
+PROTECTED_WRITE_PREFIXES = (
+    ".github/workflows/",
+    ".github/actions/",
+    "scripts/autonomous/",
+)
+PROTECTED_WRITE_FILES = {
+    "ai/runtime/project_tools.py",
+    "ai/specialists/registry.py",
+}
 TEST_COMMANDS = {
     "python -m unittest discover -s tests": [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
 }
@@ -45,8 +54,14 @@ class ProjectTools:
     def _writable_target(self, raw: str) -> tuple[Path, str]:
         target = self._resolve(raw)
         normalized = target.relative_to(self.root).as_posix()
-        if not any(normalized.startswith(prefix) for prefix in self.writable_prefixes):
-            raise ToolError("Writes are restricted to configured AI, documentation, and test directories.")
+        if normalized in PROTECTED_WRITE_FILES or any(
+            normalized.startswith(prefix) for prefix in PROTECTED_WRITE_PREFIXES
+        ):
+            raise ToolError("Protected permission and runner-control files require explicit owner approval.")
+        if "*" not in self.writable_prefixes and not any(
+            normalized.startswith(prefix) for prefix in self.writable_prefixes
+        ):
+            raise ToolError("Write path is outside the configured project scope.")
         return target, normalized
 
     def list_files(self, path: str = ".") -> str:
