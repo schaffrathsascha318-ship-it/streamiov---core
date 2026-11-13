@@ -103,7 +103,8 @@ def main() -> int:
     database = Path(os.environ.get(
         "STREAMIOV_MISSION_DB",
         str(runner_temp / "streamiov-ai-missions" / "missions.sqlite3"),
-    )).resolve()
+    ))
+    database = Path(os.path.abspath(database))
     if database.is_symlink():
         return fail("Mission database path must not be a symlink.")
     database.parent.mkdir(parents=True, exist_ok=True)
