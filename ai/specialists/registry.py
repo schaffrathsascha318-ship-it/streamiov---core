@@ -54,7 +54,7 @@ def build_specialist_system_prompt(name: str, base_prompt: str) -> str:
         f"MISSION: {specialist.mission}\n"
         f"WRITE SCOPE: You may create and edit project files across all modules: {scope}. "
         "The runtime enforces project-wide access independently and blocks protected control-plane paths. "
-        "Protected OAuth, credential, secret, workflow, runner-permission, and access-control paths remain inaccessible. "
+        "Protected OAuth, credential, secret, provider, core AI control-plane, deployment-config, workflow, runner-permission, and access-control paths remain inaccessible. "
         "Specialist roles define expertise and task ownership, not module-level write barriers. "
         "Do not attempt to bypass or modify the permission enforcement."
     )
