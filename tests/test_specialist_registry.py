@@ -71,8 +71,8 @@ class SpecialistRegistryTests(unittest.TestCase):
 
     def test_specialist_prompt_contains_mission_and_write_scope(self):
         prompt = build_specialist_system_prompt("game", "Base instructions")
-        self.assertIn("Game Developer", prompt)
-        self.assertIn("original games", prompt)
+        self.assertIn("Game Development", prompt)
+        self.assertIn("original downloadable Streamiov games", prompt)
         self.assertIn("WRITE SCOPE: You may create and edit project files across all modules: *", prompt)
         self.assertIn("runtime enforces project-wide access", prompt)
 
@@ -151,7 +151,7 @@ class SpecialistRegistryTests(unittest.TestCase):
             provider = FakeProvider()
             agent = DevelopmentAgent(provider, tmp, specialist="testing")
             self.assertEqual(agent.run("Inspect tests"), "role prompt received")
-            self.assertIn("Quality Engineer", provider.system)
+            self.assertIn("Quality, Verification & Security Testing", provider.system)
             self.assertIn("project files across all modules", provider.system)
             agent.tools.write_file("ai/cross_module_test.py", "allowed")
             with self.assertRaises(ToolError):
