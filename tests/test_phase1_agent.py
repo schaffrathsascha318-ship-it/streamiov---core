@@ -89,6 +89,7 @@ class ProjectToolTests(unittest.TestCase):
     def test_run_python_executes_project_script_and_reports_exit_code(self):
         (self.root / "ai").mkdir()
         os.chmod(self.root, 0o755)
+        script = self.root / "ai" / "check.py"
         script.write_text("print('python-ready')\n", encoding="utf-8")
         output = self.tools.run_python("ai/check.py")
         self.assertIn("exit_code=0", output)
@@ -97,6 +98,7 @@ class ProjectToolTests(unittest.TestCase):
     def test_run_python_reports_nonzero_exit_code(self):
         (self.root / "ai").mkdir()
         os.chmod(self.root, 0o755)
+        script = self.root / "ai" / "failing.py"
         script.write_text("raise SystemExit(7)\n", encoding="utf-8")
         output = self.tools.run_python("ai/failing.py")
         self.assertIn("exit_code=7", output)
