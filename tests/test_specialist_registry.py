@@ -24,6 +24,29 @@ class SpecialistRegistryTests(unittest.TestCase):
         expected = {"code", "studio", "music", "tts", "events", "homepage", "server", "research", "game", "gifts", "testing"}
         self.assertEqual(set(specialist_names()), expected)
 
+    def test_eleven_specialists_have_distinct_product_responsibilities(self):
+        from ai.specialists import SPECIALISTS
+
+        missions = [definition.mission for definition in SPECIALISTS.values()]
+        self.assertEqual(len(missions), 11)
+        self.assertEqual(len(set(missions)), 11)
+        expected_topics = {
+            "code": "software implementation",
+            "studio": "Studio and Regie",
+            "music": "music playback",
+            "tts": "text-to-speech",
+            "events": "event system",
+            "homepage": "public Streamiov",
+            "server": "server-side Core",
+            "research": "AI technology",
+            "game": "original downloadable",
+            "gifts": "original Streamiov gifts",
+            "testing": "independent quality assurance",
+        }
+        for key, phrase in expected_topics.items():
+            with self.subTest(specialist=key):
+                self.assertIn(phrase.lower(), SPECIALISTS[key].mission.lower())
+
     def test_unknown_specialist_is_rejected(self):
         with self.assertRaises(ValueError):
             get_specialist("superuser")
@@ -61,12 +84,12 @@ class SpecialistRegistryTests(unittest.TestCase):
             tools.write_file("ai/new_runtime_test.py", "# cross-module test\n")
             tools.write_file("core/new_contract.py", "# shared contract\n")
             tools.write_file("dist/streamiov-studio-app/new_module.js", "// studio module\n")
+            tools.write_file("ai/specialists/new_specialist.py", "# Chief may redesign specialist implementations\n")
             for path in (
                 ".github/workflows/new-workflow.yml",
                 ".github/actions/new-action/action.yml",
                 "scripts/autonomous/new-runner.py",
                 "ai/runtime/project_tools.py",
-                "ai/specialists/registry.py",
                 "ai/core/agent.py",
                 "ai/runtime/continuous_engine.py",
                 "ai/__main__.py",
@@ -88,6 +111,12 @@ class SpecialistRegistryTests(unittest.TestCase):
             permission_guard.write_text("guard = True\n", encoding="utf-8")
             with self.assertRaises(ToolError):
                 tools.replace_text("ai/runtime/project_tools.py", "guard = True", "guard = False")
+
+            specialist_registry = root / "ai" / "specialists" / "registry.py"
+            specialist_registry.parent.mkdir(parents=True)
+            specialist_registry.write_text("SPECIALISTS = {}\n", encoding="utf-8")
+            tools.replace_text("ai/specialists/registry.py", "SPECIALISTS = {}", "SPECIALISTS = {'code': 'updated'}")
+            self.assertIn("updated", specialist_registry.read_text(encoding="utf-8"))
 
             provider = root / "ai" / "providers" / "cloudflare_worker.py"
             provider.parent.mkdir(parents=True)
