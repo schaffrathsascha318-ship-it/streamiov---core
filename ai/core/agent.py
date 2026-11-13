@@ -284,7 +284,17 @@ class DevelopmentAgent:
             if checkpoint_id:
                 self.checkpoints.save(checkpoint_id, task_context, self.specialist, state)
 
+        if not isinstance(state, dict) or not isinstance(state.get("messages"), list):
+            raise AgentError("Persisted agent checkpoint has an invalid conversation state.")
+        if not isinstance(state.get("pending_actions"), list) or not isinstance(state.get("results"), list):
+            raise AgentError("Persisted agent checkpoint has an invalid pending-action state.")
+        if not isinstance(state.get("next_action_index"), int) or not 0 <= state["next_action_index"] <= len(state["pending_actions"]):
+            raise AgentError("Persisted agent checkpoint has an invalid action cursor.")
+        for saved_action in state["pending_actions"]:
+            _validate_tool_action(saved_action, allow_game_checks=self.allow_game_checks)
         if state.get("final_result") is not None:
+            if not isinstance(state["final_result"], str):
+                raise AgentError("Persisted final result is invalid.")
             return state["final_result"]
 
         while True:
