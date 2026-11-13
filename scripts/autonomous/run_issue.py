@@ -133,10 +133,12 @@ def main() -> int:
                 "database": str(database),
             }), flush=True)
         else:
-            if snapshot.goal != task:
-                raise MissionEngineError(
-                    "The stable mission ID already belongs to a different goal; refusing to overwrite it."
-                )
+            print(json.dumps({
+                "event": "mission_resumed",
+                "mission_id": mission_id,
+                "status": snapshot.status,
+                "cycle": snapshot.cycle,
+            }), flush=True)
 
         stop_event = threading.Event()
 
