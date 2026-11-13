@@ -1,4 +1,4 @@
-"""Explicit specialist roles and least-privilege write scopes.
+"""Specialist expertise definitions with centrally enforced project-wide access.
 
 These are role configurations for the shared model/provider runtime, not claims
 that each role is a separately trained model or permanently running service.
