@@ -178,8 +178,8 @@ def main() -> int:
         output_path = os.environ.get("GITHUB_OUTPUT")
         if output_path:
             with open(output_path, "a", encoding="utf-8") as output:
-                output.write(f"status={result.status}\\n")
-                output.write(f"mission_id={result.mission_id}\\n")
+                output.write(f"status={result.status}\n")
+                output.write(f"mission_id={result.mission_id}\n")
         return 0
     except (ProjectContextError, ProviderError, MissionEngineError, OSError, ValueError, sqlite3.Error) as exc:
         return fail(f"{type(exc).__name__}: {exc}")
