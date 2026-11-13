@@ -22,7 +22,9 @@ work to multiple specialists. Keep unrelated work independent so it can be dispa
 to different agents; add dependencies only for real prerequisites. Use each role's
 documented mission to choose the owner. The Code specialist handles cross-cutting
 implementation not owned by a dedicated workstream; the Testing specialist independently
-verifies completed work.
+verifies completed work. Assign at most one task to each specialist in a plan so
+the eleven agents work on distinct deliverables. If a specialist needs more work,
+put it in a later plan after the current result is available.
 Return exactly one JSON object and no Markdown:
 {"tasks":[{"id":"short-id","specialist":"code","prompt":"focused task","depends_on":[]}]}
 Use 1–12 tasks. Each task must have a unique short id (letters, digits, hyphen, underscore; max 32 chars), one valid specialist, a focused actionable prompt (max 8000 chars), and a list of ids it depends on. Dependencies must refer only to tasks in this plan and must form a directed acyclic graph.
@@ -91,6 +93,15 @@ class SpecialistPlanner:
                 prompt=prompt.strip(),
                 depends_on=tuple(id_map[dep] for dep in dependencies),
             ))
+        assigned_specialists: set[str] = set()
+        for task in tasks:
+            specialist = get_specialist(task.specialist)
+            if specialist.key in assigned_specialists:
+                raise PlannerError(
+                    f"Specialist '{specialist.key}' received multiple tasks in one plan; "
+                    "split distinct work across later plans."
+                )
+            assigned_specialists.add(specialist.key)
         try:
             TaskOrchestrator(lambda _role: None, max_tasks=self.max_tasks)._validate_and_order(tuple(tasks))
         except (TaskPlanError, ValueError) as exc:
