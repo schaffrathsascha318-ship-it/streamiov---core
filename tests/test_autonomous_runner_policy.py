@@ -22,7 +22,10 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
             if isinstance(node, ast.Assign)
             and any(isinstance(target, ast.Name) and target.id == "prefix" for target in node.targets)
         )
-        policy = ast.literal_eval(prefix_assignment.value)
+        policy = " ".join(
+            node.value for node in ast.walk(prefix_assignment.value)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        )
         self.assertIn("identify missing capabilities", policy)
         self.assertIn("implement worthwhile improvements", policy)
         self.assertIn("highest-value unblocked work", policy)
