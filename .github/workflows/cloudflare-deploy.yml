@@ -13,7 +13,6 @@ on:
       - "infrastructure/cloudflare/streamiov-ai-worker/**"
       - "scripts/deploy-streamiov-ai-worker.sh"
       - "scripts/verify-cloudflare-config.py"
-      - ".github/workflows/cloudflare-deploy.yml"
   workflow_dispatch:
     inputs:
       target:
