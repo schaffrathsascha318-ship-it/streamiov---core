@@ -19,7 +19,8 @@ Der AI Chief Developer ist der übergeordnete Planer und Koordinator. Er zerlegt
 ## Zusammenarbeit und Aufgabentrennung
 
 - Der Chief erstellt für jede Mission einen gemeinsamen Zielzustand und konkrete, voneinander abgrenzbare Lieferergebnisse.
-- Jeder Spezialist erhält nur die Arbeitspakete, für die seine Fachverantwortung passt. Querschnittsarbeit wird ausdrücklich zugewiesen und mit den betroffenen Eigentümern abgestimmt.
+- Jeder Spezialist erhält pro Planungszyklus höchstens ein Arbeitspaket. So bekommen die elf KIs unterschiedliche, klar abgegrenzte Lieferergebnisse statt mehrfach dieselbe Aufgabe. Weitere Arbeit desselben Spezialisten kommt in einen späteren Zyklus.
+- Jeder Spezialist erhält nur Arbeitspakete, für die seine Fachverantwortung passt. Querschnittsarbeit wird ausdrücklich zugewiesen und mit den betroffenen Eigentümern abgestimmt.
 - Parallel laufende Aufgaben müssen unterschiedliche Dateien oder klar definierte Schnittstellen besitzen. Bei unvermeidbaren Überschneidungen plant der Chief Reihenfolge und Integration.
 - Spezialisten können projektweit implementieren, wenn die Aufgabe es erfordert. Fachverantwortung ist keine künstliche Dateisperre.
 - Der Testing-Spezialist prüft Ergebnisse unabhängig und darf nicht seine eigene Implementierung als bestanden bestätigen.
