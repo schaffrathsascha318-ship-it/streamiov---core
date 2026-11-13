@@ -86,6 +86,22 @@ class ProjectToolTests(unittest.TestCase):
         (self.root / "ai").mkdir()
         (self.root / "ai/existing.py").write_text("safe")
         with self.assertRaises(ToolError): self.tools.write_file("ai/existing.py", "overwrite")
+    def test_run_python_executes_project_script_and_reports_exit_code(self):
+        (self.root / "ai").mkdir()
+        script = self.root / "ai" / "check.py"
+        script.write_text("print('python-ready')\\n", encoding="utf-8")
+        output = self.tools.run_python("ai/check.py")
+        self.assertIn("exit_code=0", output)
+        self.assertIn("python-ready", output)
+
+    def test_run_python_rejects_non_python_and_missing_files(self):
+        (self.root / "ai").mkdir()
+        (self.root / "ai" / "note.txt").write_text("not code", encoding="utf-8")
+        with self.assertRaises(ToolError):
+            self.tools.run_python("ai/note.txt")
+        with self.assertRaises(ToolError):
+            self.tools.run_python("ai/missing.py")
+
     def test_fixed_test_command(self):
         with self.assertRaises(ToolError): self.tools.run_tests("rm -rf .")
     def test_game_checks_are_not_available_to_general_tools(self):
