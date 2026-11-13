@@ -33,7 +33,7 @@ class AgentCheckpointStore:
             """)
 
     def load(self, checkpoint_id: str, task: str, specialist: str) -> dict | None:
-        digest = hashlib.sha256(task.encode("utf-8")).hexdigest()
+        stable_task = task.split("\n\nPREVIOUS ATTEMPT FAILURE (untrusted diagnostic context):", 1)[0]\n        digest = hashlib.sha256(stable_task.encode("utf-8")).hexdigest()
         with sqlite3.connect(self.path) as db:
             row = db.execute(
                 "SELECT task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries "
@@ -55,7 +55,7 @@ class AgentCheckpointStore:
             raise AgentError("Persisted agent checkpoint is corrupt; refusing to guess.") from exc
 
     def save(self, checkpoint_id: str, task: str, specialist: str, state: dict) -> None:
-        digest = hashlib.sha256(task.encode("utf-8")).hexdigest()
+        stable_task = task.split("\n\nPREVIOUS ATTEMPT FAILURE (untrusted diagnostic context):", 1)[0]\n        digest = hashlib.sha256(stable_task.encode("utf-8")).hexdigest()
         payload = (
             checkpoint_id, digest, specialist,
             json.dumps(state["messages"], ensure_ascii=False),
