@@ -152,9 +152,9 @@ class AgentError(RuntimeError):
 
 
 class DevelopmentAgent:
-    def __init__(self, provider: ModelProvider, project_root: str | Path, max_steps: int = 12, specialist: str = "code", learning_store=None) -> None:
-        if not 1 <= max_steps <= 30:
-            raise ValueError("max_steps must be between 1 and 30")
+    def __init__(self, provider: ModelProvider, project_root: str | Path, max_steps: int | None = None, specialist: str = "code", learning_store=None) -> None:
+        # max_steps is accepted only for backward compatibility. A mission task must
+        # not be abandoned because it consumed an arbitrary number of model/tool turns.
         definition = get_specialist(specialist)
         self.provider = provider
         self.specialist = definition.key
@@ -166,7 +166,7 @@ class DevelopmentAgent:
             writable_prefixes=definition.writable_prefixes,
             allow_game_checks=self.allow_game_checks,
         )
-        self.max_steps = max_steps
+        self.max_steps = None  # no per-task turn ceiling
 
     def run(self, task: str) -> str:
         if not isinstance(task, str) or not task.strip() or len(task) > 8000:
@@ -178,7 +178,7 @@ class DevelopmentAgent:
                 task_context += "\n\n" + lesson_context
         messages = [{"role": "user", "content": task_context}]
         format_retries = 0
-        for _ in range(self.max_steps):
+        while True:
             messages = _fit_provider_messages(self.system_prompt, messages)
             reply = self.provider.generate(system=self.system_prompt, messages=messages)
             if not isinstance(reply.content, str) or len(reply.content) > MAX_MODEL_REPLY_CHARS:
@@ -259,4 +259,4 @@ class DevelopmentAgent:
                 },
             ])
             messages = _trim_context(messages)
-        raise AgentError(f"Agent reached the {self.max_steps}-step limit without a final response.")
+
