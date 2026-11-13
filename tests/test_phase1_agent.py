@@ -274,7 +274,7 @@ class AgentTests(unittest.TestCase):
             provider = CapturingProvider(['{"final":"Review complete."}'])
             agent = DevelopmentAgent(provider, tmp, specialist="game")
             self.assertEqual(agent.run("Plan an original puzzle game."), "Review complete.")
-            self.assertIn("SPECIALIST ROLE: Game Developer (game)", provider.system)
+            self.assertIn("SPECIALIST ROLE: Game Development (game)", provider.system)
             self.assertIn("project files across all modules", provider.system)
             agent.tools.write_file("games/sample.py", "print('original')\n")
             agent.tools.write_file("dist/streamiov-studio-app/sample.js", "console.log('cross-module')\n")
