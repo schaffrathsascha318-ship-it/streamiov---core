@@ -64,9 +64,9 @@ class MissionEngineTests(unittest.TestCase):
         result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=lambda _: None)
 
         self.assertEqual(result.status, "completed")
-        self.assertEqual(result.cycle, 2)
-        self.assertEqual(result.completed_tasks, 2)
-        self.assertEqual([item[0] for item in calls], ["core", "testing"])
+        self.assertEqual(result.cycle, 3)
+        self.assertEqual(result.completed_tasks, 3)
+        self.assertEqual([item[0] for item in calls], ["core", "testing", "testing"])
         self.assertEqual(len(planner.calls), 3)
 
     def test_failed_task_retries_without_a_fixed_attempt_ceiling_and_recovers(self):
