@@ -28,15 +28,19 @@ class AgentCheckpointStore:
                     next_action_index INTEGER NOT NULL DEFAULT 0,
                     results_json TEXT NOT NULL DEFAULT '[]',
                     format_retries INTEGER NOT NULL DEFAULT 0,
+                    final_result TEXT NOT NULL DEFAULT '',
                     updated_at REAL NOT NULL
                 )
             """)
+            columns = {row[1] for row in db.execute("PRAGMA table_info(agent_checkpoints)")}
+            if "final_result" not in columns:
+                db.execute("ALTER TABLE agent_checkpoints ADD COLUMN final_result TEXT NOT NULL DEFAULT ''")
 
     def load(self, checkpoint_id: str, task: str, specialist: str) -> dict | None:
         stable_task = task.split("\n\nPREVIOUS ATTEMPT FAILURE (untrusted diagnostic context):", 1)[0]\n        digest = hashlib.sha256(stable_task.encode("utf-8")).hexdigest()
         with sqlite3.connect(self.path) as db:
             row = db.execute(
-                "SELECT task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries "
+                "SELECT task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries,final_result "
                 "FROM agent_checkpoints WHERE checkpoint_id=?", (checkpoint_id,)
             ).fetchone()
         if row is None:
@@ -50,6 +54,7 @@ class AgentCheckpointStore:
                 "next_action_index": row[4],
                 "results": json.loads(row[5]),
                 "format_retries": row[6],
+                "final_result": row[7] or None,
             }
         except (TypeError, json.JSONDecodeError) as exc:
             raise AgentError("Persisted agent checkpoint is corrupt; refusing to guess.") from exc
@@ -62,19 +67,20 @@ class AgentCheckpointStore:
             json.dumps(state.get("pending_actions", []), ensure_ascii=False),
             int(state.get("next_action_index", 0)),
             json.dumps(state.get("results", []), ensure_ascii=False),
-            int(state.get("format_retries", 0)), time.time(),
+            int(state.get("format_retries", 0)), state.get("final_result") or "", time.time(),
         )
         with sqlite3.connect(self.path) as db:
             db.execute("""
                 INSERT INTO agent_checkpoints
-                (checkpoint_id,task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries,updated_at)
-                VALUES(?,?,?,?,?,?,?,?,?)
+                (checkpoint_id,task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries,final_result,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(checkpoint_id) DO UPDATE SET
                     messages_json=excluded.messages_json,
                     pending_actions_json=excluded.pending_actions_json,
                     next_action_index=excluded.next_action_index,
                     results_json=excluded.results_json,
                     format_retries=excluded.format_retries,
+                    final_result=excluded.final_result,
                     updated_at=excluded.updated_at
             """, payload)
 
@@ -269,11 +275,15 @@ class DevelopmentAgent:
                 "next_action_index": 0,
                 "results": [],
                 "format_retries": 0,
+                "final_result": None,
             }
 
         def persist() -> None:
             if checkpoint_id:
                 self.checkpoints.save(checkpoint_id, task_context, self.specialist, state)
+
+        if state.get("final_result") is not None:
+            return state["final_result"]
 
         while True:
             if state["pending_actions"]:
@@ -350,8 +360,8 @@ class DevelopmentAgent:
             if any("final" in action for action in actions):
                 if len(actions) != 1 or set(actions[0]) != {"final"} or not isinstance(actions[0]["final"], str):
                     raise AgentError("A final response must be the only object and contain only a string 'final' field.")
-                if checkpoint_id:
-                    self.checkpoints.complete(checkpoint_id)
+                state["final_result"] = actions[0]["final"]
+                persist()
                 return actions[0]["final"]
             for action in actions:
                 _validate_tool_action(action, allow_game_checks=self.allow_game_checks)
