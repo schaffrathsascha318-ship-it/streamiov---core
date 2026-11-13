@@ -194,7 +194,7 @@ class ContinuousDevelopmentEngine:
         return mission_id
 
     def get_mission(self, mission_id: str) -> MissionSnapshot:
-        with self._connect() as db:
+        with self._connection() as db:
             row = db.execute("SELECT * FROM development_missions WHERE mission_id=?", (mission_id,)).fetchone()
             if row is None:
                 raise MissionEngineError("Mission not found.")
@@ -214,7 +214,7 @@ class ContinuousDevelopmentEngine:
         )
 
     def _progress_context(self, mission_id: str) -> str:
-        with self._connect() as db:
+        with self._connection() as db:
             mission = db.execute(
                 "SELECT summary FROM development_missions WHERE mission_id=?", (mission_id,)
             ).fetchone()
