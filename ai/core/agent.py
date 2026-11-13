@@ -268,7 +268,7 @@ class DevelopmentAgent:
         if self.learning_store is not None:
             lesson_context = self.learning_store.format_context(task_context, specialist=self.specialist)
             if lesson_context:
-                task_context += "\\n\\n" + lesson_context
+                task_context += "\n\n" + lesson_context
         state = self.checkpoints.load(checkpoint_id, task_context, self.specialist) if checkpoint_id else None
         if state is None:
             state = {
@@ -315,9 +315,9 @@ class DevelopmentAgent:
                     if not isinstance(result, str):
                         result = str(result)
                     if len(result) > MAX_TOOL_RESULT_CHARS:
-                        marker = "[tool output truncated at 12,000 characters]\\n"
+                        marker = "[tool output truncated at 12,000 characters]\n"
                         result = marker + result[:MAX_TOOL_RESULT_CHARS - len(marker)]
-                    results.append(f"ACTION {index + 1} ({tool}):\\n{result}")
+                    results.append(f"ACTION {index + 1} ({tool}):\n{result}")
                     state["next_action_index"] = index + 1
                     # Persist after every action. A process interruption can replay only
                     # the in-flight action; write_file is content-idempotent, while other
@@ -326,7 +326,7 @@ class DevelopmentAgent:
                 action_context = ", ".join(str(action["tool"]) for action in actions)
                 state["messages"].extend([
                     {"role": "assistant", "content": f"Previously requested tools: {action_context}"},
-                    {"role": "user", "content": "\\n\\n".join(results)},
+                    {"role": "user", "content": "\n\n".join(results)},
                 ])
                 state["messages"] = _trim_context(state["messages"])
                 state["pending_actions"] = []
