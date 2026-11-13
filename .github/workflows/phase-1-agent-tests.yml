@@ -8,7 +8,6 @@ on:
       - "scripts/ai/**"
       - "tests/**"
       - "scripts/autonomous/**"
-      - "scripts/ai/**"
       - ".github/workflows/autonomous-development.yml"
       - ".github/workflows/phase-1-agent-tests.yml"
   push:
@@ -17,6 +16,7 @@ on:
       - "ai/**"
       - "infrastructure/cloudflare/streamiov-ai-worker/**"
       - "scripts/deploy-streamiov-ai-worker.sh"
+      - "scripts/ai/**"
       - "tests/**"
       - ".github/workflows/phase-1-agent-tests.yml"
   workflow_dispatch:
