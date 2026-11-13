@@ -67,6 +67,25 @@ class SpecialistRegistryTests(unittest.TestCase):
             with self.assertRaises(ToolError):
                 tools.write_file("ai/not_allowed.py", "# outside role\n")
 
+    def test_domain_specialists_can_reach_shared_modules_and_host_services(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            code_tools = ProjectTools(root, writable_prefixes=get_specialist("code").writable_prefixes)
+            integration_tools = ProjectTools(root, writable_prefixes=get_specialist("integration").writable_prefixes)
+            server_tools = ProjectTools(root, writable_prefixes=get_specialist("server").writable_prefixes)
+
+            code_tools.write_file("modules/music/new_feature.py", "# module work\n")
+            integration_tools.write_file("host/new_adapter.py", "# host integration\n")
+            integration_tools.write_file("services/new_service.py", "# service integration\n")
+            server_tools.write_file("host/new_healthcheck.py", "# server health check\n")
+
+            with self.assertRaises(ToolError):
+                integration_tools.write_file("services/oauth/new_provider.py", "# protected OAuth path\n")
+
+    def test_specialist_prompt_states_protected_paths_remain_blocked(self):
+        prompt = build_specialist_system_prompt("integration", "Base instructions")
+        self.assertIn("Protected OAuth, credential, and secret paths remain inaccessible", prompt)
+
     def test_development_agent_uses_role_prompt_and_scope(self):
         with tempfile.TemporaryDirectory() as tmp:
             provider = FakeProvider()
