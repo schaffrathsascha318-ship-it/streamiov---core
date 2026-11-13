@@ -66,6 +66,11 @@ class SpecialistRegistryTests(unittest.TestCase):
                 "scripts/autonomous/new-runner.py",
                 "ai/runtime/project_tools.py",
                 "ai/specialists/registry.py",
+                "ai/core/agent.py",
+                "ai/runtime/continuous_engine.py",
+                "ai/__main__.py",
+                "ai/providers/cloudflare_worker.py",
+                "infrastructure/cloudflare/wrangler.jsonc",
                 "services/oauth/new_provider.py",
             ):
                 with self.subTest(path=path), self.assertRaises(ToolError):
@@ -82,6 +87,15 @@ class SpecialistRegistryTests(unittest.TestCase):
             permission_guard.write_text("guard = True\n", encoding="utf-8")
             with self.assertRaises(ToolError):
                 tools.replace_text("ai/runtime/project_tools.py", "guard = True", "guard = False")
+
+            provider = root / "ai" / "providers" / "cloudflare_worker.py"
+            provider.parent.mkdir(parents=True)
+            provider.write_text("token = read_private_env()\n", encoding="utf-8")
+            with self.assertRaises(ToolError):
+                tools.replace_text("ai/providers/cloudflare_worker.py", "token = read_private_env()", "token = leak_token()")
+
+            with self.assertRaises(ToolError):
+                tools.write_file("wrangler.jsonc", "{}")
 
     def test_domain_specialists_can_reach_shared_modules_and_host_services(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -100,7 +114,7 @@ class SpecialistRegistryTests(unittest.TestCase):
 
     def test_specialist_prompt_states_protected_paths_remain_blocked(self):
         prompt = build_specialist_system_prompt("integration", "Base instructions")
-        self.assertIn("Protected OAuth, credential, secret, workflow, runner-permission, and access-control paths remain inaccessible", prompt)
+        self.assertIn("Protected OAuth, credential, secret, provider, core AI control-plane, deployment-config, workflow, runner-permission, and access-control paths remain inaccessible", prompt)
 
     def test_development_agent_uses_role_prompt_and_scope(self):
         with tempfile.TemporaryDirectory() as tmp:
