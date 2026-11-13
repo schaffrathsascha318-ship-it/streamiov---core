@@ -89,7 +89,7 @@ class ProjectToolTests(unittest.TestCase):
     def test_run_python_executes_project_script_and_reports_exit_code(self):
         (self.root / "ai").mkdir()
         script = self.root / "ai" / "check.py"
-        script.write_text("print('python-ready')\\n", encoding="utf-8")
+        script.write_text("print('python-ready')\n", encoding="utf-8")
         output = self.tools.run_python("ai/check.py")
         self.assertIn("exit_code=0", output)
         self.assertIn("python-ready", output)
