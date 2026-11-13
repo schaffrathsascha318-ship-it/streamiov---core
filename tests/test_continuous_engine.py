@@ -165,6 +165,7 @@ class MissionEngineTests(unittest.TestCase):
             )),
             MissionPlan("completed", "Planner prematurely proposes completion."),
             MissionPlan("completed", "Planner again proposes completion after repair."),
+            MissionPlan("completed", "Planner requests the post-repair final verification."),
             MissionPlan("completed", "Final verification now passed."),
         ])
         calls = []
