@@ -103,6 +103,28 @@ class ProjectToolTests(unittest.TestCase):
         output = self.tools.run_python("ai/failing.py")
         self.assertIn("exit_code=7", output)
 
+    def test_run_python_drops_privileges_and_cannot_write_workspace(self):
+        import shutil
+        if shutil.which("setpriv") is None:
+            self.skipTest("Linux setpriv is unavailable.")
+        (self.root / "ai").mkdir()
+        os.chmod(self.root, 0o755)
+        protected = self.root / "protected.txt"
+        protected.write_text("safe", encoding="utf-8")
+        script = self.root / "ai" / "write_attempt.py"
+        script.write_text(
+            "from pathlib import Path\\n"
+            "target = Path(__file__).parents[1] / 'protected.txt'\\n"
+            "try:\\n    target.write_text('changed')\\n"
+            "except PermissionError:\\n    print('write-blocked')\\n"
+            "else:\\n    raise SystemExit(9)\\n",
+            encoding="utf-8",
+        )
+        output = self.tools.run_python("ai/write_attempt.py")
+        self.assertIn("exit_code=0", output)
+        self.assertIn("write-blocked", output)
+        self.assertEqual(protected.read_text(encoding="utf-8"), "safe")
+
     def test_run_python_rejects_non_python_and_missing_files(self):
         (self.root / "ai").mkdir()
         (self.root / "ai" / "note.txt").write_text("not code", encoding="utf-8")
