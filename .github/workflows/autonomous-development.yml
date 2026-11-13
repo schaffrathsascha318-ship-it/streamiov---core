@@ -54,7 +54,7 @@ jobs:
           if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
             issue_number=0
             issue_title="STREAMIOV continuous platform development"
-            issue_body="Continue building and verifying the complete Streamiov platform. First make the AI Chief Developer and its eleven distinct specialist workstreams reliable; then advance Core, Studio, own infrastructure, AI platform, games, gifts, creator tools, and all remaining roadmap areas. Work in safe, reviewable increments, run real tests, preserve existing work, and report evidence. Do not merge, deploy, publish publicly, change secrets/OAuth/credentials, activate paid resources, or alter protected permission enforcement."
+            issue_body="Continue building and verifying the complete Streamiov platform. First make the AI Chief Developer and its eleven distinct specialist workstreams reliable; then advance Core, Studio, own infrastructure, AI platform, games, gifts, creator tools, and all remaining roadmap areas. Continuously identify and implement valuable missing capabilities, reliability improvements, security fixes, tests, documentation, and infrastructure work without waiting for a separate feature request. Maintain an evidence-backed prioritized backlog and continue with the highest-value unblocked work. After independent verification and all required repository checks pass, integrate completed changes automatically. Never expose secrets, weaken central permission enforcement, bypass required checks, or change identity/OAuth boundaries."
             issue_json="$(jq -cn --arg title "$issue_title" --arg body "$issue_body" '{number:0,title:$title,body:$body}')"
           else
             issue_number="$(jq -r '.[0].number' <<< "$issue_json")"
@@ -233,9 +233,10 @@ jobs:
           - Independent acceptance checks: ${TESTS_PASSED:-not completed}
           - Eleven specialist workstreams share distinct responsibilities and coordinate through the persistent mission planner.
           - The mission database and per-agent checkpoints are resumed between execution slices.
-          - Changes are preserved on this draft branch for owner review.
+          - Changes are preserved on the continuous development branch.
+          - Completed work is eligible for automatic integration only after independent acceptance checks and all required GitHub checks pass.
 
-          No merge, production deployment, public release, credential/OAuth change, paid-resource activation, or irreversible external action is performed automatically."
+          Production deployment is handled by the repository's trusted deployment pipeline. Secrets, identity/OAuth boundaries, central permission enforcement, and paid-resource activation are not self-modifiable."
           else
             gh pr edit "$pr_number" --title "STREAMIOV AI Chief – continuous development" \
               --body "## Persistent autonomous development checkpoint
@@ -245,9 +246,17 @@ jobs:
           - Independent acceptance checks: ${TESTS_PASSED:-not completed}
           - Eleven specialist workstreams share distinct responsibilities and coordinate through the persistent mission planner.
           - The mission database and per-agent checkpoints are resumed between execution slices.
-          - Changes are preserved on this draft branch for owner review.
+          - Changes are preserved on the continuous development branch.
+          - Completed work is eligible for automatic integration only after independent acceptance checks and all required GitHub checks pass.
 
-          No merge, production deployment, public release, credential/OAuth change, paid-resource activation, or irreversible external action is performed automatically."
+          Production deployment is handled by the repository's trusted deployment pipeline. Secrets, identity/OAuth boundaries, central permission enforcement, and paid-resource activation are not self-modifiable."
+          fi
+
+          if [[ "$TESTS_PASSED" == "true" && "${MISSION_STATUS:-active}" == "completed" ]]; then
+            if [[ -n "$pr_number" ]]; then
+              gh pr ready "$pr_number" || true
+              gh pr merge "$pr_number" --auto --squash
+            fi
           fi
 
           if [[ "$ISSUE_NUMBER" != "0" ]]; then
@@ -267,4 +276,4 @@ jobs:
         shell: bash
         run: |
           gh issue edit "$ISSUE_NUMBER" --remove-label agent-in-progress --add-label agent-blocked || true
-          gh issue comment "$ISSUE_NUMBER" --body "The autonomous runner stopped safely. No merge, deployment, credential change, OAuth change, or release was performed. Review the workflow log before re-queueing the issue." || true
+          gh issue comment "$ISSUE_NUMBER" --body "The autonomous runner stopped safely. No unverified change is integrated or deployed. Review the workflow log and resume the persistent mission after repairing the cause." || true
