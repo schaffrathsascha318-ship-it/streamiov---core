@@ -125,7 +125,7 @@ class ProjectTools:
             env={"PATH": os.environ.get("PATH", ""), "PYTHONIOENCODING": "utf-8"},
         )
         output = (result.stdout + "\n" + result.stderr).strip()
-        return f"exit_code={result.returncode}\n{output[-12000:]}
+        return f"exit_code={result.returncode}\n{output[-12000:]}"
 
     def run_tests(self, command: str) -> str:
         argv = TEST_COMMANDS.get(command)
