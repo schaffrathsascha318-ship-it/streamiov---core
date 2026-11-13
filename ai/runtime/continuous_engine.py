@@ -349,10 +349,16 @@ class ContinuousDevelopmentEngine:
         now = time.time()
         with self._transaction() as db:
             mission = db.execute(
-                "SELECT planning_owner,status FROM development_missions WHERE mission_id=?",
+                "SELECT planning_owner,planning_lease_until,status FROM development_missions WHERE mission_id=?",
                 (mission_id,),
             ).fetchone()
-            if mission is None or mission["planning_owner"] != worker_id or mission["status"] != "active":
+            if (
+                mission is None
+                or mission["planning_owner"] != worker_id
+                or mission["status"] != "active"
+                or mission["planning_lease_until"] is None
+                or mission["planning_lease_until"] <= now
+            ):
                 raise MissionEngineError("Planning lease was lost before the plan could be saved.")
             if plan.state == "completed":
                 db.execute("""
@@ -379,6 +385,42 @@ class ContinuousDevelopmentEngine:
                 SET cycle=?,summary=?,planning_owner='',planning_lease_until=NULL,updated_at=?
                 WHERE mission_id=?
             """, (cycle, plan.summary, now, mission_id))
+
+    def _heartbeat_planning(self, mission_id: str, worker_id: str) -> None:
+        now = time.time()
+        with self._transaction() as db:
+            cursor = db.execute("""
+                UPDATE development_missions
+                SET planning_lease_until=?,updated_at=?
+                WHERE mission_id=? AND planning_owner=? AND status='active'
+                  AND planning_lease_until>?
+            """, (now + self.lease_seconds, now, mission_id, worker_id, now))
+            if cursor.rowcount != 1:
+                raise MissionEngineError("Planning lease was lost.")
+
+    def _plan_with_heartbeat(self, goal: str, progress: str, mission_id: str, cycle: int, worker_id: str) -> MissionPlan:
+        stop = threading.Event()
+        heartbeat_errors: list[str] = []
+        interval = max(1.0, self.lease_seconds / 3)
+
+        def heartbeat_loop() -> None:
+            while not stop.wait(interval):
+                try:
+                    self._heartbeat_planning(mission_id, worker_id)
+                except Exception as exc:
+                    heartbeat_errors.append(f"{type(exc).__name__}: {str(exc)[:300]}")
+                    return
+
+        thread = threading.Thread(target=heartbeat_loop, name="streamiov-planning-lease", daemon=True)
+        thread.start()
+        try:
+            plan = self.planner.plan(goal, progress, mission_id=mission_id, cycle=cycle)
+            if heartbeat_errors:
+                raise MissionEngineError(heartbeat_errors[-1])
+            return plan
+        finally:
+            stop.set()
+            thread.join(timeout=interval + 1)
 
     def _claim_task(self, mission_id: str, worker_id: str) -> MissionTask | None:
         now = time.time()
@@ -549,21 +591,25 @@ class ContinuousDevelopmentEngine:
             goal, cycle = claim
             try:
                 progress = self._progress_context(mission_id)
-                plan = self.planner.plan(goal, progress, mission_id=mission_id, cycle=cycle)
+                plan = self._plan_with_heartbeat(goal, progress, mission_id, cycle, worker_id)
                 self._store_plan(mission_id, worker_id, cycle, plan)
                 emit(json.dumps({
                     "event": "plan_saved", "mission_id": mission_id,
                     "cycle": cycle, "state": plan.state,
                     "task_count": len(plan.tasks), "summary": plan.summary,
                 }, ensure_ascii=False))
-            except Exception:
+            except Exception as exc:
                 with self._transaction() as db:
                     db.execute("""
                         UPDATE development_missions
                         SET planning_owner='',planning_lease_until=NULL,updated_at=?
                         WHERE mission_id=? AND planning_owner=?
                     """, (time.time(), mission_id, worker_id))
-                raise
+                emit(json.dumps({
+                    "event": "planning_retry_scheduled", "mission_id": mission_id,
+                    "cycle": cycle, "error": f"{type(exc).__name__}: {str(exc)[:2000]}",
+                }, ensure_ascii=False))
+                stop_event.wait(min(max(poll_seconds, self.retry_base_seconds), 60.0))
 
         return self.get_mission(mission_id)
 
