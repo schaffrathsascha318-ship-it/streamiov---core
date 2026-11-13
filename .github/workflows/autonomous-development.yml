@@ -173,7 +173,7 @@ jobs:
           for path in "${changed[@]}"; do
             lower="${path,,}"
             case "$lower" in
-              .github/*|scripts/autonomous/*|scripts/ai/*|ai/providers/*|ai/__main__.py|ai/core/agent.py|ai/runtime/continuous_engine.py|ai/runtime/project_tools.py|*wrangler.jsonc|*wrangler.toml|*.pem|*.key|*.p12|*.pfx|.env*|*/.env*|*secret*|*credential*|*oauth*)
+              .github/*|scripts/autonomous/*|scripts/ai/*|ai/providers/*|.git/*|*/.git/*|.wrangler/*|*/.wrangler/*|node_modules/*|*/node_modules/*|ai/__main__.py|ai/core/agent.py|ai/runtime/continuous_engine.py|ai/runtime/project_tools.py|*wrangler.jsonc|*wrangler.toml|*.pem|*.key|*.p12|*.pfx|.env*|*/.env*|*secret*|*credential*|*oauth*)
                 echo "::error::Protected control-plane or sensitive path changed: $path"
                 exit 1
                 ;;
