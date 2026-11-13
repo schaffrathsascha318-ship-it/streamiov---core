@@ -17,11 +17,16 @@ PROTECTED_WRITE_PREFIXES = (
     ".github/workflows/",
     ".github/actions/",
     "scripts/autonomous/",
+    "ai/providers/",
 )
 PROTECTED_WRITE_FILES = {
+    "ai/__main__.py",
+    "ai/core/agent.py",
+    "ai/runtime/continuous_engine.py",
     "ai/runtime/project_tools.py",
     "ai/specialists/registry.py",
 }
+PROTECTED_WRITE_NAMES = {"wrangler.jsonc", "wrangler.toml"}
 TEST_COMMANDS = {
     "python -m unittest discover -s tests": [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
 }
@@ -54,8 +59,10 @@ class ProjectTools:
     def _writable_target(self, raw: str) -> tuple[Path, str]:
         target = self._resolve(raw)
         normalized = target.relative_to(self.root).as_posix()
-        if normalized in PROTECTED_WRITE_FILES or any(
-            normalized.startswith(prefix) for prefix in PROTECTED_WRITE_PREFIXES
+        if (
+            normalized in PROTECTED_WRITE_FILES
+            or target.name.lower() in PROTECTED_WRITE_NAMES
+            or any(normalized.startswith(prefix) for prefix in PROTECTED_WRITE_PREFIXES)
         ):
             raise ToolError("Protected permission and runner-control files require explicit owner approval.")
         if "*" not in self.writable_prefixes and not any(
