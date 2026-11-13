@@ -71,6 +71,18 @@ class SpecialistRegistryTests(unittest.TestCase):
                 with self.subTest(path=path), self.assertRaises(ToolError):
                     tools.write_file(path, "# protected\n")
 
+            workflow = root / ".github" / "workflows" / "ci.yml"
+            workflow.parent.mkdir(parents=True)
+            workflow.write_text("permissions: read\n", encoding="utf-8")
+            with self.assertRaises(ToolError):
+                tools.replace_text(".github/workflows/ci.yml", "permissions: read", "permissions: write")
+
+            permission_guard = root / "ai" / "runtime" / "project_tools.py"
+            permission_guard.parent.mkdir(parents=True)
+            permission_guard.write_text("guard = True\n", encoding="utf-8")
+            with self.assertRaises(ToolError):
+                tools.replace_text("ai/runtime/project_tools.py", "guard = True", "guard = False")
+
     def test_domain_specialists_can_reach_shared_modules_and_host_services(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
