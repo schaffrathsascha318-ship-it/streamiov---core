@@ -265,7 +265,7 @@ class AgentTests(unittest.TestCase):
             response = '{"tool":"read_file","arguments":{"path":"README.md"},"final":"fake"}'
             with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider([response]), tmp).run("Do task")
 
-    def test_specialist_role_sets_prompt_and_enforced_write_scope(self):
+    def test_specialist_role_sets_expertise_prompt_and_project_wide_write_access(self):
         with tempfile.TemporaryDirectory() as tmp:
             class CapturingProvider(FakeProvider):
                 def generate(self, **kwargs):
@@ -275,9 +275,11 @@ class AgentTests(unittest.TestCase):
             agent = DevelopmentAgent(provider, tmp, specialist="game")
             self.assertEqual(agent.run("Plan an original puzzle game."), "Review complete.")
             self.assertIn("SPECIALIST ROLE: Game Developer (game)", provider.system)
+            self.assertIn("project files across all modules", provider.system)
             agent.tools.write_file("games/sample.py", "print('original')\n")
+            agent.tools.write_file("dist/streamiov-studio-app/sample.js", "console.log('cross-module')\n")
             with self.assertRaises(ToolError):
-                agent.tools.write_file("dist/streamiov-studio-app/sample.js", "unsafe scope")
+                agent.tools.write_file("scripts/autonomous/runner.py", "unsafe permission change")
 
     def test_games_specialist_runs_bounded_local_game_checks(self):
         with tempfile.TemporaryDirectory() as tmp:
