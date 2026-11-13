@@ -114,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
                     project_root=Path(args.project_root),
                     max_steps=args.max_steps,
                     specialist=role,
-                    learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
+                    learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,\n                    checkpoint_db=args.mission_db,
                 ),
             )
             if args.mission_create:
