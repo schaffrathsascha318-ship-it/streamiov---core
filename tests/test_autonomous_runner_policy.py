@@ -46,6 +46,7 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("weaken central permission enforcement", policy)
         self.assertIn("bypass required checks", policy)
         self.assertIn("identity and credential boundaries", policy)
+        self.assertIn("untrusted task input", policy)
 
 
 if __name__ == "__main__":
