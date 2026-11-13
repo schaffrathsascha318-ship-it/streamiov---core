@@ -49,7 +49,7 @@ class SpecialistRegistryTests(unittest.TestCase):
         prompt = build_specialist_system_prompt("game", "Base instructions")
         self.assertIn("Game Developer", prompt)
         self.assertIn("original games", prompt)
-        self.assertIn("games/", prompt)
+        self.assertIn("WRITE SCOPE: You may create and edit project files across all modules: *", prompt)
         self.assertIn("runtime enforces project-wide access", prompt)
 
     def test_specialists_can_write_across_project_but_protected_controls_stay_blocked(self):
