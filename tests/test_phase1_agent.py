@@ -132,7 +132,7 @@ class AgentTests(unittest.TestCase):
             agent = DevelopmentAgent(first, root, checkpoint_db=checkpoint_db)
             with self.assertRaises(RuntimeError):
                 agent.run("Create checkpointed file", checkpoint_id="mission-task-1")
-            self.assertEqual(target.read_text(encoding="utf-8"), "value = 7\\n")
+            self.assertEqual(target.read_text(encoding="utf-8"), "value = 7\n")
             class FinishProvider(FakeProvider):
                 def generate(self, **kwargs):
                     self.messages = kwargs["messages"]
@@ -141,7 +141,7 @@ class AgentTests(unittest.TestCase):
             resumed = DevelopmentAgent(second, root, checkpoint_db=checkpoint_db)
             self.assertEqual(resumed.run("Create checkpointed file", checkpoint_id="mission-task-1"), "Resumed and completed.")
             self.assertIn("ACTION 1 (write_file)", second.messages[-1]["content"])
-            self.assertEqual(target.read_text(encoding="utf-8"), "value = 7\\n")
+            self.assertEqual(target.read_text(encoding="utf-8"), "value = 7\n")
             class MustNotRunProvider(FakeProvider):
                 def generate(self, **kwargs):
                     raise AssertionError("completed result should be restored from checkpoint")
