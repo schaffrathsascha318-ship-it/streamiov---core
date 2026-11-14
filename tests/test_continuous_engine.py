@@ -332,13 +332,22 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(planner.calls, 4)
         self.assertTrue(any('"event": "planning_retry_scheduled"' in event for event in events))
 
-    def test_invalid_empty_continuation_is_rejected_and_not_marked_complete(self):
-        planner = SequencePlanner([MissionPlan("continue", "No work listed.", ())])
-        engine = self.make_engine(planner, lambda _role: None)
+    def test_invalid_empty_continuation_is_retried_and_not_marked_complete(self):
+        stop = threading.Event()
+        events = []
+
+        class InvalidPlanOnce:
+            def plan(self, goal, progress, *, mission_id, cycle):
+                stop.set()
+                return MissionPlan("continue", "No work listed.", ())
+
+        engine = self.make_engine(InvalidPlanOnce(), lambda _role: None)
         mission_id = engine.create_mission("Must not be falsely completed")
-        with self.assertRaises(Exception):
-            engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=lambda _: None)
-        self.assertEqual(engine.get_mission(mission_id).status, "active")
+        result = engine.run(mission_id, stop, poll_seconds=0.01, emit=events.append)
+
+        self.assertEqual(result.status, "active")
+        self.assertEqual(result.pending_tasks, 0)
+        self.assertTrue(any('"event": "planning_retry_scheduled"' in event for event in events))
 
 
 if __name__ == "__main__":
