@@ -44,6 +44,17 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("ai/*permissions*", guard)
         self.assertIn(".github/*", guard)
 
+    def test_agent_branch_dispatches_ci_before_it_can_be_integrated(self):
+        workflow = (ROOT / ".github" / "workflows" / "autonomous-development.yml").read_text(encoding="utf-8")
+        self.assertIn("actions: write", workflow)
+        self.assertIn("checks: read", workflow)
+        self.assertIn("gh pr create --draft", workflow)
+        self.assertIn("gh workflow run phase-1-agent-tests.yml --ref", workflow)
+        self.assertIn("gh workflow run secret-scanning.yml --ref", workflow)
+        self.assertIn("gh workflow run studio-build.yml --ref", workflow)
+        self.assertIn("gh pr checks", workflow)
+        self.assertIn("all(.[]; .state == \"SUCCESS\")", workflow)
+
     def test_self_improvement_does_not_authorize_bypassing_security(self):
         tree = ast.parse(RUNNER.read_text(encoding="utf-8"))
         build_task = next(
