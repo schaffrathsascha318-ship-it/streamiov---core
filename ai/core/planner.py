@@ -96,7 +96,10 @@ class SpecialistPlanner:
             ))
         assigned_specialists: set[str] = set()
         for task in tasks:
-            specialist = get_specialist(task.specialist)
+            try:
+                specialist = get_specialist(task.specialist)
+            except ValueError as exc:
+                raise PlannerError(str(exc)) from exc
             if specialist.key in assigned_specialists:
                 raise PlannerError(
                     f"Specialist '{specialist.key}' received multiple tasks in one plan; "
