@@ -66,4 +66,15 @@ jobs:
       - name: Report model readiness without failing the build
         run: python -m ai --doctor || true
       - name: Run Phase 1 unit tests
-        run: timeout --signal=INT --kill-after=30s 25m python -m unittest discover -s tests -v
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: |
+          timeout --signal=INT --kill-after=30s 25m python - <<'PY'
+          import faulthandler
+          import unittest
+
+          faulthandler.dump_traceback_later(90, repeat=True)
+          suite = unittest.defaultTestLoader.discover("tests")
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          raise SystemExit(not result.wasSuccessful())
+          PY
