@@ -51,6 +51,29 @@ class WorkerServiceTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(worker.calls, 1)
 
+    def test_worker_loop_passes_shutdown_event_to_checkpointed_worker(self):
+        stop = threading.Event()
+
+        class StopAwareWorker:
+            received = None
+            def run_once(self, *, stop_event=None):
+                self.received = stop_event
+                return WorkerExecution("one", "succeeded", result="ok")
+
+        worker = StopAwareWorker()
+        code = run_worker_loop(worker, stop, max_tasks=1, emit=lambda _line: None)
+        self.assertEqual(code, 0)
+        self.assertIs(worker.received, stop)
+
+    def test_worker_loop_does_not_report_a_resumable_release_as_terminal_failure(self):
+        worker = FakeWorker([
+            WorkerExecution("one", "queued", error="checkpoint retained"),
+            WorkerExecution("one", "succeeded", result="resumed"),
+        ])
+        code = run_worker_loop(worker, threading.Event(), max_tasks=2, emit=lambda _line: None)
+        self.assertEqual(code, 0)
+        self.assertEqual(worker.calls, 2)
+
     def test_worker_loop_rejects_unsafe_poll_and_task_limits(self):
         worker = FakeWorker([])
         with self.assertRaises(ValueError):

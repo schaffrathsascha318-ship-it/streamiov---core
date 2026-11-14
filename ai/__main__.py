@@ -175,6 +175,7 @@ def main(argv: list[str] | None = None) -> int:
                     max_steps=args.max_steps,
                     specialist=role,
                     learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
+                    checkpoint_db=args.queue_db,
                 ),
             )
             execution = worker.run_once()
@@ -198,6 +199,7 @@ def main(argv: list[str] | None = None) -> int:
                     project_root=Path(args.project_root),
                     max_steps=args.max_steps,
                     specialist=role,
+                    checkpoint_db=args.queue_db,
                 ),
             )
             stop_event = threading.Event()
