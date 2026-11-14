@@ -232,8 +232,10 @@ jobs:
             echo "- Cycle: ${MISSION_CYCLE:-unknown}"
             echo "- Tasks: ${COMPLETED_TASKS:-0} completed, ${PENDING_TASKS:-0} pending, ${RUNNING_TASKS:-0} running"
             echo "- Attempts: ${ATTEMPTS:-0}"
-            if [[ "$MISSION_STATUS" == "completed" ]]; then
-              echo "- Result: mission engine reports completion; source integration still requires independent verification and CI."
+            if [[ "$MISSION_STATUS" == "completed" && "$ENCRYPTED_STATE" == "true" && "$ARTIFACT_OUTCOME" == "success" ]]; then
+              echo "- Result: mission engine reports completion and its encrypted state was saved; source integration still requires independent verification and CI."
+            elif [[ "$MISSION_STATUS" == "completed" ]]; then
+              echo "- Result: mission engine reports completion, but durable state persistence was not confirmed; do not treat this as a completed delivery."
             elif [[ "$MISSION_STATUS" == "active" && "$ENCRYPTED_STATE" == "true" && "$ARTIFACT_OUTCOME" == "success" ]]; then
               echo "- Result: runner slice ended; mission remains active and its encrypted checkpoint was saved."
             elif [[ "$MISSION_STATUS" == "active" ]]; then
