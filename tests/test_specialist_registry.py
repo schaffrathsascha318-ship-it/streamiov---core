@@ -21,15 +21,39 @@ class FakeProvider:
 
 class SpecialistRegistryTests(unittest.TestCase):
     def test_all_required_specialist_roles_are_registered(self):
-        expected = {"core", "code", "game", "design", "gifts", "testing", "repair", "integration", "studio", "server", "general"}
-        self.assertTrue(expected.issubset(set(specialist_names())))
+        expected = {"code", "studio", "music", "tts", "events", "homepage", "server", "research", "game", "gifts", "testing"}
+        self.assertEqual(set(specialist_names()), expected)
+
+    def test_eleven_specialists_have_distinct_product_responsibilities(self):
+        from ai.specialists import SPECIALISTS
+
+        missions = [definition.mission for definition in SPECIALISTS.values()]
+        self.assertEqual(len(missions), 11)
+        self.assertEqual(len(set(missions)), 11)
+        expected_topics = {
+            "code": "software implementation",
+            "studio": "Studio and Regie",
+            "music": "music playback",
+            "tts": "text-to-speech",
+            "events": "event system",
+            "homepage": "public Streamiov",
+            "server": "server-side Core",
+            "research": "AI technology",
+            "game": "original downloadable",
+            "gifts": "original Streamiov gifts",
+            "testing": "independent quality assurance",
+        }
+        for key, phrase in expected_topics.items():
+            with self.subTest(specialist=key):
+                self.assertIn(phrase.lower(), SPECIALISTS[key].mission.lower())
 
     def test_unknown_specialist_is_rejected(self):
         with self.assertRaises(ValueError):
             get_specialist("superuser")
 
-    def test_every_specialist_has_a_unique_safe_write_scope(self):
+    def test_every_specialist_has_project_wide_scope_and_shared_permission_boundaries(self):
         from ai.specialists import SPECIALISTS
+        from ai.specialists.registry import PROJECT_WRITE_SCOPE
         from ai.__main__ import build_parser
 
         names = specialist_names()
@@ -37,45 +61,101 @@ class SpecialistRegistryTests(unittest.TestCase):
         self.assertEqual(set(names), set(SPECIALISTS))
         parser_names = set(build_parser()._option_string_actions["--specialist"].choices)
         self.assertEqual(parser_names, set(names))
+        self.assertEqual(PROJECT_WRITE_SCOPE, ("*",))
+        self.assertEqual(len(names), 11)
         for name in names:
             definition = SPECIALISTS[name]
             self.assertTrue(definition.title.strip())
             self.assertTrue(definition.mission.strip())
-            self.assertTrue(definition.writable_prefixes)
-            self.assertEqual(
-                len(definition.writable_prefixes),
-                len(set(definition.writable_prefixes)),
-                f"{name} lists a duplicate scope",
-            )
-            for prefix in definition.writable_prefixes:
-                self.assertFalse(prefix.startswith("/"), f"{name} has an absolute scope: {prefix}")
-                self.assertNotIn("..", prefix, f"{name} escapes its scope: {prefix}")
-                self.assertTrue(prefix.endswith("/"), f"{name} scope must be a directory prefix: {prefix}")
+            self.assertEqual(definition.writable_prefixes, PROJECT_WRITE_SCOPE, name)
 
     def test_specialist_prompt_contains_mission_and_write_scope(self):
         prompt = build_specialist_system_prompt("game", "Base instructions")
-        self.assertIn("Game Developer", prompt)
-        self.assertIn("original games", prompt)
-        self.assertIn("games/", prompt)
-        self.assertIn("runtime enforces this scope", prompt)
+        self.assertIn("Game Development", prompt)
+        self.assertIn("original downloadable Streamiov games", prompt)
+        self.assertIn("WRITE SCOPE: You may create and edit project files across all modules: *", prompt)
+        self.assertIn("runtime enforces project-wide access", prompt)
 
-    def test_project_tools_enforce_role_specific_write_scope(self):
+    def test_specialists_can_write_across_project_but_protected_controls_stay_blocked(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             tools = ProjectTools(root, writable_prefixes=get_specialist("testing").writable_prefixes)
             tools.write_file("tests/new_test.py", "# test\n")
+            tools.write_file("ai/new_runtime_test.py", "# cross-module test\n")
+            tools.write_file("core/new_contract.py", "# shared contract\n")
+            tools.write_file("dist/streamiov-studio-app/new_module.js", "// studio module\n")
+            tools.write_file("ai/specialists/new_specialist.py", "# Chief may redesign specialist implementations\n")
+            for path in (
+                ".github/workflows/new-workflow.yml",
+                ".github/actions/new-action/action.yml",
+                "scripts/autonomous/new-runner.py",
+                "ai/runtime/project_tools.py",
+                "ai/core/agent.py",
+                "ai/runtime/continuous_engine.py",
+                "ai/__main__.py",
+                "ai/providers/cloudflare_worker.py",
+                "infrastructure/cloudflare/wrangler.jsonc",
+                "services/oauth/new_provider.py",
+            ):
+                with self.subTest(path=path), self.assertRaises(ToolError):
+                    tools.write_file(path, "# protected\n")
+
+            workflow = root / ".github" / "workflows" / "ci.yml"
+            workflow.parent.mkdir(parents=True)
+            workflow.write_text("permissions: read\n", encoding="utf-8")
             with self.assertRaises(ToolError):
-                tools.write_file("ai/not_allowed.py", "# outside role\n")
+                tools.replace_text(".github/workflows/ci.yml", "permissions: read", "permissions: write")
+
+            permission_guard = root / "ai" / "runtime" / "project_tools.py"
+            permission_guard.parent.mkdir(parents=True)
+            permission_guard.write_text("guard = True\n", encoding="utf-8")
+            with self.assertRaises(ToolError):
+                tools.replace_text("ai/runtime/project_tools.py", "guard = True", "guard = False")
+
+            specialist_registry = root / "ai" / "specialists" / "registry.py"
+            specialist_registry.parent.mkdir(parents=True, exist_ok=True)
+            specialist_registry.write_text("SPECIALISTS = {}\n", encoding="utf-8")
+            tools.replace_text("ai/specialists/registry.py", "SPECIALISTS = {}", "SPECIALISTS = {'code': 'updated'}")
+            self.assertIn("updated", specialist_registry.read_text(encoding="utf-8"))
+
+            provider = root / "ai" / "providers" / "cloudflare_worker.py"
+            provider.parent.mkdir(parents=True)
+            provider.write_text("token = read_private_env()\n", encoding="utf-8")
+            with self.assertRaises(ToolError):
+                tools.replace_text("ai/providers/cloudflare_worker.py", "token = read_private_env()", "token = leak_token()")
+
+            with self.assertRaises(ToolError):
+                tools.write_file("wrangler.jsonc", "{}")
+
+    def test_domain_specialists_can_reach_shared_modules_and_host_services(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            code_tools = ProjectTools(root, writable_prefixes=get_specialist("code").writable_prefixes)
+            integration_tools = ProjectTools(root, writable_prefixes=get_specialist("integration").writable_prefixes)
+            server_tools = ProjectTools(root, writable_prefixes=get_specialist("server").writable_prefixes)
+
+            code_tools.write_file("modules/music/new_feature.py", "# module work\n")
+            integration_tools.write_file("host/new_adapter.py", "# host integration\n")
+            integration_tools.write_file("services/new_service.py", "# service integration\n")
+            server_tools.write_file("host/new_healthcheck.py", "# server health check\n")
+
+            with self.assertRaises(ToolError):
+                integration_tools.write_file("services/oauth/new_provider.py", "# protected OAuth path\n")
+
+    def test_specialist_prompt_states_protected_paths_remain_blocked(self):
+        prompt = build_specialist_system_prompt("server", "Base instructions")
+        self.assertIn("Protected OAuth, credential, secret, provider, core AI control-plane, deployment-config, workflow, runner-permission, and access-control paths remain inaccessible", prompt)
 
     def test_development_agent_uses_role_prompt_and_scope(self):
         with tempfile.TemporaryDirectory() as tmp:
             provider = FakeProvider()
             agent = DevelopmentAgent(provider, tmp, specialist="testing")
             self.assertEqual(agent.run("Inspect tests"), "role prompt received")
-            self.assertIn("Quality Engineer", provider.system)
-            self.assertIn("tests/", provider.system)
+            self.assertIn("Quality, Verification & Security Testing", provider.system)
+            self.assertIn("project files across all modules", provider.system)
+            agent.tools.write_file("ai/cross_module_test.py", "allowed")
             with self.assertRaises(ToolError):
-                agent.tools.write_file("ai/outside.py", "blocked")
+                agent.tools.write_file(".github/workflows/unsafe.yml", "blocked")
 
 
 if __name__ == "__main__":

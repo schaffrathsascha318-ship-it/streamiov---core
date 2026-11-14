@@ -1,5 +1,6 @@
 name: Streamiov Studio Builds
 
+# Windows desktop packages target x64; Linux and ChromeOS retain their native architectures.
 on:
   workflow_dispatch:
     inputs:
@@ -34,7 +35,6 @@ on:
       - "scripts/sync-studio-ui.py"
       - "scripts/sync-studio-games.py"
       - "scripts/test-studio-media-pipeline.cjs"
-      - ".github/workflows/studio-build.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -54,9 +54,6 @@ jobs:
           - name: Windows x64
             runner: windows-latest
             command: dist:win
-          - name: Windows ARM64
-            runner: windows-latest
-            command: dist:win:arm64
           - name: Linux x64
             runner: ubuntu-latest
             command: dist:linux
@@ -142,10 +139,30 @@ jobs:
           pattern: streamiov-studio-*
           path: artifacts
 
+      - name: Determine and validate release version
+        id: version
+        shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.release_version }}
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          APP_VERSION=$(node -p "require('./dist/streamiov-studio-app/package.json').version")
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$REQUESTED_VERSION" != "$APP_VERSION" ]]; then
+            echo "::error::package.json version $APP_VERSION does not match release input $REQUESTED_VERSION"
+            exit 1
+          fi
+          if gh release view "studio-v$APP_VERSION" >/dev/null 2>&1; then
+            echo "::error::Release studio-v$APP_VERSION already exists. Bump the app version before publishing new installers."
+            exit 1
+          fi
+          echo "version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Installer eindeutig benennen und prüfen
         shell: bash
         env:
-          RELEASE_VERSION: ${{ inputs.release_version }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           APP_VERSION=$(node -p "require('./dist/streamiov-studio-app/package.json').version")
@@ -165,7 +182,6 @@ jobs:
             cp "$source" "release/$destination"
           }
           copy_one "artifacts/streamiov-studio-Windows x64" "*.exe" "Streamiov.Studio.Setup.${APP_VERSION}-x64.exe"
-          copy_one "artifacts/streamiov-studio-Windows ARM64" "*.exe" "Streamiov.Studio.Setup.${APP_VERSION}-arm64.exe"
           copy_one "artifacts/streamiov-studio-Linux x64" "*.AppImage" "Streamiov.Studio-${APP_VERSION}-x64.AppImage"
           copy_one "artifacts/streamiov-studio-Linux ARM64" "*.AppImage" "Streamiov.Studio-${APP_VERSION}-arm64.AppImage"
           copy_one "artifacts/streamiov-studio-Linux x64" "*.deb" "streamiov-studio_${APP_VERSION}_amd64.deb"
@@ -177,11 +193,11 @@ jobs:
       - name: GitHub Release erstellen oder aktualisieren
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: studio-v${{ inputs.release_version }}
-          name: Streamiov Studio ${{ inputs.release_version }}
+          tag_name: studio-v${{ steps.version.outputs.version }}
+          name: Streamiov Studio ${{ steps.version.outputs.version }}
           target_commitish: ${{ github.sha }}
           body_path: docs/RELEASE_NOTES.md
-          prerelease: ${{ inputs.prerelease }}
-          make_latest: ${{ inputs.prerelease && 'false' || 'true' }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
+          make_latest: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease && 'false' || 'true' }}
           fail_on_unmatched_files: true
           files: release/*

@@ -9,6 +9,9 @@ from ai.providers.local_http import (ProviderError, _local_url, OllamaProvider, 
 from ai.runtime.project_tools import ProjectTools, ToolError
 from ai.core.agent import DevelopmentAgent, AgentError, MAX_CONTEXT_CHARS, MAX_TOOL_RESULT_CHARS, _trim_context
 from ai.__main__ import build_parser, main
+from contextlib import redirect_stdout
+from io import StringIO
+from unittest.mock import patch
 
 class FakeProvider:
     def __init__(self, outputs):
@@ -86,17 +89,168 @@ class ProjectToolTests(unittest.TestCase):
         (self.root / "ai").mkdir()
         (self.root / "ai/existing.py").write_text("safe")
         with self.assertRaises(ToolError): self.tools.write_file("ai/existing.py", "overwrite")
+    def test_run_python_executes_project_script_and_reports_exit_code(self):
+        (self.root / "ai").mkdir()
+        os.chmod(self.root, 0o755)
+        script = self.root / "ai" / "check.py"
+        script.write_text("print('python-ready')\n", encoding="utf-8")
+        output = self.tools.run_python("ai/check.py")
+        self.assertIn("exit_code=0", output)
+        self.assertIn("python-ready", output)
+
+    def test_run_python_reports_nonzero_exit_code(self):
+        (self.root / "ai").mkdir()
+        os.chmod(self.root, 0o755)
+        script = self.root / "ai" / "failing.py"
+        script.write_text("raise SystemExit(7)\n", encoding="utf-8")
+        output = self.tools.run_python("ai/failing.py")
+        self.assertIn("exit_code=7", output)
+
+    def test_run_python_drops_privileges_and_cannot_write_workspace(self):
+        import shutil
+        if os.environ.get("CI") == "true":
+            self.skipTest("CI runner does not permit UID changes; privilege-drop is tested on supported local Linux hosts.")
+        if shutil.which("setpriv") is None:
+            self.skipTest("Linux setpriv is unavailable.")
+        (self.root / "ai").mkdir()
+        os.chmod(self.root, 0o755)
+        protected = self.root / "protected.txt"
+        protected.write_text("safe", encoding="utf-8")
+        script = self.root / "ai" / "write_attempt.py"
+        script.write_text(
+            "from pathlib import Path\n"
+            "target = Path(__file__).parents[1] / 'protected.txt'\n"
+            "try:\n    target.write_text('changed')\n"
+            "except PermissionError:\n    print('write-blocked')\n"
+            "else:\n    raise SystemExit(9)\n",
+            encoding="utf-8",
+        )
+        output = self.tools.run_python("ai/write_attempt.py")
+        self.assertIn("exit_code=0", output)
+        self.assertIn("write-blocked", output)
+        self.assertEqual(protected.read_text(encoding="utf-8"), "safe")
+
+    def test_run_python_rejects_non_python_and_missing_files(self):
+        (self.root / "ai").mkdir()
+        (self.root / "ai" / "note.txt").write_text("not code", encoding="utf-8")
+        with self.assertRaises(ToolError):
+            self.tools.run_python("ai/note.txt")
+        with self.assertRaises(ToolError):
+            self.tools.run_python("ai/missing.py")
+
     def test_fixed_test_command(self):
         with self.assertRaises(ToolError): self.tools.run_tests("rm -rf .")
     def test_game_checks_are_not_available_to_general_tools(self):
         with self.assertRaises(ToolError): self.tools.run_game_checks()
 
 class AgentTests(unittest.TestCase):
+    def test_mission_create_and_status_do_not_require_model_configuration(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "missions.sqlite3"
+            created = StringIO()
+            with patch("ai.__main__.provider_from_env", side_effect=AssertionError("model provider must not be loaded")):
+                with redirect_stdout(created):
+                    self.assertEqual(main([
+                        "--mission-create", "--task", "Complete a local test mission",
+                        "--mission-db", str(database),
+                    ]), 0)
+                payload = json.loads(created.getvalue())
+                self.assertEqual(payload["status"], "active")
+                mission_id = payload["mission_id"]
+
+                status = StringIO()
+                with redirect_stdout(status):
+                    self.assertEqual(main([
+                        "--mission-status", mission_id,
+                        "--mission-db", str(database),
+                    ]), 0)
+                snapshot = json.loads(status.getvalue())
+                self.assertEqual(snapshot["mission_id"], mission_id)
+                self.assertEqual(snapshot["status"], "active")
+
     def test_read_then_finish(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "README.md").write_text("Streamiov")
             p = FakeProvider(['{"tool":"read_file","arguments":{"path":"README.md"}}', '{"final":"Read complete."}'])
             self.assertEqual(DevelopmentAgent(p, tmp).run("Inspect README"), "Read complete.")
+    def test_cancel_event_stops_before_the_next_tool_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cancel = threading.Event()
+            provider = FakeProvider([
+                '{"tool":"write_file","arguments":{"path":"ai/first.py","content":"first = True"}}'
+                '{"tool":"write_file","arguments":{"path":"ai/second.py","content":"second = True"}}'
+            ])
+            agent = DevelopmentAgent(provider, tmp)
+            original_write = agent.tools.write_file
+
+            def write_and_cancel(path, content):
+                result = original_write(path, content)
+                cancel.set()
+                return result
+
+            agent.tools.write_file = write_and_cancel
+            with self.assertRaisesRegex(AgentError, "worker lease was lost"):
+                agent.run("Create two files", cancel_event=cancel)
+
+            self.assertTrue(Path(tmp, "ai/first.py").exists())
+            self.assertFalse(Path(tmp, "ai/second.py").exists())
+
+    def test_agent_continues_beyond_thirty_model_tool_turns(self):
+        class CountingProvider(FakeProvider):
+            def __init__(self, outputs):
+                super().__init__(outputs)
+                self.calls = 0
+            def generate(self, **kwargs):
+                self.calls += 1
+                return super().generate(**kwargs)
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "README.md").write_text("Streamiov")
+            outputs = ['{"tool":"read_file","arguments":{"path":"README.md"}}' for _ in range(35)]
+            outputs.append('{"final":"Completed after thirty-five tool turns."}')
+            provider = CountingProvider(outputs)
+            self.assertEqual(
+                DevelopmentAgent(provider, tmp, max_steps=1).run("Continue until complete"),
+                "Completed after thirty-five tool turns.",
+            )
+            self.assertEqual(provider.calls, 36)
+    def test_agent_restores_checkpoint_after_interruption_without_replaying_completed_tool(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            checkpoint_db = root / "agent-checkpoints.sqlite3"
+            target = root / "ai" / "checkpointed.py"
+            class InterruptingProvider(FakeProvider):
+                def generate(self, **kwargs):
+                    if not hasattr(self, "called"):
+                        self.called = True
+                        return super().generate(**kwargs)
+                    raise RuntimeError("simulated interruption")
+            first = InterruptingProvider([
+                '{"tool":"write_file","arguments":{"path":"ai/checkpointed.py","content":"value = 7\\n"}}'
+            ])
+            agent = DevelopmentAgent(first, root, checkpoint_db=checkpoint_db)
+            with self.assertRaises(RuntimeError):
+                agent.run("Create checkpointed file", checkpoint_id="mission-task-1")
+            self.assertEqual(target.read_text(encoding="utf-8"), "value = 7\n")
+            class FinishProvider(FakeProvider):
+                def generate(self, **kwargs):
+                    self.messages = kwargs["messages"]
+                    return super().generate(**kwargs)
+            second = FinishProvider(['{"final":"Resumed and completed."}'])
+            resumed = DevelopmentAgent(second, root, checkpoint_db=checkpoint_db)
+            self.assertEqual(resumed.run("Create checkpointed file", checkpoint_id="mission-task-1"), "Resumed and completed.")
+            self.assertIn("ACTION 1 (write_file)", second.messages[-1]["content"])
+            self.assertEqual(target.read_text(encoding="utf-8"), "value = 7\n")
+            class MustNotRunProvider(FakeProvider):
+                def generate(self, **kwargs):
+                    raise AssertionError("completed result should be restored from checkpoint")
+            recovered_final = DevelopmentAgent(
+                MustNotRunProvider([]), root, checkpoint_db=checkpoint_db
+            )
+            self.assertEqual(
+                recovered_final.run("Create checkpointed file", checkpoint_id="mission-task-1"),
+                "Resumed and completed.",
+            )
+            recovered_final.checkpoints.complete("mission-task-1")
     def test_agent_lists_project_files_then_finishes(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "README.md").write_text("Streamiov")
@@ -133,7 +287,7 @@ class AgentTests(unittest.TestCase):
             response = '{"tool":"read_file","arguments":{"path":"README.md"},"final":"fake"}'
             with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider([response]), tmp).run("Do task")
 
-    def test_specialist_role_sets_prompt_and_enforced_write_scope(self):
+    def test_specialist_role_sets_expertise_prompt_and_project_wide_write_access(self):
         with tempfile.TemporaryDirectory() as tmp:
             class CapturingProvider(FakeProvider):
                 def generate(self, **kwargs):
@@ -142,10 +296,12 @@ class AgentTests(unittest.TestCase):
             provider = CapturingProvider(['{"final":"Review complete."}'])
             agent = DevelopmentAgent(provider, tmp, specialist="game")
             self.assertEqual(agent.run("Plan an original puzzle game."), "Review complete.")
-            self.assertIn("SPECIALIST ROLE: Game Developer (game)", provider.system)
+            self.assertIn("SPECIALIST ROLE: Game Development (game)", provider.system)
+            self.assertIn("project files across all modules", provider.system)
             agent.tools.write_file("games/sample.py", "print('original')\n")
+            agent.tools.write_file("dist/streamiov-studio-app/sample.js", "console.log('cross-module')\n")
             with self.assertRaises(ToolError):
-                agent.tools.write_file("dist/streamiov-studio-app/sample.js", "unsafe scope")
+                agent.tools.write_file("scripts/autonomous/runner.py", "unsafe permission change")
 
     def test_games_specialist_runs_bounded_local_game_checks(self):
         with tempfile.TemporaryDirectory() as tmp:

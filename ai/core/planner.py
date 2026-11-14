@@ -7,13 +7,25 @@ import uuid
 
 from ai.core.orchestrator import SpecialistTask, TaskOrchestrator, TaskPlanError
 from ai.providers.base import ModelProvider
+from ai.specialists.registry import get_specialist
 
 
 MAX_PLAN_CHARS = 16_000
 MAX_PLAN_TASKS = 12
 PLAN_SYSTEM = """You are STREAMIOV Core, the task planner for a specialist development team.
-Break the user's goal into a small dependency-aware plan for the available specialist roles:
-core, code, game, design, gifts, testing, repair, integration, studio, server, general.
+Break the user's goal into a dependency-aware plan for the eleven distinct STREAMIOV workstreams:
+code, studio, music, tts, events, homepage, server, research, game, gifts, testing.
+The AI Chief is the coordinator and is not one of these eleven specialists. For a broad
+whole-platform mission, create a separate actionable work package for every relevant
+specialist (use all eleven when the goal covers the whole Streamiov platform). Each
+work package must own a different deliverable. Do not assign duplicate or competing
+work to multiple specialists. Keep unrelated work independent so it can be dispatched
+to different agents; add dependencies only for real prerequisites. Use each role's
+documented mission to choose the owner. The Code specialist handles cross-cutting
+implementation not owned by a dedicated workstream; the Testing specialist independently
+verifies completed work. Assign at most one task to each specialist in a plan so
+the eleven agents work on distinct deliverables. If a specialist needs more work,
+put it in a later plan after the current result is available.
 Return exactly one JSON object and no Markdown:
 {"tasks":[{"id":"short-id","specialist":"code","prompt":"focused task","depends_on":[]}]}
 Use 1–12 tasks. Each task must have a unique short id (letters, digits, hyphen, underscore; max 32 chars), one valid specialist, a focused actionable prompt (max 8000 chars), and a list of ids it depends on. Dependencies must refer only to tasks in this plan and must form a directed acyclic graph.
@@ -82,6 +94,18 @@ class SpecialistPlanner:
                 prompt=prompt.strip(),
                 depends_on=tuple(id_map[dep] for dep in dependencies),
             ))
+        assigned_specialists: set[str] = set()
+        for task in tasks:
+            try:
+                specialist = get_specialist(task.specialist)
+            except ValueError as exc:
+                raise PlannerError(str(exc)) from exc
+            if specialist.key in assigned_specialists:
+                raise PlannerError(
+                    f"Specialist '{specialist.key}' received multiple tasks in one plan; "
+                    "split distinct work across later plans."
+                )
+            assigned_specialists.add(specialist.key)
         try:
             TaskOrchestrator(lambda _role: None, max_tasks=self.max_tasks)._validate_and_order(tuple(tasks))
         except (TaskPlanError, ValueError) as exc:

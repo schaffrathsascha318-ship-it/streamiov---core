@@ -1,9 +1,8 @@
 name: Deploy Cloudflare (manual, owner-approved)
 
-# This workflow is intentionally manual. It never runs on push or pull request.
-# It does not create a Cloudflare account, enable Workers AI, issue a custom
-# domain, or prove that a deployment is publicly reachable. Those remain owner
-# actions and are documented in infrastructure/cloudflare/streamiov-ai-worker/README.md.
+# Production deployment remains explicitly owner-approved.
+# This workflow never deploys automatically on merge or push.
+# It never creates accounts, provisions paid resources, or changes OAuth.
 
 on:
   workflow_dispatch:
@@ -53,7 +52,7 @@ jobs:
 
   deploy-homepage:
     needs: verify
-    if: inputs.confirm && (inputs.target == 'homepage' || inputs.target == 'both')
+    if: needs.verify.result == 'success' && inputs.confirm && (inputs.target == 'homepage' || inputs.target == 'both')
     runs-on: ubuntu-24.04
     environment: production
     env:
@@ -89,7 +88,7 @@ jobs:
 
   deploy-ai-worker:
     needs: verify
-    if: inputs.confirm && (inputs.target == 'ai-worker' || inputs.target == 'both')
+    if: needs.verify.result == 'success' && inputs.confirm && (inputs.target == 'ai-worker' || inputs.target == 'both')
     runs-on: ubuntu-24.04
     environment: production
     env:

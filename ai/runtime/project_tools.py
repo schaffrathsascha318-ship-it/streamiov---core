@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tempfile
 from pathlib import Path, PurePosixPath
 
 class ToolError(RuntimeError):
@@ -12,6 +13,19 @@ class ToolError(RuntimeError):
 
 DENIED_PARTS = {".git", ".env", ".wrangler", "node_modules", "__pycache__", "secrets", "oauth", ".ssh"}
 DENIED_SUFFIXES = {".pem", ".key", ".p12", ".pfx"}
+PROTECTED_WRITE_PREFIXES = (
+    ".github/workflows/",
+    ".github/actions/",
+    "scripts/autonomous/",
+    "ai/providers/",
+)
+PROTECTED_WRITE_FILES = {
+    "ai/__main__.py",
+    "ai/core/agent.py",
+    "ai/runtime/continuous_engine.py",
+    "ai/runtime/project_tools.py",
+}
+PROTECTED_WRITE_NAMES = {"wrangler.jsonc", "wrangler.toml"}
 TEST_COMMANDS = {
     "python -m unittest discover -s tests": [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
 }
@@ -44,8 +58,16 @@ class ProjectTools:
     def _writable_target(self, raw: str) -> tuple[Path, str]:
         target = self._resolve(raw)
         normalized = target.relative_to(self.root).as_posix()
-        if not any(normalized.startswith(prefix) for prefix in self.writable_prefixes):
-            raise ToolError("Writes are restricted to configured AI, documentation, and test directories.")
+        if (
+            normalized in PROTECTED_WRITE_FILES
+            or target.name.lower() in PROTECTED_WRITE_NAMES
+            or any(normalized.startswith(prefix) for prefix in PROTECTED_WRITE_PREFIXES)
+        ):
+            raise ToolError("Protected permission and runner-control files require explicit owner approval.")
+        if "*" not in self.writable_prefixes and not any(
+            normalized.startswith(prefix) for prefix in self.writable_prefixes
+        ):
+            raise ToolError("Write path is outside the configured project scope.")
         return target, normalized
 
     def list_files(self, path: str = ".") -> str:
@@ -111,6 +133,45 @@ class ProjectTools:
             raise ToolError("Edited file would exceed the 200 KB limit.")
         target.write_text(updated, encoding="utf-8")
         return f"Updated {normalized}: one exact match replaced."
+
+    def run_python(self, path: str) -> str:
+        """Run a project Python file with a clean environment and privilege dropping where available."""
+        target = self._resolve(path)
+        if target.suffix.lower() != ".py" or not target.is_file():
+            raise ToolError("Python execution requires an existing .py file inside the project workspace.")
+        if target.stat().st_size > MAX_FILE_BYTES:
+            raise ToolError("Python source exceeds the 200 KB execution limit.")
+        env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": "", "PYTHONIOENCODING": "utf-8"}
+        setpriv = shutil.which("setpriv")
+        command = [sys.executable, "-I", str(target)]
+        if setpriv is not None and os.name == "posix":
+            with tempfile.TemporaryDirectory(prefix="streamiov-python-home-") as home:
+                os.chmod(home, 0o755)
+                env["HOME"] = home
+                sandbox_command = [
+                    setpriv, "--reuid=65534", "--regid=65534", "--clear-groups", "--no-new-privs",
+                    "--", sys.executable, "-I", str(target),
+                ]
+                result = subprocess.run(
+                    sandbox_command, cwd=self.root, capture_output=True, text=True,
+                    timeout=120, check=False, env=env,
+                )
+                # GitHub-hosted CI containers may forbid setresuid. The CI fallback
+                # is only for tests in a disposable runner with no user credentials.
+                if result.returncode == 127 and "setresuid failed" in result.stderr and os.environ.get("CI") == "true":
+                    result = subprocess.run(
+                        command, cwd=self.root, capture_output=True, text=True,
+                        timeout=120, check=False, env=env,
+                    )
+        elif os.environ.get("STREAMIOV_AI_ALLOW_UNSANDBOXED_PYTHON") == "1":
+            result = subprocess.run(
+                command, cwd=self.root, capture_output=True, text=True,
+                timeout=120, check=False, env=env,
+            )
+        else:
+            raise ToolError("Safe Python execution requires Linux setpriv; explicit local opt-in is required when unavailable.")
+        output = (result.stdout + "\n" + result.stderr).strip()
+        return f"exit_code={result.returncode}\n{output[-12000:]}"
 
     def run_tests(self, command: str) -> str:
         argv = TEST_COMMANDS.get(command)

@@ -5,6 +5,7 @@ on:
       - "ai/**"
       - "infrastructure/cloudflare/streamiov-ai-worker/**"
       - "scripts/deploy-streamiov-ai-worker.sh"
+      - "scripts/ai/**"
       - "tests/**"
       - "scripts/autonomous/**"
       - ".github/workflows/autonomous-development.yml"
@@ -15,6 +16,7 @@ on:
       - "ai/**"
       - "infrastructure/cloudflare/streamiov-ai-worker/**"
       - "scripts/deploy-streamiov-ai-worker.sh"
+      - "scripts/ai/**"
       - "tests/**"
       - ".github/workflows/phase-1-agent-tests.yml"
   workflow_dispatch:
@@ -27,6 +29,7 @@ permissions:
 jobs:
   unittest:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -38,10 +41,14 @@ jobs:
           node-version: 22
       - name: Check Cloudflare deployment script syntax
         run: bash -n scripts/deploy-streamiov-ai-worker.sh
+      - name: Check AI Chief service scripts syntax
+        run: bash -n scripts/ai/run-chief-mission.sh scripts/ai/install-user-service.sh
       - name: Run Cloudflare AI Worker tests
         run: node --test tests/test_cloudflare_ai_worker.mjs
       - name: Check autonomous runner Python syntax
         run: python -m py_compile scripts/autonomous/run_issue.py
+      - name: Compile all AI Python modules
+        run: python -m compileall -q ai
       - name: Verify every AI specialist helper is registered
         run: |
           python -m ai --help > /dev/null
@@ -58,5 +65,38 @@ jobs:
           PY
       - name: Report model readiness without failing the build
         run: python -m ai --doctor || true
-      - name: Run Phase 1 unit tests
-        run: python -m unittest discover -s tests -v
+      - name: Run Phase 1 unit tests with per-module diagnostics
+        env:
+          PYTHONUNBUFFERED: "1"
+        shell: bash
+        run: |
+          set -uo pipefail
+          set +e
+          overall_status=0
+          shopt -s nullglob
+          for test_file in tests/test_*.py; do
+            pattern="$(basename "$test_file")"
+            echo "::group::Python tests: $pattern"
+            TEST_PATTERN="$pattern" timeout --signal=INT --kill-after=10s 120s python - <<'PY'
+          import faulthandler
+          import os
+          import unittest
+
+          faulthandler.dump_traceback_later(60, repeat=True)
+          suite = unittest.defaultTestLoader.discover("tests", pattern=os.environ["TEST_PATTERN"])
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          raise SystemExit(not result.wasSuccessful())
+          PY
+            status=$?
+            echo "::endgroup::"
+            if [[ $status -ne 0 ]]; then
+              echo "::error::Test module $pattern failed or exceeded its 120-second limit (exit $status)."
+              overall_status=1
+            fi
+          done
+          node --test tests/tiktok-oauth-registry.test.js tests/tiktok-oauth.test.js
+          node_status=$?
+          if [[ $node_status -ne 0 ]]; then
+            overall_status=1
+          fi
+          exit "$overall_status"

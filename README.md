@@ -8,7 +8,7 @@ StreamioV bleibt dauerhaft kostenlos: keine Abos, Pro-Stufen, Werbung, Verkäufe
 
 ## Current state
 
-The desktop shell is an Electron app in `dist/streamiov-studio-app/`. Its build workflow targets Windows x64/ARM64 and Linux x64/ARM64. **StreamioV Studio 1.0.1** was published on 2026-11-03. The Studio includes local camera and microphone previews, a persistent scene and source model, system diagnostics, and a synthetic audio/video encoding check. It also includes the **Schutzregie / Privacy Shield**: `Ctrl+Shift+P` switches the program to PAUSE and the local microphone mix to 0 %, then restores both values when deactivated. It is local and free, but it does not stop the encoder or recording and does not guarantee platform-side privacy. The published 1.0.1 installers and the Web-Regie/PWA contain the shield.
+The desktop shell is an Electron app in `dist/streamiov-studio-app/`. Its build workflow targets Windows 11 x64 and Linux x64/ARM64. **StreamioV Studio 1.0.1** was published on 2026-11-03. The Studio includes local camera and microphone previews, a persistent scene and source model, system diagnostics, and a synthetic audio/video encoding check. It also includes the **Schutzregie / Privacy Shield**: `Ctrl+Shift+P` switches the program to PAUSE and the local microphone mix to 0 %, then restores both values when deactivated. It is local and free, but it does not stop the encoder or recording and does not guarantee platform-side privacy. The published 1.0.1 installers and the Web-Regie/PWA contain the shield.
 
 The current Studio is an early foundation, not a finished live-streaming product. Its platform selector saves a preference but does not sign in to a service. The chat and TTS controls are local demonstrations; gift and alert buttons trigger local, free canvas effects only. Scenes now have a real source list (camera, screen, title card, text) with position, visibility, layer order, and a background colour. The preview monitor, program monitor, and stream encoder use the same canvas renderer, so a user-created layout is what the stream output draws. The media check uses generated test signals, not a creator's full live setup.
 
@@ -43,7 +43,7 @@ They cover the local host, accounts, the read-only raw-data catalog, the 11 AI s
 
 For the external checks, use [`docs/operations/external-verification.md`](docs/operations/external-verification.md), `scripts/stream-audio-check.py` (local RTMP audio proof, no purchase needed) and `scripts/collect-hardware-report.py` (per-device evidence report).
 
-Cloudflare and GitHub automation is split into a read-only check workflow (`.github/workflows/cloudflare-checks.yml`) and a manual, owner-approved deployment workflow (`.github/workflows/cloudflare-deploy.yml`). The deployment workflow requires the `production` environment secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the AI Worker additionally needs the Cloudflare secret `STREAMIOV_AI_WORKER_TOKEN` and an enabled Workers AI binding.
+Cloudflare and GitHub automation is split into a read-only check workflow (`.github/workflows/cloudflare-checks.yml`) and a trusted, manual owner-approved deployment workflow (`.github/workflows/cloudflare-deploy.yml`). Merging code or pushing to `main` does not deploy production. An owner must manually dispatch the workflow and confirm the target. The deployment workflow requires the `production` environment secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the AI Worker additionally needs the Cloudflare secret `STREAMIOV_AI_WORKER_TOKEN` and an enabled Workers AI binding.
 
 The static site is published to the `streamiov` Pages project at `https://streamiov.pages.dev/`. The AI Worker is deployed at `https://streamiov-ai-worker.schaffrathsascha318.workers.dev`; on 2026-11-03 `python -m ai --doctor` exited 0 and a minimal authenticated inference returned `STREAMIOV_AI_OK`. Those credentials live in the owner's local environment, not in this repository.
 
@@ -67,7 +67,7 @@ npm run dist:linux
 npm run dist:linux:arm64
 ```
 
-Installer builds are also configured in `.github/workflows/studio-build.yml`.
+Installer builds are configured in `.github/workflows/studio-build.yml`. Verified changes to the Studio app trigger platform builds. Publishing a versioned GitHub Release is a separate manual owner-approved workflow dispatch and only proceeds after all platform builds and the media-pipeline smoke test pass; the requested release version must match `package.json`.
 
 ## Repository map
 

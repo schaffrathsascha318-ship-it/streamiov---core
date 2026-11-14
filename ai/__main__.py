@@ -15,6 +15,7 @@ from ai.providers.local_http import ProviderError, provider_from_env
 from ai.runtime.task_queue import SpecialistTaskQueue, SpecialistWorker, TaskQueueError
 from ai.runtime.learning_store import VerifiedLearningStore
 from ai.runtime.worker_service import run_worker_loop
+from ai.runtime.continuous_engine import ContinuousDevelopmentEngine, ModelMissionPlanner
 from ai.core.orchestrator import SpecialistTask
 from ai.core.planner import PlannerError, SpecialistPlanner
 from ai.specialists import specialist_names
@@ -23,7 +24,7 @@ from ai.specialists import specialist_names
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m ai",
-        description="Run Streamiov's bounded local development agent.",
+        description="Run Streamiov's continuously working local development agent.",
     )
     parser.add_argument(
         "--task",
@@ -47,6 +48,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--queue-db", help="SQLite path for the persistent specialist task queue.")
     parser.add_argument("--learning-db", help="Optional SQLite path for retrieval of test-verified lessons.")
+    mission_mode = parser.add_mutually_exclusive_group()
+    mission_mode.add_argument("--mission-create", action="store_true", help="Create a persistent development mission from --task.")
+    mission_mode.add_argument("--mission-run", metavar="MISSION_ID", help="Run or resume a mission until completion or SIGINT/SIGTERM.")
+    mission_mode.add_argument("--mission-status", metavar="MISSION_ID", help="Show persisted mission status.")
+    parser.add_argument("--mission-db", default=".streamiov/ai-missions.sqlite3", help="Persistent mission SQLite database.")
+    parser.add_argument("--mission-poll-seconds", type=float, default=5.0, help="Idle wait while retries or another worker are pending.")
     queue_mode = parser.add_mutually_exclusive_group()
     queue_mode.add_argument("--enqueue", action="store_true", help="Queue --task for the selected specialist instead of running immediately.")
     queue_mode.add_argument("--plan-and-enqueue", action="store_true", help="Ask Core AI to split --task across specialists and persist the validated plan.")
@@ -58,8 +65,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-steps",
         type=int,
-        default=12,
-        help="Maximum model/tool turns (1–30, default: 12).",
+        help="Deprecated compatibility option; agent tasks have no fixed turn ceiling.",
+        default=None,
     )
     return parser
 
@@ -67,7 +74,18 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.enqueue:
+    if args.mission_create:
+        if not args.task or args.doctor or args.enqueue or args.plan_and_enqueue or args.worker_once or args.worker_loop:
+            parser.error("--mission-create requires --task and cannot be combined with other execution modes")
+    elif args.mission_run:
+        if args.task or args.doctor or args.enqueue or args.plan_and_enqueue or args.worker_once or args.worker_loop:
+            parser.error("--mission-run cannot be combined with --task, --doctor or queue modes")
+        if args.mission_poll_seconds <= 0:
+            parser.error("--mission-run requires a positive --mission-poll-seconds")
+    elif args.mission_status:
+        if args.task or args.doctor or args.enqueue or args.plan_and_enqueue or args.worker_once or args.worker_loop:
+            parser.error("--mission-status cannot be combined with --task, --doctor or queue modes")
+    elif args.enqueue:
         if not args.task or not args.queue_db or args.doctor:
             parser.error("--enqueue requires --task and --queue-db and cannot be combined with --doctor")
     elif args.plan_and_enqueue:
@@ -77,8 +95,6 @@ def main(argv: list[str] | None = None) -> int:
         mode = "--worker-loop" if args.worker_loop else "--worker-once"
         if not args.queue_db or args.task or args.doctor:
             parser.error(f"{mode} requires --queue-db and cannot be combined with --task or --doctor")
-        if not 1 <= args.max_steps <= 30:
-            parser.error("--max-steps must be between 1 and 30")
         if args.worker_loop and not 1 <= args.poll_seconds <= 60:
             parser.error("--poll-seconds must be between 1 and 60")
         if args.worker_loop and args.max_tasks < 0:
@@ -88,6 +104,53 @@ def main(argv: list[str] | None = None) -> int:
     if args.doctor and args.task:
         parser.error("--doctor and --task cannot be used together")
     try:
+        if args.mission_create or args.mission_run or args.mission_status:
+            # Creating a mission and inspecting its persisted status are local
+            # database operations; neither should require a live model endpoint.
+            provider = provider_from_env() if args.mission_run else None
+            engine = ContinuousDevelopmentEngine(
+                args.mission_db,
+                ModelMissionPlanner(provider),
+                lambda role: DevelopmentAgent(
+                    provider=provider,
+                    project_root=Path(args.project_root),
+                    max_steps=args.max_steps,
+                    specialist=role,
+                    learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
+                    checkpoint_db=args.mission_db,
+                ),
+            )
+            if args.mission_create:
+                mission_id = engine.create_mission(args.task)
+                print(json.dumps({
+                    "event": "mission_created",
+                    "mission_id": mission_id,
+                    "database": args.mission_db,
+                    "status": "active",
+                }, ensure_ascii=False))
+                return 0
+            if args.mission_status:
+                snapshot = engine.get_mission(args.mission_status)
+                print(json.dumps(snapshot.__dict__, ensure_ascii=False, indent=2))
+                return 0
+            stop_event = threading.Event()
+            def request_mission_stop(_signum, _frame):
+                stop_event.set()
+            watched_signals = (signal.SIGINT, signal.SIGTERM)
+            previous_handlers = {item: signal.getsignal(item) for item in watched_signals}
+            try:
+                for item in watched_signals:
+                    signal.signal(item, request_mission_stop)
+                snapshot = engine.run(
+                    args.mission_run,
+                    stop_event,
+                    poll_seconds=args.mission_poll_seconds,
+                )
+                print(json.dumps(snapshot.__dict__, ensure_ascii=False, indent=2))
+                return 0 if snapshot.status == "completed" else 130
+            finally:
+                for item, handler in previous_handlers.items():
+                    signal.signal(item, handler)
         if args.plan_and_enqueue:
             provider = provider_from_env()
             tasks = SpecialistPlanner(provider).plan(args.task)
