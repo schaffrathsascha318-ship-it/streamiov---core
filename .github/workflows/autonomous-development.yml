@@ -105,12 +105,26 @@ jobs:
 
       - name: Restore previous mission database
         if: steps.pick.outputs.issue_number != ''
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ runner.temp }}/streamiov-ai-missions
-          key: streamiov-ai-missions-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            streamiov-ai-missions-
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/streamiov-ai-missions"
+          artifact_name="streamiov-ai-missions-${{ steps.pick.outputs.issue_number }}"
+          run_ids="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/autonomous-development.yml/runs?per_page=30" --jq '.workflow_runs[].id')"
+          restored=false
+          while IFS= read -r previous_run; do
+            [[ -z "$previous_run" || "$previous_run" == "$GITHUB_RUN_ID" ]] && continue
+            if gh run download "$previous_run" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir "$RUNNER_TEMP/streamiov-ai-missions" >/dev/null 2>&1; then
+              echo "Restored durable mission state from workflow run $previous_run."
+              restored=true
+              break
+            fi
+          done <<< "$run_ids"
+          if [[ "$restored" != true ]]; then
+            echo "No prior mission artifact found; this mission will initialize or recover from its first checkpoint."
+          fi
 
       - name: Verify Cloudflare AI gateway configuration
         if: steps.pick.outputs.issue_number != ''
@@ -143,10 +157,12 @@ jobs:
 
       - name: Save durable AI Chief mission state
         if: always() && steps.pick.outputs.issue_number != '' && steps.mission.outcome != 'skipped'
-        uses: actions/cache/save@v4
+        uses: actions/upload-artifact@v4
         with:
-          path: ${{ runner.temp }}/streamiov-ai-missions
-          key: streamiov-ai-missions-${{ github.run_id }}-${{ github.run_attempt }}
+          name: streamiov-ai-missions-${{ steps.pick.outputs.issue_number }}
+          path: ${{ runner.temp }}/streamiov-ai-missions/
+          if-no-files-found: warn
+          retention-days: 90
 
       - name: Validate the complete project diff and run acceptance tests
         id: validation
