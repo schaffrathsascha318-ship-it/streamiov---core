@@ -2,6 +2,7 @@
 from __future__ import annotations
 import json
 import subprocess
+import threading
 
 import hashlib
 import sqlite3
@@ -259,7 +260,18 @@ class DevelopmentAgent:
         self.checkpoints = AgentCheckpointStore(checkpoint_db) if checkpoint_db else None
 
 
-    def run(self, task: str, *, checkpoint_id: str | None = None) -> str:
+    def run(
+        self,
+        task: str,
+        *,
+        checkpoint_id: str | None = None,
+        cancel_event: threading.Event | None = None,
+    ) -> str:
+        def check_cancelled() -> None:
+            if cancel_event is not None and cancel_event.is_set():
+                raise AgentError("Task cancelled because its worker lease was lost or the mission slice ended.")
+
+        check_cancelled()
         if not isinstance(task, str) or not task.strip() or len(task) > 8000:
             raise ValueError("Task must contain 1–8000 characters.")
         if checkpoint_id is not None and (not isinstance(checkpoint_id, str) or not checkpoint_id.strip() or len(checkpoint_id) > 200):
@@ -295,15 +307,18 @@ class DevelopmentAgent:
         for saved_action in state["pending_actions"]:
             _validate_tool_action(saved_action, allow_game_checks=self.allow_game_checks)
         if state.get("final_result") is not None:
+            check_cancelled()
             if not isinstance(state["final_result"], str):
                 raise AgentError("Persisted final result is invalid.")
             return state["final_result"]
 
         while True:
+            check_cancelled()
             if state["pending_actions"]:
                 actions = state["pending_actions"]
                 results = state["results"]
                 for index in range(state["next_action_index"], len(actions)):
+                    check_cancelled()
                     action = actions[index]
                     tool = action["tool"]
                     args = action["arguments"]
@@ -352,6 +367,7 @@ class DevelopmentAgent:
             state["messages"] = _fit_provider_messages(self.system_prompt, state["messages"])
             persist()
             reply = self.provider.generate(system=self.system_prompt, messages=state["messages"])
+            check_cancelled()
             if not isinstance(reply.content, str) or len(reply.content) > MAX_MODEL_REPLY_CHARS:
                 raise AgentError("Model response is missing or exceeds the 24 KB limit.")
             try:
@@ -374,6 +390,7 @@ class DevelopmentAgent:
             if any(not isinstance(action, dict) for action in actions):
                 raise AgentError("Every model action must be a JSON object.")
             if any("final" in action for action in actions):
+                check_cancelled()
                 if len(actions) != 1 or set(actions[0]) != {"final"} or not isinstance(actions[0]["final"], str):
                     raise AgentError("A final response must be the only object and contain only a string 'final' field.")
                 state["final_result"] = actions[0]["final"]
