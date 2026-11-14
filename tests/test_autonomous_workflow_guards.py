@@ -17,10 +17,7 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
         source = WORKFLOW.read_text(encoding="utf-8")
         required = (
             "ai/__main__.py",
-            "ai/core/agent.py",
-            "ai/runtime/continuous_engine.py",
             "ai/runtime/project_tools.py",
-            "ai/providers/*",
             "ai/security/*",
             ".github/*",
             "scripts/autonomous/*",
@@ -31,6 +28,9 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
         for pattern in required:
             with self.subTest(pattern=pattern):
                 self.assertIn(pattern, source)
+        self.assertNotIn("ai/core/agent.py", source)
+        self.assertNotIn("ai/runtime/continuous_engine.py", source)
+        self.assertNotIn("ai/providers/*", source)
 
     def test_ci_rejects_sensitive_files_and_symlink_changes(self):
         source = WORKFLOW.read_text(encoding="utf-8")
