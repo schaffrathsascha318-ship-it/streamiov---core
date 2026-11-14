@@ -2,6 +2,7 @@ import json
 import sqlite3
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from ai.runtime.continuous_engine import (
     MissionEngineError,
     MissionPlan,
     ModelMissionPlanner,
+    _parse_planner_response,
 )
 
 
@@ -68,6 +70,61 @@ class MissionEngineTests(unittest.TestCase):
         self.assertIn("task-result-29", context)
         self.assertNotIn("task-result-0", context)
         self.assertTrue(context.startswith("S" * 3_000))
+
+    def test_planner_response_parser_accepts_markdown_json_fences(self):
+        payload = _parse_planner_response(
+            ' ```json\n{"state":"completed","summary":"Verified.","tasks":[]}\n``` '
+        )
+        self.assertEqual(payload["state"], "completed")
+        self.assertEqual(payload["summary"], "Verified.")
+
+    def test_planner_retries_one_malformed_response_with_a_format_correction(self):
+        class Provider:
+            def __init__(self):
+                self.responses = [
+                    "I will now provide the plan, but forgot the JSON object.",
+                    type("Reply", (), {
+                        "content": json.dumps({
+                            "state": "completed",
+                            "summary": "The task is already complete.",
+                            "tasks": [],
+                        })
+                    })(),
+                ]
+                self.calls = []
+
+            def generate(self, *, system, messages):
+                self.calls.append(messages)
+                value = self.responses.pop(0)
+                return type("Reply", (), {"content": value})() if isinstance(value, str) else value
+
+        provider = Provider()
+        plan = ModelMissionPlanner(provider).plan(
+            "Verify a completed task.", "", mission_id="format-retry", cycle=1,
+        )
+        self.assertEqual(plan.state, "completed")
+        self.assertEqual(len(provider.calls), 2)
+        self.assertIn("FORMAT CORRECTION", provider.calls[1][-1]["content"])
+
+    def test_planning_retry_backoff_survives_engine_recreation(self):
+        engine = self.make_engine(SequencePlanner([]), lambda _role: None)
+        mission_id = engine.create_mission("Persist planner backoff")
+        self.assertIsNotNone(engine._claim_planning(mission_id, "first-worker"))
+        with sqlite3.connect(self.db) as db:
+            db.execute(
+                "UPDATE development_missions SET planning_owner='',planning_lease_until=NULL,"
+                "planning_failures=4,planning_retry_at=? WHERE mission_id=?",
+                (time.time() + 60, mission_id),
+            )
+
+        resumed = self.make_engine(SequencePlanner([]), lambda _role: None)
+        self.assertIsNone(resumed._claim_planning(mission_id, "second-worker"))
+        with sqlite3.connect(self.db) as db:
+            db.execute(
+                "UPDATE development_missions SET planning_retry_at=0 WHERE mission_id=?",
+                (mission_id,),
+            )
+        self.assertIsNotNone(resumed._claim_planning(mission_id, "second-worker"))
 
     def test_model_planner_assigns_distinct_work_to_all_eleven_specialists(self):
         roles = ["code", "studio", "music", "tts", "events", "homepage", "server", "research", "game", "gifts", "testing"]
