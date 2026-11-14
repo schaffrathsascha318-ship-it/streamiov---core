@@ -91,6 +91,10 @@ class ProjectToolTests(unittest.TestCase):
         root_listing = self.tools.list_files(".")
         self.assertNotIn(".github", root_listing)
         self.assertNotIn("autonomous", self.tools.list_files("scripts"))
+        with self.assertRaises(ToolError):
+            self.tools.list_files(".github")
+        with self.assertRaises(ToolError):
+            self.tools.list_files("scripts/autonomous")
         config_listing = self.tools.list_files("config")
         for name in protected_files:
             self.assertNotIn(name, config_listing)
