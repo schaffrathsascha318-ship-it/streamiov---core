@@ -75,6 +75,39 @@ class ProjectToolTests(unittest.TestCase):
     def test_protected_paths(self):
         for path in ("../outside", ".env", ".env.production", "secrets/admin.json", "config/oauth/token.json", "data/access-token.json", "keys/private-key.pem"):
             with self.subTest(path=path), self.assertRaises(ToolError): self.tools.read_file(path)
+    def test_control_plane_and_credential_paths_are_hidden_and_denied_for_read_write(self):
+        (self.root / ".github" / "workflows").mkdir(parents=True)
+        (self.root / ".github" / "workflows" / "ci.yml").write_text("workflow", encoding="utf-8")
+        (self.root / "scripts" / "autonomous").mkdir(parents=True)
+        (self.root / "scripts" / "autonomous" / "run_issue.py").write_text("runner", encoding="utf-8")
+        (self.root / "config").mkdir()
+        protected_files = (
+            "auth.json", "oauth.json", "token.json", "tokens.json",
+            "credentials.json", "client_secret.json", "tiktok-oauth.js",
+        )
+        for name in protected_files:
+            (self.root / "config" / name).write_text("sensitive", encoding="utf-8")
+
+        root_listing = self.tools.list_files(".")
+        self.assertNotIn(".github", root_listing)
+        self.assertNotIn("autonomous", self.tools.list_files("scripts"))
+        config_listing = self.tools.list_files("config")
+        for name in protected_files:
+            self.assertNotIn(name, config_listing)
+
+        protected_paths = (
+            ".github/workflows/ci.yml",
+            "scripts/autonomous/run_issue.py",
+            *(f"config/{name}" for name in protected_files),
+        )
+        for path in protected_paths:
+            with self.subTest(operation="read", path=path), self.assertRaises(ToolError):
+                self.tools.read_file(path)
+            with self.subTest(operation="write", path=path), self.assertRaises(ToolError):
+                self.tools.write_file(path, "unsafe")
+            with self.subTest(operation="edit", path=path), self.assertRaises(ToolError):
+                self.tools.replace_text(path, "sensitive" if path.startswith("config/") else "workflow", "changed")
+
     def test_dangling_symlink_is_rejected(self):
         (self.root / "ai").mkdir()
         link = self.root / "ai/dangling.py"
