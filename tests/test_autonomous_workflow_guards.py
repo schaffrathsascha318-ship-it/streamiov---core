@@ -53,6 +53,15 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
         self.assertNotIn("actions/cache/save@", source)
         self.assertNotIn("actions/cache/restore@", source)
 
+    def test_runner_slice_success_is_not_reported_as_mission_completion(self):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("Summarize mission status separately from runner status", source)
+        self.assertIn("MISSION_STATUS: ${{ steps.mission.outputs.status }}", source)
+        self.assertIn("steps.save_mission_artifact.outcome", source)
+        self.assertIn("mission remains active and its encrypted checkpoint was saved", source)
+        self.assertIn("durable state persistence was not confirmed", source)
+        self.assertIn("source integration still requires independent verification and CI", source)
+
     def test_ci_rejects_sensitive_files_and_symlink_changes(self):
         source = WORKFLOW.read_text(encoding="utf-8")
         for pattern in ("*.pem", "*.key", "*.p12", "*.pfx", ".env*", ".ssh/*", "wrangler.jsonc", "wrangler.toml"):
