@@ -66,4 +66,6 @@ jobs:
       - name: Report model readiness without failing the build
         run: python -m ai --doctor || true
       - name: Run Phase 1 unit tests
+        env:
+          PYTHONUNBUFFERED: "1"
         run: timeout --signal=INT --kill-after=30s 25m python -m unittest discover -s tests -v
