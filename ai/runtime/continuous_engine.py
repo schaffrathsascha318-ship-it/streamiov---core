@@ -503,17 +503,22 @@ class ContinuousDevelopmentEngine:
                         updated_at=? WHERE task_id=?
                 """, (result[:12000], now, task_id))
 
-    def _execute_task(self, task: MissionTask, worker_id: str, emit: Callable[[str], None]) -> None:
+    def _execute_task(self, task: MissionTask, worker_id: str, emit: Callable[[str], None], mission_stop_event: threading.Event | None = None) -> None:
         stop = threading.Event()
+        cancel_event = threading.Event()
         heartbeat_errors: list[str] = []
         interval = max(1.0, self.lease_seconds / 3)
 
         def heartbeat_loop() -> None:
             while not stop.wait(interval):
+                if mission_stop_event is not None and mission_stop_event.is_set():
+                    cancel_event.set()
+                    return
                 try:
                     self._heartbeat(task.task_id, worker_id)
                 except Exception as exc:
                     heartbeat_errors.append(f"{type(exc).__name__}: {str(exc)[:300]}")
+                    cancel_event.set()
                     return
 
         thread = threading.Thread(target=heartbeat_loop, name="streamiov-mission-lease", daemon=True)
@@ -524,15 +529,22 @@ class ContinuousDevelopmentEngine:
             prompt += "\nAddress the failure safely; inspect actual project state before changing files."
         try:
             agent = self.agent_factory(task.specialist)
+            if mission_stop_event is not None and mission_stop_event.is_set():
+                cancel_event.set()
             run_parameters = inspect.signature(agent.run).parameters
+            run_kwargs = {}
             if "checkpoint_id" in run_parameters:
-                result = agent.run(prompt, checkpoint_id=task.task_id)
-            else:
-                result = agent.run(prompt)
+                run_kwargs["checkpoint_id"] = task.task_id
+            if "cancel_event" in run_parameters:
+                run_kwargs["cancel_event"] = cancel_event
+            result = agent.run(prompt, **run_kwargs)
+            if cancel_event.is_set():
+                raise MissionEngineError(
+                    heartbeat_errors[-1] if heartbeat_errors else
+                    "Mission execution slice stopped before the task completed."
+                )
             if not isinstance(result, str):
                 raise TypeError("Specialist agent returned a non-text result.")
-            if heartbeat_errors:
-                raise MissionEngineError(heartbeat_errors[-1])
             self._finish_task(task.task_id, worker_id, result=result)
         except Exception as exc:
             error = f"{type(exc).__name__}: {str(exc)[:3500]}"
@@ -585,7 +597,7 @@ class ContinuousDevelopmentEngine:
 
             task = self._claim_task(mission_id, worker_id)
             if task is not None:
-                self._execute_task(task, worker_id, emit)
+                self._execute_task(task, worker_id, emit, stop_event)
                 continue
 
             snapshot = self.get_mission(mission_id)
