@@ -699,7 +699,7 @@ def _parse_planner_response(content: str) -> dict:
         except json.JSONDecodeError as exc:
             raise MissionEngineError("Mission planner must return valid JSON.") from exc
         trailing = text[start + end:].strip()
-        if trailing:
+        if trailing and trailing != "```":
             raise MissionEngineError("Mission planner returned trailing text after its JSON object.")
     if not isinstance(payload, dict):
         raise MissionEngineError("Mission planner response must be a JSON object.")
