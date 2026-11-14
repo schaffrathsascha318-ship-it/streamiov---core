@@ -43,7 +43,7 @@ They cover the local host, accounts, the read-only raw-data catalog, the 11 AI s
 
 For the external checks, use [`docs/operations/external-verification.md`](docs/operations/external-verification.md), `scripts/stream-audio-check.py` (local RTMP audio proof, no purchase needed) and `scripts/collect-hardware-report.py` (per-device evidence report).
 
-Cloudflare and GitHub automation is split into a read-only check workflow (`.github/workflows/cloudflare-checks.yml`) and a trusted deployment workflow (`.github/workflows/cloudflare-deploy.yml`). After verified changes are integrated into `main`, Cloudflare-related homepage or AI Worker changes trigger automatic deployment. Manual owner-triggered deployment remains available. The deployment workflow requires the `production` environment secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the AI Worker additionally needs the Cloudflare secret `STREAMIOV_AI_WORKER_TOKEN` and an enabled Workers AI binding. GitHub Environment protection rules, if configured, may still pause deployment for approval.
+Cloudflare and GitHub automation is split into a read-only check workflow (`.github/workflows/cloudflare-checks.yml`) and a trusted, manual owner-approved deployment workflow (`.github/workflows/cloudflare-deploy.yml`). Merging code or pushing to `main` does not deploy production. An owner must manually dispatch the workflow and confirm the target. The deployment workflow requires the `production` environment secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the AI Worker additionally needs the Cloudflare secret `STREAMIOV_AI_WORKER_TOKEN` and an enabled Workers AI binding.
 
 The static site is published to the `streamiov` Pages project at `https://streamiov.pages.dev/`. The AI Worker is deployed at `https://streamiov-ai-worker.schaffrathsascha318.workers.dev`; on 2026-11-03 `python -m ai --doctor` exited 0 and a minimal authenticated inference returned `STREAMIOV_AI_OK`. Those credentials live in the owner's local environment, not in this repository.
 
@@ -67,7 +67,7 @@ npm run dist:linux
 npm run dist:linux:arm64
 ```
 
-Installer builds are configured in `.github/workflows/studio-build.yml`. After a verified change to the Studio app is integrated into `main`, the workflow builds the supported platform installers and publishes a versioned GitHub Release automatically; the package version must be bumped for each new release. The manual owner-triggered release path remains available.
+Installer builds are configured in `.github/workflows/studio-build.yml`. Verified changes to the Studio app trigger platform builds. Publishing a versioned GitHub Release is a separate manual owner-approved workflow dispatch and only proceeds after all platform builds and the media-pipeline smoke test pass; the requested release version must match `package.json`.
 
 ## Repository map
 
