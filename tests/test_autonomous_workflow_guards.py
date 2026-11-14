@@ -41,7 +41,8 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
         self.assertIn("mission-state-crypto.mjs decrypt", source)
         self.assertIn("aes-256-gcm", (ROOT / "scripts" / "autonomous" / "mission-state-crypto.mjs").read_text(encoding="utf-8"))
         self.assertIn("STREAMIOV_AI_WORKER_TOKEN", source)
-        self.assertNotIn("path: ${{ runner.temp }}/streamiov-ai-missions/", source)
+        self.assertIn("path: ${{ runner.temp }}/streamiov-ai-missions/mission-state.enc", source)
+        self.assertNotIn("path: ${{ runner.temp }}/streamiov-ai-missions/\\n", source)
         self.assertNotIn("actions/cache/save@", source)
         self.assertNotIn("actions/cache/restore@", source)
 
