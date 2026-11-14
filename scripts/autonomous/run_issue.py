@@ -191,6 +191,11 @@ def main() -> int:
             with open(output_path, "a", encoding="utf-8") as output:
                 output.write(f"status={result.status}\n")
                 output.write(f"mission_id={result.mission_id}\n")
+                output.write(f"cycle={result.cycle}\n")
+                output.write(f"pending_tasks={result.pending_tasks}\n")
+                output.write(f"running_tasks={result.running_tasks}\n")
+                output.write(f"completed_tasks={result.completed_tasks}\n")
+                output.write(f"attempts={result.attempts}\n")
         return 0
     except (ProjectContextError, ProviderError, MissionEngineError, OSError, ValueError, sqlite3.Error) as exc:
         return fail(f"{type(exc).__name__}: {exc}")
