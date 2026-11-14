@@ -71,6 +71,7 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
+          set +e
           overall_status=0
           shopt -s nullglob
           for test_file in tests/test_*.py; do
