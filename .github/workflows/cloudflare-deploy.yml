@@ -1,18 +1,10 @@
 name: Deploy Cloudflare (manual, owner-approved)
 
-# Trusted production deployment pipeline.
-# Verified changes merged to main deploy automatically when Cloudflare-related
-# source/configuration changes. Manual owner-triggered deployment remains available.
-# This workflow never creates accounts, provisions paid resources, or changes OAuth.
+# Production deployment remains explicitly owner-approved.
+# This workflow never deploys automatically on merge or push.
+# It never creates accounts, provisions paid resources, or changes OAuth.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "dist/streamiov-homepage-worker/**"
-      - "infrastructure/cloudflare/streamiov-ai-worker/**"
-      - "scripts/deploy-streamiov-ai-worker.sh"
-      - "scripts/verify-cloudflare-config.py"
   workflow_dispatch:
     inputs:
       target:
@@ -39,7 +31,7 @@ permissions:
 
 jobs:
   verify:
-    if: github.event_name == 'push' || inputs.confirm
+    if: inputs.confirm
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -60,7 +52,7 @@ jobs:
 
   deploy-homepage:
     needs: verify
-    if: needs.verify.result == 'success' && (github.event_name == 'push' || (inputs.confirm && (inputs.target == 'homepage' || inputs.target == 'both')))
+    if: needs.verify.result == 'success' && inputs.confirm && (inputs.target == 'homepage' || inputs.target == 'both')
     runs-on: ubuntu-24.04
     environment: production
     env:
@@ -96,7 +88,7 @@ jobs:
 
   deploy-ai-worker:
     needs: verify
-    if: needs.verify.result == 'success' && (github.event_name == 'push' || (inputs.confirm && (inputs.target == 'ai-worker' || inputs.target == 'both')))
+    if: needs.verify.result == 'success' && inputs.confirm && (inputs.target == 'ai-worker' || inputs.target == 'both')
     runs-on: ubuntu-24.04
     environment: production
     env:
