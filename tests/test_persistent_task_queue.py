@@ -131,6 +131,97 @@ class PersistentTaskQueueTests(unittest.TestCase):
                 with self.assertRaises(TaskQueueError):
                     self.queue.fail(task_id, "worker", "late failure")
 
+    def test_expired_lease_requeues_without_spending_the_retry_budget(self):
+        self.queue.enqueue_plan([SpecialistTask("resume", "code", "resume from checkpoint")], max_attempts=1)
+        first = self.queue.claim_next("worker-a")
+        self.assertEqual(first.attempts, 1)
+        with self.queue._connection() as connection:
+            connection.execute("UPDATE specialist_tasks SET lease_until=0 WHERE task_id='resume'")
+        resumed = self.queue.claim_next("worker-b")
+        self.assertEqual(resumed.status, "running")
+        self.assertEqual(resumed.attempts, 1)
+
+    def test_worker_resumes_the_same_agent_checkpoint_after_an_interruption(self):
+        from ai.core.agent import DevelopmentAgent
+        from ai.runtime.task_queue import SpecialistWorker
+
+        workspace = Path(self.temp.name) / "workspace"
+        workspace.mkdir()
+        target = workspace / "ai" / "resumed.py"
+
+        class Reply:
+            def __init__(self, content):
+                self.content = content
+
+        class InterruptingProvider:
+            def __init__(self):
+                self.calls = 0
+            def generate(self, **_kwargs):
+                self.calls += 1
+                if self.calls == 1:
+                    return Reply('{"tool":"write_file","arguments":{"path":"ai/resumed.py","content":"value = 9\\\\n"}}')
+                raise RuntimeError("simulated process interruption")
+
+        class FinishingProvider:
+            def generate(self, **_kwargs):
+                return Reply('{"final":"Resumed from the saved checkpoint."}')
+
+        providers = [InterruptingProvider(), FinishingProvider()]
+        def agent_factory(role):
+            return DevelopmentAgent(
+                provider=providers.pop(0),
+                project_root=workspace,
+                specialist=role,
+                checkpoint_db=self.db,
+            )
+
+        self.queue.enqueue_plan(
+            [SpecialistTask("resume-task", "code", "Create the resumable file")],
+            max_attempts=2,
+        )
+        worker = SpecialistWorker(self.queue, "worker", agent_factory)
+        first = worker.run_once()
+        self.assertEqual(first.status, "queued")
+        self.assertEqual(target.read_text(encoding="utf-8"), "value = 9\\n")
+
+        second = worker.run_once()
+        self.assertEqual(second.status, "succeeded")
+        self.assertEqual(second.result, "Resumed from the saved checkpoint.")
+        with self.queue._connection() as connection:
+            checkpoint = connection.execute(
+                "SELECT checkpoint_id FROM agent_checkpoints WHERE checkpoint_id='resume-task'"
+            ).fetchone()
+        self.assertIsNone(checkpoint)
+
+    def test_worker_lease_loss_cancels_agent_and_releases_without_spending_attempt(self):
+        import threading
+        from ai.runtime.task_queue import SpecialistWorker
+
+        self.queue.enqueue_plan([SpecialistTask("lease-loss", "testing", "wait for lease cancellation")])
+        observed = {}
+
+        def lose_lease(_task_id, _worker_id, **_kwargs):
+            raise TaskQueueError("simulated lease loss")
+
+        self.queue.heartbeat = lose_lease
+
+        class WaitingAgent:
+            def run(self, _prompt, *, checkpoint_id=None, cancel_event=None):
+                observed["checkpoint_id"] = checkpoint_id
+                observed["cancel_event"] = cancel_event
+                if cancel_event is None or not cancel_event.wait(8):
+                    raise AssertionError("worker did not cancel the active agent")
+                raise RuntimeError("agent stopped after lease loss")
+
+        worker = SpecialistWorker(self.queue, "worker", lambda _role: WaitingAgent(), lease_seconds=10)
+        result = worker.run_once()
+        queued = self.queue.get("lease-loss")
+        self.assertEqual(result.status, "queued")
+        self.assertEqual(queued.status, "queued")
+        self.assertEqual(queued.attempts, 0)
+        self.assertEqual(observed["checkpoint_id"], "lease-loss")
+        self.assertTrue(observed["cancel_event"].is_set())
+
     def test_worker_renews_lease_during_a_long_running_agent_call(self):
         import time
         from ai.runtime.task_queue import SpecialistWorker
