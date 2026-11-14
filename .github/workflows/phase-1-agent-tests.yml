@@ -29,6 +29,7 @@ permissions:
 jobs:
   unittest:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -65,4 +66,4 @@ jobs:
       - name: Report model readiness without failing the build
         run: python -m ai --doctor || true
       - name: Run Phase 1 unit tests
-        run: python -m unittest discover -s tests -v
+        run: timeout --signal=INT --kill-after=30s 25m python -m unittest discover -s tests -v
