@@ -31,15 +31,15 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("highest-value unblocked work", policy)
         self.assertIn("reassess the roadmap", policy)
 
-    def test_agent_runtime_and_providers_are_editable_but_permission_guard_is_protected(self):
+    def test_agent_runtime_providers_and_permission_guard_are_protected(self):
         workflow = (ROOT / ".github" / "workflows" / "autonomous-development.yml").read_text(encoding="utf-8")
         guard = next(
             line for line in workflow.splitlines()
             if ".github/*|scripts/autonomous/" in line
         )
-        self.assertNotIn("ai/core/agent.py", guard)
-        self.assertNotIn("ai/providers/*", guard)
-        self.assertNotIn("ai/runtime/continuous_engine.py", guard)
+        self.assertIn("ai/core/agent.py", guard)
+        self.assertIn("ai/providers/*", guard)
+        self.assertIn("ai/runtime/continuous_engine.py", guard)
         self.assertIn("ai/runtime/project_tools.py", guard)
         self.assertIn("ai/*permissions*", guard)
         self.assertIn(".github/*", guard)
