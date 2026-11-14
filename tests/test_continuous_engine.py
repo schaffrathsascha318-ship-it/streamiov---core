@@ -177,6 +177,45 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(completed.status, "completed")
         self.assertEqual(completed.attempts, 3)
 
+    def test_lost_task_lease_cancels_agent_before_it_can_complete(self):
+        planner = SequencePlanner([
+            MissionPlan("continue", "Implement one component.", (
+                SpecialistTask("component", "code", "implement component"),
+            )),
+        ])
+        stop = threading.Event()
+        events = []
+        observed = {}
+
+        class WaitingAgent:
+            def run(self, prompt, *, cancel_event=None):
+                observed["cancel_event"] = cancel_event
+                if cancel_event is None:
+                    raise AssertionError("mission engine did not pass a cancellation event")
+                if cancel_event.wait(3):
+                    observed["cancelled"] = True
+                    stop.set()
+                    raise RuntimeError("agent stopped after lease loss")
+                return "must not be accepted after a lost lease"
+
+        engine = ContinuousDevelopmentEngine(
+            self.db, planner, lambda _role: WaitingAgent(),
+            retry_base_seconds=0.01, lease_seconds=3,
+        )
+
+        def lose_lease(_task_id, _worker_id):
+            raise RuntimeError("simulated task lease loss")
+
+        engine._heartbeat = lose_lease
+        mission_id = engine.create_mission("Stop stale worker writes")
+        result = engine.run(mission_id, stop, poll_seconds=0.01, emit=events.append)
+
+        self.assertTrue(observed.get("cancelled"))
+        self.assertEqual(result.status, "active")
+        self.assertEqual(result.completed_tasks, 0)
+        self.assertEqual(result.pending_tasks, 1)
+        self.assertTrue(any('"event": "task_retry_scheduled"' in event for event in events))
+
     def test_dependency_order_is_respected_within_a_mission_batch(self):
         planner = SequencePlanner([
             MissionPlan("continue", "Two dependent tasks.", (
