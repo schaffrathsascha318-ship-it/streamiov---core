@@ -164,6 +164,7 @@ jobs:
           timeout --preserve-status --signal=INT --kill-after=90s 18m python scripts/autonomous/run_issue.py
 
       - name: Checkpoint and encrypt durable AI Chief mission state
+        id: encrypt_mission_state
         if: always() && steps.pick.outputs.issue_number != '' && steps.mission.outcome != 'skipped'
         env:
           STREAMIOV_AI_WORKER_TOKEN: ${{ secrets.STREAMIOV_AI_WORKER_TOKEN }}
@@ -173,6 +174,7 @@ jobs:
           database="$RUNNER_TEMP/streamiov-ai-missions/missions.sqlite3"
           if [[ ! -f "$database" ]]; then
             echo "No mission database was created in this runner slice."
+            echo "saved=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           python - "$database" <<'PY'
@@ -196,8 +198,10 @@ jobs:
           PY
           node scripts/autonomous/mission-state-crypto.mjs encrypt \
             "$database" "$RUNNER_TEMP/streamiov-ai-missions/mission-state.enc"
+          echo "saved=true" >> "$GITHUB_OUTPUT"
 
       - name: Save durable AI Chief mission state
+        id: save_mission_artifact
         if: always() && steps.pick.outputs.issue_number != '' && steps.mission.outcome != 'skipped'
         uses: actions/upload-artifact@v4
         with:
@@ -205,6 +209,41 @@ jobs:
           path: ${{ runner.temp }}/streamiov-ai-missions/mission-state.enc
           if-no-files-found: warn
           retention-days: 90
+
+      - name: Summarize mission status separately from runner status
+        if: always() && steps.pick.outputs.issue_number != '' && steps.mission.outcome != 'skipped'
+        env:
+          MISSION_STATUS: ${{ steps.mission.outputs.status }}
+          MISSION_ID: ${{ steps.mission.outputs.mission_id }}
+          MISSION_CYCLE: ${{ steps.mission.outputs.cycle }}
+          PENDING_TASKS: ${{ steps.mission.outputs.pending_tasks }}
+          RUNNING_TASKS: ${{ steps.mission.outputs.running_tasks }}
+          COMPLETED_TASKS: ${{ steps.mission.outputs.completed_tasks }}
+          ATTEMPTS: ${{ steps.mission.outputs.attempts }}
+          ENCRYPTED_STATE: ${{ steps.encrypt_mission_state.outputs.saved }}
+          ARTIFACT_OUTCOME: ${{ steps.save_mission_artifact.outcome }}
+          MISSION_STEP_OUTCOME: ${{ steps.mission.outcome }}
+        shell: bash
+        run: |
+          {
+            echo "### AI Chief mission checkpoint"
+            echo "- Mission ID: ${MISSION_ID:-not reported}"
+            echo "- Mission status: ${MISSION_STATUS:-not reported}"
+            echo "- Cycle: ${MISSION_CYCLE:-unknown}"
+            echo "- Tasks: ${COMPLETED_TASKS:-0} completed, ${PENDING_TASKS:-0} pending, ${RUNNING_TASKS:-0} running"
+            echo "- Attempts: ${ATTEMPTS:-0}"
+            if [[ "$MISSION_STATUS" == "completed" && "$ENCRYPTED_STATE" == "true" && "$ARTIFACT_OUTCOME" == "success" ]]; then
+              echo "- Result: mission engine reports completion and its encrypted state was saved; source integration still requires independent verification and CI."
+            elif [[ "$MISSION_STATUS" == "completed" ]]; then
+              echo "- Result: mission engine reports completion, but durable state persistence was not confirmed; do not treat this as a completed delivery."
+            elif [[ "$MISSION_STATUS" == "active" && "$ENCRYPTED_STATE" == "true" && "$ARTIFACT_OUTCOME" == "success" ]]; then
+              echo "- Result: runner slice ended; mission remains active and its encrypted checkpoint was saved."
+            elif [[ "$MISSION_STATUS" == "active" ]]; then
+              echo "- Result: runner slice ended; mission remains active, but encrypted checkpoint persistence was not confirmed."
+            else
+              echo "- Result: runner did not report a valid mission status (step outcome: ${MISSION_STEP_OUTCOME})."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validate the complete project diff and run acceptance tests
         id: validation

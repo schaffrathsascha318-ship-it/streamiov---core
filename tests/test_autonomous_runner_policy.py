@@ -44,6 +44,12 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("ai/*permissions*", guard)
         self.assertIn(".github/*", guard)
 
+    def test_mission_runner_exports_checkpoint_counts_for_auditable_status(self):
+        source = (ROOT / "scripts" / "autonomous" / "run_issue.py").read_text(encoding="utf-8")
+        for field in ("status", "mission_id", "cycle", "pending_tasks", "running_tasks", "completed_tasks", "attempts"):
+            with self.subTest(field=field):
+                self.assertIn(f'output.write(f"{field}=', source)
+
     def test_agent_branch_dispatches_ci_before_it_can_be_integrated(self):
         workflow = (ROOT / ".github" / "workflows" / "autonomous-development.yml").read_text(encoding="utf-8")
         self.assertIn("actions: write", workflow)
