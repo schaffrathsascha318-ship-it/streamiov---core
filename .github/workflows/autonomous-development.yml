@@ -190,9 +190,9 @@ jobs:
           set +e
           python -m compileall -q ai
           compile_status=$?
-          python -m unittest discover -s tests -v
+          timeout --signal=INT --kill-after=30s 15m python -m unittest discover -s tests -v
           test_status=$?
-          node --test tests/test_cloudflare_ai_worker.mjs
+          timeout --signal=INT --kill-after=15s 3m node --test tests/test_cloudflare_ai_worker.mjs
           node_status=$?
           set -e
           if [[ $compile_status -eq 0 && $test_status -eq 0 && $node_status -eq 0 ]]; then
