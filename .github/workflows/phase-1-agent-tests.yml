@@ -65,16 +65,37 @@ jobs:
           PY
       - name: Report model readiness without failing the build
         run: python -m ai --doctor || true
-      - name: Run Phase 1 unit tests
+      - name: Run Phase 1 unit tests with per-module diagnostics
         env:
           PYTHONUNBUFFERED: "1"
+        shell: bash
         run: |
-          timeout --signal=INT --kill-after=30s 25m python - <<'PY'
+          set -uo pipefail
+          overall_status=0
+          shopt -s nullglob
+          for test_file in tests/test_*.py; do
+            pattern="$(basename "$test_file")"
+            echo "::group::Python tests: $pattern"
+            TEST_PATTERN="$pattern" timeout --signal=INT --kill-after=10s 120s python - <<'PY'
           import faulthandler
+          import os
           import unittest
 
-          faulthandler.dump_traceback_later(90, repeat=True)
-          suite = unittest.defaultTestLoader.discover("tests")
+          faulthandler.dump_traceback_later(60, repeat=True)
+          suite = unittest.defaultTestLoader.discover("tests", pattern=os.environ["TEST_PATTERN"])
           result = unittest.TextTestRunner(verbosity=2).run(suite)
           raise SystemExit(not result.wasSuccessful())
           PY
+            status=$?
+            echo "::endgroup::"
+            if [[ $status -ne 0 ]]; then
+              echo "::error::Test module $pattern failed or exceeded its 120-second limit (exit $status)."
+              overall_status=1
+            fi
+          done
+          node --test tests/tiktok-oauth-registry.test.js tests/tiktok-oauth.test.js
+          node_status=$?
+          if [[ $node_status -ne 0 ]]; then
+            overall_status=1
+          fi
+          exit "$overall_status"
