@@ -6,6 +6,7 @@ background daemon; callers must run workers and supply the existing safe agent.
 from __future__ import annotations
 
 import json
+import inspect
 import sqlite3
 import threading
 import time
@@ -347,41 +348,83 @@ class SpecialistWorker:
         self.agent_factory = agent_factory
         self.lease_seconds = lease_seconds
 
-    def run_once(self) -> WorkerExecution | None:
+    def run_once(self, stop_event: threading.Event | None = None) -> WorkerExecution | None:
         task = self.queue.claim_next(self.worker_id, lease_seconds=self.lease_seconds)
         if task is None:
             return None
 
         stop_heartbeat = threading.Event()
+        cancel_event = threading.Event()
         heartbeat_errors: list[str] = []
-        interval = max(1.0, self.lease_seconds / 3)
+        interval = max(1.0, min(10.0, self.lease_seconds / 3))
+        if stop_event is not None and stop_event.is_set():
+            cancel_event.set()
 
         def renew_lease() -> None:
             while not stop_heartbeat.wait(interval):
+                if stop_event is not None and stop_event.is_set():
+                    cancel_event.set()
+                    return
                 try:
                     self.queue.heartbeat(task.task_id, self.worker_id, lease_seconds=self.lease_seconds)
                 except Exception as exc:
                     heartbeat_errors.append(f"{type(exc).__name__}: {str(exc)[:250]}")
+                    cancel_event.set()
                     return
 
-        heartbeat_thread = threading.Thread(target=renew_lease, name=f"streamiov-lease-{task.task_id[:16]}", daemon=True)
+        heartbeat_thread = threading.Thread(
+            target=renew_lease,
+            name=f"streamiov-lease-{task.task_id[:16]}",
+            daemon=True,
+        )
         heartbeat_thread.start()
+        agent = None
         try:
-            result = self.agent_factory(task.specialist).run(task.prompt)
+            agent = self.agent_factory(task.specialist)
+            run_parameters = inspect.signature(agent.run).parameters
+            run_kwargs = {}
+            if "checkpoint_id" in run_parameters:
+                run_kwargs["checkpoint_id"] = task.task_id
+            if "cancel_event" in run_parameters:
+                run_kwargs["cancel_event"] = cancel_event
+            result = agent.run(task.prompt, **run_kwargs)
             if not isinstance(result, str):
                 raise TypeError("Specialist agent returned a non-text result.")
         except Exception as exc:
             stop_heartbeat.set()
             heartbeat_thread.join(timeout=interval + 1)
             error = f"{type(exc).__name__}: {str(exc)[:500]}"
+            interrupted = cancel_event.is_set() or (stop_event is not None and stop_event.is_set())
             try:
+                if interrupted:
+                    reason = heartbeat_errors[-1] if heartbeat_errors else f"Task interrupted; durable checkpoint retained: {error}"
+                    status = self.queue.release(task.task_id, self.worker_id, reason)
+                    return WorkerExecution(task.task_id, status, error=reason)
                 status = self.queue.fail(task.task_id, self.worker_id, error)
             except TaskQueueError as lease_error:
-                return WorkerExecution(task.task_id, "failed", error=f"{error}; lease update rejected: {lease_error}")
+                return WorkerExecution(
+                    task.task_id,
+                    "failed",
+                    error=f"{error}; lease update rejected: {lease_error}",
+                )
             return WorkerExecution(task.task_id, status, error=error)
 
         stop_heartbeat.set()
         heartbeat_thread.join(timeout=interval + 1)
+        if stop_event is not None and stop_event.is_set():
+            cancel_event.set()
+        if cancel_event.is_set() or heartbeat_errors:
+            reason = heartbeat_errors[-1] if heartbeat_errors else "Task interrupted; durable checkpoint retained."
+            try:
+                status = self.queue.release(task.task_id, self.worker_id, reason)
+            except TaskQueueError as lease_error:
+                return WorkerExecution(
+                    task.task_id,
+                    "failed",
+                    error=f"{reason}; lease release rejected: {lease_error}",
+                )
+            return WorkerExecution(task.task_id, status, error=reason)
+
         try:
             self.queue.complete(task.task_id, self.worker_id, result)
         except TaskQueueError as exc:
@@ -389,4 +432,12 @@ class SpecialistWorker:
             if heartbeat_errors:
                 detail += f"; heartbeat: {heartbeat_errors[-1]}"
             return WorkerExecution(task.task_id, "failed", error=detail)
+
+        checkpoint_store = getattr(agent, "checkpoints", None)
+        if checkpoint_store is not None:
+            try:
+                checkpoint_store.complete(task.task_id)
+            except Exception as cleanup_error:
+                warning = f"Checkpoint cleanup warning: {type(cleanup_error).__name__}: {cleanup_error}"
+                return WorkerExecution(task.task_id, "succeeded", result=result, error=warning)
         return WorkerExecution(task.task_id, "succeeded", result=result)
