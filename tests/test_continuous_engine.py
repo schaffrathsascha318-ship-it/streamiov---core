@@ -71,12 +71,16 @@ class MissionEngineTests(unittest.TestCase):
         self.assertNotIn("task-result-0", context)
         self.assertTrue(context.startswith("S" * 3_000))
 
-    def test_planner_response_parser_accepts_markdown_json_fences(self):
-        payload = _parse_planner_response(
-            ' ```json\n{"state":"completed","summary":"Verified.","tasks":[]}\n``` '
+    def test_planner_response_parser_accepts_markdown_json_fences_and_preambles(self):
+        responses = (
+            ' ```json\n{"state":"completed","summary":"Verified.","tasks":[]}\n``` ',
+            'Here is the requested plan:\n```json\n{"state":"completed","summary":"Verified.","tasks":[]}\n```',
         )
-        self.assertEqual(payload["state"], "completed")
-        self.assertEqual(payload["summary"], "Verified.")
+        for response in responses:
+            with self.subTest(response=response[:20]):
+                payload = _parse_planner_response(response)
+                self.assertEqual(payload["state"], "completed")
+                self.assertEqual(payload["summary"], "Verified.")
 
     def test_planner_retries_one_malformed_response_with_a_format_correction(self):
         class Provider:
@@ -105,6 +109,51 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(plan.state, "completed")
         self.assertEqual(len(provider.calls), 2)
         self.assertIn("FORMAT CORRECTION", provider.calls[1][-1]["content"])
+
+    def test_existing_mission_database_is_migrated_with_retry_columns(self):
+        with sqlite3.connect(self.db) as db:
+            db.executescript("""
+                CREATE TABLE development_missions (
+                    mission_id TEXT PRIMARY KEY,
+                    goal TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('active','completed')),
+                    cycle INTEGER NOT NULL DEFAULT 0,
+                    summary TEXT NOT NULL DEFAULT '',
+                    planning_owner TEXT NOT NULL DEFAULT '',
+                    planning_lease_until REAL,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL
+                );
+                CREATE TABLE development_mission_tasks (
+                    task_id TEXT PRIMARY KEY,
+                    mission_id TEXT NOT NULL REFERENCES development_missions(mission_id),
+                    cycle INTEGER NOT NULL,
+                    specialist TEXT NOT NULL,
+                    prompt TEXT NOT NULL,
+                    depends_on TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded')),
+                    attempts INTEGER NOT NULL DEFAULT 0,
+                    result TEXT NOT NULL DEFAULT '',
+                    last_error TEXT NOT NULL DEFAULT '',
+                    available_at REAL NOT NULL,
+                    worker_id TEXT NOT NULL DEFAULT '',
+                    lease_until REAL,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL
+                );
+            """)
+
+        engine = self.make_engine(SequencePlanner([]), lambda _role: None)
+        mission_id = engine.create_mission("Upgrade an existing durable mission")
+        with sqlite3.connect(self.db) as db:
+            columns = {row[1] for row in db.execute("PRAGMA table_info(development_missions)")}
+            row = db.execute(
+                "SELECT planning_failures,planning_retry_at FROM development_missions WHERE mission_id=?",
+                (mission_id,),
+            ).fetchone()
+        self.assertIn("planning_failures", columns)
+        self.assertIn("planning_retry_at", columns)
+        self.assertEqual(row, (0, None))
 
     def test_planning_retry_backoff_survives_engine_recreation(self):
         engine = self.make_engine(SequencePlanner([]), lambda _role: None)
