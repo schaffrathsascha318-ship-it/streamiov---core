@@ -378,7 +378,35 @@ jobs:
                 checks_json="$(gh pr checks "$pr_number" --json name,state)"
                 check_count="$(jq 'length' <<< "$checks_json")"
                 if [[ "$check_count" -gt 0 ]] && jq -e 'all(.[]; .state == "SUCCESS")' <<< "$checks_json" >/dev/null; then
+                  # Capture the exact verified change scope before merging it.
+                  changed_paths="$(git diff --name-only origin/main...HEAD)"
                   gh pr merge "$pr_number" --squash
+
+                  # The owner has explicitly authorized publication after this
+                  # mission, independent tests, and every PR check succeeded.
+                  # Dispatch only the production pipelines affected by this merge.
+                  if grep -qE '^(dist/streamiov-homepage-worker/|infrastructure/cloudflare/|scripts/deploy-streamiov-ai-worker\.sh$|scripts/verify-cloudflare-config\.py$)' <<< "$changed_paths"; then
+                    homepage_changed=false
+                    worker_changed=false
+                    grep -qE '^dist/streamiov-homepage-worker/' <<< "$changed_paths" && homepage_changed=true
+                    grep -qE '^(infrastructure/cloudflare/|scripts/deploy-streamiov-ai-worker\.sh$)' <<< "$changed_paths" && worker_changed=true
+                    if [[ "$homepage_changed" == true && "$worker_changed" == true ]]; then
+                      deploy_target=both
+                    elif [[ "$homepage_changed" == true ]]; then
+                      deploy_target=homepage
+                    else
+                      deploy_target=ai-worker
+                    fi
+                    gh workflow run cloudflare-deploy.yml --ref main -f target="$deploy_target" -f confirm=true
+                    echo "Dispatched authorized Cloudflare production deployment for target: $deploy_target"
+                  fi
+
+                  if grep -qE '^(dist/streamiov-studio-app/|scripts/sync-studio-ui\.py$|scripts/sync-studio-games\.py$|scripts/test-studio-media-pipeline\.cjs$)' <<< "$changed_paths"; then
+                    app_version="$(node -p "require('./dist/streamiov-studio-app/package.json').version")"
+                    gh workflow run studio-build.yml --ref main \
+                      -f publish_release=true -f release_version="$app_version" -f prerelease=false
+                    echo "Dispatched authorized Studio build and release for version $app_version"
+                  fi
                 else
                   echo "::warning::No complete set of successful GitHub checks was reported; the pull request remains open."
                 fi
