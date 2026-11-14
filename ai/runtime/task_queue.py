@@ -171,9 +171,10 @@ class SpecialistTaskQueue:
             connection.execute(
                 """
                 UPDATE specialist_tasks
-                SET status = CASE WHEN attempts < max_attempts THEN 'queued' ELSE 'failed' END,
+                SET status = 'queued',
+                    attempts = CASE WHEN attempts > 0 THEN attempts - 1 ELSE 0 END,
                     worker_id = '', lease_until = NULL,
-                    error = CASE WHEN attempts < max_attempts THEN error ELSE 'Worker lease expired; retry budget exhausted.' END,
+                    error = 'Worker lease expired; resuming from durable checkpoint.',
                     updated_at = ?
                 WHERE status = 'running' AND lease_until <= ?
                 """,
@@ -263,6 +264,25 @@ class SpecialistTaskQueue:
             )
             if cursor.rowcount != 1:
                 raise TaskQueueError("Task is not running under this worker lease.")
+
+    def release(self, task_id: str, worker_id: str, reason: str) -> QueueStatus:
+        """Return a cooperatively interrupted task to the queue without spending a retry."""
+        safe_reason = str(reason)[:1000]
+        now = time.time()
+        with self._connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE specialist_tasks
+                SET status='queued',
+                    attempts=CASE WHEN attempts > 0 THEN attempts - 1 ELSE 0 END,
+                    error=?, worker_id='', lease_until=NULL, updated_at=?
+                WHERE task_id=? AND worker_id=? AND status='running' AND lease_until>?
+                """,
+                (safe_reason, now, task_id, worker_id, now),
+            )
+            if cursor.rowcount != 1:
+                raise TaskQueueError("Task cannot be released because this worker no longer owns a valid lease.")
+        return "queued"
 
     def fail(self, task_id: str, worker_id: str, error: str) -> QueueStatus:
         safe_error = str(error)[:1000]
