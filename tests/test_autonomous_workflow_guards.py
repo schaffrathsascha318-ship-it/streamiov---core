@@ -32,12 +32,17 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
         self.assertNotIn("ai/runtime/continuous_engine.py", source)
         self.assertNotIn("ai/providers/*", source)
 
-    def test_mission_database_is_persisted_between_runs_with_private_artifacts(self):
+    def test_public_mission_artifacts_are_encrypted_before_upload(self):
         source = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("actions/upload-artifact@v4", source)
         self.assertIn("gh run download", source)
-        self.assertIn("actions/workflows/autonomous-development.yml/runs", source)
-        self.assertIn("retention-days: 90", source)
+        self.assertIn("mission-state.enc", source)
+        self.assertIn("mission-state-crypto.mjs encrypt", source)
+        self.assertIn("mission-state-crypto.mjs decrypt", source)
+        self.assertIn("aes-256-gcm", (ROOT / "scripts" / "autonomous" / "mission-state-crypto.mjs").read_text(encoding="utf-8"))
+        self.assertIn("STREAMIOV_AI_WORKER_TOKEN", source)
+        self.assertIn("path: ${{ runner.temp }}/streamiov-ai-missions/mission-state.enc", source)
+        self.assertNotIn("path: ${{ runner.temp }}/streamiov-ai-missions/\n", source)
         self.assertNotIn("actions/cache/save@", source)
         self.assertNotIn("actions/cache/restore@", source)
 
