@@ -1,5 +1,6 @@
 name: Streamiov Studio Builds
 
+# Windows desktop packages target x64; Linux and ChromeOS retain their native architectures.
 on:
   workflow_dispatch:
     inputs:
