@@ -1,6 +1,7 @@
 """SQLite-backed, evidence-first rights register. This is not legal advice."""
 from __future__ import annotations
 import sqlite3
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -40,11 +41,21 @@ class RightsRegister:
             CREATE TABLE IF NOT EXISTS assessments(assessment_id INTEGER PRIMARY KEY AUTOINCREMENT,component_id TEXT NOT NULL REFERENCES components(component_id) ON DELETE CASCADE,activity TEXT NOT NULL,status TEXT NOT NULL,legal_basis TEXT NOT NULL,restrictions TEXT NOT NULL,reviewer TEXT NOT NULL,human_review_required INTEGER NOT NULL,checked_at TEXT NOT NULL,next_review_at TEXT,UNIQUE(component_id,activity));
             """)
 
+    @contextmanager
     def _db(self):
         db = sqlite3.connect(self.database)
-        db.row_factory = sqlite3.Row
-        db.execute("PRAGMA foreign_keys=ON")
-        return db
+        try:
+            db.row_factory = sqlite3.Row
+            db.execute("PRAGMA foreign_keys=ON")
+            yield db
+            if db.in_transaction:
+                db.commit()
+        except Exception:
+            if db.in_transaction:
+                db.rollback()
+            raise
+        finally:
+            db.close()
 
     def create_title(self, title_id, title, territory):
         if not all(isinstance(x, str) and x.strip() for x in (title_id, title, territory)):

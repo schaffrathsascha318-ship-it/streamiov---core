@@ -97,6 +97,7 @@ class OllamaProvider:
         payload = {
             "model": self.model,
             "stream": False,
+            "format": "json",
             "messages": [{"role": "system", "content": system}, *messages],
             "options": {"temperature": 0.1},
         }

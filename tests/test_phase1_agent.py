@@ -1,3 +1,4 @@
+
 import tempfile
 import os
 import json
@@ -53,6 +54,29 @@ class ProjectToolTests(unittest.TestCase):
         self.assertEqual(self.tools.read_file("README.md"), "hello")
         self.tools.write_file("ai/new.py", "print('ok')")
         self.assertEqual((self.root / "ai/new.py").read_text(), "print('ok')")
+    def test_read_file_supports_numbered_line_ranges(self):
+        target = self.root / "README.md"
+        target.write_text("one\ntwo\nthree\nfour\n", encoding="utf-8")
+        result = self.tools.read_file("README.md", "2", "3")
+        self.assertIn("lines 2-3 of 4", result)
+        self.assertIn("two\nthree\n", result)
+        self.assertNotIn("one\n", result)
+        self.assertNotIn("four\n", result)
+
+    def test_read_file_large_content_returns_bounded_chunk_and_continuation(self):
+        target = self.root / "large.txt"
+        target.write_text("x" * 80 + "\n" + "y" * 80 + "\n", encoding="utf-8")
+        result = self.tools.read_file("large.txt", "1", "2")
+        self.assertLessEqual(len(result), 10_200)
+        self.assertIn("lines 1-2 of 2", result)
+
+    def test_read_file_rejects_invalid_line_ranges(self):
+        target = self.root / "README.md"
+        target.write_text("one\ntwo\n", encoding="utf-8")
+        for start, end in (("0", "1"), ("abc", "2"), ("2", "1")):
+            with self.subTest(start=start, end=end), self.assertRaises(ToolError):
+                self.tools.read_file("README.md", start, end)
+
     def test_exact_unique_edit_changes_existing_file(self):
         target = self.root / "ai" / "agent.py"
         target.parent.mkdir()
@@ -97,6 +121,47 @@ class AgentTests(unittest.TestCase):
             Path(tmp, "README.md").write_text("Streamiov")
             p = FakeProvider(['{"tool":"read_file","arguments":{"path":"README.md"}}', '{"final":"Read complete."}'])
             self.assertEqual(DevelopmentAgent(p, tmp).run("Inspect README"), "Read complete.")
+    def test_repeated_failed_tool_action_stops_with_actual_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            failed_read = (
+                '{"tool":"read_file","arguments":{"path":"missing.py"}}'
+            )
+            provider = FakeProvider([failed_read, failed_read])
+            agent = DevelopmentAgent(provider, tmp, max_steps=5)
+
+            with self.assertRaisesRegex(
+                AgentError,
+                "repeating the same failed tool action",
+            ) as caught:
+                agent.run("Inspect the missing file")
+
+            self.assertIn("TOOL_ERROR:", str(caught.exception))
+            self.assertIn("read_file", str(caught.exception))
+
+    def test_different_tool_action_can_continue_after_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            provider = FakeProvider([
+                '{"tool":"read_file","arguments":{"path":"missing.py"}}',
+                '{"tool":"list_files","arguments":{"path":"."}}',
+                '{"final":"Recovered and finished."}',
+            ])
+            agent = DevelopmentAgent(provider, tmp, max_steps=5)
+            calls = []
+
+            def failed_read(*args):
+                raise ToolError("synthetic read failure")
+
+            agent.tools.read_file = failed_read
+            agent.tools.list_files = (
+                lambda path=".": calls.append(path) or "project files"
+            )
+
+            result = agent.run("Inspect the project")
+
+            self.assertEqual(result, "Recovered and finished.")
+            self.assertEqual(calls, ["."])
+
+
     def test_agent_lists_project_files_then_finishes(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "README.md").write_text("Streamiov")
@@ -106,32 +171,354 @@ class AgentTests(unittest.TestCase):
             ])
             self.assertEqual(DevelopmentAgent(p, tmp).run("Inspect project structure"), "Project listing complete.")
 
+    def test_failed_read_does_not_consume_read_budget(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            provider = FakeProvider([
+                '{"tool":"read_file","arguments":{"path":"missing.py"}}',
+                '{"tool":"list_files","arguments":{"path":"."}}',
+                '{"final":"Recovered after failed read."}',
+            ])
+            agent = DevelopmentAgent(
+                provider, tmp, max_steps=5, max_read_actions=1
+            )
+
+            def failed_read(*args):
+                raise ToolError("synthetic missing-file failure")
+
+            agent.tools.read_file = failed_read
+            calls = []
+            agent.tools.list_files = (
+                lambda path=".": calls.append(path) or "project files"
+            )
+
+            result = agent.run("Inspect the project")
+
+            self.assertEqual(result, "Recovered after failed read.")
+            self.assertEqual(calls, ["."])
+
+    def test_read_budget_blocks_extra_reads_but_allows_final(self):
+        class RecordingProvider:
+            def __init__(self):
+                self.outputs = iter([
+                    '{"tool":"list_files","arguments":{"path":"."}}',
+                    '{"tool":"list_files","arguments":{"path":"."}}',
+                    '{"final":"Finished within the read budget."}',
+                ])
+                self.messages_seen = []
+
+            def generate(self, **kwargs):
+                self.messages_seen.append(
+                    "\\n".join(
+                        str(message.get("content", ""))
+                        for message in kwargs["messages"]
+                    )
+                )
+                class Reply:
+                    def __init__(self, content):
+                        self.content = content
+                return Reply(next(self.outputs))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            provider = RecordingProvider()
+            agent = DevelopmentAgent(
+                provider, tmp, max_steps=5, max_read_actions=1
+            )
+            calls = []
+            agent.tools.list_files = (
+                lambda path=".": calls.append(path) or "project files"
+            )
+
+            result = agent.run("Inspect the project briefly")
+
+            self.assertEqual(result, "Finished within the read budget.")
+            self.assertEqual(calls, ["."])
+            self.assertIn("READ BUDGET EXHAUSTED", provider.messages_seen[2])
+
+    def test_read_budget_exhaustion_still_allows_edits_and_tests(self):
+        class RecordingProvider:
+            def __init__(self):
+                self.outputs = iter([
+                    '{"tool":"list_files","arguments":{"path":"."}}',
+                    '{"tool":"list_files","arguments":{"path":"."}}',
+                    '{"tool":"replace_text","arguments":{"path":"ai/agent.py","old_text":"value = 1","new_text":"value = 2"}}',
+                    '{"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}',
+                    '{"final":"Source changed and tests passed."}',
+                ])
+                self.messages_seen = []
+
+            def generate(self, **kwargs):
+                self.messages_seen.append(
+                    "\\n".join(
+                        str(message.get("content", ""))
+                        for message in kwargs["messages"]
+                    )
+                )
+
+                class Reply:
+                    def __init__(self, content):
+                        self.content = content
+
+                return Reply(next(self.outputs))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp, "ai", "agent.py")
+            target.parent.mkdir()
+            target.write_text("value = 1\\n", encoding="utf-8")
+
+            provider = RecordingProvider()
+            agent = DevelopmentAgent(
+                provider, tmp, max_steps=6, max_read_actions=1
+            )
+
+            list_calls = []
+            test_calls = []
+
+            agent.tools.list_files = (
+                lambda path=".": list_calls.append(path) or "project files"
+            )
+            agent.tools.run_tests = (
+                lambda command: test_calls.append(command) or "exit_code=0\\nOK"
+            )
+
+            result = agent.run("Update the source code safely.")
+
+            self.assertEqual(result, "Source changed and tests passed.")
+            self.assertEqual(list_calls, ["."])
+            self.assertEqual(target.read_text(encoding="utf-8"), "value = 2\\n")
+            self.assertEqual(
+                test_calls, ["python -m unittest discover -s tests"]
+            )
+
+            all_messages = "\\n".join(provider.messages_seen)
+            self.assertIn("READ BUDGET EXHAUSTED", all_messages)
+            self.assertNotIn("FINALIZATION ONLY", all_messages)
+
+    def test_zero_read_budget_blocks_first_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            provider = FakeProvider([
+                '{"tool":"list_files","arguments":{"path":"."}}',
+                '{"final":"Finished without reading files."}',
+            ])
+            agent = DevelopmentAgent(
+                provider, tmp, max_steps=3, max_read_actions=0
+            )
+            calls = []
+            agent.tools.list_files = (
+                lambda path=".": calls.append(path) or "project files"
+            )
+
+            result = agent.run("Finish without reading files")
+
+            self.assertEqual(result, "Finished without reading files.")
+            self.assertEqual(calls, [])
+
+    def test_max_steps_one_allows_final_response_after_one_tool(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "README.md").write_text("Streamiov", encoding="utf-8")
+            provider = FakeProvider([
+                '{"tool":"list_files","arguments":{"path":"."}}',
+                '{"final":"One tool action completed and finalized."}',
+            ])
+            agent = DevelopmentAgent(provider, tmp, max_steps=1)
+            result = agent.run("Inspect the project structure")
+            self.assertEqual(result, "One tool action completed and finalized.")
+
+    def test_max_steps_two_allows_final_after_read_budget_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "README.md").write_text("Streamiov", encoding="utf-8")
+            provider = FakeProvider([
+                '{"tool":"list_files","arguments":{"path":"."}}',
+                '{"tool":"read_file","arguments":{"path":"README.md"}}',
+                '{"final":"Finished with the available project information."}',
+            ])
+            agent = DevelopmentAgent(
+                provider, tmp, max_steps=2, max_read_actions=1
+            )
+            result = agent.run("Inspect the project briefly")
+            self.assertEqual(
+                result,
+                "Finished with the available project information.",
+            )
+
+    def test_step_limit_reports_recent_tool_actions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            response = '{"tool":"list_files","arguments":{"path":"."}}'
+            provider = FakeProvider([response] * 5)
+            agent = DevelopmentAgent(provider, tmp, max_steps=3)
+
+            with self.assertRaisesRegex(
+                AgentError,
+                "tool-action budget was exhausted",
+            ):
+                agent.run("Inspect project structure")
+
     def test_agent_performs_real_existing_file_edit(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp, "ai", "agent.py")
             target.parent.mkdir()
-            target.write_text("value = 1\n", encoding="utf-8")
+            target.write_text("value = 1\\n", encoding="utf-8")
             p = FakeProvider([
                 '{"tool":"replace_text","arguments":{"path":"ai/agent.py","old_text":"value = 1","new_text":"value = 2"}}',
                 '{"final":"Updated the file."}',
+                '{"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}',
+                '{"final":"Updated the file and verified it."}',
             ])
-            self.assertEqual(DevelopmentAgent(p, tmp).run("Change value"), "Updated the file.")
-            self.assertEqual(target.read_text(encoding="utf-8"), "value = 2\n")
+            agent = DevelopmentAgent(p, tmp)
+            calls = []
+            agent.tools.run_tests = (
+                lambda command: calls.append(command) or "exit_code=0\\nOK"
+            )
+            self.assertEqual(
+                agent.run("Change value"),
+                "Updated the file and verified it.",
+            )
+            self.assertEqual(target.read_text(encoding="utf-8"), "value = 2\\n")
+            self.assertEqual(
+                calls,
+                ["python -m unittest discover -s tests"],
+            )
+
+    def test_read_only_task_cannot_start_tests(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            provider = FakeProvider([
+                '{"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}',
+                '{"final":"Read-only task completed."}',
+            ])
+            agent = DevelopmentAgent(provider, tmp)
+            calls = []
+            agent.tools.run_tests = lambda command: calls.append(command) or "unexpected"
+            self.assertEqual(agent.run("Read the source and explain it."), "Read-only task completed.")
+            self.assertEqual(calls, [])
+
+    def test_explicit_test_request_allows_tests(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            provider = FakeProvider([
+                '{"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}',
+                '{"final":"Tests completed."}',
+            ])
+            agent = DevelopmentAgent(provider, tmp)
+            calls = []
+            agent.tools.run_tests = lambda command: calls.append(command) or "exit_code=0\\nOK"
+            self.assertEqual(agent.run("Run the test suite."), "Tests completed.")
+            self.assertEqual(calls, ["python -m unittest discover -s tests"])
+
+    def test_successful_source_edit_allows_tests(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp, "ai", "agent.py")
+            target.parent.mkdir()
+            target.write_text("value = 1\\n", encoding="utf-8")
+            provider = FakeProvider([
+                '{"tool":"replace_text","arguments":{"path":"ai/agent.py","old_text":"value = 1","new_text":"value = 2"}}',
+                '{"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}',
+                '{"final":"Code changed and tests completed."}',
+            ])
+            agent = DevelopmentAgent(provider, tmp)
+            calls = []
+            agent.tools.run_tests = lambda command: calls.append(command) or "exit_code=0\\nOK"
+            self.assertEqual(
+                agent.run("Change the source code safely."),
+                "Code changed and tests completed.",
+            )
+            self.assertEqual(target.read_text(encoding="utf-8"), "value = 2\\n")
+            self.assertEqual(calls, ["python -m unittest discover -s tests"])
+
+    def test_agent_repairs_source_after_failed_tests_and_reruns(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp, "ai", "agent.py")
+            target.parent.mkdir()
+            target.write_text("value = 1\n", encoding="utf-8")
+
+            provider = FakeProvider([
+                '{"tool":"replace_text","arguments":{"path":"ai/agent.py","old_text":"value = 1","new_text":"value = 2"}}',
+                '{"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}',
+                '{"tool":"replace_text","arguments":{"path":"ai/agent.py","old_text":"value = 2","new_text":"value = 3"}}',
+                '{"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}',
+                '{"final":"Failure corrected; tests passed on the second run."}',
+            ])
+
+            agent = DevelopmentAgent(provider, tmp)
+            calls = []
+            results = iter([
+                "exit_code=1\nFAIL: test_example",
+                "exit_code=0\nOK",
+            ])
+
+            def run_tests(command):
+                calls.append(command)
+                return next(results)
+
+            agent.tools.run_tests = run_tests
+
+            self.assertEqual(
+                agent.run("Correct the source code and verify the result."),
+                "Failure corrected; tests passed on the second run.",
+            )
+            self.assertEqual(target.read_text(encoding="utf-8"), "value = 3\n")
+            self.assertEqual(len(calls), 2)
+            self.assertTrue(all(
+                command == "python -m unittest discover -s tests"
+                for command in calls
+            ))
+
     def test_invalid_json_gets_one_format_retry(self):
         with tempfile.TemporaryDirectory() as tmp:
             provider = FakeProvider(["not json", '{"final":"Recovered safely."}'])
-            result = DevelopmentAgent(provider, tmp).run("Do task")
+            result = DevelopmentAgent(
+                provider, tmp, max_steps=1
+            ).run("Do task")
             self.assertEqual(result, "Recovered safely.")
+
+    def test_explicit_no_file_access_prevents_tool_execution(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            provider = FakeProvider([
+                '{"tool":"read_file","arguments":{"path":"README.md"}}'
+            ])
+            agent = DevelopmentAgent(provider, tmp, max_steps=1)
+            calls = []
+            agent.tools.read_file = (
+                lambda *args: calls.append(args) or "should not execute"
+            )
+
+            with self.assertRaisesRegex(
+                AgentError, "explicitly forbids tool use"
+            ):
+                agent.run("Antworte kurz. Keine Dateien lesen, erstellen oder verändern.")
+
+            self.assertEqual(calls, [])
 
     def test_invalid_json_still_fails_closed_after_retry(self):
         with tempfile.TemporaryDirectory() as tmp:
             provider = FakeProvider(["not json", "still not json"])
             with self.assertRaises(AgentError):
                 DevelopmentAgent(provider, tmp).run("Do task")
+
+    def test_invalid_tool_schema_gets_one_correction_retry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "README.md").write_text("Streamiov", encoding="utf-8")
+            provider = FakeProvider([
+                '{"tool":"read_file","arguments":{"path":"README.md","extra":"wrong"}}',
+                '{"tool":"read_file","arguments":{"path":"README.md"}}',
+                '{"final":"Schema corrected and file read."}',
+            ])
+            result = DevelopmentAgent(provider, tmp).run("Read README")
+            self.assertEqual(result, "Schema corrected and file read.")
+
+    def test_invalid_tool_batch_stays_unexecuted_after_failed_retry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp, "ai", "must_not_exist.py")
+            provider = FakeProvider([
+                '{"tool":"write_file","arguments":{"path":"ai/must_not_exist.py","content":"unsafe"}}'
+                '{"tool":"read_file","arguments":{"path":"README.md","extra":"wrong"}}',
+                '{"tool":"unknown_tool","arguments":{}}',
+            ])
+            with self.assertRaises(AgentError):
+                DevelopmentAgent(provider, tmp).run("Do not partially execute invalid batches")
+            self.assertFalse(target.exists())
     def test_mixed_tool_and_final_response_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             response = '{"tool":"read_file","arguments":{"path":"README.md"},"final":"fake"}'
-            with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider([response]), tmp).run("Do task")
+            with self.assertRaises(AgentError):
+                DevelopmentAgent(FakeProvider([response, response]), tmp).run("Do task")
 
     def test_specialist_role_sets_prompt_and_enforced_write_scope(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -164,7 +551,10 @@ class AgentTests(unittest.TestCase):
     def test_non_game_agent_cannot_request_game_check_tool(self):
         with tempfile.TemporaryDirectory() as tmp:
             agent = DevelopmentAgent(
-                FakeProvider(['{"tool":"run_game_checks","arguments":{}}']), tmp, specialist="code"
+                FakeProvider([
+                    '{"tool":"run_game_checks","arguments":{}}',
+                    '{"tool":"run_game_checks","arguments":{}}',
+                ]), tmp, specialist="code"
             )
             with self.assertRaises(AgentError):
                 agent.run("Run game checks.")
@@ -182,7 +572,8 @@ class AgentTests(unittest.TestCase):
             target = Path(tmp, "ai", "must_not_exist.py")
             p = FakeProvider([
                 '{"tool":"write_file","arguments":{"path":"ai/must_not_exist.py","content":"unsafe partial batch"}}'
-                '{"tool":"read_file","arguments":{"path":"README.md","unexpected":"extra"}}'
+                '{"tool":"read_file","arguments":{"path":"README.md","unexpected":"extra"}}',
+                '{"tool":"unknown_tool","arguments":{}}',
             ])
             with self.assertRaises(AgentError):
                 DevelopmentAgent(p, tmp).run("Do not partially execute invalid batches")
@@ -190,7 +581,10 @@ class AgentTests(unittest.TestCase):
 
     def test_tool_arguments_reject_non_string_values(self):
         with tempfile.TemporaryDirectory() as tmp:
-            p = FakeProvider(['{"tool":"read_file","arguments":{"path":42}}'])
+            p = FakeProvider([
+                '{"tool":"read_file","arguments":{"path":42}}',
+                '{"tool":"read_file","arguments":{"path":42}}',
+            ])
             with self.assertRaises(AgentError):
                 DevelopmentAgent(p, tmp).run("Reject malformed tool arguments")
 
@@ -220,12 +614,13 @@ class AgentTests(unittest.TestCase):
                     return Reply('{"tool":"read_file","arguments":{"path":"README.md"}}')
                 return Reply('{"final":"bounded output received"}')
         with tempfile.TemporaryDirectory() as tmp:
-            Path(tmp, "README.md").write_text("x" * (MAX_TOOL_RESULT_CHARS + 1000), encoding="utf-8")
+            Path(tmp, "README.md").write_text(("x" * 100 + "\n") * 130, encoding="utf-8")
             provider = CapturingProvider()
             result = DevelopmentAgent(provider, tmp).run("Read the large file safely")
             self.assertEqual(result, "bounded output received")
             tool_context = provider.last_messages[-1]["content"]
-            self.assertIn("tool output truncated at 12,000 characters", tool_context)
+            self.assertIn("[Continue reading at line", tool_context)
+            self.assertNotIn("tool output truncated at 12,000 characters", tool_context)
             self.assertLess(len(tool_context), MAX_TOOL_RESULT_CHARS + 200)
 
 
@@ -240,10 +635,12 @@ class CliTests(unittest.TestCase):
             "--task", "inspect the project",
             "--project-root", "/tmp/streamiov",
             "--max-steps", "5",
+        "--max-read-actions", "3",
         ])
         self.assertEqual(args.task, "inspect the project")
         self.assertEqual(args.project_root, "/tmp/streamiov")
         self.assertEqual(args.max_steps, 5)
+        self.assertEqual(args.max_read_actions, 3)
         self.assertEqual(args.specialist, "code")
         self.assertEqual(parser.parse_args(["--task", "design a game", "--specialist", "game"]).specialist, "game")
 
@@ -319,6 +716,7 @@ class LocalProviderHttpTests(unittest.TestCase):
         self.assertEqual(content_type, "application/json")
         self.assertEqual(payload["model"], "test-coder")
         self.assertFalse(payload["stream"])
+        self.assertEqual(payload["format"], "json")
         self.assertEqual(payload["messages"][0], {"role": "system", "content": "Return JSON only."})
         self.assertEqual(payload["messages"][1]["content"], "Say hello")
 

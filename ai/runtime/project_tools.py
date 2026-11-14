@@ -5,18 +5,24 @@ import shutil
 import subprocess
 import sys
 import time
+import hashlib
+import tempfile
+import uuid
+import stat
 from pathlib import Path, PurePosixPath
+from .sandbox import run_sandboxed
 
 class ToolError(RuntimeError):
     pass
 
-DENIED_PARTS = {".git", ".env", ".wrangler", "node_modules", "__pycache__", "secrets", "oauth", ".ssh"}
+DENIED_PARTS = {".git", ".env", ".wrangler", ".streamiov-recovery", "node_modules", "__pycache__", "secrets", "oauth", ".ssh"}
 DENIED_SUFFIXES = {".pem", ".key", ".p12", ".pfx"}
 TEST_COMMANDS = {
     "python -m unittest discover -s tests": [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
 }
 MAX_FILE_BYTES = 200_000
 MAX_LIST_ENTRIES = 100
+MAX_READ_CHARS = 10_000
 
 class ProjectTools:
     def __init__(self, root: str | Path, writable_prefixes: tuple[str, ...] = ("ai/", "docs/ai-development/", "tests/"), *, allow_game_checks: bool = False) -> None:
@@ -44,7 +50,7 @@ class ProjectTools:
     def _writable_target(self, raw: str) -> tuple[Path, str]:
         target = self._resolve(raw)
         normalized = target.relative_to(self.root).as_posix()
-        if not any(normalized.startswith(prefix) for prefix in self.writable_prefixes):
+        if "**" not in self.writable_prefixes and not any(normalized.startswith(prefix) for prefix in self.writable_prefixes):
             raise ToolError("Writes are restricted to configured AI, documentation, and test directories.")
         return target, normalized
 
@@ -73,13 +79,159 @@ class ProjectTools:
         suffix = "\n[listing capped at 100 entries]" if len(entries) >= MAX_LIST_ENTRIES else ""
         return "\n".join(entries) + suffix if entries else "(directory is empty or contains only excluded entries)"
 
-    def read_file(self, path: str) -> str:
+    def read_file(
+        self,
+        path: str,
+        start_line: str | None = None,
+        end_line: str | None = None,
+    ) -> str:
+        """Read a complete small file or a bounded, numbered section of a larger file."""
         target = self._resolve(path)
         if not target.is_file():
             raise ToolError("Requested file does not exist or is not a regular file.")
         if target.stat().st_size > MAX_FILE_BYTES:
             raise ToolError("File exceeds the 200 KB read limit.")
-        return target.read_text(encoding="utf-8")
+
+        def parse_line(value: str | None, label: str) -> int | None:
+            if value is None:
+                return None
+            if not isinstance(value, str) or not value.isdigit() or int(value) < 1:
+                raise ToolError(f"{label} must be a positive line number.")
+            return int(value)
+
+        start = parse_line(start_line, "start_line")
+        end = parse_line(end_line, "end_line")
+        if start is not None and end is not None and end < start:
+            raise ToolError("end_line must be greater than or equal to start_line.")
+
+        content = target.read_text(encoding="utf-8")
+        if start is None and end is None and len(content) <= MAX_READ_CHARS:
+            return content
+
+        lines = content.splitlines(keepends=True)
+        total = len(lines)
+        if total == 0:
+            return content
+
+        first = start or 1
+        last = min(end or total, total)
+        if first > total:
+            raise ToolError(f"start_line exceeds the file length ({total} lines).")
+
+        chunks = []
+        used = 0
+        included_last = first - 1
+        next_line = None
+
+        for number in range(first, last + 1):
+            line = lines[number - 1]
+            remaining = MAX_READ_CHARS - used
+            if len(line) > remaining:
+                if remaining > 0:
+                    chunks.append(line[:remaining])
+                    used += remaining
+                next_line = number
+                break
+            chunks.append(line)
+            used += len(line)
+            included_last = number
+
+        if next_line is None and included_last < last:
+            next_line = included_last + 1
+        if next_line is None and last < total:
+            next_line = last + 1
+
+        header = f"[File: {path} | lines {first}-{max(included_last, first)} of {total}]"
+        if next_line is not None:
+            header += f"\n[Continue reading at line {next_line}]"
+        return header + "\n" + "".join(chunks)
+
+    def file_info(self, path: str) -> str:
+        """Return safe metadata needed for optimistic-concurrency edits."""
+        target = self._resolve(path)
+        if not target.is_file():
+            raise ToolError("Requested file does not exist or is not a regular file.")
+        data = target.read_bytes()
+        if len(data) > MAX_FILE_BYTES:
+            raise ToolError("File exceeds the 200 KB metadata limit.")
+        digest = hashlib.sha256(data).hexdigest()
+        return f"File: {path}\\nBytes: {len(data)}\\nSHA-256: {digest}"
+
+    def edit_file(self, path: str, expected_sha256: str, content: str) -> str:
+        """Safely replace a complete file after hash verification and backup."""
+        target, normalized = self._writable_target(path)
+        if not target.is_file():
+            raise ToolError("Full-file edits require an existing regular file.")
+        if (
+            not isinstance(expected_sha256, str)
+            or len(expected_sha256) != 64
+            or any(char not in "0123456789abcdef" for char in expected_sha256.lower())
+        ):
+            raise ToolError("expected_sha256 must be a 64-character SHA-256 hex digest.")
+        if not isinstance(content, str):
+            raise ToolError("New file content must be text.")
+        updated = content.encode("utf-8")
+        if len(updated) > MAX_FILE_BYTES:
+            raise ToolError("Edited file would exceed the 200 KB limit.")
+
+        original = target.read_bytes()
+        if len(original) > MAX_FILE_BYTES:
+            raise ToolError("File exceeds the 200 KB edit limit.")
+        old_hash = hashlib.sha256(original).hexdigest()
+        if old_hash != expected_sha256.lower():
+            raise ToolError("File changed since inspection; hash mismatch. Read it again before editing.")
+
+        recovery_root = self.root / ".streamiov-recovery"
+        if recovery_root.is_symlink():
+            raise ToolError("Recovery directory must not be a symlink.")
+        backup_root = recovery_root / "backups"
+        if backup_root.is_symlink():
+            raise ToolError("Backup directory must not be a symlink.")
+        backup_root.mkdir(parents=True, exist_ok=True)
+        resolved_backup_root = backup_root.resolve()
+        if self.root != resolved_backup_root and self.root not in resolved_backup_root.parents:
+            raise ToolError("Backup directory escapes the project workspace.")
+
+        backup_name = f"{time.time_ns()}-{uuid.uuid4().hex}-{target.name}.bak"
+        backup_path = backup_root / backup_name
+        with backup_path.open("xb") as backup:
+            backup.write(original)
+            backup.flush()
+            os.fsync(backup.fileno())
+
+        temp_path = None
+        try:
+            mode = stat.S_IMODE(target.stat().st_mode)
+            fd, temp_name = tempfile.mkstemp(prefix=".streamiov-edit-", dir=target.parent)
+            temp_path = Path(temp_name)
+            with os.fdopen(fd, "wb") as temporary:
+                temporary.write(updated)
+                temporary.flush()
+                os.fsync(temporary.fileno())
+            os.chmod(temp_path, mode)
+
+            # Recheck immediately before replacement to detect concurrent edits.
+            current = target.read_bytes()
+            if hashlib.sha256(current).hexdigest() != old_hash:
+                raise ToolError("File changed during editing; no replacement was made.")
+
+            os.replace(temp_path, target)
+            temp_path = None
+        finally:
+            if temp_path is not None:
+                try:
+                    temp_path.unlink()
+                except FileNotFoundError:
+                    pass
+
+        new_hash = hashlib.sha256(updated).hexdigest()
+        backup_relative = backup_path.relative_to(self.root).as_posix()
+        return (
+            f"Updated {normalized}.\\n"
+            f"Old SHA-256: {old_hash}\\n"
+            f"New SHA-256: {new_hash}\\n"
+            f"Backup: {backup_relative}"
+        )
 
     def write_file(self, path: str, content: str) -> str:
         target, normalized = self._writable_target(path)
@@ -109,14 +261,18 @@ class ProjectTools:
         updated = original.replace(old_text, new_text, 1)
         if len(updated.encode("utf-8")) > MAX_FILE_BYTES:
             raise ToolError("Edited file would exceed the 200 KB limit.")
-        target.write_text(updated, encoding="utf-8")
-        return f"Updated {normalized}: one exact match replaced."
+        digest = hashlib.sha256(original.encode("utf-8")).hexdigest()
+        result = self.edit_file(path, digest, updated)
+        return f"one exact match replaced.\n{result}"
 
     def run_tests(self, command: str) -> str:
         argv = TEST_COMMANDS.get(command)
         if argv is None:
             raise ToolError("Test command is not allowlisted.")
-        result = subprocess.run(argv, cwd=self.root, capture_output=True, text=True, timeout=180, check=False, env={"PATH": os.environ.get("PATH", ""), "PYTHONPATH": str(self.root)})
+        try:
+            result = run_sandboxed(self.root, argv, timeout=180)
+        except (OSError, RuntimeError) as exc:
+            raise ToolError(str(exc)) from exc
         output = (result.stdout + "\n" + result.stderr).strip()
         return f"exit_code={result.returncode}\n{output[-12000:]}"
 
@@ -170,7 +326,7 @@ class ProjectTools:
             node = shutil.which("node")
             if node is None:
                 raise ToolError("Node.js is required by local game tests but is not installed.")
-            commands.append(([node, "--test", *sorted(node_tests)], "Node game tests"))
+            commands.append((["node", "--test", *sorted(node_tests)], "Node game tests"))
 
         reports = []
         deadline = time.monotonic() + 180
@@ -180,13 +336,9 @@ class ProjectTools:
                 reports.append(f"{label}: total 180 second game-check limit reached")
                 return "exit_code=124\n" + "\n\n".join(reports)[-20000:]
             try:
-                result = subprocess.run(
-                    argv, cwd=self.root, capture_output=True, text=True, timeout=remaining, check=False,
-                    env={"PATH": os.environ.get("PATH", ""), "PYTHONPATH": str(self.root)},
-                )
-            except subprocess.TimeoutExpired:
-                reports.append(f"{label}: total 180 second game-check limit reached")
-                return "exit_code=124\n" + "\n\n".join(reports)[-20000:]
+                result = run_sandboxed(self.root, argv, timeout=remaining)
+            except (OSError, RuntimeError) as exc:
+                raise ToolError(f"{label}: sandbox refused execution: {exc}") from exc
             output = (result.stdout + "\n" + result.stderr).strip()
             reports.append(f"{label}: exit_code={result.returncode}\n{output[-4000:]}")
             if result.returncode:

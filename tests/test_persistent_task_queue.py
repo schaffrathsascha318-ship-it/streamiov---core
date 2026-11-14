@@ -86,7 +86,7 @@ class PersistentTaskQueueTests(unittest.TestCase):
         self.queue.enqueue_plan([SpecialistTask("work", "game", "make original game")])
         seen = []
         class Agent:
-            def run(self, prompt):
+            def run(self, prompt, *, cancel_event=None):
                 seen.append(prompt)
                 return "game build prepared"
         worker = SpecialistWorker(self.queue, "worker", lambda role: Agent() if role == "game" else None)
@@ -99,7 +99,7 @@ class PersistentTaskQueueTests(unittest.TestCase):
         from ai.runtime.task_queue import SpecialistWorker
         self.queue.enqueue_plan([SpecialistTask("work", "testing", "run test")], max_attempts=2)
         class Agent:
-            def run(self, _prompt):
+            def run(self, _prompt, *, cancel_event=None):
                 raise RuntimeError("test failed")
         worker = SpecialistWorker(self.queue, "worker", lambda _role: Agent())
         first = worker.run_once()
@@ -131,6 +131,37 @@ class PersistentTaskQueueTests(unittest.TestCase):
                 with self.assertRaises(TaskQueueError):
                     self.queue.fail(task_id, "worker", "late failure")
 
+    def test_worker_cancels_agent_after_heartbeat_failure(self):
+        import threading
+        from ai.runtime.task_queue import SpecialistWorker
+
+        self.queue.enqueue_plan([SpecialistTask("cancel", "testing", "cancel on lease loss")])
+        heartbeat_failed = threading.Event()
+
+        def failing_heartbeat(*args, **kwargs):
+            heartbeat_failed.set()
+            raise TaskQueueError("simulated lease loss")
+
+        self.queue.heartbeat = failing_heartbeat
+
+        class WaitingAgent:
+            def run(self, _prompt, *, cancel_event=None):
+                self.assert_event = cancel_event
+                if cancel_event is None:
+                    raise AssertionError("cancel_event was not provided")
+                if not cancel_event.wait(6):
+                    raise AssertionError("agent was not cancelled after heartbeat failure")
+                return "cancelled"
+
+        result = SpecialistWorker(
+            self.queue, "worker", lambda _role: WaitingAgent(), lease_seconds=10
+        ).run_once()
+
+        self.assertTrue(heartbeat_failed.is_set())
+        self.assertEqual(result.status, "failed")
+        self.assertIn("lease lost", result.error.lower())
+        self.assertEqual(self.queue.get("cancel").status, "running")
+
     def test_worker_renews_lease_during_a_long_running_agent_call(self):
         import time
         from ai.runtime.task_queue import SpecialistWorker
@@ -142,13 +173,74 @@ class PersistentTaskQueueTests(unittest.TestCase):
             return original_heartbeat(*args, **kwargs)
         self.queue.heartbeat = record_heartbeat
         class SlowAgent:
-            def run(self, _prompt):
+            def run(self, _prompt, *, cancel_event=None):
                 time.sleep(3.5)
                 return "finished after lease renewal"
         result = SpecialistWorker(self.queue, "worker", lambda _role: SlowAgent(), lease_seconds=10).run_once()
         self.assertEqual(result.status, "succeeded")
         self.assertGreaterEqual(len(calls), 1)
 
+
+    def test_worker_passes_multiple_prerequisite_results(self):
+        from ai.runtime.task_queue import SpecialistWorker
+        self.queue.enqueue_plan([
+            SpecialistTask("final", "integration", "integrate everything", ("base-a", "base-b")),
+            SpecialistTask("base-a", "core", "build base A"),
+            SpecialistTask("base-b", "code", "build base B"),
+        ])
+        first = self.queue.claim_next("worker")
+        self.queue.complete(first.task_id, "worker", "RESULT-A: interface ready")
+        second = self.queue.claim_next("worker")
+        self.queue.complete(second.task_id, "worker", "RESULT-B: implementation ready")
+        seen = []
+        class Agent:
+            def run(self, prompt, *, cancel_event=None):
+                seen.append(prompt)
+                return "integration complete"
+        result = SpecialistWorker(self.queue, "worker", lambda _role: Agent()).run_once()
+        self.assertEqual(result.status, "succeeded")
+        self.assertEqual(len(seen), 1)
+        self.assertIn("integrate everything", seen[0])
+        self.assertIn("RESULT-A: interface ready", seen[0])
+        self.assertIn("RESULT-B: implementation ready", seen[0])
+        self.assertIn("UNTRUSTED REFERENCE DATA", seen[0])
+
+    def test_worker_bounds_large_prerequisite_result(self):
+        from ai.runtime.task_queue import SpecialistWorker
+        self.queue.enqueue_plan([
+            SpecialistTask("final", "integration", "integrate", ("base",)),
+            SpecialistTask("base", "core", "prepare base"),
+        ])
+        base = self.queue.claim_next("worker")
+        self.queue.complete(base.task_id, "worker", "X" * 12000)
+        seen = []
+        class Agent:
+            def run(self, prompt, *, cancel_event=None):
+                seen.append(prompt)
+                return "done"
+        result = SpecialistWorker(self.queue, "worker", lambda _role: Agent()).run_once()
+        self.assertEqual(result.status, "succeeded")
+        self.assertIn("[RESULT TRUNCATED]", seen[0])
+        self.assertLess(len(seen[0]), 9000)
+
+    def test_worker_does_not_run_when_prerequisite_result_is_missing(self):
+        from ai.runtime.task_queue import SpecialistWorker
+        self.queue.enqueue_plan([
+            SpecialistTask("final", "integration", "integrate", ("base",)),
+            SpecialistTask("base", "core", "prepare base"),
+        ])
+        base = self.queue.claim_next("worker")
+        self.queue.complete(base.task_id, "worker", "base ready")
+        original_get = self.queue.get
+        self.queue.get = lambda task_id: None if task_id == "base" else original_get(task_id)
+        called = []
+        class Agent:
+            def run(self, prompt, *, cancel_event=None):
+                called.append(prompt)
+                return "should not run"
+        result = SpecialistWorker(self.queue, "worker", lambda _role: Agent()).run_once()
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(called, [])
 
 if __name__ == "__main__":
     unittest.main()

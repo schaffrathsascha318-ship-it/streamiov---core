@@ -1,9 +1,10 @@
 import io
 import json
 import os
+import socket
 import unittest
 from unittest.mock import patch
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 from ai.providers.cloudflare_worker import (
     CloudflareWorkerError,
@@ -166,6 +167,18 @@ class CloudflareWorkerProviderTests(unittest.TestCase):
             with self.assertRaises(CloudflareWorkerError) as caught:
                 self.provider().generate(system="System", messages=[])
         self.assertIn("[redacted]", str(caught.exception))
+        self.assertNotIn(TOKEN, str(caught.exception))
+
+    def test_url_error_reports_sanitized_dns_diagnostic(self):
+        reason = socket.gaierror(-2, "Name or service not known")
+        with patch(
+            "ai.providers.cloudflare_worker.urlopen",
+            side_effect=URLError(reason),
+        ):
+            with self.assertRaises(CloudflareWorkerError) as caught:
+                self.provider().generate(system="System", messages=[])
+
+        self.assertIn("DNS resolution failed", str(caught.exception))
         self.assertNotIn(TOKEN, str(caught.exception))
 
 

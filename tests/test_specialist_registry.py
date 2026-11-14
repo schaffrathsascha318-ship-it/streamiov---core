@@ -33,7 +33,7 @@ class SpecialistRegistryTests(unittest.TestCase):
         from ai.__main__ import build_parser
 
         names = specialist_names()
-        self.assertEqual(len(names), 11)
+        self.assertEqual(len(names), 12)
         self.assertEqual(set(names), set(SPECIALISTS))
         parser_names = set(build_parser()._option_string_actions["--specialist"].choices)
         self.assertEqual(parser_names, set(names))
@@ -50,7 +50,10 @@ class SpecialistRegistryTests(unittest.TestCase):
             for prefix in definition.writable_prefixes:
                 self.assertFalse(prefix.startswith("/"), f"{name} has an absolute scope: {prefix}")
                 self.assertNotIn("..", prefix, f"{name} escapes its scope: {prefix}")
-                self.assertTrue(prefix.endswith("/"), f"{name} scope must be a directory prefix: {prefix}")
+                if prefix == "**":
+                    self.assertEqual(name, "chief", "Only the Chief may have project-wide write scope")
+                else:
+                    self.assertTrue(prefix.endswith("/"), f"{name} scope must be a directory prefix: {prefix}")
 
     def test_specialist_prompt_contains_mission_and_write_scope(self):
         prompt = build_specialist_system_prompt("game", "Base instructions")

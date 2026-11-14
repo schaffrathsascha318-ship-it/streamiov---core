@@ -22,23 +22,19 @@ class AgentResponseParsingTests(unittest.TestCase):
         with self.assertRaises(json.JSONDecodeError):
             _parse_action('Here is the JSON:\n```json\n{"final":"ok"}\n```')
 
-    def test_parses_multiple_adjacent_json_actions(self):
+    def test_rejects_multiple_adjacent_json_actions(self):
         raw = (
             '{"tool":"read_file","arguments":{"path":"ai/core/agent.py"}}'
             '{"tool":"read_file","arguments":{"path":"ai/runtime/project_tools.py"}}'
             '{"tool":"read_file","arguments":{"path":"tests/test_cloudflare_worker_provider.py"}}'
         )
-        actions = _parse_actions(raw)
-        self.assertEqual(len(actions), 3)
-        self.assertEqual([item["arguments"]["path"] for item in actions], [
-            "ai/core/agent.py",
-            "ai/runtime/project_tools.py",
-            "tests/test_cloudflare_worker_provider.py",
-        ])
+        with self.assertRaises(ValueError):
+            _parse_actions(raw)
 
-    def test_parses_multiple_actions_inside_json_fence(self):
+    def test_rejects_multiple_actions_inside_json_fence(self):
         raw = '```json\n{"tool":"read_file","arguments":{"path":"a.py"}}\n{"tool":"read_file","arguments":{"path":"b.py"}}\n```'
-        self.assertEqual(len(_parse_actions(raw)), 2)
+        with self.assertRaises(ValueError):
+            _parse_actions(raw)
 
     def test_rejects_prose_after_multiple_json_actions(self):
         raw = '{"tool":"read_file","arguments":{"path":"a.py"}} done'

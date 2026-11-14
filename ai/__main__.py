@@ -61,12 +61,20 @@ def build_parser() -> argparse.ArgumentParser:
         default=12,
         help="Maximum model/tool turns (1–30, default: 12).",
     )
+    parser.add_argument(
+        "--max-read-actions",
+        type=int,
+        default=6,
+        help="Maximum file-reading actions per task (0–30, default: 6).",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if not 0 <= args.max_read_actions <= 30:
+        parser.error("--max-read-actions must be between 0 and 30")
     if args.enqueue:
         if not args.task or not args.queue_db or args.doctor:
             parser.error("--enqueue requires --task and --queue-db and cannot be combined with --doctor")
@@ -110,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
                     provider=provider_from_env(),
                     project_root=Path(args.project_root),
                     max_steps=args.max_steps,
+                    max_read_actions=args.max_read_actions,
                     specialist=role,
                     learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
                 ),
@@ -134,7 +143,9 @@ def main(argv: list[str] | None = None) -> int:
                     provider=provider_from_env(),
                     project_root=Path(args.project_root),
                     max_steps=args.max_steps,
+                    max_read_actions=args.max_read_actions,
                     specialist=role,
+                    learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
                 ),
             )
             stop_event = threading.Event()
@@ -163,6 +174,7 @@ def main(argv: list[str] | None = None) -> int:
             provider=provider,
             project_root=Path(args.project_root),
             max_steps=args.max_steps,
+            max_read_actions=args.max_read_actions,
             specialist=args.specialist,
             learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
         )

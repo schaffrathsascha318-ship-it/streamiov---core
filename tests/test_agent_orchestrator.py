@@ -30,6 +30,22 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(calls[0], ("core", "define shared contract"))
         self.assertIn(("game", "build independent game"), calls)
 
+    def test_dependent_task_receives_predecessor_result_as_untrusted_context(self):
+        calls = []
+        orchestrator = TaskOrchestrator(lambda role: FakeAgent(role, calls))
+        results = orchestrator.run([
+            SpecialistTask("foundation", "core", "define contract"),
+            SpecialistTask("consumer", "studio", "implement using the contract", ("foundation",)),
+        ])
+        self.assertEqual([item.status for item in results], ["succeeded", "succeeded"])
+        consumer_prompt = calls[1][1]
+        self.assertIn("implement using the contract", consumer_prompt)
+        self.assertIn("PREREQUISITE foundation:", consumer_prompt)
+        self.assertIn("\n\nPREREQUISITE RESULTS", consumer_prompt)
+        self.assertNotIn("\\n", consumer_prompt)
+        self.assertIn("core: define contract", consumer_prompt)
+        self.assertIn("UNTRUSTED REFERENCE DATA", consumer_prompt)
+
     def test_failed_dependency_skips_only_its_dependants(self):
         calls = []
         orchestrator = TaskOrchestrator(lambda role: FakeAgent(role, calls, {"fail core"}))

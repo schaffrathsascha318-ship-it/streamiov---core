@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
@@ -182,7 +183,30 @@ class CloudflareWorkersAIProvider:
                 raise CloudflareWorkerError("Cloudflare Workers AI daily free allocation may be exhausted (429)." + suffix, reachable=True) from exc
             raise CloudflareWorkerError(f"Streamiov AI Worker request failed (HTTP {status})." + suffix, reachable=True) from exc
         except (URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
-            raise CloudflareWorkerError(f"Streamiov AI Worker request failed: {type(exc).__name__}.") from exc
+            detail = ""
+            if isinstance(exc, URLError):
+                reason = exc.reason
+                if isinstance(reason, socket.gaierror):
+                    detail = "DNS resolution failed"
+                elif isinstance(reason, (TimeoutError, socket.timeout)):
+                    detail = "connection timed out"
+                elif isinstance(reason, ConnectionRefusedError):
+                    detail = "connection refused"
+                elif isinstance(reason, OSError):
+                    safe_reason = " ".join(str(reason).split())
+                    safe_reason = safe_reason.replace(self.token, "[redacted]")
+                    detail = f"{type(reason).__name__}: {safe_reason[:180]}"
+                elif isinstance(reason, str):
+                    safe_reason = " ".join(reason.split())
+                    safe_reason = safe_reason.replace(self.token, "[redacted]")
+                    detail = safe_reason[:180]
+                else:
+                    detail = type(reason).__name__
+
+            suffix = f" ({detail})" if detail else ""
+            raise CloudflareWorkerError(
+                f"Streamiov AI Worker request failed: {type(exc).__name__}{suffix}."
+            ) from exc
         if not isinstance(result, dict):
             raise CloudflareWorkerError("Streamiov AI Worker response must be a JSON object.")
         if "error" in result:
