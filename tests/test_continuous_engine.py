@@ -40,6 +40,35 @@ class MissionEngineTests(unittest.TestCase):
             lease_seconds=10, **kwargs,
         )
 
+    def test_progress_context_stays_within_provider_budget_and_keeps_latest_outcomes(self):
+        engine = self.make_engine(SequencePlanner([]), lambda _role: None)
+        mission_id = engine.create_mission("Keep planning requests bounded")
+        with sqlite3.connect(self.db) as db:
+            db.execute(
+                "UPDATE development_missions SET summary=? WHERE mission_id=?",
+                ("S" * 10_000, mission_id),
+            )
+            for index in range(30):
+                db.execute(
+                    """
+                    INSERT INTO development_mission_tasks
+                    (task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
+                     result,last_error,available_at,worker_id,lease_until,created_at,updated_at)
+                    VALUES(?,?,?,?,?,'[]','succeeded',1,?,'',?,'',NULL,?,?)
+                    """,
+                    (
+                        f"{mission_id}:1:task-{index}", mission_id, 1, "code",
+                        "implement a bounded task", "x" * 1200 + f" task-result-{index}",
+                        0, float(index), float(index),
+                    ),
+                )
+
+        context = engine._progress_context(mission_id)
+        self.assertLessEqual(len(context), 18_000)
+        self.assertIn("task-result-29", context)
+        self.assertNotIn("task-result-0", context)
+        self.assertTrue(context.startswith("S" * 3_000))
+
     def test_model_planner_assigns_distinct_work_to_all_eleven_specialists(self):
         roles = ["code", "studio", "music", "tts", "events", "homepage", "server", "research", "game", "gifts", "testing"]
 
