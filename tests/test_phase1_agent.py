@@ -173,6 +173,28 @@ class AgentTests(unittest.TestCase):
             Path(tmp, "README.md").write_text("Streamiov")
             p = FakeProvider(['{"tool":"read_file","arguments":{"path":"README.md"}}', '{"final":"Read complete."}'])
             self.assertEqual(DevelopmentAgent(p, tmp).run("Inspect README"), "Read complete.")
+    def test_cancel_event_stops_before_the_next_tool_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cancel = threading.Event()
+            provider = FakeProvider([
+                '{"tool":"write_file","arguments":{"path":"ai/first.py","content":"first = True"}}'
+                '{"tool":"write_file","arguments":{"path":"ai/second.py","content":"second = True"}}'
+            ])
+            agent = DevelopmentAgent(provider, tmp)
+            original_write = agent.tools.write_file
+
+            def write_and_cancel(path, content):
+                result = original_write(path, content)
+                cancel.set()
+                return result
+
+            agent.tools.write_file = write_and_cancel
+            with self.assertRaisesRegex(AgentError, "worker lease was lost"):
+                agent.run("Create two files", cancel_event=cancel)
+
+            self.assertTrue(Path(tmp, "ai/first.py").exists())
+            self.assertFalse(Path(tmp, "ai/second.py").exists())
+
     def test_agent_continues_beyond_thirty_model_tool_turns(self):
         class CountingProvider(FakeProvider):
             def __init__(self, outputs):
