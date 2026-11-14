@@ -12,6 +12,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  checks: read
   contents: write
   issues: write
   pull-requests: write
@@ -20,7 +21,7 @@ jobs:
   agent:
     if: github.event_name != 'issues' || github.event.label.name == 'agent-ready'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - name: Checkout trusted default-branch code
         uses: actions/checkout@v5
@@ -255,7 +256,17 @@ jobs:
           if [[ "$TESTS_PASSED" == "true" && "${MISSION_STATUS:-active}" == "completed" ]]; then
             if [[ -n "$pr_number" ]]; then
               gh pr ready "$pr_number" || true
-              gh pr merge "$pr_number" --auto --squash
+              if timeout --preserve-status --signal=INT --kill-after=30s 15m gh pr checks "$pr_number" --watch --fail-fast; then
+                checks_json="$(gh pr checks "$pr_number" --json name,state)"
+                check_count="$(jq 'length' <<< "$checks_json")"
+                if [[ "$check_count" -gt 0 ]] && jq -e 'all(.[]; .state == "SUCCESS")' <<< "$checks_json" >/dev/null; then
+                  gh pr merge "$pr_number" --squash
+                else
+                  echo "::warning::No complete set of successful GitHub checks was reported; the pull request remains open."
+                fi
+              else
+                echo "::warning::GitHub checks did not all pass within the wait window; the pull request remains open."
+              fi
             fi
           fi
 
