@@ -12,6 +12,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  actions: write
   checks: read
   contents: write
   issues: write
@@ -251,6 +252,26 @@ jobs:
           - Completed work is eligible for automatic integration only after independent acceptance checks and all required GitHub checks pass.
 
           Production deployment is handled by the repository's trusted deployment pipeline. Secrets, identity/OAuth boundaries, central permission enforcement, and paid-resource activation are not self-modifiable."
+          fi
+
+          if [[ -z "$pr_number" ]]; then
+            pr_number="$(gh pr list --state open --head "$branch" --json number --jq '.[0].number // empty')"
+          fi
+
+          if [[ -n "$pr_number" ]]; then
+            # GITHUB_TOKEN pushes do not trigger other workflows. Dispatch the
+            # trusted checks explicitly against the saved branch before merging.
+            if ! gh workflow run phase-1-agent-tests.yml --ref "$branch"; then
+              echo "::warning::Could not dispatch Phase 1 agent tests."
+            fi
+            if ! gh workflow run secret-scanning.yml --ref "$branch"; then
+              echo "::warning::Could not dispatch secret scanning."
+            fi
+            app_version="$(node -p "require('./dist/streamiov-studio-app/package.json').version")"
+            if ! gh workflow run studio-build.yml --ref "$branch" \
+              -f publish_release=false -f release_version="$app_version" -f prerelease=false; then
+              echo "::warning::Could not dispatch Studio platform builds."
+            fi
           fi
 
           if [[ "$TESTS_PASSED" == "true" && "${MISSION_STATUS:-active}" == "completed" ]]; then
