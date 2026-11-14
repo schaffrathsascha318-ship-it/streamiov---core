@@ -169,7 +169,7 @@ jobs:
           for path in "${changed[@]}"; do
             lower="${path,,}"
             case "$lower" in
-              .github/*|scripts/autonomous/*|scripts/ai/*|.git/*|*/.git/*|.wrangler/*|*/.wrangler/*|node_modules/*|*/node_modules/*|__pycache__/*|*/__pycache__/*|.ssh/*|*/.ssh/*|ai/__main__.py|ai/core/agent.py|ai/runtime/continuous_engine.py|ai/runtime/project_tools.py|ai/providers/*|ai/security/*|ai/*permissions*|ai/runtime/*permissions*|*wrangler.jsonc|*wrangler.toml|*.pem|*.key|*.p12|*.pfx|.env*|*/.env*|*secret*|*credential*|*oauth*|*access-token*|*refresh-token*)
+              .github/*|scripts/autonomous/*|scripts/ai/*|.git/*|*/.git/*|.wrangler/*|*/.wrangler/*|node_modules/*|*/node_modules/*|__pycache__/*|*/__pycache__/*|.ssh/*|*/.ssh/*|ai/__main__.py|ai/runtime/project_tools.py|ai/security/*|ai/*permissions*|ai/runtime/*permissions*|*wrangler.jsonc|*wrangler.toml|*.pem|*.key|*.p12|*.pfx|.env*|*/.env*|*secret*|*credential*|*oauth*|*access-token*|*refresh-token*)
                 echo "::error::Protected control-plane or sensitive path changed: $path"
                 exit 1
                 ;;
