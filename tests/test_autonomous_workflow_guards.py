@@ -32,6 +32,15 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
         self.assertNotIn("ai/runtime/continuous_engine.py", source)
         self.assertNotIn("ai/providers/*", source)
 
+    def test_mission_database_is_persisted_between_runs_with_private_artifacts(self):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("actions/upload-artifact@v4", source)
+        self.assertIn("gh run download", source)
+        self.assertIn("actions/workflows/autonomous-development.yml/runs", source)
+        self.assertIn("retention-days: 90", source)
+        self.assertNotIn("actions/cache/save@", source)
+        self.assertNotIn("actions/cache/restore@", source)
+
     def test_ci_rejects_sensitive_files_and_symlink_changes(self):
         source = WORKFLOW.read_text(encoding="utf-8")
         for pattern in ("*.pem", "*.key", "*.p12", "*.pfx", ".env*", ".ssh/*", "wrangler.jsonc", "wrangler.toml"):
