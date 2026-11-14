@@ -107,6 +107,7 @@ jobs:
         if: steps.pick.outputs.issue_number != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STREAMIOV_AI_WORKER_TOKEN: ${{ secrets.STREAMIOV_AI_WORKER_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -117,7 +118,14 @@ jobs:
           while IFS= read -r previous_run; do
             [[ -z "$previous_run" || "$previous_run" == "$GITHUB_RUN_ID" ]] && continue
             if gh run download "$previous_run" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir "$RUNNER_TEMP/streamiov-ai-missions" >/dev/null 2>&1; then
-              echo "Restored durable mission state from workflow run $previous_run."
+              if [[ ! -f "$RUNNER_TEMP/streamiov-ai-missions/mission-state.enc" ]]; then
+                echo "::error::Mission artifact is missing its encrypted state envelope."
+                exit 1
+              fi
+              node scripts/autonomous/mission-state-crypto.mjs decrypt \
+                "$RUNNER_TEMP/streamiov-ai-missions/mission-state.enc" \
+                "$RUNNER_TEMP/streamiov-ai-missions/missions.sqlite3"
+              echo "Restored and authenticated encrypted mission state from workflow run $previous_run."
               restored=true
               break
             fi
@@ -155,12 +163,46 @@ jobs:
           set -euo pipefail
           timeout --preserve-status --signal=INT --kill-after=90s 18m python scripts/autonomous/run_issue.py
 
+      - name: Checkpoint and encrypt durable AI Chief mission state
+        if: always() && steps.pick.outputs.issue_number != '' && steps.mission.outcome != 'skipped'
+        env:
+          STREAMIOV_AI_WORKER_TOKEN: ${{ secrets.STREAMIOV_AI_WORKER_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          database="$RUNNER_TEMP/streamiov-ai-missions/missions.sqlite3"
+          if [[ ! -f "$database" ]]; then
+            echo "No mission database was created in this runner slice."
+            exit 0
+          fi
+          python - "$database" <<'PY'
+          import os
+          import sqlite3
+          import sys
+
+          database = sys.argv[1]
+          connection = sqlite3.connect(database)
+          result = connection.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+          connection.close()
+          if result is None or result[0] != 0:
+              raise SystemExit("Mission database WAL checkpoint did not complete cleanly.")
+          wal = database + "-wal"
+          if os.path.exists(wal) and os.path.getsize(wal) > 0:
+              raise SystemExit("Mission database still has uncheckpointed WAL data.")
+          for suffix in ("-wal", "-shm"):
+              path = database + suffix
+              if os.path.exists(path):
+                  os.unlink(path)
+          PY
+          node scripts/autonomous/mission-state-crypto.mjs encrypt \
+            "$database" "$RUNNER_TEMP/streamiov-ai-missions/mission-state.enc"
+
       - name: Save durable AI Chief mission state
         if: always() && steps.pick.outputs.issue_number != '' && steps.mission.outcome != 'skipped'
         uses: actions/upload-artifact@v4
         with:
           name: streamiov-ai-missions-${{ steps.pick.outputs.issue_number }}
-          path: ${{ runner.temp }}/streamiov-ai-missions/
+          path: ${{ runner.temp }}/streamiov-ai-missions/mission-state.enc
           if-no-files-found: warn
           retention-days: 90
 
