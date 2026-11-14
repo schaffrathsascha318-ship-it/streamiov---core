@@ -44,7 +44,7 @@ jobs:
       - name: Check AI Chief service scripts syntax
         run: bash -n scripts/ai/run-chief-mission.sh scripts/ai/install-user-service.sh
       - name: Run Cloudflare AI Worker tests
-        run: node --test tests/test_cloudflare_ai_worker.mjs
+        run: node --test tests/test_cloudflare_ai_worker.mjs tests/mission-state-crypto.test.mjs
       - name: Check autonomous runner Python syntax
         run: python -m py_compile scripts/autonomous/run_issue.py
       - name: Compile all AI Python modules
