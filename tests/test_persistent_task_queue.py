@@ -116,20 +116,16 @@ class PersistentTaskQueueTests(unittest.TestCase):
             SpecialistTask("complete", "testing", "complete"),
             SpecialistTask("fail", "testing", "fail"),
         ])
-        for task_id in ("heartbeat", "complete", "fail"):
-            task = self.queue.claim_next("worker")
-            self.assertEqual(task.task_id, task_id)
-            with self.queue._connection() as connection:
-                connection.execute("UPDATE specialist_tasks SET lease_until=0 WHERE task_id=?", (task_id,))
-            if task_id == "heartbeat":
-                with self.assertRaises(TaskQueueError):
-                    self.queue.heartbeat(task_id, "worker")
-            elif task_id == "complete":
-                with self.assertRaises(TaskQueueError):
-                    self.queue.complete(task_id, "worker", "late result")
-            else:
-                with self.assertRaises(TaskQueueError):
-                    self.queue.fail(task_id, "worker", "late failure")
+        claimed = [self.queue.claim_next("worker") for _ in range(3)]
+        self.assertEqual([task.task_id for task in claimed], ["heartbeat", "complete", "fail"])
+        with self.queue._connection() as connection:
+            connection.execute("UPDATE specialist_tasks SET lease_until=0 WHERE task_id IN ('heartbeat','complete','fail')")
+        with self.assertRaises(TaskQueueError):
+            self.queue.heartbeat("heartbeat", "worker")
+        with self.assertRaises(TaskQueueError):
+            self.queue.complete("complete", "worker", "late result")
+        with self.assertRaises(TaskQueueError):
+            self.queue.fail("fail", "worker", "late failure")
 
     def test_expired_lease_requeues_without_spending_the_retry_budget(self):
         self.queue.enqueue_plan([SpecialistTask("resume", "code", "resume from checkpoint")], max_attempts=1)
