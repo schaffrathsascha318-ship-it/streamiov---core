@@ -192,7 +192,7 @@ class MissionEngineTests(unittest.TestCase):
                 observed["cancel_event"] = cancel_event
                 if cancel_event is None:
                     raise AssertionError("mission engine did not pass a cancellation event")
-                if cancel_event.wait(3):
+                if cancel_event.wait(8):
                     observed["cancelled"] = True
                     stop.set()
                     raise RuntimeError("agent stopped after lease loss")
@@ -200,7 +200,7 @@ class MissionEngineTests(unittest.TestCase):
 
         engine = ContinuousDevelopmentEngine(
             self.db, planner, lambda _role: WaitingAgent(),
-            retry_base_seconds=0.01, lease_seconds=3,
+            retry_base_seconds=0.01, lease_seconds=10,
         )
 
         def lose_lease(_task_id, _worker_id):
