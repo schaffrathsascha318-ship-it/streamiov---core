@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import inspect
 import threading
 from typing import Callable
 
@@ -15,12 +16,16 @@ def run_worker_loop(worker, stop_event: threading.Event, *, poll_seconds: int = 
     processed = 0
     had_failure = False
     while not stop_event.is_set() and (max_tasks == 0 or processed < max_tasks):
-        execution = worker.run_once()
+        run_parameters = inspect.signature(worker.run_once).parameters
+        if "stop_event" in run_parameters:
+            execution = worker.run_once(stop_event=stop_event)
+        else:
+            execution = worker.run_once()
         if execution is None:
             stop_event.wait(poll_seconds)
             continue
         processed += 1
-        if execution.status != "succeeded":
+        if execution.status == "failed":
             had_failure = True
         emit(json.dumps({
             "task_id": execution.task_id,
