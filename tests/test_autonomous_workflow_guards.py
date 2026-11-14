@@ -27,6 +27,13 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
             "*oauth*",
             "*credential*",
             "*secret*",
+            "*auth.json",
+            "*oauth.json",
+            "*token.json",
+            "*tokens.json",
+            "*credentials.json",
+            "*client_secret.json",
+            "*tiktok-oauth.js",
         )
         for pattern in required:
             with self.subTest(pattern=pattern):
