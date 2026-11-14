@@ -159,7 +159,7 @@ class PersistentTaskQueueTests(unittest.TestCase):
             def generate(self, **_kwargs):
                 self.calls += 1
                 if self.calls == 1:
-                    return Reply('{"tool":"write_file","arguments":{"path":"ai/resumed.py","content":"value = 9\\\\n"}}')
+                    return Reply('{"tool":"write_file","arguments":{"path":"ai/resumed.py","content":"value = 9"}}')
                 raise RuntimeError("simulated process interruption")
 
         class FinishingProvider:
@@ -182,7 +182,7 @@ class PersistentTaskQueueTests(unittest.TestCase):
         worker = SpecialistWorker(self.queue, "worker", agent_factory)
         first = worker.run_once()
         self.assertEqual(first.status, "queued")
-        self.assertEqual(target.read_text(encoding="utf-8"), "value = 9\\n")
+        self.assertEqual(target.read_text(encoding="utf-8"), "value = 9")
 
         second = worker.run_once()
         self.assertEqual(second.status, "succeeded")
