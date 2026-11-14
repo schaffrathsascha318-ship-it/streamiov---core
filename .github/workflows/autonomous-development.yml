@@ -224,7 +224,7 @@ jobs:
 
           pr_number="$(gh pr list --state open --head "$branch" --json number --jq '.[0].number // empty')"
           if [[ -z "$pr_number" ]]; then
-            gh pr create --base main --head "$branch" \
+            gh pr create --draft --base main --head "$branch" \
               --title "STREAMIOV AI Chief – continuous development" \
               --body "## Persistent autonomous development checkpoint
 
