@@ -106,7 +106,9 @@ class MissionEngineTests(unittest.TestCase):
                 SpecialistTask("retry", "code", "retry this task"),
             )),
         ])
-        engine = self.make_engine(planner, lambda _role: None)
+        engine = ContinuousDevelopmentEngine(
+            self.db, planner, lambda _role: None, retry_base_seconds=5.0, lease_seconds=10,
+        )
         mission_id = engine.create_mission("Keep retrying without a hard attempt ceiling")
         engine._claim_planning(mission_id, "planner")
         engine._store_plan(mission_id, "planner", 1, planner.plans[0])
