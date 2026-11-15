@@ -131,6 +131,7 @@ def main() -> int:
                 project_root=REPOSITORY_ROOT,
                 specialist=role,
                 checkpoint_db=database,
+                full_project_development=True,
             ),
         )
         try:
