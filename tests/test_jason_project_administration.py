@@ -41,14 +41,14 @@ class JasonProjectAdministratorTests(unittest.TestCase):
                     summary TEXT, created_at REAL, updated_at REAL
                 );
                 CREATE TABLE development_mission_tasks (
-                    task_id TEXT PRIMARY KEY, mission_id TEXT, status TEXT
+                    task_id TEXT PRIMARY KEY, mission_id TEXT, specialist TEXT, status TEXT
                 );
                 INSERT INTO development_missions VALUES
                     ('mission-1', 'Complete Streamiov', 'active', 4, 'Working', 1, 2);
                 INSERT INTO development_mission_tasks VALUES
-                    ('task-1', 'mission-1', 'succeeded');
+                    ('task-1', 'mission-1', 'testing', 'succeeded');
                 INSERT INTO development_mission_tasks VALUES
-                    ('task-2', 'mission-1', 'queued');
+                    ('task-2', 'mission-1', 'studio', 'queued');
             """)
         with sqlite3.connect(self.queue) as db:
             db.executescript("""
