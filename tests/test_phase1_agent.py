@@ -319,11 +319,35 @@ class AgentTests(unittest.TestCase):
             ])
             self.assertEqual(DevelopmentAgent(p, tmp).run("Change value"), "Updated the file.")
             self.assertEqual(target.read_text(encoding="utf-8"), "value = 2\n")
-    def test_invalid_json_gets_one_format_retry(self):
+    def test_invalid_json_gets_one_format_retry_with_original_output_context(self):
         with tempfile.TemporaryDirectory() as tmp:
-            provider = FakeProvider(["not json", '{"final":"Recovered safely."}'])
+            class CapturingProvider(FakeProvider):
+                def __init__(self, replies):
+                    super().__init__(replies)
+                    self.calls = []
+                def generate(self, **kwargs):
+                    self.calls.append(kwargs["messages"])
+                    return super().generate(**kwargs)
+
+            provider = CapturingProvider(["not json", '{"final":"Recovered safely."}'])
             result = DevelopmentAgent(provider, tmp).run("Do task")
             self.assertEqual(result, "Recovered safely.")
+            correction_context = provider.calls[1]
+            self.assertTrue(any(
+                message["role"] == "assistant" and message["content"] == "not json"
+                for message in correction_context
+            ))
+            self.assertIn("untrusted", correction_context[-1]["content"].lower())
+
+    def test_format_correction_retries_again_after_durable_task_resume(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint_db = Path(tmp, "missions.sqlite3")
+            provider = FakeProvider(["not json", "still not json", '{"final":"Recovered on resumed attempt."}'])
+            agent = DevelopmentAgent(provider, tmp, checkpoint_db=checkpoint_db)
+            with self.assertRaises(AgentError):
+                agent.run("Do task", checkpoint_id="format-recovery")
+            result = agent.run("Do task", checkpoint_id="format-recovery")
+            self.assertEqual(result, "Recovered on resumed attempt.")
 
     def test_invalid_json_still_fails_closed_after_retry(self):
         with tempfile.TemporaryDirectory() as tmp:
