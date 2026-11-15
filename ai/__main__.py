@@ -19,6 +19,7 @@ from ai.runtime.continuous_engine import ContinuousDevelopmentEngine, ModelMissi
 from ai.core.orchestrator import SpecialistTask
 from ai.core.planner import PlannerError, SpecialistPlanner
 from ai.specialists import specialist_names
+from ai.management.jason import JasonProjectAdministrator
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -47,6 +48,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Select the least-privilege STREAMIOV AI specialist role (default: code).",
     )
     parser.add_argument("--queue-db", help="SQLite path for the persistent specialist task queue.")
+    parser.add_argument("--jason-status", action="store_true", help="Show Jason read-only project, mission, and specialist overview.")
+    parser.add_argument("--jason-mission-db", default=".streamiov/ai-missions.sqlite3", help="Mission database inspected by Jason.")
+    parser.add_argument("--jason-queue-db", default=".streamiov/specialist-queue.sqlite3", help="Specialist queue database inspected by Jason.")
     parser.add_argument("--learning-db", help="Optional SQLite path for retrieval of test-verified lessons.")
     mission_mode = parser.add_mutually_exclusive_group()
     mission_mode.add_argument("--mission-create", action="store_true", help="Create a persistent development mission from --task.")
@@ -76,6 +80,26 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.jason_status:
+        incompatible = (
+            args.task or args.doctor or args.mission_create or args.mission_run
+            or args.mission_status or args.enqueue or args.plan_and_enqueue
+            or args.worker_once or args.worker_loop or args.allow_self_modification
+            or args.full_project_development
+        )
+        if incompatible:
+            parser.error("--jason-status cannot be combined with task, doctor, mission, worker, or development modes")
+        try:
+            administrator = JasonProjectAdministrator(
+                args.project_root,
+                mission_db=args.jason_mission_db,
+                queue_db=args.jason_queue_db,
+            )
+            print(administrator.render_json())
+            return 0
+        except (OSError, ValueError, sqlite3.Error) as exc:
+            print(f"streamiov-jason: {type(exc).__name__}: {exc}", file=sys.stderr)
+            return 2
     if (args.allow_self_modification or args.full_project_development) and not args.mission_run:
         parser.error("--allow-self-modification and --full-project-development are valid only with --mission-run")
     if args.full_project_development:
