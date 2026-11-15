@@ -2,9 +2,12 @@ import json
 import sqlite3
 import tempfile
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 
 from ai.management.jason import JasonProjectAdministrator, JasonAdministrationError
+from ai.__main__ import main
 
 
 class JasonProjectAdministratorTests(unittest.TestCase):
@@ -93,6 +96,20 @@ class JasonProjectAdministratorTests(unittest.TestCase):
             JasonProjectAdministrator(
                 self.root / "missing", mission_db=self.missions, queue_db=self.queue
             )
+
+    def test_cli_exposes_jason_status_as_json(self):
+        output = StringIO()
+        with redirect_stdout(output):
+            code = main([
+                "--jason-status",
+                "--project-root", str(self.root),
+                "--jason-mission-db", str(self.missions),
+                "--jason-queue-db", str(self.queue),
+            ])
+        self.assertEqual(code, 0)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["administrator"], "Jason")
+        self.assertEqual(payload["specialist_count"], 11)
 
 
 if __name__ == "__main__":
