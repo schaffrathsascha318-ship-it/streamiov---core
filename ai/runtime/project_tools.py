@@ -19,7 +19,6 @@ PROTECTED_WRITE_PREFIXES = (
     ".github/workflows/",
     ".github/actions/",
     "scripts/autonomous/",
-    "ai/providers/",
 )
 PROTECTED_WRITE_FILES = {
     "ai/__main__.py",
@@ -47,11 +46,13 @@ class ProjectTools:
         *,
         allow_game_checks: bool = False,
         allow_self_modification: bool = False,
+        full_project_development: bool = False,
     ) -> None:
         self.root = Path(root).resolve()
-        self.writable_prefixes = writable_prefixes
+        self.writable_prefixes = ("*",) if full_project_development else writable_prefixes
         self.allow_game_checks = allow_game_checks
-        self.allow_self_modification = allow_self_modification
+        self.allow_self_modification = allow_self_modification or full_project_development
+        self.full_project_development = full_project_development
 
     def _is_protected_relative(self, relative: str) -> bool:
         rel = PurePosixPath(relative)
