@@ -76,6 +76,7 @@ class JasonProjectAdministratorTests(unittest.TestCase):
         admin = JasonProjectAdministrator(self.root, mission_db=self.missions, queue_db=self.queue)
         snapshot = json.loads(admin.render_json())
         self.assertTrue(snapshot["authority"]["may_track_and_report"])
+        self.assertFalse(snapshot["authority"]["may_assign_and_coordinate"])
         self.assertFalse(snapshot["authority"]["may_override_chief_technical_decisions"])
         self.assertFalse(snapshot["authority"]["may_deploy_or_change_production"])
         self.assertFalse(snapshot["authority"]["may_access_secrets_or_credentials"])
