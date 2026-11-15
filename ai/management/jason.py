@@ -60,7 +60,7 @@ class JasonProjectAdministrator:
         self.queue_db = Path(queue_db)
 
     def _mission_overview(self) -> dict:
-        result = {"database": str(self.mission_db), "available": False, "missions": []}
+        result = {"database": str(self.mission_db), "available": False, "missions": [], "assignments": []}
         connection = _read_only_connection(self.mission_db)
         if connection is None:
             return result
@@ -72,6 +72,16 @@ class JasonProjectAdministrator:
                 """SELECT mission_id, goal, status, cycle, summary, created_at, updated_at
                    FROM development_missions ORDER BY updated_at DESC, mission_id"""
             ).fetchall()
+            if _table_exists(connection, "development_mission_tasks"):
+                assignment_rows = connection.execute(
+                    """SELECT specialist, status, COUNT(*) AS amount
+                       FROM development_mission_tasks
+                       GROUP BY specialist, status ORDER BY specialist, status"""
+                ).fetchall()
+                result["assignments"] = [
+                    {"specialist": item["specialist"], "status": item["status"], "count": item["amount"]}
+                    for item in assignment_rows
+                ]
             for row in rows:
                 counts = {"queued": 0, "running": 0, "succeeded": 0}
                 if _table_exists(connection, "development_mission_tasks"):
@@ -130,12 +140,15 @@ class JasonProjectAdministrator:
         blockers = []
         if not missions["available"]:
             blockers.append("No persistent Chief mission database found; mission progress is not yet observable.")
-        if not queue["available"]:
-            blockers.append("No specialist task queue database found; queued assignments are not yet observable.")
+        if not queue["available"] and not missions["assignments"]:
+            blockers.append("No specialist assignments found in the configured mission or queue database.")
         active_missions = [item for item in missions["missions"] if item["status"] == "active"]
-        failed_queue = [item for item in queue["assignments"] if item["status"] == "failed"]
+        failed_queue = [
+            item for item in [*missions["assignments"], *queue["assignments"]]
+            if item["status"] == "failed"
+        ]
         if failed_queue:
-            blockers.append("One or more specialist queue assignments are marked failed.")
+            blockers.append("One or more specialist assignments are marked failed.")
         return {
             "administrator": "Jason",
             "role": "Read-only project portfolio overview, mission tracking, and blocker reporting",
