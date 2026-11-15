@@ -21,6 +21,17 @@ class FakeProvider:
             def __init__(self, content): self.content = content
         return Reply(next(self.outputs))
 
+class MissionSelfModificationFlagTests(unittest.TestCase):
+    def test_self_modification_requires_explicit_mission_run_flag(self):
+        parser = build_parser()
+        with self.assertRaises(SystemExit):
+            parser.parse_args(["--mission-create", "--task", "test", "--allow-self-modification"])
+        args = parser.parse_args(["--mission-run", "mission-123", "--allow-self-modification"])
+        self.assertTrue(args.allow_self_modification)
+        args = parser.parse_args(["--mission-run", "mission-123"])
+        self.assertFalse(args.allow_self_modification)
+
+
 class ProviderTests(unittest.TestCase):
     def test_loopback_only(self):
         self.assertEqual(_local_url("http://127.0.0.1:11434/"), "http://127.0.0.1:11434")
