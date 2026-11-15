@@ -54,6 +54,7 @@ def build_parser() -> argparse.ArgumentParser:
     mission_mode.add_argument("--mission-status", metavar="MISSION_ID", help="Show persisted mission status.")
     parser.add_argument("--mission-db", default=".streamiov/ai-missions.sqlite3", help="Persistent mission SQLite database.")
     parser.add_argument("--allow-self-modification", action="store_true", help="Explicitly allow a persistent mission to edit the four Chief core files on this development worktree.")
+    parser.add_argument("--full-project-development", action="store_true", help="Explicitly allow a persistent mission to edit project source across the repository, including the Chief and AI providers; secrets, GitHub workflows, autonomous runner controls, and deployment configuration remain protected.")
     parser.add_argument("--mission-poll-seconds", type=float, default=5.0, help="Idle wait while retries or another worker are pending.")
     queue_mode = parser.add_mutually_exclusive_group()
     queue_mode.add_argument("--enqueue", action="store_true", help="Queue --task for the selected specialist instead of running immediately.")
@@ -75,8 +76,10 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.allow_self_modification and not args.mission_run:
-        parser.error("--allow-self-modification is valid only with --mission-run")
+    if (args.allow_self_modification or args.full_project_development) and not args.mission_run:
+        parser.error("--allow-self-modification and --full-project-development are valid only with --mission-run")
+    if args.full_project_development:
+        args.allow_self_modification = True
     if args.mission_create:
         if not args.task or args.doctor or args.enqueue or args.plan_and_enqueue or args.worker_once or args.worker_loop:
             parser.error("--mission-create requires --task and cannot be combined with other execution modes")
@@ -122,6 +125,7 @@ def main(argv: list[str] | None = None) -> int:
                     learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
                     checkpoint_db=args.mission_db,
                     allow_self_modification=args.allow_self_modification,
+                    full_project_development=args.full_project_development,
                 ),
             )
             if args.mission_create:
