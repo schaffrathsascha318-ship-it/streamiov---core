@@ -31,18 +31,41 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("highest-value unblocked work", policy)
         self.assertIn("reassess the roadmap", policy)
 
-    def test_agent_runtime_providers_and_permission_guard_are_protected(self):
+    def test_control_plane_and_security_guards_remain_protected(self):
         workflow = (ROOT / ".github" / "workflows" / "autonomous-development.yml").read_text(encoding="utf-8")
         guard = next(
             line for line in workflow.splitlines()
             if ".github/*|scripts/autonomous/" in line
         )
-        self.assertIn("ai/core/agent.py", guard)
-        self.assertIn("ai/providers/*", guard)
-        self.assertIn("ai/runtime/continuous_engine.py", guard)
-        self.assertIn("ai/runtime/project_tools.py", guard)
-        self.assertIn("ai/*permissions*", guard)
         self.assertIn(".github/*", guard)
+        self.assertIn("scripts/autonomous/*", guard)
+        self.assertIn("scripts/ai/*", guard)
+        self.assertIn("ai/security/*", guard)
+        self.assertIn("ai/*permissions*", guard)
+        self.assertIn("*wrangler.toml", guard)
+        self.assertNotIn("ai/core/agent.py", guard)
+        self.assertNotIn("ai/providers/*", guard)
+        self.assertNotIn("ai/runtime/continuous_engine.py", guard)
+        self.assertNotIn("ai/runtime/project_tools.py", guard)
+
+    def test_persistent_mission_enables_full_project_development(self):
+        tree = ast.parse(RUNNER.read_text(encoding="utf-8"))
+        calls = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "DevelopmentAgent"
+        ]
+        self.assertTrue(calls)
+        self.assertTrue(any(
+            any(
+                keyword.arg == "full_project_development"
+                and isinstance(keyword.value, ast.Constant)
+                and keyword.value.value is True
+                for keyword in call.keywords
+            )
+            for call in calls
+        ))
 
     def test_mission_runner_exports_checkpoint_counts_for_auditable_status(self):
         source = (ROOT / "scripts" / "autonomous" / "run_issue.py").read_text(encoding="utf-8")
