@@ -242,7 +242,16 @@ class AgentError(RuntimeError):
 
 
 class DevelopmentAgent:
-    def __init__(self, provider: ModelProvider, project_root: str | Path, max_steps: int | None = None, specialist: str = "code", learning_store=None, checkpoint_db: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        provider: ModelProvider,
+        project_root: str | Path,
+        max_steps: int | None = None,
+        specialist: str = "code",
+        learning_store=None,
+        checkpoint_db: str | Path | None = None,
+        allow_self_modification: bool = False,
+    ) -> None:
         # max_steps is accepted only for backward compatibility. A mission task must
         # not be abandoned because it consumed an arbitrary number of model/tool turns.
         definition = get_specialist(specialist)
@@ -255,6 +264,7 @@ class DevelopmentAgent:
             project_root,
             writable_prefixes=definition.writable_prefixes,
             allow_game_checks=self.allow_game_checks,
+            allow_self_modification=allow_self_modification,
         )
         self.max_steps = None  # no per-task turn ceiling
         self.checkpoints = AgentCheckpointStore(checkpoint_db) if checkpoint_db else None
