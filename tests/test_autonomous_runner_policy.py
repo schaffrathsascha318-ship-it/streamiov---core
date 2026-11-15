@@ -82,5 +82,25 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("untrusted task input", policy)
 
 
+    def test_production_publishing_requires_completed_mission_and_all_successful_checks(self):
+        workflow = (ROOT / ".github" / "workflows" / "autonomous-development.yml").read_text(encoding="utf-8")
+        self.assertIn('if [[ "$TESTS_PASSED" == "true" && "${MISSION_STATUS:-active}" == "completed" ]]; then', workflow)
+        self.assertIn('jq -e \'all(.[]; .state == "SUCCESS")\'', workflow)
+        self.assertIn('gh pr merge "$pr_number" --squash', workflow)
+        self.assertIn('gh workflow run cloudflare-deploy.yml --ref main -f target="$deploy_target" -f confirm=true', workflow)
+        self.assertIn('gh workflow run studio-build.yml --ref main', workflow)
+        self.assertIn('git diff --name-only origin/main...HEAD', workflow)
+
+    def test_production_deploy_and_release_fail_closed_without_recovery_and_signature(self):
+        cloudflare = (ROOT / ".github" / "workflows" / "cloudflare-deploy.yml").read_text(encoding="utf-8")
+        studio = (ROOT / ".github" / "workflows" / "studio-build.yml").read_text(encoding="utf-8")
+        self.assertIn("STREAMIOV_PRODUCTION_ROLLBACK_READY", cloudflare)
+        self.assertIn('!= "true"', cloudflare)
+        self.assertIn("environment: production", cloudflare)
+        self.assertIn("STREAMIOV_RELEASE_SIGNING_KEY", studio)
+        self.assertIn("node scripts/release-signing.mjs sign", studio)
+        self.assertIn("node scripts/release-signing.mjs verify", studio)
+
+
 if __name__ == "__main__":
     unittest.main()
