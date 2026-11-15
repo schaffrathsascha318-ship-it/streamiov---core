@@ -69,6 +69,18 @@ npm run dist:linux:arm64
 
 Installer builds are configured in `.github/workflows/studio-build.yml`. Verified changes to the Studio app trigger platform builds. Publishing a versioned GitHub Release is a separate manual owner-approved workflow dispatch and only proceeds after all platform builds and the media-pipeline smoke test pass; the requested release version must match `package.json`.
 
+## AI Chief and project administration
+
+The AI Chief owns technical planning and implementation across the specialist team. Jason is the separate project administrator: it reports project areas, persistent mission progress, specialist queue assignments, and visible blockers without replacing the Chief or changing production state.
+
+From the repository root, inspect the current project overview with:
+
+```bash
+python3 -m ai --jason-status
+```
+
+Jason reads the mission database at `.streamiov/ai-missions.sqlite3` and the specialist queue at `.streamiov/specialist-queue.sqlite3` in read-only mode. Missing databases are reported as unavailable; Jason does not invent progress or create runtime state.
+
 ## Repository map
 
 - `dist/streamiov-studio-app/` — Electron desktop app and its installer configuration.
