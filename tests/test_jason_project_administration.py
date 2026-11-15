@@ -115,7 +115,7 @@ class JasonProjectAdministratorTests(unittest.TestCase):
         payload = json.loads(output.getvalue())
         self.assertEqual(payload["administrator"], "Jason")
         self.assertEqual(payload["specialist_count"], 11)
-        self.assertEqual(payload["missions"]["database"], ".streamiov/ai-missions.sqlite3")
+        self.assertEqual(payload["missions"]["database"], str(self.missions))
 
 
 if __name__ == "__main__":
