@@ -16,6 +16,7 @@ DENIED_FILE_NAMES = {"auth.json", "oauth.json", "token.json", "tokens.json", "cr
 DENIED_PATH_PREFIXES = {"scripts/autonomous"}
 DENIED_SUFFIXES = {".pem", ".key", ".p12", ".pfx"}
 PROTECTED_WRITE_PREFIXES = (
+    "ai/providers/",
     ".github/workflows/",
     ".github/actions/",
     "scripts/autonomous/",
