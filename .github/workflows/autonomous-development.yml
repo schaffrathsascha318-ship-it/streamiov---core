@@ -333,7 +333,7 @@ jobs:
           - Eleven specialist workstreams share distinct responsibilities and coordinate through the persistent mission planner.
           - The mission database and per-agent checkpoints are resumed between execution slices.
           - Changes are preserved on the continuous development branch.
-          - Completed work is eligible for automatic integration only after independent acceptance checks and all required GitHub checks pass.
+          - Completed work is prepared for owner review; no pull request is merged automatically.
 
           Production deployment is handled by the repository's trusted deployment pipeline. Secrets, identity/OAuth boundaries, central permission enforcement, and paid-resource activation are not self-modifiable."
           else
@@ -346,7 +346,7 @@ jobs:
           - Eleven specialist workstreams share distinct responsibilities and coordinate through the persistent mission planner.
           - The mission database and per-agent checkpoints are resumed between execution slices.
           - Changes are preserved on the continuous development branch.
-          - Completed work is eligible for automatic integration only after independent acceptance checks and all required GitHub checks pass.
+          - Completed work is prepared for owner review; no pull request is merged automatically.
 
           Production deployment is handled by the repository's trusted deployment pipeline. Secrets, identity/OAuth boundaries, central permission enforcement, and paid-resource activation are not self-modifiable."
           fi
@@ -373,18 +373,10 @@ jobs:
 
           if [[ "$TESTS_PASSED" == "true" && "${MISSION_STATUS:-active}" == "completed" ]]; then
             if [[ -n "$pr_number" ]]; then
+              # The AI Chief may prepare and verify changes, but owner approval is
+              # required before any pull request is merged into the default branch.
               gh pr ready "$pr_number" || true
-              if timeout --preserve-status --signal=INT --kill-after=30s 15m gh pr checks "$pr_number" --watch --fail-fast; then
-                checks_json="$(gh pr checks "$pr_number" --json name,state)"
-                check_count="$(jq 'length' <<< "$checks_json")"
-                if [[ "$check_count" -gt 0 ]] && jq -e 'all(.[]; .state == "SUCCESS")' <<< "$checks_json" >/dev/null; then
-                  gh pr merge "$pr_number" --squash
-                else
-                  echo "::warning::No complete set of successful GitHub checks was reported; the pull request remains open."
-                fi
-              else
-                echo "::warning::GitHub checks did not all pass within the wait window; the pull request remains open."
-              fi
+              echo "Mission changes passed local acceptance checks and are ready for owner review. No automatic merge is permitted."
             fi
           fi
 
