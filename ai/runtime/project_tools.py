@@ -27,6 +27,11 @@ PROTECTED_WRITE_FILES = {
     "ai/runtime/continuous_engine.py",
     "ai/runtime/project_tools.py",
 }
+# These four files define the Chief itself. A persistent mission may edit them
+# only when the owner explicitly starts it in self-development mode. Runner
+# controls, providers, workflows, secrets, and deployment configuration remain
+# protected even in that mode.
+SELF_MODIFIABLE_CORE_FILES = frozenset(PROTECTED_WRITE_FILES)
 PROTECTED_WRITE_NAMES = {"wrangler.jsonc", "wrangler.toml"}
 TEST_COMMANDS = {
     "python -m unittest discover -s tests": [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
@@ -35,10 +40,18 @@ MAX_FILE_BYTES = 200_000
 MAX_LIST_ENTRIES = 100
 
 class ProjectTools:
-    def __init__(self, root: str | Path, writable_prefixes: tuple[str, ...] = ("ai/", "docs/ai-development/", "tests/"), *, allow_game_checks: bool = False) -> None:
+    def __init__(
+        self,
+        root: str | Path,
+        writable_prefixes: tuple[str, ...] = ("ai/", "docs/ai-development/", "tests/"),
+        *,
+        allow_game_checks: bool = False,
+        allow_self_modification: bool = False,
+    ) -> None:
         self.root = Path(root).resolve()
         self.writable_prefixes = writable_prefixes
         self.allow_game_checks = allow_game_checks
+        self.allow_self_modification = allow_self_modification
 
     def _is_protected_relative(self, relative: str) -> bool:
         rel = PurePosixPath(relative)
@@ -78,12 +91,16 @@ class ProjectTools:
     def _writable_target(self, raw: str) -> tuple[Path, str]:
         target = self._resolve(raw)
         normalized = target.relative_to(self.root).as_posix()
+        self_core_write = (
+            self.allow_self_modification
+            and normalized in SELF_MODIFIABLE_CORE_FILES
+        )
         if (
-            normalized in PROTECTED_WRITE_FILES
+            (normalized in PROTECTED_WRITE_FILES and not self_core_write)
             or target.name.lower() in PROTECTED_WRITE_NAMES
             or any(normalized.startswith(prefix) for prefix in PROTECTED_WRITE_PREFIXES)
         ):
-            raise ToolError("Protected permission and runner-control files require explicit owner approval.")
+            raise ToolError("Protected permission, provider, deployment, and runner-control files require explicit owner approval.")
         if "*" not in self.writable_prefixes and not any(
             normalized.startswith(prefix) for prefix in self.writable_prefixes
         ):
