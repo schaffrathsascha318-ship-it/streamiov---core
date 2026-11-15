@@ -71,6 +71,66 @@ class MissionEngineTests(unittest.TestCase):
         self.assertNotIn("task-result-0", context)
         self.assertTrue(context.startswith("S" * 3_000))
 
+    def test_planner_batch_limit_is_exactly_eleven_specialists(self):
+        class Provider:
+            def __init__(self, tasks):
+                self.tasks = tasks
+
+            def generate(self, *, system, messages):
+                return type("Reply", (), {"content": json.dumps({
+                    "state": "continue", "summary": "Valid batch.", "tasks": self.tasks,
+                })})()
+
+        roles = ["code", "studio", "music", "tts", "events", "homepage",
+                 "server", "research", "game", "gifts", "testing"]
+        tasks = [
+            {"id": role, "specialist": role, "prompt": f"Work on {role}.", "depends_on": []}
+            for role in roles
+        ]
+        plan = ModelMissionPlanner(Provider(tasks)).plan(
+            "Use all specialists.", "", mission_id="eleven-limit", cycle=1,
+        )
+        self.assertEqual(len(plan.tasks), 11)
+
+        twelve = tasks + [{
+            "id": "extra", "specialist": "code", "prompt": "Extra work.", "depends_on": [],
+        }]
+        with self.assertRaisesRegex(MissionEngineError, "invalid task batch"):
+            ModelMissionPlanner(Provider(twelve)).plan(
+                "Reject oversized batch.", "", mission_id="twelve-limit", cycle=1,
+            )
+
+    def test_task_retry_backoff_is_capped_at_one_minute_without_attempt_ceiling(self):
+        planner = SequencePlanner([
+            MissionPlan("continue", "Retry task.", (
+                SpecialistTask("retry", "code", "retry this task"),
+            )),
+        ])
+        engine = self.make_engine(planner, lambda _role: None)
+        mission_id = engine.create_mission("Keep retrying without a hard attempt ceiling")
+        engine._claim_planning(mission_id, "planner")
+        engine._store_plan(mission_id, "planner", 1, planner.plans[0])
+        task = engine._claim_task(mission_id, "worker")
+        self.assertIsNotNone(task)
+
+        with sqlite3.connect(self.db) as db:
+            db.execute(
+                "UPDATE development_mission_tasks SET attempts=100 WHERE task_id=?",
+                (task.task_id,),
+            )
+        before = time.time()
+        engine._finish_task(task.task_id, "worker", error="temporary provider failure")
+        with sqlite3.connect(self.db) as db:
+            available_at = db.execute(
+                "SELECT available_at FROM development_mission_tasks WHERE task_id=?",
+                (task.task_id,),
+            ).fetchone()[0]
+        self.assertGreaterEqual(available_at - before, 59)
+        self.assertLessEqual(available_at - before, 61)
+        snapshot = engine.get_mission(mission_id)
+        self.assertEqual(snapshot.pending_tasks, 1)
+        self.assertEqual(snapshot.attempts, 100)
+
     def test_planner_response_parser_accepts_markdown_json_fences_and_preambles(self):
         responses = (
             ' ```json\n{"state":"completed","summary":"Verified.","tasks":[]}\n``` ',
