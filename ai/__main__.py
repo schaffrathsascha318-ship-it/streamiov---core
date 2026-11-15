@@ -19,7 +19,7 @@ from ai.runtime.continuous_engine import ContinuousDevelopmentEngine, ModelMissi
 from ai.core.orchestrator import SpecialistTask
 from ai.core.planner import PlannerError, SpecialistPlanner
 from ai.specialists import specialist_names
-from ai.management.jason import JasonProjectAdministrator
+from ai.management.jason import JasonAdministrationError, JasonProjectAdministrator
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -97,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(administrator.render_json())
             return 0
-        except (OSError, ValueError, sqlite3.Error) as exc:
+        except (JasonAdministrationError, OSError, ValueError, sqlite3.Error) as exc:
             print(f"streamiov-jason: {type(exc).__name__}: {exc}", file=sys.stderr)
             return 2
     if (args.allow_self_modification or args.full_project_development) and not args.mission_run:
