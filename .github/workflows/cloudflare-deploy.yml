@@ -58,12 +58,20 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      STREAMIOV_PRODUCTION_ROLLBACK_READY: ${{ vars.STREAMIOV_PRODUCTION_ROLLBACK_READY }}
     steps:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Require verified production rollback readiness
+        run: |
+          if [ "${STREAMIOV_PRODUCTION_ROLLBACK_READY:-}" != "true" ]; then
+            echo "::error::Production deploy blocked. Verify and document a working rollback/recovery path, then set the production environment variable STREAMIOV_PRODUCTION_ROLLBACK_READY=true."
+            exit 1
+          fi
 
       - name: Require owner-provided Cloudflare credentials
         run: |
@@ -100,6 +108,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Require verified production rollback readiness
+        run: |
+          if [ "${STREAMIOV_PRODUCTION_ROLLBACK_READY:-}" != "true" ]; then
+            echo "::error::Production deploy blocked. Verify and document a working rollback/recovery path, then set the production environment variable STREAMIOV_PRODUCTION_ROLLBACK_READY=true."
+            exit 1
+          fi
 
       - name: Require owner-provided Cloudflare credentials
         run: |

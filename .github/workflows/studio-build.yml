@@ -129,6 +129,8 @@ jobs:
     name: Installer dauerhaft veröffentlichen
     needs: [build, media-pipeline-smoke]
     runs-on: ubuntu-latest
+    env:
+      STREAMIOV_RELEASE_SIGNING_KEY: ${{ secrets.STREAMIOV_RELEASE_SIGNING_KEY }}
     steps:
       - name: Quellcode laden
         uses: actions/checkout@v4
@@ -188,6 +190,19 @@ jobs:
           copy_one "artifacts/streamiov-studio-Linux ARM64" "*.deb" "streamiov-studio_${APP_VERSION}_arm64.deb"
           cd release
           find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+
+          # Releases are blocked unless the owner-provisioned Ed25519 key is available.
+          if [ -z "${STREAMIOV_RELEASE_SIGNING_KEY:-}" ]; then
+            echo "::error::STREAMIOV_RELEASE_SIGNING_KEY is required; no unsigned Studio release may be published."
+            exit 1
+          fi
+          key_path="$RUNNER_TEMP/streamiov-release-signing.key"
+          umask 077
+          printf '%s' "$STREAMIOV_RELEASE_SIGNING_KEY" > "$key_path"
+          trap 'rm -f "$key_path"' EXIT
+          cp dist/streamiov-homepage-worker/public/downloads/STREAMIOV-RELEASE-KEY.pub release/STREAMIOV-RELEASE-KEY.pub
+          node scripts/release-signing.mjs sign release/SHA256SUMS.txt --key "$key_path"
+          node scripts/release-signing.mjs verify release/SHA256SUMS.txt --pub release/STREAMIOV-RELEASE-KEY.pub
           ls -lh
 
       - name: GitHub Release erstellen oder aktualisieren
