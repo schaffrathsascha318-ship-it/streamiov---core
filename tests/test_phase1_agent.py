@@ -25,7 +25,7 @@ class MissionSelfModificationFlagTests(unittest.TestCase):
     def test_self_modification_requires_explicit_mission_run_flag(self):
         parser = build_parser()
         with self.assertRaises(SystemExit):
-            parser.parse_args(["--mission-create", "--task", "test", "--allow-self-modification"])
+            main(["--mission-create", "--task", "test", "--allow-self-modification"])
         args = parser.parse_args(["--mission-run", "mission-123", "--allow-self-modification"])
         self.assertTrue(args.allow_self_modification)
         args = parser.parse_args(["--mission-run", "mission-123"])
