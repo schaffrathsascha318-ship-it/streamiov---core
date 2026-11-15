@@ -45,6 +45,37 @@ class ChiefSelfDevelopmentTests(unittest.TestCase):
                 self.assertIn("one exact match replaced", result)
                 self.assertEqual((self.root / relative).read_text(encoding="utf-8"), "after")
 
+    def test_full_project_development_unlocks_project_code_and_providers(self):
+        tools = ProjectTools(
+            self.root,
+            writable_prefixes=("ai/",),
+            full_project_development=True,
+        )
+        for relative in ("src/app.js", "studio/main.js", "ai/providers/local_http.py", "ai/__main__.py"):
+            target = self.root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("before", encoding="utf-8")
+            with self.subTest(path=relative):
+                result = tools.replace_text(relative, "before", "after")
+                self.assertIn("one exact match replaced", result)
+
+    def test_full_project_development_keeps_secrets_workflows_deploy_and_runner_controls_locked(self):
+        tools = ProjectTools(self.root, full_project_development=True)
+        protected = (
+            ".github/workflows/checks.yml",
+            "scripts/autonomous/run_issue.py",
+            "wrangler.toml",
+            "config/client_secret.json",
+            "keys/signing.pem",
+        )
+        for relative in protected:
+            target = self.root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("before", encoding="utf-8")
+            with self.subTest(path=relative):
+                with self.assertRaises(ToolError):
+                    tools.replace_text(relative, "before", "after")
+
     def test_self_development_does_not_unlock_providers_or_workflows(self):
         tools = ProjectTools(
             self.root,
