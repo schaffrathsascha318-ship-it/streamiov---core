@@ -119,7 +119,7 @@ class SpecialistRegistryTests(unittest.TestCase):
             self.assertIn("updated", specialist_registry.read_text(encoding="utf-8"))
 
             provider = root / "ai" / "providers" / "cloudflare_worker.py"
-            provider.parent.mkdir(parents=True)
+            provider.parent.mkdir(parents=True, exist_ok=True)
             provider.write_text("token = read_private_env()\n", encoding="utf-8")
             with self.assertRaises(ToolError):
                 tools.replace_text("ai/providers/cloudflare_worker.py", "token = read_private_env()", "token = leak_token()")
