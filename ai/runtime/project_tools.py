@@ -99,7 +99,11 @@ class ProjectTools:
         if (
             (normalized in PROTECTED_WRITE_FILES and not self_core_write)
             or target.name.lower() in PROTECTED_WRITE_NAMES
-            or any(normalized.startswith(prefix) for prefix in PROTECTED_WRITE_PREFIXES)
+            or any(
+                normalized.startswith(prefix)
+                for prefix in PROTECTED_WRITE_PREFIXES
+                if not (self.full_project_development and prefix == "ai/providers/")
+            )
         ):
             raise ToolError("Protected permission, provider, deployment, and runner-control files require explicit owner approval.")
         if "*" not in self.writable_prefixes and not any(
