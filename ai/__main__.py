@@ -118,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
                     specialist=role,
                     learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
                     checkpoint_db=args.mission_db,
+                    allow_self_modification=True,
                 ),
             )
             if args.mission_create:
