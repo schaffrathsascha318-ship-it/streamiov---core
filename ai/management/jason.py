@@ -138,7 +138,7 @@ class JasonProjectAdministrator:
             blockers.append("One or more specialist queue assignments are marked failed.")
         return {
             "administrator": "Jason",
-            "role": "Project administration, portfolio overview, assignment and dependency tracking",
+            "role": "Read-only project portfolio overview, mission tracking, and blocker reporting",
             "technical_owner": "AI Chief",
             "specialist_count": len(specialists),
             "specialists": specialists,
@@ -150,7 +150,7 @@ class JasonProjectAdministrator:
             "blockers": blockers,
             "authority": {
                 "may_track_and_report": True,
-                "may_assign_and_coordinate": True,
+                "may_assign_and_coordinate": False,
                 "may_override_chief_technical_decisions": False,
                 "may_deploy_or_change_production": False,
                 "may_access_secrets_or_credentials": False,
