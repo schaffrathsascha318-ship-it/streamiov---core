@@ -49,8 +49,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--queue-db", help="SQLite path for the persistent specialist task queue.")
     parser.add_argument("--jason-status", action="store_true", help="Show Jason read-only project, mission, and specialist overview.")
-    parser.add_argument("--jason-mission-db", default=".streamiov/ai-missions.sqlite3", help="Mission database inspected by Jason.")
-    parser.add_argument("--jason-queue-db", default=".streamiov/specialist-queue.sqlite3", help="Specialist queue database inspected by Jason.")
+    parser.add_argument("--jason-mission-db", help="Optional mission database override for Jason; defaults to --mission-db.")
+    parser.add_argument("--jason-queue-db", help="Optional specialist queue database override for Jason; defaults to --queue-db or .streamiov/specialist-queue.sqlite3.")
     parser.add_argument("--learning-db", help="Optional SQLite path for retrieval of test-verified lessons.")
     mission_mode = parser.add_mutually_exclusive_group()
     mission_mode.add_argument("--mission-create", action="store_true", help="Create a persistent development mission from --task.")
@@ -92,8 +92,8 @@ def main(argv: list[str] | None = None) -> int:
         try:
             administrator = JasonProjectAdministrator(
                 args.project_root,
-                mission_db=args.jason_mission_db,
-                queue_db=args.jason_queue_db,
+                mission_db=args.jason_mission_db or args.mission_db,
+                queue_db=args.jason_queue_db or args.queue_db or ".streamiov/specialist-queue.sqlite3",
             )
             print(administrator.render_json())
             return 0
