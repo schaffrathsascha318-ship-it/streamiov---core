@@ -16,11 +16,6 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
     def test_ci_independently_blocks_all_agent_control_plane_paths(self):
         source = WORKFLOW.read_text(encoding="utf-8")
         required = (
-            "ai/__main__.py",
-            "ai/core/agent.py",
-            "ai/runtime/continuous_engine.py",
-            "ai/runtime/project_tools.py",
-            "ai/providers/*",
             "ai/security/*",
             ".github/*",
             "scripts/autonomous/*",
@@ -38,6 +33,15 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
         for pattern in required:
             with self.subTest(pattern=pattern):
                 self.assertIn(pattern, source)
+        for editable_source in (
+            "ai/__main__.py",
+            "ai/core/agent.py",
+            "ai/runtime/continuous_engine.py",
+            "ai/runtime/project_tools.py",
+            "ai/providers/*",
+        ):
+            with self.subTest(editable_source=editable_source):
+                self.assertNotIn(editable_source, source)
 
     def test_public_mission_artifacts_are_encrypted_before_upload(self):
         source = WORKFLOW.read_text(encoding="utf-8")
