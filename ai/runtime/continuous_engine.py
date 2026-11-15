@@ -520,7 +520,7 @@ class ContinuousDevelopmentEngine:
             if error:
                 # Retry indefinitely with exponential backoff; the attempt count is informational,
                 # not a stop condition. The latest failure is fed into the next attempt.
-                delay = min(self.retry_base_seconds * (2 ** min(row["attempts"] - 1, 10)), 3600.0)
+                delay = min(self.retry_base_seconds * (2 ** min(row["attempts"] - 1, 6)), 60.0)
                 db.execute("""
                     UPDATE development_mission_tasks
                     SET status='queued',last_error=?,worker_id='',lease_until=NULL,
@@ -734,9 +734,9 @@ changes, payments, or external irreversible actions. Preserve existing work.
 Do not treat a previous model claim as evidence; rely on recorded task results.
 Use testing/repair specialists when verification or correction is needed."""
 
-    def __init__(self, provider, *, max_tasks_per_batch: int = 12) -> None:
-        if not 1 <= max_tasks_per_batch <= 12:
-            raise ValueError("max_tasks_per_batch must be between 1 and 12.")
+    def __init__(self, provider, *, max_tasks_per_batch: int = 11) -> None:
+        if isinstance(max_tasks_per_batch, bool) or not isinstance(max_tasks_per_batch, int) or not 1 <= max_tasks_per_batch <= 11:
+            raise ValueError("max_tasks_per_batch must be between 1 and 11.")
         self.provider = provider
         self.max_tasks_per_batch = max_tasks_per_batch
 
