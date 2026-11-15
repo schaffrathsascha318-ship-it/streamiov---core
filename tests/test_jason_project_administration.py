@@ -65,6 +65,10 @@ class JasonProjectAdministratorTests(unittest.TestCase):
         self.assertEqual(mission["mission_id"], "mission-1")
         self.assertEqual(mission["tasks"]["succeeded"], 1)
         self.assertEqual(mission["tasks"]["queued"], 1)
+        self.assertEqual(snapshot["missions"]["assignments"], [
+            {"specialist": "studio", "status": "queued", "count": 1},
+            {"specialist": "testing", "status": "succeeded", "count": 1},
+        ])
         self.assertEqual(snapshot["active_mission_count"], 1)
         self.assertEqual(snapshot["specialist_queue"]["assignments"], [
             {"specialist": "studio", "status": "failed", "count": 1},
@@ -111,6 +115,7 @@ class JasonProjectAdministratorTests(unittest.TestCase):
         payload = json.loads(output.getvalue())
         self.assertEqual(payload["administrator"], "Jason")
         self.assertEqual(payload["specialist_count"], 11)
+        self.assertEqual(payload["missions"]["database"], ".streamiov/ai-missions.sqlite3")
 
 
 if __name__ == "__main__":
