@@ -634,9 +634,6 @@ class LocalProviderHttpTests(unittest.TestCase):
         self.assertFalse(status["model_available"])
         self.assertFalse(status["ready"])
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class LiveTerminalEventTests(unittest.TestCase):
     def test_agent_emits_safe_live_progress_events(self):
@@ -660,3 +657,5 @@ class LiveTerminalEventTests(unittest.TestCase):
         self.assertEqual(names[-1], "agent_completed")
         self.assertTrue(all("content" not in event and "prompt" not in event for event in events))
 
+if __name__ == "__main__":
+    unittest.main()
