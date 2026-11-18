@@ -169,7 +169,9 @@ class ProjectToolTests(unittest.TestCase):
             "from pathlib import Path\n"
             "target = Path(__file__).parents[1] / 'protected.txt'\n"
             "try:\n    target.write_text('changed')\n"
-            "except PermissionError:\n    print('write-blocked')\n"
+            "except OSError as exc:\n"
+            "    if exc.errno not in (1, 13, 30):\n        raise\n"
+            "    print('write-blocked')\n"
             "else:\n    raise SystemExit(9)\n",
             encoding="utf-8",
         )
