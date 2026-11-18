@@ -4,6 +4,7 @@ import tempfile
 import threading
 import time
 import unittest
+from contextlib import closing
 from pathlib import Path
 
 from ai.core.orchestrator import SpecialistTask
@@ -45,7 +46,7 @@ class MissionEngineTests(unittest.TestCase):
     def test_progress_context_stays_within_provider_budget_and_keeps_latest_outcomes(self):
         engine = self.make_engine(SequencePlanner([]), lambda _role: None)
         mission_id = engine.create_mission("Keep planning requests bounded")
-        with sqlite3.connect(self.db) as db:
+        with closing(sqlite3.connect(self.db)) as db, db:
             db.execute(
                 "UPDATE development_missions SET summary=? WHERE mission_id=?",
                 ("S" * 10_000, mission_id),
@@ -120,7 +121,7 @@ class MissionEngineTests(unittest.TestCase):
             outcome = engine._finish_task(task.task_id, "worker", error=f"RuntimeError: failure {failure}")
             self.assertEqual(outcome, "failed" if failure == 3 else "queued")
             if failure < 3:
-                with sqlite3.connect(self.db) as db:
+                with closing(sqlite3.connect(self.db)) as db, db:
                     db.execute(
                         "UPDATE development_mission_tasks SET available_at=0 WHERE task_id=?",
                         (task.task_id,),
@@ -130,7 +131,7 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(snapshot.pending_tasks, 0)
         self.assertEqual(snapshot.failed_tasks, 1)
         self.assertEqual(snapshot.attempts, 3)
-        with sqlite3.connect(self.db) as db:
+        with closing(sqlite3.connect(self.db)) as db, db:
             row = db.execute(
                 "SELECT status,failure_count,last_error FROM development_mission_tasks WHERE task_id=?",
                 (f"{mission_id}:1:retry",),
@@ -177,7 +178,7 @@ class MissionEngineTests(unittest.TestCase):
         self.assertIn("FORMAT CORRECTION", provider.calls[1][-1]["content"])
 
     def test_existing_mission_database_is_migrated_with_retry_columns(self):
-        with sqlite3.connect(self.db) as db:
+        with closing(sqlite3.connect(self.db)) as db, db:
             db.executescript("""
                 CREATE TABLE development_missions (
                     mission_id TEXT PRIMARY KEY,
@@ -219,7 +220,7 @@ class MissionEngineTests(unittest.TestCase):
 
         engine = self.make_engine(SequencePlanner([]), lambda _role: None)
         mission_id = engine.create_mission("Upgrade an existing durable mission")
-        with sqlite3.connect(self.db) as db:
+        with closing(sqlite3.connect(self.db)) as db, db:
             columns = {row[1] for row in db.execute("PRAGMA table_info(development_missions)")}
             task_columns = {row[1] for row in db.execute("PRAGMA table_info(development_mission_tasks)")}
             row = db.execute(
@@ -244,7 +245,7 @@ class MissionEngineTests(unittest.TestCase):
         engine = self.make_engine(SequencePlanner([]), lambda _role: None)
         mission_id = engine.create_mission("Persist planner backoff")
         self.assertIsNotNone(engine._claim_planning(mission_id, "first-worker"))
-        with sqlite3.connect(self.db) as db:
+        with closing(sqlite3.connect(self.db)) as db, db:
             db.execute(
                 "UPDATE development_missions SET planning_owner='',planning_lease_until=NULL,"
                 "planning_failures=4,planning_retry_at=? WHERE mission_id=?",
@@ -253,7 +254,7 @@ class MissionEngineTests(unittest.TestCase):
 
         resumed = self.make_engine(SequencePlanner([]), lambda _role: None)
         self.assertIsNone(resumed._claim_planning(mission_id, "second-worker"))
-        with sqlite3.connect(self.db) as db:
+        with closing(sqlite3.connect(self.db)) as db, db:
             db.execute(
                 "UPDATE development_missions SET planning_retry_at=0 WHERE mission_id=?",
                 (mission_id,),
@@ -564,7 +565,7 @@ class MissionEngineTests(unittest.TestCase):
         claim = engine._claim_planning(mission_id, "worker-one")
         self.assertIsNotNone(claim)
 
-        with sqlite3.connect(self.db) as db:
+        with closing(sqlite3.connect(self.db)) as db, db:
             db.execute(
                 "UPDATE development_missions SET planning_lease_until=0 WHERE mission_id=?",
                 (mission_id,),
