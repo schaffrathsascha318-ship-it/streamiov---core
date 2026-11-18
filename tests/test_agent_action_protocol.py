@@ -31,7 +31,8 @@ class SpecialistActionProtocolTests(unittest.TestCase):
         action = {"tool": "list_files", "arguments": {"path": "."}}
         self.assertEqual(_parse_actions('{"tool":"list_files","arguments":{"path":"."}}'), [action])
         self.assertEqual(_parse_actions('[{"tool":"list_files","arguments":{"path":"."}}]'), [action])
-        self.assertEqual(_parse_actions('\\`\\`\\`json\\n{"tool":"list_files","arguments":{"path":"."}}\\n\\`\\`\\`'), [action])
+        fenced = "```json\n" + '{"tool":"list_files","arguments":{"path":"."}}' + "\n```"
+        self.assertEqual(_parse_actions(fenced), [action])
 
     def test_rejects_leading_trailing_prose_and_truncated_json(self):
         invalid = (
@@ -41,7 +42,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
         )
         for response in invalid:
             with self.subTest(response=response):
-                with self.assertRaises((ValueError, Exception)):
+                with self.assertRaises(ValueError):
                     _parse_actions(response)
 
     def test_rejects_provider_tool_call_envelopes_as_non_protocol_actions(self):
