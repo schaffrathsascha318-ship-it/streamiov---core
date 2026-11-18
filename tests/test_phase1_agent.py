@@ -143,7 +143,7 @@ class ProjectToolTests(unittest.TestCase):
         script = self.root / "ai" / "check.py"
         script.write_text("print('python-ready')\\n", encoding="utf-8")
         completed = subprocess.CompletedProcess(["setpriv"], 0, "python-ready", "")
-        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/setpriv" if name == "setpriv" else None), \\
+        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/setpriv" if name == "setpriv" else None), \
              patch("ai.runtime.project_tools.subprocess.run", return_value=completed) as run:
             output = self.tools.run_python("ai/check.py")
         self.assertIn("exit_code=0", output)
@@ -157,7 +157,7 @@ class ProjectToolTests(unittest.TestCase):
         script = self.root / "ai" / "failing.py"
         script.write_text("raise SystemExit(7)\\n", encoding="utf-8")
         completed = subprocess.CompletedProcess(["setpriv"], 7, "", "script failed")
-        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/setpriv" if name == "setpriv" else None), \\
+        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/setpriv" if name == "setpriv" else None), \
              patch("ai.runtime.project_tools.subprocess.run", return_value=completed):
             output = self.tools.run_python("ai/failing.py")
         self.assertIn("exit_code=7", output)
@@ -170,7 +170,7 @@ class ProjectToolTests(unittest.TestCase):
         script.write_text("print('sandboxed')\\n", encoding="utf-8")
         denied = subprocess.CompletedProcess(["setpriv"], 127, "", "setresuid failed: Operation not permitted")
         sandboxed = subprocess.CompletedProcess(["bwrap"], 0, "sandboxed", "")
-        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: f"/usr/bin/{name}" if name in {"setpriv", "bwrap"} else None), \\
+        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: f"/usr/bin/{name}" if name in {"setpriv", "bwrap"} else None), \
              patch("ai.runtime.project_tools.subprocess.run", side_effect=[denied, sandboxed]) as run:
             output = self.tools.run_python("ai/check.py")
         self.assertIn("exit_code=0", output)
@@ -182,7 +182,7 @@ class ProjectToolTests(unittest.TestCase):
         (self.root / "ai").mkdir()
         script = self.root / "ai" / "check.py"
         script.write_text("print('must-not-run')\\n", encoding="utf-8")
-        with patch("ai.runtime.project_tools.shutil.which", return_value=None), \\
+        with patch("ai.runtime.project_tools.shutil.which", return_value=None), \
              patch("ai.runtime.project_tools.subprocess.run") as run:
             with self.assertRaisesRegex(ToolError, "unsandboxed execution is disabled"):
                 self.tools.run_python("ai/check.py")
@@ -194,7 +194,7 @@ class ProjectToolTests(unittest.TestCase):
         script = self.root / "ai" / "check.py"
         script.write_text("print('must-not-run')\\n", encoding="utf-8")
         denied = subprocess.CompletedProcess(["setpriv"], 127, "", "setresuid failed: Operation not permitted")
-        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/setpriv" if name == "setpriv" else None), \\
+        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/setpriv" if name == "setpriv" else None), \
              patch("ai.runtime.project_tools.subprocess.run", return_value=denied) as run:
             with self.assertRaisesRegex(ToolError, "setpriv failed and bubblewrap is unavailable"):
                 self.tools.run_python("ai/check.py")
