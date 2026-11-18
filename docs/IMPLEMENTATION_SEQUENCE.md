@@ -1,5 +1,18 @@
 # StreamioV implementation sequence
 
+> **Verbindliche Aktualisierung vom 18.11.2026:** Die aktuelle Produktgrenze steht in
+> [STREAMIOV_2_PLATFORM_BOUNDARY.md](STREAMIOV_2_PLATFORM_BOUNDARY.md). STREAMIOV
+> wird als eigenständige Plattform mit eigener Live-Übertragung, eigenem Chat, eigenen
+> Zuschauer-, Geschenk-, Alert-, Game- und Regiefunktionen gebaut. TikTok ist keine
+> primäre Plattform und keine Pflichtintegration. Bestehende TikTok-Integrationen
+> dürfen nicht ungeprüft gelöscht oder verändert werden.
+>
+> Ältere Aussagen in diesem Dokument, die TikTok als einzige Live-Plattform oder
+> Geldgeschenke pauschal als ausgeschlossen festlegen, sind für Streamiov 2.0 nicht
+> maßgeblich. Geldgeschenke benötigen eine gesonderte, sichere Umsetzung: maximal
+> 500 € je Einzelgeschenk; eine monatliche Aufladegrenze ist nur bei einem tatsächlich
+> eingeführten Guthaben erforderlich. Ein verpflichtendes Streamiov-Wallet ist zu vermeiden.
+
 This sequence combines the GitHub [`DEVELOPMENT_ROADMAP.md`](DEVELOPMENT_ROADMAP.md) with the owner's zero-spend, self-built-product, music, game-branding, TikTok-login, and TikTok-gift-gallery requirements. It is a work plan, not a claim that listed features are already complete.
 
 The owner's later no-revenue decision supersedes any earlier roadmap language about paid STREAMIOV gifts, payment ledgers, commissions, or payouts. StreamioV-native gifts are free effects only; TikTok-native gifting stays entirely in TikTok's own purchase and reward systems.
