@@ -184,6 +184,7 @@ def main() -> int:
             "pending_tasks": result.pending_tasks,
             "running_tasks": result.running_tasks,
             "completed_tasks": result.completed_tasks,
+            "failed_tasks": result.failed_tasks,
             "attempts": result.attempts,
             "summary": result.summary,
         }, ensure_ascii=False), flush=True)
@@ -196,6 +197,7 @@ def main() -> int:
                 output.write(f"pending_tasks={result.pending_tasks}\n")
                 output.write(f"running_tasks={result.running_tasks}\n")
                 output.write(f"completed_tasks={result.completed_tasks}\n")
+                output.write(f"failed_tasks={result.failed_tasks}\n")
                 output.write(f"attempts={result.attempts}\n")
         return 0
     except (ProjectContextError, ProviderError, MissionEngineError, OSError, ValueError, sqlite3.Error) as exc:
