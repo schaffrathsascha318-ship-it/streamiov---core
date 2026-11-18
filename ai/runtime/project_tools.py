@@ -210,20 +210,14 @@ class ProjectTools:
             # Bubblewrap keeps the host filesystem read-only, gives the process
             # an isolated user namespace and a disposable writable /tmp, and
             # runs it as an unprivileged UID. There is deliberately no unsafe fallback.
-            # The host workspace may itself live under /tmp (as unit-test
-            # workspaces do). Mount it below the sandbox's private /tmp rather
-            # than trying to chdir to a host path hidden by the tmpfs mount.
-            sandbox_workspace = Path("/tmp/streamiov-workspace")
-            sandbox_target = sandbox_workspace / target.relative_to(self.root)
+            # Keep the complete host filesystem read-only. In particular,
+            # do not hide /tmp: test workspaces are commonly created there.
             sandbox_command = [
                 bwrap, "--unshare-user", "--uid", "65534", "--gid", "65534",
                 "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc",
-                "--tmpfs", "/tmp", "--dir", str(sandbox_workspace),
-                "--ro-bind", str(self.root), str(sandbox_workspace),
-                "--chdir", str(sandbox_workspace),
-                "--", sys.executable, "-I", str(sandbox_target),
+                "--chdir", str(self.root), "--", *command,
             ]
-            sandbox_env = {**env, "HOME": "/tmp"}
+            sandbox_env = {**env, "HOME": ""}
             result = subprocess.run(
                 sandbox_command, cwd=self.root, capture_output=True, text=True,
                 timeout=120, check=False, env=sandbox_env,
