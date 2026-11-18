@@ -817,7 +817,7 @@ Use testing/repair specialists when verification or correction is needed."""
     def _build_plan(self, payload: dict, cycle: int) -> MissionPlan:
         if not isinstance(payload, dict) or set(payload) != {"state", "summary", "tasks"}:
             raise MissionEngineError("Mission plan must contain exactly state, summary and tasks.")
-        if payload["state"] not in {"continue", "completed"}:
+        if not isinstance(payload["state"], str) or payload["state"] not in {"continue", "completed"}:
             raise MissionEngineError("Mission planner returned an unsupported state.")
         if not isinstance(payload["summary"], str) or not payload["summary"].strip():
             raise MissionEngineError("Mission planner summary is required.")
@@ -839,8 +839,11 @@ Use testing/repair specialists when verification or correction is needed."""
         assigned_specialists: set[str] = set()
         for item in raw_tasks:
             dependencies = item["depends_on"]
-            if not isinstance(dependencies, list) or any(dep not in id_map for dep in dependencies):
-                raise MissionEngineError("Mission task dependencies must refer to this batch.")
+            if (
+                not isinstance(dependencies, list)
+                or any(not isinstance(dep, str) or dep not in id_map for dep in dependencies)
+            ):
+                raise MissionEngineError("Mission task dependencies must be string IDs from this batch.")
             if not isinstance(item["prompt"], str) or not item["prompt"].strip() or len(item["prompt"]) > 8000:
                 raise MissionEngineError("Mission task prompts must contain 1–8000 characters.")
             try:
