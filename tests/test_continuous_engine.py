@@ -337,6 +337,32 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(enforced_verification["state"], "continue")
         self.assertEqual(enforced_verification["task_count"], 1)
 
+    def test_terminal_task_failure_blocks_mission_without_false_completion(self):
+        planner = SequencePlanner([
+            MissionPlan("continue", "Implement a component.", (
+                SpecialistTask("component", "code", "implement component"),
+            )),
+        ])
+        events = []
+
+        class BrokenAgent:
+            def run(self, _prompt):
+                raise RuntimeError("persistent invalid action protocol")
+
+        engine = ContinuousDevelopmentEngine(
+            self.db, planner, lambda _role: BrokenAgent(),
+            retry_base_seconds=0.01, lease_seconds=10, max_task_failures=1,
+        )
+        mission_id = engine.create_mission("Do not loop forever or report false success")
+        result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=events.append)
+
+        self.assertEqual(result.status, "active")
+        self.assertEqual(result.failed_tasks, 1)
+        self.assertEqual(result.completed_tasks, 0)
+        self.assertEqual(len(planner.calls), 1)
+        self.assertTrue(any('"event": "mission_blocked"' in event for event in events))
+        self.assertFalse(any('"event": "mission_completed"' in event for event in events))
+
     def test_transient_task_failures_retry_and_recover_before_the_failure_limit(self):
         planner = SequencePlanner([
             MissionPlan("continue", "Implement a component.", (
