@@ -202,7 +202,7 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(len(plan.tasks), 1)
         self.assertEqual(plan.tasks[0].task_id, "cycle-2-implement")
         self.assertEqual(len(provider.calls), 2)
-        self.assertIn("FORMAT/SCHEMA CORRECTION", provider.calls[1][-1]["content"])
+        self.assertIn("FORMAT CORRECTION (SCHEMA VALIDATION)", provider.calls[1][-1]["content"])
         self.assertIn("exactly state, summary and tasks", provider.calls[1][-1]["content"])
 
     def test_planner_retries_unknown_specialist_as_invalid_plan(self):
