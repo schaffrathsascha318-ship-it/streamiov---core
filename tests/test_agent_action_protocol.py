@@ -1,6 +1,8 @@
 """Regression tests for the specialist model-to-tool action protocol."""
 from __future__ import annotations
 
+import json
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,6 +12,7 @@ from ai.core.agent import (
     DevelopmentAgent,
     _parse_actions,
     _validate_tool_action,
+    AgentCheckpointStore,
 )
 from ai.providers.base import ModelReply
 
@@ -27,6 +30,53 @@ class SequenceProvider:
 
 
 class SpecialistActionProtocolTests(unittest.TestCase):
+
+    def test_old_checkpoint_schema_migrates_retry_and_final_columns_without_losing_rows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory, "old.sqlite3")
+            task = "legacy task"
+            import hashlib
+            digest = hashlib.sha256(task.encode("utf-8")).hexdigest()
+            with sqlite3.connect(database) as db:
+                db.execute("""CREATE TABLE agent_checkpoints (
+                    checkpoint_id TEXT PRIMARY KEY, task_hash TEXT NOT NULL,
+                    specialist TEXT NOT NULL, messages_json TEXT NOT NULL,
+                    pending_actions_json TEXT NOT NULL DEFAULT '[]',
+                    next_action_index INTEGER NOT NULL DEFAULT 0,
+                    results_json TEXT NOT NULL DEFAULT '[]', updated_at REAL NOT NULL
+                )""")
+                db.execute("INSERT INTO agent_checkpoints VALUES(?,?,?,?,?,?,?,?)",
+                    ("legacy", digest, "code", json.dumps([{"role":"user","content":task}]),
+                     "[]", 0, "[]", 1.0))
+            store = AgentCheckpointStore(database)
+            state = store.load("legacy", task, "code")
+            self.assertEqual(state["format_retries"], 0)
+            self.assertIsNone(state["final_result"])
+            self.assertIsNone(state["in_flight_action_index"])
+            with sqlite3.connect(database) as db:
+                columns = {row[1] for row in db.execute("PRAGMA table_info(agent_checkpoints)")}
+                self.assertTrue({"format_retries", "final_result", "in_flight_action_index", "checkpoint_version"} <= columns)
+                self.assertEqual(db.execute("SELECT COUNT(*) FROM agent_checkpoints").fetchone()[0], 1)
+
+    def test_checkpoint_stops_instead_of_replaying_action_interrupted_during_execution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory, "checkpoints.sqlite3")
+            task = "create a file"
+            store = AgentCheckpointStore(database)
+            state = {
+                "messages": [{"role": "user", "content": task}],
+                "pending_actions": [{"tool": "write_file", "arguments": {"path": "created.txt", "content": "x"}}],
+                "next_action_index": 0, "results": [], "format_retries": 0,
+                "final_result": None, "in_flight_action_index": 0, "checkpoint_version": 1,
+            }
+            store.save("crash", task, "code", state)
+            provider = SequenceProvider('{"final":"must not replay"}')
+            agent = DevelopmentAgent(provider, directory, specialist="code", checkpoint_db=database)
+            with self.assertRaisesRegex(AgentError, "side effects cannot be proven"):
+                agent.run(task, checkpoint_id="crash")
+            self.assertEqual(provider.calls, 0)
+            self.assertFalse(Path(directory, "created.txt").exists())
+
     def test_parses_single_object_array_and_fenced_json(self):
         action = {"tool": "list_files", "arguments": {"path": "."}}
         self.assertEqual(_parse_actions('{"tool":"list_files","arguments":{"path":"."}}'), [action])
