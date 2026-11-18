@@ -85,7 +85,7 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("gh workflow run phase-1-agent-tests.yml --ref", workflow)
         self.assertIn("gh workflow run secret-scanning.yml --ref", workflow)
         self.assertIn("gh workflow run studio-build.yml --ref", workflow)
-        self.assertIn("the pull request remains a draft; explicit owner approval is required", workflow)
+        self.assertIn("Acceptance checks passed. The pull request remains a draft; explicit owner approval is required for any integration.", workflow)
         self.assertIn("no integration or deployment was performed", workflow)
         self.assertNotIn("gh pr merge", workflow)
         self.assertNotIn("all(.[]; .state == \"SUCCESS\")", workflow)
