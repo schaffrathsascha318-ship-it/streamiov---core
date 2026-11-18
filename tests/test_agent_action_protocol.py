@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import closing
 import sqlite3
 import tempfile
 import unittest
@@ -38,7 +39,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
             task = "legacy task"
             import hashlib
             digest = hashlib.sha256(task.encode("utf-8")).hexdigest()
-            with sqlite3.connect(database) as db:
+            with closing(sqlite3.connect(database)) as db, db:
                 db.execute("""CREATE TABLE agent_checkpoints (
                     checkpoint_id TEXT PRIMARY KEY, task_hash TEXT NOT NULL,
                     specialist TEXT NOT NULL, messages_json TEXT NOT NULL,
@@ -54,7 +55,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
             self.assertEqual(state["format_retries"], 0)
             self.assertIsNone(state["final_result"])
             self.assertIsNone(state["in_flight_action_index"])
-            with sqlite3.connect(database) as db:
+            with closing(sqlite3.connect(database)) as db, db:
                 columns = {row[1] for row in db.execute("PRAGMA table_info(agent_checkpoints)")}
                 self.assertTrue({"format_retries", "final_result", "in_flight_action_index", "checkpoint_version"} <= columns)
                 self.assertEqual(db.execute("SELECT COUNT(*) FROM agent_checkpoints").fetchone()[0], 1)
