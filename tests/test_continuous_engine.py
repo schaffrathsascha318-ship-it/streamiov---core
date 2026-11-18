@@ -100,38 +100,42 @@ class MissionEngineTests(unittest.TestCase):
                 "Reject oversized batch.", "", mission_id="twelve-limit", cycle=1,
             )
 
-    def test_task_retry_backoff_is_capped_at_one_minute_without_attempt_ceiling(self):
+    def test_task_failure_becomes_terminal_at_configured_limit(self):
         planner = SequencePlanner([
             MissionPlan("continue", "Retry task.", (
                 SpecialistTask("retry", "code", "retry this task"),
             )),
         ])
         engine = ContinuousDevelopmentEngine(
-            self.db, planner, lambda _role: None, retry_base_seconds=5.0, lease_seconds=10,
+            self.db, planner, lambda _role: None, retry_base_seconds=0.01,
+            lease_seconds=10, max_task_failures=3,
         )
-        mission_id = engine.create_mission("Keep retrying without a hard attempt ceiling")
+        mission_id = engine.create_mission("Stop a specialist retry loop")
         engine._claim_planning(mission_id, "planner")
         engine._store_plan(mission_id, "planner", 1, planner.plans[0])
-        task = engine._claim_task(mission_id, "worker")
-        self.assertIsNotNone(task)
 
-        with sqlite3.connect(self.db) as db:
-            db.execute(
-                "UPDATE development_mission_tasks SET attempts=100 WHERE task_id=?",
-                (task.task_id,),
-            )
-        before = time.time()
-        engine._finish_task(task.task_id, "worker", error="temporary provider failure")
-        with sqlite3.connect(self.db) as db:
-            available_at = db.execute(
-                "SELECT available_at FROM development_mission_tasks WHERE task_id=?",
-                (task.task_id,),
-            ).fetchone()[0]
-        self.assertGreaterEqual(available_at - before, 59)
-        self.assertLessEqual(available_at - before, 61)
+        for failure in range(1, 4):
+            task = engine._claim_task(mission_id, "worker")
+            self.assertIsNotNone(task)
+            outcome = engine._finish_task(task.task_id, "worker", error=f"RuntimeError: failure {failure}")
+            self.assertEqual(outcome, "failed" if failure == 3 else "queued")
+            if failure < 3:
+                with sqlite3.connect(self.db) as db:
+                    db.execute(
+                        "UPDATE development_mission_tasks SET available_at=0 WHERE task_id=?",
+                        (task.task_id,),
+                    )
+
         snapshot = engine.get_mission(mission_id)
-        self.assertEqual(snapshot.pending_tasks, 1)
-        self.assertEqual(snapshot.attempts, 100)
+        self.assertEqual(snapshot.pending_tasks, 0)
+        self.assertEqual(snapshot.failed_tasks, 1)
+        self.assertEqual(snapshot.attempts, 3)
+        with sqlite3.connect(self.db) as db:
+            row = db.execute(
+                "SELECT status,failure_count,last_error FROM development_mission_tasks WHERE task_id=?",
+                (f"{mission_id}:1:retry",),
+            ).fetchone()
+        self.assertEqual(row, ("failed", 3, "RuntimeError: failure 3"))
 
     def test_planner_response_parser_accepts_markdown_json_fences_and_preambles(self):
         responses = (
@@ -203,19 +207,38 @@ class MissionEngineTests(unittest.TestCase):
                     created_at REAL NOT NULL,
                     updated_at REAL NOT NULL
                 );
+                INSERT INTO development_missions
+                (mission_id,goal,status,created_at,updated_at)
+                VALUES('legacy-mission','Preserve old task','active',1,1);
+                INSERT INTO development_mission_tasks
+                (task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
+                 result,last_error,available_at,worker_id,lease_until,created_at,updated_at)
+                VALUES('legacy-task','legacy-mission',1,'code','legacy prompt','[]',
+                       'queued',2,'partial result','',0,'',NULL,1,1);
             """)
 
         engine = self.make_engine(SequencePlanner([]), lambda _role: None)
         mission_id = engine.create_mission("Upgrade an existing durable mission")
         with sqlite3.connect(self.db) as db:
             columns = {row[1] for row in db.execute("PRAGMA table_info(development_missions)")}
+            task_columns = {row[1] for row in db.execute("PRAGMA table_info(development_mission_tasks)")}
             row = db.execute(
                 "SELECT planning_failures,planning_retry_at FROM development_missions WHERE mission_id=?",
                 (mission_id,),
             ).fetchone()
+            legacy = db.execute(
+                "SELECT status,attempts,failure_count,result FROM development_mission_tasks WHERE task_id='legacy-task'"
+            ).fetchone()
+            db.execute("UPDATE development_mission_tasks SET status='failed' WHERE task_id='legacy-task'")
+            migrated_status = db.execute(
+                "SELECT status FROM development_mission_tasks WHERE task_id='legacy-task'"
+            ).fetchone()[0]
         self.assertIn("planning_failures", columns)
         self.assertIn("planning_retry_at", columns)
+        self.assertIn("failure_count", task_columns)
         self.assertEqual(row, (0, None))
+        self.assertEqual(legacy, ("queued", 2, 0, "partial result"))
+        self.assertEqual(migrated_status, "failed")
 
     def test_planning_retry_backoff_survives_engine_recreation(self):
         engine = self.make_engine(SequencePlanner([]), lambda _role: None)
@@ -314,7 +337,7 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(enforced_verification["state"], "continue")
         self.assertEqual(enforced_verification["task_count"], 1)
 
-    def test_failed_task_retries_without_a_fixed_attempt_ceiling_and_recovers(self):
+    def test_transient_task_failures_retry_and_recover_before_the_failure_limit(self):
         planner = SequencePlanner([
             MissionPlan("continue", "Implement a component.", (
                 SpecialistTask("component", "code", "implement component"),
@@ -411,7 +434,7 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(result.status, "active")
         self.assertEqual(result.completed_tasks, 0)
         self.assertEqual(result.pending_tasks, 1)
-        self.assertTrue(any('"event": "task_retry_scheduled"' in event for event in events))
+        self.assertTrue(any('"event": "task_interrupted"' in event for event in events))
 
     def test_dependency_order_is_respected_within_a_mission_batch(self):
         planner = SequencePlanner([
