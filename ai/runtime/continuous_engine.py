@@ -44,6 +44,7 @@ class MissionSnapshot:
     pending_tasks: int
     running_tasks: int
     completed_tasks: int
+    failed_tasks: int
     attempts: int
 
 
@@ -84,6 +85,7 @@ class ContinuousDevelopmentEngine:
         *,
         retry_base_seconds: float = 5.0,
         lease_seconds: int = 300,
+        max_task_failures: int = 5,
     ) -> None:
         if not callable(getattr(planner, "plan", None)):
             raise TypeError("planner must provide plan()")
@@ -93,6 +95,8 @@ class ContinuousDevelopmentEngine:
             raise ValueError("retry_base_seconds must be positive")
         if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or lease_seconds < 10:
             raise ValueError("lease_seconds must be at least 10")
+        if isinstance(max_task_failures, bool) or not isinstance(max_task_failures, int) or max_task_failures < 1:
+            raise ValueError("max_task_failures must be a positive integer")
         self.database_path = str(database_path)
         if self.database_path == ":memory:":
             raise MissionEngineError("Continuous missions require a durable on-disk database.")
@@ -104,6 +108,7 @@ class ContinuousDevelopmentEngine:
         self.agent_factory = agent_factory
         self.retry_base_seconds = float(retry_base_seconds)
         self.lease_seconds = lease_seconds
+        self.max_task_failures = max_task_failures
         self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
@@ -157,8 +162,9 @@ class ContinuousDevelopmentEngine:
                     specialist TEXT NOT NULL,
                     prompt TEXT NOT NULL,
                     depends_on TEXT NOT NULL,
-                    status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded')),
+                    status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded','failed')),
                     attempts INTEGER NOT NULL DEFAULT 0,
+                    failure_count INTEGER NOT NULL DEFAULT 0,
                     result TEXT NOT NULL DEFAULT '',
                     last_error TEXT NOT NULL DEFAULT '',
                     available_at REAL NOT NULL,
@@ -168,6 +174,50 @@ class ContinuousDevelopmentEngine:
                     updated_at REAL NOT NULL
                 )
             """)
+            task_columns = {row[1] for row in db.execute("PRAGMA table_info(development_mission_tasks)")}
+            task_schema = db.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='development_mission_tasks'"
+            ).fetchone()[0]
+            if "failure_count" not in task_columns or "'failed'" not in task_schema:
+                # SQLite cannot alter a CHECK constraint in place. Rebuild this table
+                # transactionally while preserving every existing task and lease.
+                db.execute("BEGIN IMMEDIATE")
+                try:
+                    db.execute("""
+                        CREATE TABLE development_mission_tasks_new (
+                            task_id TEXT PRIMARY KEY,
+                            mission_id TEXT NOT NULL REFERENCES development_missions(mission_id),
+                            cycle INTEGER NOT NULL,
+                            specialist TEXT NOT NULL,
+                            prompt TEXT NOT NULL,
+                            depends_on TEXT NOT NULL,
+                            status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded','failed')),
+                            attempts INTEGER NOT NULL DEFAULT 0,
+                            failure_count INTEGER NOT NULL DEFAULT 0,
+                            result TEXT NOT NULL DEFAULT '',
+                            last_error TEXT NOT NULL DEFAULT '',
+                            available_at REAL NOT NULL,
+                            worker_id TEXT NOT NULL DEFAULT '',
+                            lease_until REAL,
+                            created_at REAL NOT NULL,
+                            updated_at REAL NOT NULL
+                        )
+                    """)
+                    failure_expr = "failure_count" if "failure_count" in task_columns else "0"
+                    db.execute(f"""
+                        INSERT INTO development_mission_tasks_new
+                        (task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
+                         failure_count,result,last_error,available_at,worker_id,lease_until,created_at,updated_at)
+                        SELECT task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
+                               {failure_expr},result,last_error,available_at,worker_id,lease_until,created_at,updated_at
+                        FROM development_mission_tasks
+                    """)
+                    db.execute("DROP TABLE development_mission_tasks")
+                    db.execute("ALTER TABLE development_mission_tasks_new RENAME TO development_mission_tasks")
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    raise
             db.execute("""
                 CREATE INDEX IF NOT EXISTS idx_mission_tasks_ready
                 ON development_mission_tasks(mission_id,status,available_at,cycle)
@@ -215,6 +265,7 @@ class ContinuousDevelopmentEngine:
                     SUM(CASE WHEN status='queued' THEN 1 ELSE 0 END) AS pending,
                     SUM(CASE WHEN status='running' THEN 1 ELSE 0 END) AS running,
                     SUM(CASE WHEN status='succeeded' THEN 1 ELSE 0 END) AS completed,
+                    SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) AS failed,
                     SUM(attempts) AS attempts
                 FROM development_mission_tasks WHERE mission_id=?
             """, (mission_id,)).fetchone()
@@ -222,7 +273,8 @@ class ContinuousDevelopmentEngine:
             mission_id=row["mission_id"], goal=row["goal"], status=row["status"],
             cycle=row["cycle"], summary=row["summary"],
             pending_tasks=counts["pending"] or 0, running_tasks=counts["running"] or 0,
-            completed_tasks=counts["completed"] or 0, attempts=counts["attempts"] or 0,
+            completed_tasks=counts["completed"] or 0, failed_tasks=counts["failed"] or 0,
+            attempts=counts["attempts"] or 0,
         )
 
     def _progress_context(self, mission_id: str) -> str:
@@ -268,6 +320,12 @@ class ContinuousDevelopmentEngine:
             if mission is None:
                 raise MissionEngineError("Mission not found.")
             if mission["status"] == "completed":
+                return None
+            failed = db.execute(
+                "SELECT COUNT(*) FROM development_mission_tasks WHERE mission_id=? AND status='failed'",
+                (mission_id,),
+            ).fetchone()[0]
+            if failed:
                 return None
             if mission["planning_retry_at"] is not None and mission["planning_retry_at"] > now:
                 return None
@@ -508,30 +566,47 @@ class ContinuousDevelopmentEngine:
             if cursor.rowcount != 1:
                 raise MissionEngineError("Task lease was lost.")
 
-    def _finish_task(self, task_id: str, worker_id: str, *, result: str = "", error: str = "") -> None:
+    def _finish_task(
+        self, task_id: str, worker_id: str, *, result: str = "",
+        error: str = "", interrupted: bool = False,
+    ) -> str:
         now = time.time()
         with self._transaction() as db:
             row = db.execute("""
-                SELECT attempts FROM development_mission_tasks
+                SELECT attempts,failure_count FROM development_mission_tasks
                 WHERE task_id=? AND worker_id=? AND status='running' AND lease_until>?
             """, (task_id, worker_id, now)).fetchone()
             if row is None:
                 raise MissionEngineError("Task lease expired before its result could be saved.")
-            if error:
-                # Retry indefinitely with exponential backoff; the attempt count is informational,
-                # not a stop condition. The latest failure is fed into the next attempt.
-                delay = min(self.retry_base_seconds * (2 ** min(row["attempts"] - 1, 6)), 60.0)
+            if interrupted:
                 db.execute("""
                     UPDATE development_mission_tasks
                     SET status='queued',last_error=?,worker_id='',lease_until=NULL,
                         available_at=?,updated_at=? WHERE task_id=?
-                """, (error[:4000], now + delay, now, task_id))
-            else:
+                """, (error[:4000] or "Execution interrupted; safe to resume.", now, now, task_id))
+                return "queued"
+            if error:
+                failures = row["failure_count"] + 1
+                if failures >= self.max_task_failures:
+                    db.execute("""
+                        UPDATE development_mission_tasks
+                        SET status='failed',failure_count=?,last_error=?,worker_id='',lease_until=NULL,
+                            updated_at=? WHERE task_id=?
+                    """, (failures, error[:4000], now, task_id))
+                    return "failed"
+                delay = min(self.retry_base_seconds * (2 ** min(failures - 1, 6)), 60.0)
                 db.execute("""
                     UPDATE development_mission_tasks
-                    SET status='succeeded',result=?,last_error='',worker_id='',lease_until=NULL,
-                        updated_at=? WHERE task_id=?
-                """, (result[:12000], now, task_id))
+                    SET status='queued',failure_count=?,last_error=?,worker_id='',lease_until=NULL,
+                        available_at=?,updated_at=? WHERE task_id=?
+                """, (failures, error[:4000], now + delay, now, task_id))
+                return "queued"
+            db.execute("""
+                UPDATE development_mission_tasks
+                SET status='succeeded',result=?,last_error='',worker_id='',lease_until=NULL,
+                    updated_at=? WHERE task_id=?
+            """, (result[:12000], now, task_id))
+            return "succeeded"
 
     def _execute_task(self, task: MissionTask, worker_id: str, emit: Callable[[str], None], mission_stop_event: threading.Event | None = None) -> None:
         stop = threading.Event()
@@ -578,15 +653,28 @@ class ContinuousDevelopmentEngine:
             self._finish_task(task.task_id, worker_id, result=result)
         except Exception as exc:
             error = f"{type(exc).__name__}: {str(exc)[:3500]}"
+            interrupted = cancel_event.is_set()
             try:
-                self._finish_task(task.task_id, worker_id, error=error)
+                outcome = self._finish_task(
+                    task.task_id, worker_id, error=error, interrupted=interrupted,
+                )
             except Exception as save_error:
+                outcome = "lease_lost"
                 error += f"; result persistence failed: {type(save_error).__name__}: {save_error}"
-            emit(json.dumps({
-                "event": "task_retry_scheduled", "task_id": task.task_id,
-                "specialist": task.specialist, "attempt": task.attempts,
+            event = {
+                "event": (
+                    "task_interrupted" if interrupted else
+                    "task_failed" if outcome == "failed" else
+                    "task_retry_scheduled"
+                ),
+                "task_id": task.task_id,
+                "specialist": task.specialist,
+                "attempt": task.attempts,
                 "error": error,
-            }, ensure_ascii=False))
+            }
+            if outcome == "failed":
+                event["failure_limit"] = self.max_task_failures
+            emit(json.dumps(event, ensure_ascii=False))
         else:
             checkpoint_store = getattr(agent, "checkpoints", None)
             if checkpoint_store is not None:
@@ -623,6 +711,13 @@ class ContinuousDevelopmentEngine:
             snapshot = self.get_mission(mission_id)
             if snapshot.status == "completed":
                 emit(json.dumps({"event": "mission_completed", "mission_id": mission_id, "summary": snapshot.summary}, ensure_ascii=False))
+                return snapshot
+            if snapshot.failed_tasks:
+                emit(json.dumps({
+                    "event": "mission_blocked", "mission_id": mission_id,
+                    "failed_tasks": snapshot.failed_tasks,
+                    "summary": "A specialist task reached its failure limit. Repair is required before planning or completion can continue.",
+                }, ensure_ascii=False))
                 return snapshot
 
             task = self._claim_task(mission_id, worker_id)
