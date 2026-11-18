@@ -249,21 +249,36 @@ def _parse_action(content: str):
 
 def _validate_tool_action(action: dict, *, allow_game_checks: bool = False) -> None:
     if set(action) != {"tool", "arguments"}:
-        raise AgentError("Tool response must contain only 'tool' and 'arguments'.")
+        received = sorted(str(key) for key in action)
+        raise AgentError(
+            "Tool response must contain exactly 'tool' and 'arguments'; "
+            f"received keys: {received}."
+        )
     tool = action["tool"]
+    if not isinstance(tool, str):
+        raise AgentError("The 'tool' field must be a string.")
     if tool not in TOOL_ARGUMENTS:
-        raise AgentError("Unknown tool.")
+        raise AgentError("Unknown tool name; choose one of the documented tools.")
     if tool == "run_game_checks" and not allow_game_checks:
-        raise AgentError("Unknown tool.")
+        raise AgentError("The run_game_checks tool is restricted to the game specialist.")
     args = action["arguments"]
     if not isinstance(args, dict):
         raise AgentError("Tool arguments must be a JSON object.")
     allowed, required = TOOL_ARGUMENTS[tool]
     keys = set(args)
-    if not required.issubset(keys) or not keys.issubset(allowed):
-        raise AgentError(f"Invalid arguments for tool '{tool}'.")
-    if any(not isinstance(value, str) for value in args.values()):
-        raise AgentError(f"All arguments for tool '{tool}' must be strings.")
+    missing = sorted(required - keys)
+    unexpected = sorted(keys - allowed)
+    if missing or unexpected:
+        raise AgentError(
+            f"Invalid arguments for tool '{tool}': allowed keys are {sorted(allowed)}; "
+            f"required keys are {sorted(required)}; received keys are {sorted(keys)}; "
+            f"missing keys are {missing}; unexpected keys are {unexpected}."
+        )
+    non_string = sorted(key for key, value in args.items() if not isinstance(value, str))
+    if non_string:
+        raise AgentError(
+            f"Arguments for tool '{tool}' must be strings; non-string fields: {non_string}."
+        )
 
 
 def _trim_context(messages: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -478,7 +493,8 @@ class DevelopmentAgent:
                         "matching the required schema. No prose, headings, or provider tool-call "
                         "envelopes. Do not claim an action was executed. If finished, return exactly "
                         '{"final":"your concise result"}. Validation diagnostic: '
-                        + type(exc).__name__ + "."
+                        + type(exc).__name__ + ": "
+                        + str(exc).replace("\\n", " ")[:400] + "."
                     )},
                 ])
                 persist()
