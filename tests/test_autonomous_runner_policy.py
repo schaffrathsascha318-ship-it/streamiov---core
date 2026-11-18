@@ -73,7 +73,7 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertIn(f'output.write(f"{field}=', source)
 
-    def test_agent_branch_dispatches_ci_before_it_can_be_integrated(self):
+    def test_agent_branch_dispatches_ci_and_requires_owner_approval_for_integration(self):
         workflow = (ROOT / ".github" / "workflows" / "autonomous-development.yml").read_text(encoding="utf-8")
         self.assertIn("actions: write", workflow)
         self.assertIn("checks: read", workflow)
@@ -81,8 +81,10 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("gh workflow run phase-1-agent-tests.yml --ref", workflow)
         self.assertIn("gh workflow run secret-scanning.yml --ref", workflow)
         self.assertIn("gh workflow run studio-build.yml --ref", workflow)
-        self.assertIn("gh pr checks", workflow)
-        self.assertIn("all(.[]; .state == \"SUCCESS\")", workflow)
+        self.assertIn("the pull request remains a draft; explicit owner approval is required", workflow)
+        self.assertIn("no integration or deployment was performed", workflow)
+        self.assertNotIn("gh pr merge", workflow)
+        self.assertNotIn("all(.[]; .state == \"SUCCESS\")", workflow)
 
     def test_self_improvement_does_not_authorize_bypassing_security(self):
         tree = ast.parse(RUNNER.read_text(encoding="utf-8"))
