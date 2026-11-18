@@ -8,7 +8,6 @@ import hashlib
 import sqlite3
 import time
 from typing import Callable
-from typing import Callable
 
 
 class AgentCheckpointStore:
@@ -262,26 +261,6 @@ class DevelopmentAgent:
         self.provider = provider
         self.specialist = definition.key
         self.event_callback = event_callback
-
-    def _emit_event(self, event: str, **details) -> None:
-        """Emit safe progress events without prompts, secrets, or file contents."""
-        if self.event_callback is None:
-            return
-        try:
-            self.event_callback({"event": event, "specialist": self.specialist, **details})
-        except Exception:
-            pass  # Observability must never break a development task.
-        self.event_callback = event_callback
-
-    def _emit_event(self, event: str, **details) -> None:
-        """Emit safe, structured progress without exposing prompts, secrets, or file contents."""
-        if self.event_callback is None:
-            return
-        try:
-            self.event_callback({"event": event, "specialist": self.specialist, **details})
-        except Exception:
-            # Observability must never break a development task.
-            pass
         self.learning_store = learning_store
         self.allow_game_checks = definition.key == "game"
         self.system_prompt = build_specialist_system_prompt(self.specialist, SYSTEM)
@@ -292,9 +271,18 @@ class DevelopmentAgent:
             allow_self_modification=allow_self_modification,
             full_project_development=full_project_development,
         )
-        self.max_steps = None  # no per-task turn ceiling
+        self.max_steps = None
         self.checkpoints = AgentCheckpointStore(checkpoint_db) if checkpoint_db else None
 
+    def _emit_event(self, event: str, **details) -> None:
+        """Emit safe progress events without prompts, secrets, or file contents."""
+        if self.event_callback is None:
+            return
+        try:
+            self.event_callback({"event": event, "specialist": self.specialist, **details})
+        except Exception:
+            # Observability must never break a development task.
+            pass
 
     def run(
         self,
@@ -365,7 +353,8 @@ class DevelopmentAgent:
                     tool = action["tool"]
                     args = action["arguments"]
                     safe_details = {"tool": tool, "action_index": index + 1, "action_count": len(actions)}
-                    if isinstance(args.get("path"), str): safe_details["path"] = args["path"]
+                    if isinstance(args.get("path"), str):
+                        safe_details["path"] = args["path"]
                     self._emit_event("tool_started", **safe_details)
                     safe_details = {"tool": tool, "action_index": index + 1, "action_count": len(actions)}
                     if isinstance(args.get("path"), str):
@@ -397,11 +386,7 @@ class DevelopmentAgent:
                         result = marker + result[:MAX_TOOL_RESULT_CHARS - len(marker)]
                     results.append(f"ACTION {index + 1} ({tool}):\n{result}")
                     self._emit_event("tool_completed", **safe_details, success=not result.startswith("TOOL_ERROR:"), result_chars=len(result))
-                    self._emit_event(
-                        "tool_completed", **safe_details,
-                        success=not result.startswith("TOOL_ERROR:"),
-                        result_chars=len(result),
-                    )
+                    self._emit_event("tool_completed", **safe_details, success=not result.startswith("TOOL_ERROR:"), result_chars=len(result))
                     state["next_action_index"] = index + 1
                     # Persist after every action. A process interruption can replay only
                     # the in-flight action; write_file is content-idempotent, while other
@@ -422,7 +407,6 @@ class DevelopmentAgent:
             state["messages"] = _fit_provider_messages(self.system_prompt, state["messages"])
             persist()
             self._emit_event("model_request", message_count=len(state["messages"]))
-            self._emit_event("model_request", message_count=len(state["messages"]))
             reply = self.provider.generate(system=self.system_prompt, messages=state["messages"])
             check_cancelled()
             if not isinstance(reply.content, str) or len(reply.content) > MAX_MODEL_REPLY_CHARS:
@@ -433,7 +417,6 @@ class DevelopmentAgent:
                 if format_retry_used:
                     raise AgentError("Model response was not a valid sequence of JSON actions after one format retry; refusing to guess or execute.") from exc
                 format_retry_used = True
-                self._emit_event("format_correction", error_type=type(exc).__name__)
                 self._emit_event("format_correction", error_type=type(exc).__name__)
                 state["format_retries"] = int(state.get("format_retries", 0)) + 1
                 # Include the actual malformed completion. Previously the model was
@@ -467,7 +450,6 @@ class DevelopmentAgent:
                 return actions[0]["final"]
             for action in actions:
                 _validate_tool_action(action, allow_game_checks=self.allow_game_checks)
-            self._emit_event("actions_received", action_count=len(actions), tools=[item.get("tool", "unknown") for item in actions])
             self._emit_event("actions_received", action_count=len(actions), tools=[item.get("tool", "unknown") for item in actions])
             state["pending_actions"] = actions
             state["next_action_index"] = 0
