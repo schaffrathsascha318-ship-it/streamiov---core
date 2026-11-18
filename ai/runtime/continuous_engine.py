@@ -799,7 +799,7 @@ Use testing/repair specialists when verification or correction is needed."""
                 *messages,
                 {"role": "assistant", "content": reply.content[:12_000]},
                 {"role": "user", "content": (
-                    "FORMAT/SCHEMA CORRECTION: Return exactly one valid JSON object and nothing else. "
+                    "FORMAT CORRECTION (SCHEMA VALIDATION): Return exactly one valid JSON object and nothing else. "
                     "Do not use Markdown fences, prose, comments, or trailing text. "
                     'Required top-level fields are exactly "state", "summary", and "tasks". '
                     'Use state="continue" with at least one task, or state="completed" with tasks=[]. '
