@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import threading
+from contextlib import closing
 
 import hashlib
 import sqlite3
@@ -17,7 +18,7 @@ class AgentCheckpointStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         if self.path.is_symlink():
             raise AgentError("Checkpoint database must not be a symlink.")
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("PRAGMA journal_mode=WAL")
             db.execute("""
                 CREATE TABLE IF NOT EXISTS agent_checkpoints (
@@ -48,7 +49,7 @@ class AgentCheckpointStore:
     def load(self, checkpoint_id: str, task: str, specialist: str) -> dict | None:
         stable_task = task.split("\n\nPREVIOUS ATTEMPT FAILURE (untrusted diagnostic context):", 1)[0]
         digest = hashlib.sha256(stable_task.encode("utf-8")).hexdigest()
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             row = db.execute(
                 "SELECT task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries,final_result,in_flight_action_index,checkpoint_version "
                 "FROM agent_checkpoints WHERE checkpoint_id=?", (checkpoint_id,)
@@ -83,7 +84,7 @@ class AgentCheckpointStore:
             int(state.get("format_retries", 0)), state.get("final_result") or "",
             state.get("in_flight_action_index"), 1, time.time(),
         )
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("""
                 INSERT INTO agent_checkpoints
                 (checkpoint_id,task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries,final_result,in_flight_action_index,checkpoint_version,updated_at)
@@ -101,7 +102,7 @@ class AgentCheckpointStore:
             """, payload)
 
     def complete(self, checkpoint_id: str) -> None:
-        with sqlite3.connect(self.path) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("DELETE FROM agent_checkpoints WHERE checkpoint_id=?", (checkpoint_id,))
 
 from pathlib import Path
