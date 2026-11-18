@@ -843,7 +843,10 @@ Use testing/repair specialists when verification or correction is needed."""
                 raise MissionEngineError("Mission task dependencies must refer to this batch.")
             if not isinstance(item["prompt"], str) or not item["prompt"].strip() or len(item["prompt"]) > 8000:
                 raise MissionEngineError("Mission task prompts must contain 1–8000 characters.")
-            specialist = get_specialist(item["specialist"])
+            try:
+                specialist = get_specialist(item["specialist"])
+            except ValueError as exc:
+                raise MissionEngineError(f"Mission planner selected an unknown specialist: {exc}") from exc
             if specialist.key in assigned_specialists:
                 raise MissionEngineError(
                     f"Specialist '{specialist.key}' received multiple tasks in one planning cycle; "
