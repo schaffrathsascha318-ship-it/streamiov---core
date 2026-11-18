@@ -183,6 +183,10 @@ class ContinuousDevelopmentEngine:
                 db.execute(
                     "ALTER TABLE development_missions ADD COLUMN planning_retry_at REAL"
                 )
+            if "planning_blocked" not in mission_columns:
+                db.execute(
+                    "ALTER TABLE development_missions ADD COLUMN planning_blocked INTEGER NOT NULL DEFAULT 0"
+                )
             db.execute("""
                 CREATE INDEX IF NOT EXISTS idx_mission_tasks_lease
                 ON development_mission_tasks(status,lease_until)
@@ -219,11 +223,26 @@ class ContinuousDevelopmentEngine:
                 FROM development_mission_tasks WHERE mission_id=?
             """, (mission_id,)).fetchone()
         return MissionSnapshot(
-            mission_id=row["mission_id"], goal=row["goal"], status=row["status"],
+            mission_id=row["mission_id"], goal=row["goal"],
+            status="blocked" if row["planning_blocked"] else row["status"],
             cycle=row["cycle"], summary=row["summary"],
             pending_tasks=counts["pending"] or 0, running_tasks=counts["running"] or 0,
             completed_tasks=counts["completed"] or 0, attempts=counts["attempts"] or 0,
         )
+
+    def resume_blocked_mission(self, mission_id: str) -> None:
+        """Explicitly resume a mission after its planner blocker has been corrected."""
+        now = time.time()
+        with self._transaction() as db:
+            cursor = db.execute(
+                """UPDATE development_missions
+                   SET planning_blocked=0,planning_failures=0,planning_retry_at=NULL,
+                       planning_owner='',planning_lease_until=NULL,updated_at=?
+                   WHERE mission_id=? AND status='active'""",
+                (now, mission_id),
+            )
+            if cursor.rowcount != 1:
+                raise MissionEngineError("Only an existing active mission can be resumed.")
 
     def _progress_context(self, mission_id: str) -> str:
         # Keep planning requests comfortably below the authenticated Worker
@@ -267,7 +286,7 @@ class ContinuousDevelopmentEngine:
             ).fetchone()
             if mission is None:
                 raise MissionEngineError("Mission not found.")
-            if mission["status"] == "completed":
+            if mission["status"] == "completed" or mission["planning_blocked"]:
                 return None
             if mission["planning_retry_at"] is not None and mission["planning_retry_at"] > now:
                 return None
@@ -392,7 +411,7 @@ class ContinuousDevelopmentEngine:
                 db.execute("""
                     UPDATE development_missions
                     SET status='completed',summary=?,planning_owner='',planning_lease_until=NULL,
-                        planning_failures=0,planning_retry_at=NULL,updated_at=?
+                        planning_failures=0,planning_retry_at=NULL,planning_blocked=0,updated_at=?
                     WHERE mission_id=?
                 """, (plan.summary, now, mission_id))
                 return plan
@@ -412,7 +431,7 @@ class ContinuousDevelopmentEngine:
             db.execute("""
                 UPDATE development_missions
                 SET cycle=?,summary=?,planning_owner='',planning_lease_until=NULL,
-                    planning_failures=0,planning_retry_at=NULL,updated_at=?
+                    planning_failures=0,planning_retry_at=NULL,planning_blocked=0,updated_at=?
                 WHERE mission_id=?
             """, (cycle, plan.summary, now, mission_id))
         return plan
@@ -624,6 +643,12 @@ class ContinuousDevelopmentEngine:
             if snapshot.status == "completed":
                 emit(json.dumps({"event": "mission_completed", "mission_id": mission_id, "summary": snapshot.summary}, ensure_ascii=False))
                 return snapshot
+            if snapshot.status == "blocked":
+                emit(json.dumps({
+                    "event": "mission_blocked", "mission_id": mission_id,
+                    "reason": "Planner failed three consecutive times; manual correction and explicit resume are required.",
+                }, ensure_ascii=False))
+                return snapshot
 
             task = self._claim_task(mission_id, worker_id)
             if task is not None:
@@ -656,24 +681,29 @@ class ContinuousDevelopmentEngine:
                         "SELECT planning_failures FROM development_missions WHERE mission_id=? AND planning_owner=?",
                         (mission_id, worker_id),
                     ).fetchone()
+                    blocked = False
                     if row is not None:
                         failures = row["planning_failures"] + 1
+                        blocked = isinstance(exc, MissionEngineError) and failures >= 3
                         delay = min(self.retry_base_seconds * (2 ** min(failures - 1, 6)), 300.0)
                         db.execute("""
                             UPDATE development_missions
                             SET planning_owner='',planning_lease_until=NULL,
-                                planning_failures=?,planning_retry_at=?,updated_at=?
+                                planning_failures=?,planning_retry_at=?,planning_blocked=?,updated_at=?
                             WHERE mission_id=? AND planning_owner=?
-                        """, (failures, now + delay, now, mission_id, worker_id))
+                        """, (failures, None if blocked else now + delay, int(blocked), now, mission_id, worker_id))
                     else:
                         failures = 1
                         delay = min(self.retry_base_seconds, 300.0)
+                        blocked = False
                 emit(json.dumps({
-                    "event": "planning_retry_scheduled", "mission_id": mission_id,
-                    "cycle": cycle, "failure_count": failures,
-                    "retry_after_seconds": delay,
+                    "event": "mission_blocked" if blocked else "planning_retry_scheduled",
+                    "mission_id": mission_id, "cycle": cycle, "failure_count": failures,
+                    "retry_after_seconds": 0 if blocked else delay,
                     "error": f"{type(exc).__name__}: {str(exc)[:2000]}",
                 }, ensure_ascii=False))
+                if blocked:
+                    return self.get_mission(mission_id)
                 stop_event.wait(min(max(poll_seconds, delay), 300.0))
 
         return self.get_mission(mission_id)
