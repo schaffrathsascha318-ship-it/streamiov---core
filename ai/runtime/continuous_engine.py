@@ -791,23 +791,30 @@ Use testing/repair specialists when verification or correction is needed."""
             raise MissionEngineError("Mission planner response is missing or exceeds 24 KB.")
         try:
             payload = _parse_planner_response(reply.content)
-        except MissionEngineError:
-            # A single bounded format repair avoids burning an entire 18-minute
-            # runner slice on repeated malformed responses from the model.
+            return self._build_plan(payload, cycle)
+        except MissionEngineError as first_error:
+            # Repair both syntax errors and structurally invalid plans. A model
+            # can return valid JSON that still violates the planner contract.
             correction_messages = [
                 *messages,
                 {"role": "assistant", "content": reply.content[:12_000]},
                 {"role": "user", "content": (
-                    "FORMAT CORRECTION: Return exactly one valid JSON object and nothing else. "
+                    "FORMAT/SCHEMA CORRECTION: Return exactly one valid JSON object and nothing else. "
                     "Do not use Markdown fences, prose, comments, or trailing text. "
                     'Required top-level fields are exactly "state", "summary", and "tasks". '
-                    'Use state="continue" with at least one task, or state="completed" with tasks=[].'
+                    'Use state="continue" with at least one task, or state="completed" with tasks=[]. '
+                    "For every task, use exactly id, specialist, prompt, and depends_on; "
+                    "use a known specialist, unique safe IDs, and dependencies that refer to IDs in this batch. "
+                    "Correct the previous response error: " + str(first_error)[:500]
                 )},
             ]
             corrected = self.provider.generate(system=self.SYSTEM, messages=correction_messages)
             if not isinstance(corrected.content, str) or len(corrected.content) > 24000:
                 raise MissionEngineError("Mission planner format correction response is missing or exceeds 24 KB.")
             payload = _parse_planner_response(corrected.content)
+            return self._build_plan(payload, cycle)
+
+    def _build_plan(self, payload: dict, cycle: int) -> MissionPlan:
         if not isinstance(payload, dict) or set(payload) != {"state", "summary", "tasks"}:
             raise MissionEngineError("Mission plan must contain exactly state, summary and tasks.")
         if payload["state"] not in {"continue", "completed"}:
