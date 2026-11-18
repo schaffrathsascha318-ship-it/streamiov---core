@@ -205,6 +205,32 @@ class MissionEngineTests(unittest.TestCase):
         self.assertIn("FORMAT CORRECTION (SCHEMA VALIDATION)", provider.calls[1][-1]["content"])
         self.assertIn("exactly state, summary and tasks", provider.calls[1][-1]["content"])
 
+    def test_planner_repairs_cyclic_task_dependencies_before_returning_plan(self):
+        class Provider:
+            def __init__(self):
+                self.calls = 0
+
+            def generate(self, *, system, messages):
+                self.calls += 1
+                dependencies = (["second"], ["first"]) if self.calls == 1 else ([], ["first"])
+                content = json.dumps({
+                    "state": "continue",
+                    "summary": "Build a valid dependency graph.",
+                    "tasks": [
+                        {"id": "first", "specialist": "code", "prompt": "Implement the base.", "depends_on": dependencies[0]},
+                        {"id": "second", "specialist": "testing", "prompt": "Verify the base.", "depends_on": dependencies[1]},
+                    ],
+                })
+                return type("Reply", (), {"content": content})()
+
+        provider = Provider()
+        plan = ModelMissionPlanner(provider).plan(
+            "Build and verify a feature.", "", mission_id="cyclic-graph-retry", cycle=3,
+        )
+        self.assertEqual(provider.calls, 2)
+        self.assertEqual(plan.tasks[0].depends_on, ())
+        self.assertEqual(plan.tasks[1].depends_on, ("cycle-3-first",))
+
     def test_planner_retries_unknown_specialist_as_invalid_plan(self):
         class Provider:
             def __init__(self):
