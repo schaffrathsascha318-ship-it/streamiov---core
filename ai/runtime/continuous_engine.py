@@ -653,7 +653,9 @@ class ContinuousDevelopmentEngine:
             self._finish_task(task.task_id, worker_id, result=result)
         except Exception as exc:
             error = f"{type(exc).__name__}: {str(exc)[:3500]}"
-            interrupted = cancel_event.is_set()
+            interrupted = cancel_event.is_set() or (
+                mission_stop_event is not None and mission_stop_event.is_set()
+            )
             try:
                 outcome = self._finish_task(
                     task.task_id, worker_id, error=error, interrupted=interrupted,
