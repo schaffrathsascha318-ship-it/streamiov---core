@@ -30,19 +30,27 @@ class AgentCheckpointStore:
                     results_json TEXT NOT NULL DEFAULT '[]',
                     format_retries INTEGER NOT NULL DEFAULT 0,
                     final_result TEXT NOT NULL DEFAULT '',
+                    in_flight_action_index INTEGER,
+                    checkpoint_version INTEGER NOT NULL DEFAULT 1,
                     updated_at REAL NOT NULL
                 )
             """)
             columns = {row[1] for row in db.execute("PRAGMA table_info(agent_checkpoints)")}
+            if "format_retries" not in columns:
+                db.execute("ALTER TABLE agent_checkpoints ADD COLUMN format_retries INTEGER NOT NULL DEFAULT 0")
             if "final_result" not in columns:
                 db.execute("ALTER TABLE agent_checkpoints ADD COLUMN final_result TEXT NOT NULL DEFAULT ''")
+            if "in_flight_action_index" not in columns:
+                db.execute("ALTER TABLE agent_checkpoints ADD COLUMN in_flight_action_index INTEGER")
+            if "checkpoint_version" not in columns:
+                db.execute("ALTER TABLE agent_checkpoints ADD COLUMN checkpoint_version INTEGER NOT NULL DEFAULT 0")
 
     def load(self, checkpoint_id: str, task: str, specialist: str) -> dict | None:
         stable_task = task.split("\n\nPREVIOUS ATTEMPT FAILURE (untrusted diagnostic context):", 1)[0]
         digest = hashlib.sha256(stable_task.encode("utf-8")).hexdigest()
         with sqlite3.connect(self.path) as db:
             row = db.execute(
-                "SELECT task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries,final_result "
+                "SELECT task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries,final_result,in_flight_action_index,checkpoint_version "
                 "FROM agent_checkpoints WHERE checkpoint_id=?", (checkpoint_id,)
             ).fetchone()
         if row is None:
@@ -57,6 +65,8 @@ class AgentCheckpointStore:
                 "results": json.loads(row[5]),
                 "format_retries": row[6],
                 "final_result": row[7] or None,
+                "in_flight_action_index": row[8],
+                "checkpoint_version": row[9],
             }
         except (TypeError, json.JSONDecodeError) as exc:
             raise AgentError("Persisted agent checkpoint is corrupt; refusing to guess.") from exc
@@ -70,13 +80,14 @@ class AgentCheckpointStore:
             json.dumps(state.get("pending_actions", []), ensure_ascii=False),
             int(state.get("next_action_index", 0)),
             json.dumps(state.get("results", []), ensure_ascii=False),
-            int(state.get("format_retries", 0)), state.get("final_result") or "", time.time(),
+            int(state.get("format_retries", 0)), state.get("final_result") or "",
+            state.get("in_flight_action_index"), 1, time.time(),
         )
         with sqlite3.connect(self.path) as db:
             db.execute("""
                 INSERT INTO agent_checkpoints
-                (checkpoint_id,task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries,final_result,updated_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?)
+                (checkpoint_id,task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries,final_result,in_flight_action_index,checkpoint_version,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(checkpoint_id) DO UPDATE SET
                     messages_json=excluded.messages_json,
                     pending_actions_json=excluded.pending_actions_json,
@@ -84,6 +95,8 @@ class AgentCheckpointStore:
                     results_json=excluded.results_json,
                     format_retries=excluded.format_retries,
                     final_result=excluded.final_result,
+                    in_flight_action_index=excluded.in_flight_action_index,
+                    checkpoint_version=excluded.checkpoint_version,
                     updated_at=excluded.updated_at
             """, payload)
 
@@ -326,6 +339,8 @@ class DevelopmentAgent:
                 "results": [],
                 "format_retries": 0,
                 "final_result": None,
+                "in_flight_action_index": None,
+                "checkpoint_version": 1,
             }
 
         # A persisted format failure belongs to the previous model turn. Give each
@@ -345,6 +360,19 @@ class DevelopmentAgent:
             raise AgentError("Persisted agent checkpoint has an invalid action cursor.")
         for saved_action in state["pending_actions"]:
             _validate_tool_action(saved_action, allow_game_checks=self.allow_game_checks)
+        in_flight = state.get("in_flight_action_index")
+        if in_flight is not None:
+            if not isinstance(in_flight, int) or in_flight != state["next_action_index"] or not 0 <= in_flight < len(state["pending_actions"]):
+                raise AgentError("Persisted in-flight action marker is invalid; refusing recovery.")
+            raise AgentError(
+                f"Action {in_flight + 1} ({state['pending_actions'][in_flight]['tool']}) was in progress when the process stopped. "
+                "Its side effects cannot be proven; inspect the target state and reconcile this checkpoint manually before resuming."
+            )
+        if state.get("checkpoint_version", 0) < 1 and state["next_action_index"] < len(state["pending_actions"]):
+            raise AgentError(
+                "Legacy checkpoint contains uncompleted actions without crash-safe execution markers. "
+                "Inspect possible prior side effects and reconcile before resuming."
+            )
         if state.get("final_result") is not None:
             check_cancelled()
             if not isinstance(state["final_result"], str):
@@ -361,6 +389,10 @@ class DevelopmentAgent:
                     action = actions[index]
                     tool = action["tool"]
                     args = action["arguments"]
+                    # Persist intent before invoking a tool. If the process dies during
+                    # the side effect, recovery will stop rather than replay it blindly.
+                    state["in_flight_action_index"] = index
+                    persist()
                     try:
                         if tool == "list_files":
                             result = self.tools.list_files(args.get("path", "."))
@@ -387,9 +419,8 @@ class DevelopmentAgent:
                         result = marker + result[:MAX_TOOL_RESULT_CHARS - len(marker)]
                     results.append(f"ACTION {index + 1} ({tool}):\n{result}")
                     state["next_action_index"] = index + 1
-                    # Persist after every action. A process interruption can replay only
-                    # the in-flight action; write_file is content-idempotent, while other
-                    # actions must be safe to inspect/retry.
+                    state["in_flight_action_index"] = None
+                    # Result, cursor advancement, and marker removal are saved together.
                     persist()
                 action_context = ", ".join(str(action["tool"]) for action in actions)
                 state["messages"].extend([
