@@ -23,9 +23,11 @@ class SequenceProvider:
     def __init__(self, *responses: str) -> None:
         self.responses = list(responses)
         self.calls = 0
+        self.messages = []
 
     def generate(self, *, system: str, messages: list[dict[str, str]]) -> ModelReply:
         self.calls += 1
+        self.messages.append(messages)
         if not self.responses:
             raise AssertionError("Unexpected extra model request.")
         return ModelReply(self.responses.pop(0), "test", "fixture")
@@ -131,6 +133,22 @@ class SpecialistActionProtocolTests(unittest.TestCase):
             self.assertEqual(agent.run("Do not create blocked.txt."), "no action executed")
             self.assertFalse(Path(directory, "blocked.txt").exists())
         self.assertEqual(provider.calls, 2)
+        correction = provider.messages[1][-1]["content"]
+        self.assertIn("allowed keys are ['content', 'path']", correction)
+        self.assertIn("unexpected keys are ['extra']", correction)
+
+    def test_read_file_offset_and_length_are_rejected_with_actionable_schema_feedback(self):
+        invalid = json.dumps({
+            "tool": "read_file",
+            "arguments": {"path": "README.md", "offset": "400", "length": "150"},
+        })
+        provider = SequenceProvider(invalid, '{"final":"corrected"}')
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="code")
+            self.assertEqual(agent.run("Read the README safely."), "corrected")
+        diagnostic = provider.messages[1][-1]["content"]
+        self.assertIn("allowed keys are ['path']", diagnostic)
+        self.assertIn("unexpected keys are ['length', 'offset']", diagnostic)
 
     def test_malformed_replies_have_one_bounded_correction_per_run(self):
         provider = SequenceProvider("not json", "still not json")
