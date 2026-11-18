@@ -494,7 +494,7 @@ class DevelopmentAgent:
                         "envelopes. Do not claim an action was executed. If finished, return exactly "
                         '{"final":"your concise result"}. Validation diagnostic: '
                         + type(exc).__name__ + ": "
-                        + str(exc).replace("\\n", " ")[:400] + "."
+                        + str(exc).replace("\n", " ")[:400] + "."
                     )},
                 ])
                 persist()
