@@ -52,14 +52,14 @@ class SpecialistActionProtocolTests(unittest.TestCase):
 
     def test_valid_array_actions_execute_before_final_response(self):
         provider = SequenceProvider(
-            '[{"tool":"write_file","arguments":{"path":"created.txt","content":"safe"}}]',
+            '[{"tool":"write_file","arguments":{"path":"ai/created.py","content":"safe"}}]',
             '{"final":"created"}',
         )
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="code")
             result = agent.run("Create created.txt with the word safe.")
             self.assertEqual(result, "created")
-            self.assertEqual(Path(directory, "created.txt").read_text(encoding="utf-8"), "safe")
+            self.assertEqual(Path(directory, "ai", "created.py").read_text(encoding="utf-8"), "safe")
         self.assertEqual(provider.calls, 2)
 
     def test_schema_invalid_action_is_corrected_without_execution(self):
