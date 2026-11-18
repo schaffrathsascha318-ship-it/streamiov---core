@@ -11,6 +11,7 @@ from ai.core.agent import (
     AgentError,
     DevelopmentAgent,
     _parse_actions,
+    _fit_provider_messages,
     _validate_tool_action,
     AgentCheckpointStore,
 )
@@ -83,6 +84,13 @@ class SpecialistActionProtocolTests(unittest.TestCase):
         self.assertEqual(_parse_actions('[{"tool":"list_files","arguments":{"path":"."}}]'), [action])
         fenced = "```json\n" + '{"tool":"list_files","arguments":{"path":"."}}' + "\n```"
         self.assertEqual(_parse_actions(fenced), [action])
+
+    def test_provider_context_collapses_repeated_legacy_checkpoint_results(self):
+        original = {"role": "user", "content": "original task"}
+        repeated = {"role": "user", "content": "ACTION 1 (list_files):\\nfile README.md"}
+        messages = [original, repeated, repeated, repeated]
+        fitted = _fit_provider_messages("system", messages)
+        self.assertEqual(fitted, [original, repeated])
 
     def test_rejects_leading_trailing_prose_and_truncated_json(self):
         invalid = (
