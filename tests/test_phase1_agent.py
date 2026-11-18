@@ -357,7 +357,7 @@ class AgentTests(unittest.TestCase):
     def test_mixed_tool_and_final_response_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             response = '{"tool":"read_file","arguments":{"path":"README.md"},"final":"fake"}'
-            with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider([response]), tmp).run("Do task")
+            with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider([response, response]), tmp).run("Do task")
 
     def test_specialist_role_sets_expertise_prompt_and_project_wide_write_access(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -392,7 +392,7 @@ class AgentTests(unittest.TestCase):
     def test_non_game_agent_cannot_request_game_check_tool(self):
         with tempfile.TemporaryDirectory() as tmp:
             agent = DevelopmentAgent(
-                FakeProvider(['{"tool":"run_game_checks","arguments":{}}']), tmp, specialist="code"
+                FakeProvider(['{"tool":"run_game_checks","arguments":{}}', '{"tool":"run_game_checks","arguments":{}}']), tmp, specialist="code"
             )
             with self.assertRaises(AgentError):
                 agent.run("Run game checks.")
@@ -410,7 +410,8 @@ class AgentTests(unittest.TestCase):
             target = Path(tmp, "ai", "must_not_exist.py")
             p = FakeProvider([
                 '{"tool":"write_file","arguments":{"path":"ai/must_not_exist.py","content":"unsafe partial batch"}}'
-                '{"tool":"read_file","arguments":{"path":"README.md","unexpected":"extra"}}'
+                '{"tool":"read_file","arguments":{"path":"README.md","unexpected":"extra"}}',
+                "still invalid",
             ])
             with self.assertRaises(AgentError):
                 DevelopmentAgent(p, tmp).run("Do not partially execute invalid batches")
@@ -418,7 +419,7 @@ class AgentTests(unittest.TestCase):
 
     def test_tool_arguments_reject_non_string_values(self):
         with tempfile.TemporaryDirectory() as tmp:
-            p = FakeProvider(['{"tool":"read_file","arguments":{"path":42}}'])
+            p = FakeProvider(['{"tool":"read_file","arguments":{"path":42}}', '{"tool":"read_file","arguments":{"path":42}}'])
             with self.assertRaises(AgentError):
                 DevelopmentAgent(p, tmp).run("Reject malformed tool arguments")
 
