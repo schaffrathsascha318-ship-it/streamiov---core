@@ -355,6 +355,9 @@ class ContinuousDevelopmentEngine:
                 "mandatory-final-verification",
                 "testing",
                 "STREAMIOV_FINAL_VERIFICATION: Independently inspect the actual project changes for the original mission. "
+                "Verify that the entire assignment was implemented end to end: every requested objective and acceptance criterion "
+                "must have a concrete delivered change or be explicitly blocked by a documented external dependency or protected action. "
+                "Research, planning, status reporting, and passing tests alone are not completion; tests validate the delivered work. "
                 "Run the relevant automated tests and verify the requested behavior from source and test evidence. "
                 "Do not edit implementation files. Return exactly one JSON object with exactly these fields: "
                 '{"verdict":"passed" or "failed","evidence":["specific commands and observed results"],"findings":["specific unresolved defects"]}. '
