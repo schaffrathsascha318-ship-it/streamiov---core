@@ -16,7 +16,6 @@ import sys
 import threading
 from pathlib import Path
 from datetime import datetime, timezone
-from datetime import datetime, timezone
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
@@ -39,15 +38,6 @@ from ai.runtime.continuous_engine import (  # noqa: E402
 def fail(message: str) -> int:
     print(f"STREAMIOV_MISSION_ERROR: {message}", file=sys.stderr)
     return 1
-
-
-def terminal_event(event: dict) -> None:
-    kind = str(event.get("event", "event"))
-    specialist = str(event.get("specialist", "AI Chief"))
-    keys = ("tool", "path", "action_count", "cycle", "task_count", "attempt", "success", "error_type", "result_chars")
-    details = " ".join(f"{key}={event[key]}" for key in keys if key in event)
-    stamp = datetime.now(timezone.utc).astimezone().strftime("%H:%M:%S")
-    print(f"[{stamp}] [{specialist}] {kind}" + (f" | {details}" if details else ""), flush=True)
 
 
 def terminal_event(event: dict) -> None:
