@@ -232,6 +232,33 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(plan.tasks[0].specialist, "code")
         self.assertEqual(provider.calls, 2)
 
+    def test_planner_repairs_non_string_dependency_ids(self):
+        class Provider:
+            def __init__(self):
+                self.calls = 0
+
+            def generate(self, *, system, messages):
+                self.calls += 1
+                dependency = {"nested": "invalid"} if self.calls == 1 else []
+                content = json.dumps({
+                    "state": "continue",
+                    "summary": "Implement one task.",
+                    "tasks": [{
+                        "id": "work",
+                        "specialist": "code",
+                        "prompt": "Implement the task.",
+                        "depends_on": dependency,
+                    }],
+                })
+                return type("Reply", (), {"content": content})()
+
+        provider = Provider()
+        plan = ModelMissionPlanner(provider).plan(
+            "Implement one task.", "", mission_id="dependency-type-retry", cycle=1,
+        )
+        self.assertEqual(plan.state, "continue")
+        self.assertEqual(provider.calls, 2)
+
     def test_existing_mission_database_is_migrated_with_retry_columns(self):
         with sqlite3.connect(self.db) as db:
             db.executescript("""
