@@ -30,6 +30,10 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("implement worthwhile improvements", policy)
         self.assertIn("highest-value unblocked work", policy)
         self.assertIn("reassess the roadmap", policy)
+        self.assertIn("Complete the entire assignment end to end", policy)
+        self.assertIn("do not stop after inspection, research", policy)
+        self.assertIn("Tests validate delivery; they are not the delivery", policy)
+        self.assertIn("every acceptance criterion", policy)
 
     def test_control_plane_and_security_guards_remain_protected(self):
         workflow = (ROOT / ".github" / "workflows" / "autonomous-development.yml").read_text(encoding="utf-8")
