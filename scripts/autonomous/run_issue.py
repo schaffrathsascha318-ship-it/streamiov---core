@@ -15,6 +15,7 @@ import sqlite3
 import sys
 import threading
 from pathlib import Path
+from datetime import datetime, timezone
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
@@ -37,6 +38,20 @@ from ai.runtime.continuous_engine import (  # noqa: E402
 def fail(message: str) -> int:
     print(f"STREAMIOV_MISSION_ERROR: {message}", file=sys.stderr)
     return 1
+
+
+def terminal_event(event: dict) -> None:
+    """Human-readable live progress; never print model prompts or tool payloads."""
+    kind = str(event.get("event", "event"))
+    specialist = str(event.get("specialist", "AI Chief"))
+    details = []
+    for key in ("tool", "path", "action_count", "cycle", "task_count", "attempt",
+                "success", "error_type", "result_chars"):
+        if key in event:
+            details.append(f"{key}={event[key]}")
+    stamp = datetime.now(timezone.utc).astimezone().strftime("%H:%M:%S")
+    suffix = " | " + " ".join(details) if details else ""
+    print(f"[{stamp}] [{specialist}] {kind}{suffix}", flush=True)
 
 
 def build_task(issue: dict, project_root: Path) -> str:
@@ -132,6 +147,7 @@ def main() -> int:
                 specialist=role,
                 checkpoint_db=database,
                 full_project_development=True,
+                event_callback=terminal_event,
             ),
         )
         try:
@@ -170,7 +186,7 @@ def main() -> int:
                 stop_event,
                 poll_seconds=5.0,
                 worker_id=f"github-actions-{run_id}-{attempt}",
-                emit=lambda event: print(event, flush=True),
+                emit=lambda event: terminal_event(json.loads(event)) if event.lstrip().startswith("{") else print(event, flush=True),
             )
         finally:
             for item, handler in previous.items():

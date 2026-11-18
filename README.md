@@ -79,6 +79,8 @@ From the repository root, inspect the current project overview with:
 python3 -m ai --jason-status
 ```
 
+To run an explicitly `agent-ready` GitHub mission locally and watch live specialist/tool progress in the terminal, see [AI Chief terminal monitoring](docs/operations/ai-chief-terminal-monitor.md). The launcher refuses blocked or already-running issues and resumes from the same durable mission database.
+
 Jason reads the mission database at `.streamiov/ai-missions.sqlite3` and the specialist queue at `.streamiov/specialist-queue.sqlite3` in read-only mode. Missing databases are reported as unavailable; Jason does not invent progress or create runtime state.
 
 ## Repository map
