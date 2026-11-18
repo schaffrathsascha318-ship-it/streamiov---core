@@ -636,3 +636,27 @@ class LocalProviderHttpTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LiveTerminalEventTests(unittest.TestCase):
+    def test_agent_emits_safe_live_progress_events(self):
+        events = []
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(
+                FakeProvider([
+                    '{"tool":"list_files","arguments":{"path":"."}}',
+                    '{"final":"inspection complete"}',
+                ]),
+                directory,
+                event_callback=events.append,
+            )
+            self.assertEqual(agent.run("Inspect the workspace."), "inspection complete")
+        names = [event["event"] for event in events]
+        self.assertIn("agent_started", names)
+        self.assertIn("model_request", names)
+        self.assertIn("actions_received", names)
+        self.assertIn("tool_started", names)
+        self.assertIn("tool_completed", names)
+        self.assertEqual(names[-1], "agent_completed")
+        self.assertTrue(all("content" not in event and "prompt" not in event for event in events))
+
