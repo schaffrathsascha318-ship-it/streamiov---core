@@ -356,10 +356,6 @@ class DevelopmentAgent:
                     if isinstance(args.get("path"), str):
                         safe_details["path"] = args["path"]
                     self._emit_event("tool_started", **safe_details)
-                    safe_details = {"tool": tool, "action_index": index + 1, "action_count": len(actions)}
-                    if isinstance(args.get("path"), str):
-                        safe_details["path"] = args["path"]
-                    self._emit_event("tool_started", **safe_details)
                     try:
                         if tool == "list_files":
                             result = self.tools.list_files(args.get("path", "."))
@@ -385,7 +381,6 @@ class DevelopmentAgent:
                         marker = "[tool output truncated at 12,000 characters]\n"
                         result = marker + result[:MAX_TOOL_RESULT_CHARS - len(marker)]
                     results.append(f"ACTION {index + 1} ({tool}):\n{result}")
-                    self._emit_event("tool_completed", **safe_details, success=not result.startswith("TOOL_ERROR:"), result_chars=len(result))
                     self._emit_event("tool_completed", **safe_details, success=not result.startswith("TOOL_ERROR:"), result_chars=len(result))
                     state["next_action_index"] = index + 1
                     # Persist after every action. A process interruption can replay only
