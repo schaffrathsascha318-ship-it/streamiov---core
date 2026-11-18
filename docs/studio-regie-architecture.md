@@ -1,10 +1,11 @@
 # STREAMIOV Studio – eigene Regie-Engine
 
 ## Produktgrenze
-- Einzige externe Live-Plattform zum Start: **TikTok LIVE**.
-- Regie, Szenenverwaltung, Medienpipeline, Quellen-, Audio- und Geräteverwaltung sind STREAMIOV-Eigenentwicklung.
-- Keine OBS-Laufzeitabhängigkeit, kein OBS-Frontend und keine Twitch-/YouTube-/Kick-/Facebook-Adapter im Startumfang.
-- TikTok-Zugriff nur über tatsächlich erlaubte/offizielle Schnittstellen und erteilte Berechtigungen. Nicht verfügbare Schnittstellen werden als nicht verfügbar ausgewiesen.
+- STREAMIOV ist eine **eigenständige Streaming-Plattform** mit eigener Live-Übertragung, eigenem Chat, Zuschauern, Geschenken, Alerts, Games und Regie.
+- Core/API und Plattformdienste verantworten Konten, Sitzungen, Berechtigungen, zentrale Ereignisverarbeitung und Plattformzustand; das lokale Studio verantwortet Gerätezugriff, Szenen, Medienpipeline und Encoder-Steuerung.
+- TikTok ist keine primäre Streamingplattform und keine Pflichtintegration. Vorhandene TikTok-OAuth- und Adapter-Komponenten bleiben bis zu einer gesonderten Bestands- und Sicherheitsprüfung unverändert erhalten.
+- Keine OBS-Laufzeitabhängigkeit und kein OBS-Frontend. Weitere externe Adapter sind optionale, getrennt geprüfte Integrationen.
+- Keine externe Integration darf eine nicht genehmigte oder nicht verfügbare Schnittstelle vortäuschen.
 
 ## Desktop-Ziel
 Windows 11 x64 ist die primäre Referenzplattform für leistungsstarke Desktop-PCs und Laptops. GPU-Encoding, Mehrkamera-/Capture-Setups, mehrere Monitore und professionelle Audiointerfaces werden in einer Hardware-Testmatrix geprüft. ARM64 und weitere Betriebssysteme bleiben getrennte zusätzliche Build-Ziele.

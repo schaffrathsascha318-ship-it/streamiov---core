@@ -14,7 +14,7 @@ Dieser Plan ist die verbindliche Arbeitsreihenfolge für Core, KI, Studio, Spiel
 6. Keine erfundenen Erfolgs- oder Veröffentlichungsangaben. Statuswerte: geplant, in Arbeit, implementiert, CI-geprüft, Laufzeit-geprüft, produktionsgeprüft, veröffentlicht.
 7. Keine unkontrollierten Änderungen an Zugangsdaten, produktiven Daten, Zahlungsflüssen oder bestehenden Creator-Verbindungen.
 8. Chromebook bleibt Entwicklungsumgebung, nicht Produktionshost. Cloud-Dienste und Produktionsinfrastruktur werden unabhängig davon geplant und betrieben.
-9. Launch-Scope für externe Streamingplattformen: TikTok LIVE. Keine zusätzlichen Plattformadapter als Ablenkung vom Launch.
+9. STREAMIOV betreibt eine eigene, unabhängige Streaming-Plattform. TikTok ist höchstens ein optionaler externer Adapter nach gesonderter Prüfung, niemals die zentrale Plattform oder eine Pflichtabhängigkeit. Bestehende Integrationen bleiben bis zur Prüfung erhalten.
 10. STREAMIOV bleibt im Produktziel kostenlos. Drittanbieter-, Infrastruktur-, Zahlungs- und gesetzliche Kosten müssen transparent behandelt werden, ohne daraus künstliche Nutzerstufen zu machen.
 
 ## Phase 0 – Bestandsaufnahme und Arbeitssteuerung
