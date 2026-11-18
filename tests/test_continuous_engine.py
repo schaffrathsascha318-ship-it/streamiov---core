@@ -586,5 +586,36 @@ class MissionEngineTests(unittest.TestCase):
         self.assertTrue(any('"event": "planning_retry_scheduled"' in event for event in events))
 
 
+
+    def test_repeated_invalid_planner_json_blocks_mission_after_three_cycles_and_persists(self):
+        class InvalidProvider:
+            def __init__(self):
+                self.calls = 0
+
+            def generate(self, *, system, messages):
+                self.calls += 1
+                return type("Reply", (), {"content": "This is not JSON."})()
+
+        provider = InvalidProvider()
+        planner = ModelMissionPlanner(provider)
+        engine = self.make_engine(planner, lambda _role: None)
+        mission_id = engine.create_mission("Do not loop forever on invalid planner JSON.")
+        events = []
+        result = engine.run(
+            mission_id, threading.Event(), poll_seconds=0.001, emit=events.append,
+        )
+
+        self.assertEqual(result.status, "blocked")
+        self.assertEqual(provider.calls, 6)
+        self.assertTrue(any('"event": "mission_blocked"' in event for event in events))
+        resumed = self.make_engine(SequencePlanner([]), lambda _role: None)
+        self.assertEqual(resumed.get_mission(mission_id).status, "blocked")
+        self.assertIsNone(resumed._claim_planning(mission_id, "after-restart"))
+
+        resumed.resume_blocked_mission(mission_id)
+        self.assertEqual(resumed.get_mission(mission_id).status, "active")
+        self.assertIsNotNone(resumed._claim_planning(mission_id, "after-fix"))
+
+
 if __name__ == "__main__":
     unittest.main()
