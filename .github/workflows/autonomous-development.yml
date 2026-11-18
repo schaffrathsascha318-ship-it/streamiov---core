@@ -333,9 +333,9 @@ jobs:
           - Eleven specialist workstreams share distinct responsibilities and coordinate through the persistent mission planner.
           - The mission database and per-agent checkpoints are resumed between execution slices.
           - Changes are preserved on the continuous development branch.
-          - Completed work is eligible for automatic integration only after independent acceptance checks and all required GitHub checks pass.
+          - All changes remain in a draft pull request for explicit owner review and approval.
 
-          Production deployment is handled by the repository's trusted deployment pipeline. Secrets, identity/OAuth boundaries, central permission enforcement, and paid-resource activation are not self-modifiable."
+          No merge, release, publication, or production deployment is initiated by this workflow. Explicit owner approval is required. Secrets, identity/OAuth boundaries, central permission enforcement, and paid-resource activation are not self-modifiable."
           else
             gh pr edit "$pr_number" --title "STREAMIOV AI Chief – continuous development" \
               --body "## Persistent autonomous development checkpoint
@@ -373,25 +373,14 @@ jobs:
 
           if [[ "$TESTS_PASSED" == "true" && "${MISSION_STATUS:-active}" == "completed" ]]; then
             if [[ -n "$pr_number" ]]; then
-              gh pr ready "$pr_number" || true
-              if timeout --preserve-status --signal=INT --kill-after=30s 15m gh pr checks "$pr_number" --watch --fail-fast; then
-                checks_json="$(gh pr checks "$pr_number" --json name,state)"
-                check_count="$(jq 'length' <<< "$checks_json")"
-                if [[ "$check_count" -gt 0 ]] && jq -e 'all(.[]; .state == "SUCCESS")' <<< "$checks_json" >/dev/null; then
-                  gh pr merge "$pr_number" --squash
-                else
-                  echo "::warning::No complete set of successful GitHub checks was reported; the pull request remains open."
-                fi
-              else
-                echo "::warning::GitHub checks did not all pass within the wait window; the pull request remains open."
-              fi
+              echo "Acceptance checks passed. The pull request remains a draft; explicit owner approval is required for any integration."
             fi
           fi
 
           if [[ "$ISSUE_NUMBER" != "0" ]]; then
             if [[ "$TESTS_PASSED" == "true" && "${MISSION_STATUS:-active}" == "completed" ]]; then
               gh issue edit "$ISSUE_NUMBER" --remove-label agent-in-progress --add-label agent-review
-              gh issue comment "$ISSUE_NUMBER" --body "The AI Chief completed its mission and the independent acceptance checks passed. A draft pull request is available for owner review."
+              gh issue comment "$ISSUE_NUMBER" --body "The AI Chief prepared a development checkpoint and the independent acceptance checks passed. A draft pull request is available for owner review; no integration or deployment was performed."
             elif [[ "$TESTS_PASSED" == "false" ]]; then
               gh issue comment "$ISSUE_NUMBER" --body "The AI Chief preserved its current development checkpoint. Acceptance checks still need repair; the draft PR records the current evidence."
             fi
