@@ -864,4 +864,9 @@ Use testing/repair specialists when verification or correction is needed."""
             raise MissionEngineError("A continuing mission needs at least one actionable task.")
         if payload["state"] == "completed" and tasks:
             raise MissionEngineError("A completed mission cannot contain tasks.")
+        if tasks:
+            try:
+                TaskOrchestrator(lambda _role: None, max_tasks=len(tasks))._validate_and_order(tasks)
+            except (TaskPlanError, ValueError) as exc:
+                raise MissionEngineError(f"Mission planner returned an invalid task graph: {exc}") from exc
         return MissionPlan(payload["state"], payload["summary"].strip(), tuple(tasks))
