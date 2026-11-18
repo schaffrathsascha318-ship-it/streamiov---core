@@ -203,10 +203,10 @@ class ProjectTools:
                     output = (result.stdout + "\n" + result.stderr).strip()
                     return f"exit_code={result.returncode}\n{output[-12000:]}"
             if bwrap is None:
-                if setpriv is None:
-                    raise ToolError("Safe Python execution requires Linux setpriv or bubblewrap; unsandboxed execution is disabled.")
-                output = (result.stdout + "\n" + result.stderr).strip()
-                return f"exit_code={result.returncode}\n{output[-12000:]}"
+                raise ToolError(
+                    "Safe Python execution could not establish a sandbox: setpriv failed and bubblewrap is unavailable; "
+                    "unsandboxed execution is disabled."
+                )
             # Bubblewrap keeps the host filesystem read-only, gives the process
             # an isolated user namespace and a disposable writable /tmp, and
             # runs it as an unprivileged UID. There is deliberately no unsafe fallback.
