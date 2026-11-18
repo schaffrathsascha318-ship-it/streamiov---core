@@ -54,7 +54,7 @@ Streamiov bleibt ohne Abonnements, Pro-Stufen und künstliche Bezahlschranken. V
 - Keep Windows, Linux, ChromeOS, Android, and iOS as product targets. Use desktop installers where appropriate and a mobile-friendly/native delivery path per operating system; do not claim that one web build automatically provides full feature parity on every device.
 - Own the Regie and stream lifecycle. Do not require OBS, a paid relay, cloud encoder, hosted login, or plugin marketplace.
 - Package legally redistributable local media/codec components where possible; document optional system prerequisites and unsupported hardware honestly.
-- Keep RTMP-style destinations an advanced adapter only if needed; the intended creator flow is sign-in, connect an eligible TikTok account, and go live through approved means without forcing server/RTMP setup.
+- Keep the creator flow native to Streamiov: create or sign in to a Streamiov account, configure Studio/Regie, run the device/network preflight, and start a Streamiov LIVE session. External platform connections such as TikTok are optional adapters only and must never be required to broadcast on Streamiov.
 
 **Acceptance:** supported installer starts on a clean supported device, camera/audio/capture and preview are hardware-verified, and every claimed live path is separately authorized and tested.
 
