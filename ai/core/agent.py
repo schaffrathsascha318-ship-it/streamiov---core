@@ -160,6 +160,16 @@ def _fit_provider_messages(system: str, messages: list[dict]) -> list[dict]:
             content = content[:MAX_PROVIDER_MESSAGE_CHARS - len(marker)] + marker
         cleaned.append({"role": role, "content": content})
 
+    # Old mission checkpoints may contain the same tool-result user message
+    # repeatedly after a worker restart. Collapse only adjacent exact duplicates;
+    # retain distinct results and the original task in their original order.
+    deduplicated = []
+    for message in cleaned:
+        if deduplicated and deduplicated[-1] == message:
+            continue
+        deduplicated.append(message)
+    cleaned = deduplicated
+
     if not cleaned or cleaned[0]["role"] != "user":
         raise AgentError("Conversation history lost its original user task.")
 
