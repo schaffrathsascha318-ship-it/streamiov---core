@@ -172,6 +172,39 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(len(provider.calls), 2)
         self.assertIn("FORMAT CORRECTION", provider.calls[1][-1]["content"])
 
+    def test_planner_retries_valid_json_with_invalid_schema(self):
+        class Provider:
+            def __init__(self):
+                self.calls = []
+
+            def generate(self, *, system, messages):
+                self.calls.append(messages)
+                if len(self.calls) == 1:
+                    content = json.dumps({"state": "continue", "summary": "Missing tasks field."})
+                else:
+                    content = json.dumps({
+                        "state": "continue",
+                        "summary": "A valid actionable task.",
+                        "tasks": [{
+                            "id": "implement",
+                            "specialist": "code",
+                            "prompt": "Implement the requested behavior.",
+                            "depends_on": [],
+                        }],
+                    })
+                return type("Reply", (), {"content": content})()
+
+        provider = Provider()
+        plan = ModelMissionPlanner(provider).plan(
+            "Implement a feature.", "", mission_id="schema-retry", cycle=2,
+        )
+        self.assertEqual(plan.state, "continue")
+        self.assertEqual(len(plan.tasks), 1)
+        self.assertEqual(plan.tasks[0].task_id, "cycle-2-implement")
+        self.assertEqual(len(provider.calls), 2)
+        self.assertIn("FORMAT/SCHEMA CORRECTION", provider.calls[1][-1]["content"])
+        self.assertIn("exactly state, summary and tasks", provider.calls[1][-1]["content"])
+
     def test_existing_mission_database_is_migrated_with_retry_columns(self):
         with sqlite3.connect(self.db) as db:
             db.executescript("""
