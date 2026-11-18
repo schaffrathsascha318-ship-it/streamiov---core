@@ -205,6 +205,33 @@ class MissionEngineTests(unittest.TestCase):
         self.assertIn("FORMAT/SCHEMA CORRECTION", provider.calls[1][-1]["content"])
         self.assertIn("exactly state, summary and tasks", provider.calls[1][-1]["content"])
 
+    def test_planner_retries_unknown_specialist_as_invalid_plan(self):
+        class Provider:
+            def __init__(self):
+                self.calls = 0
+
+            def generate(self, *, system, messages):
+                self.calls += 1
+                specialist = "not-a-real-agent" if self.calls == 1 else "code"
+                content = json.dumps({
+                    "state": "continue",
+                    "summary": "Implement one task.",
+                    "tasks": [{
+                        "id": "work",
+                        "specialist": specialist,
+                        "prompt": "Implement the task.",
+                        "depends_on": [],
+                    }],
+                })
+                return type("Reply", (), {"content": content})()
+
+        provider = Provider()
+        plan = ModelMissionPlanner(provider).plan(
+            "Implement one task.", "", mission_id="unknown-specialist-retry", cycle=1,
+        )
+        self.assertEqual(plan.tasks[0].specialist, "code")
+        self.assertEqual(provider.calls, 2)
+
     def test_existing_mission_database_is_migrated_with_retry_columns(self):
         with sqlite3.connect(self.db) as db:
             db.executescript("""
