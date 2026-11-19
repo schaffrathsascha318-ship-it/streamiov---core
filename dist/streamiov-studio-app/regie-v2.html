@@ -178,6 +178,260 @@ dialog::backdrop{background:#000b}
  .panel{scroll-margin-top:8px}
  button{min-height:40px}
 }
+
+/* Streamiov Studio visual direction: integrated neon broadcast regie */
+:root{
+ --bg:#070b16;--panel:#0e1424;--panel2:#141d32;--line:#28274c;
+ --text:#f4f5ff;--muted:#a0a7c3;--cyan:#27e5f2;--violet:#8b42ff;
+ --red:#ff365f;--green:#34e69a;--amber:#ffd16a;
+ --glow-cyan:0 0 22px #22dff244;--glow-violet:0 0 24px #8b42ff38;
+}
+html{background:var(--bg);scroll-behavior:smooth}
+body{
+ background:
+  radial-gradient(ellipse at 48% -18%,#172b58 0,transparent 42%),
+  radial-gradient(ellipse at 100% 35%,#28104455 0,transparent 35%),
+  linear-gradient(145deg,#070b16,#080b17 55%,#100b20);
+ color:var(--text);font-family:Inter,"Segoe UI",system-ui,sans-serif;
+}
+header{
+ height:78px;padding:0 24px;background:#080d1beF;
+ border-bottom:1px solid #3a2b70;box-shadow:0 8px 28px #0008;
+ position:sticky;top:0;z-index:30;backdrop-filter:blur(16px);
+}
+.brand{font-size:23px;letter-spacing:2.5px;text-shadow:0 0 18px #27e5f266}
+.brand span{color:var(--cyan)}
+.brand small{display:inline-block;margin-left:8px;color:#a98cff!important;letter-spacing:1.8px}
+.status{color:#d6d9f1;font-size:12px;gap:18px}
+.dot{background:var(--green);box-shadow:0 0 12px var(--green)}
+.pill{border-color:#51417d;background:#17162d;color:#c8c3ed}
+main{
+ padding:18px;gap:14px;max-width:2000px;
+ grid-template-columns:minmax(225px,260px) minmax(500px,1fr) minmax(270px,320px);
+}
+.panel{
+ background:linear-gradient(155deg,#121a2d 0%,#0c1322 75%);
+ border:1px solid #35305d;border-radius:13px;
+ box-shadow:0 10px 30px #0005,inset 0 1px #ffffff0a;
+}
+.panel-title{
+ color:#c4b8ff;border-bottom-color:#302951;
+ letter-spacing:1.35px;font-size:11px;
+ background:linear-gradient(90deg,#20183c66,transparent);
+}
+.pad{padding:13px}
+button{
+ color:#f4f5ff;background:linear-gradient(145deg,#1a2440,#111a2e);
+ border:1px solid #484071;border-radius:9px;padding:9px 13px;
+ transition:border-color .16s,box-shadow .16s,transform .16s,background .16s;
+}
+button:hover{border-color:var(--cyan);background:#172c46;box-shadow:var(--glow-cyan)}
+button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+button.active,.scene.active{
+ background:linear-gradient(110deg,#5121a9,#173d63);
+ border-color:var(--cyan);color:white;box-shadow:var(--glow-violet),inset 0 0 20px #4c1c8b66;
+}
+.scene{
+ min-height:42px;background:#141b30;border-color:#302c54;
+ border-radius:9px;padding:10px 12px;color:#f1efff;
+}
+.scene small{color:#9ca6c9}
+.scene-preview{
+ height:126px;border:1px solid #5c37b6;border-radius:11px;
+ background:
+  radial-gradient(ellipse at 50% 70%,#5a1c9c88,transparent 44%),
+  linear-gradient(135deg,#071b38,#10122a 48%,#251044);
+ color:#fff;font-size:27px;letter-spacing:4px;
+ box-shadow:inset 0 0 28px #2c64bb55,0 0 22px #7836e633;
+ position:relative;overflow:hidden;
+}
+.scene-preview:before{content:"";position:absolute;inset:auto -10% 10px;height:2px;
+ background:linear-gradient(90deg,transparent,var(--cyan),var(--violet),transparent);
+ box-shadow:0 0 18px var(--cyan);transform:rotate(-8deg)}
+.scene-preview span{color:var(--cyan);text-shadow:0 0 16px var(--cyan)}
+.monitors{gap:13px}
+.monitor{
+ background:#070b16;border:1px solid #493b79;border-radius:12px;padding:10px;
+ box-shadow:0 8px 25px #0007,inset 0 0 18px #39236b22;
+}
+.monitor.program{border-color:#7544c7;box-shadow:var(--glow-violet)}
+.monitor-head{color:#f0edff;font-size:12px;letter-spacing:1px}
+.screen{
+ border-radius:8px;overflow:hidden;
+ background:
+  radial-gradient(ellipse at 52% 46%,#243c6b 0,#151633 44%,#050812 100%);
+ box-shadow:inset 0 0 45px #050611;
+}
+.monitor.program .screen{
+ background:
+  radial-gradient(ellipse at 50% 48%,#4b3971 0,#17152f 48%,#050812 100%);
+}
+.screen:after{border:1px solid #9b8bff35}
+.screen-name{color:#bcb3ef;font-weight:800;letter-spacing:1.8px}
+.controls{
+ margin-top:12px;padding:12px;background:#0b1020;
+ border:1px solid #322956;border-radius:11px;
+}
+.controls button{min-width:86px;font-weight:800;letter-spacing:.7px}
+#take{
+ background:linear-gradient(135deg,#00cde9,#2b59ff 60%,#7e35ff);
+ border-color:#63efff;color:#fff;font-size:15px;
+ box-shadow:0 0 22px #17c9ff55;
+}
+#take:hover{box-shadow:0 0 30px #17c9ff88}
+.cut{background:#451c35;border-color:#b53d78}
+.fade{background:#27235b;border-color:#6b65dc}
+.go-live{background:linear-gradient(110deg,#8d1748,#4b163e);border-color:#ff477c}
+#privacyShield.active{background:#4a1622;border-color:var(--red);color:#ffd7df}
+body.privacy-shield-active header{box-shadow:inset 0 -2px 0 var(--red),0 8px 28px #0008}
+.source{background:#121a30;border-color:#302c54;border-radius:9px;color:#b8c0dd}
+.source b{color:#fff}
+.source-row{background:#0b1222;border-color:#34305a;border-radius:9px}
+.source-row b{color:#f4f5ff}
+.source-actions button{background:#1a2040}
+.mixer{gap:10px}
+.channel{
+ background:linear-gradient(180deg,#141c32,#0a1120);
+ border-color:#34305b;border-radius:10px;padding:12px 9px;
+}
+.channel b{color:#f3efff}
+.channel input{accent-color:var(--cyan)}
+.meter{height:6px;background:#252b49;border-radius:10px;overflow:hidden}
+.meter i{background:linear-gradient(90deg,#7c35ff,#20ddeb,#35e69a);border-radius:10px}
+.right-stack{gap:13px}
+.metric{border-bottom-color:#292644;padding:10px 0}
+.metric span{color:#a9b0ce}
+.tool-grid button{min-height:43px;background:#151b33;border-color:#37315f}
+.log{background:#080e1b;border:1px solid #242644;border-radius:9px;color:#aeb8d8}
+.bottom{gap:13px}
+.bottom .panel{min-width:0}
+#creator-settings .panel-title{color:#bbaaff}
+input,select,textarea{
+ color:var(--text);background:#090f1d;border:1px solid #3b3564;
+ border-radius:8px;padding:8px;
+}
+input:focus,select:focus,textarea:focus{outline:1px solid var(--cyan);border-color:var(--cyan)}
+dialog{background:#10172a;border-color:#5b3b9d;box-shadow:0 20px 80px #000b}
+dialog h2{color:#e8e2ff}
+dialog p{color:#aeb8d8}
+#game-library-panel .game-card{background:#0b1222;border-color:#38305e}
+#game-library-panel .game-status{border-color:#75623b}
+@media(max-width:1100px){
+ main{grid-template-columns:210px minmax(0,1fr)}
+ .right-stack{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:700px){
+ header{position:relative;height:auto;padding:12px;background:#080d1bf2}
+ main{padding:9px;gap:10px}
+ .panel{border-radius:11px}
+ .monitors{gap:8px}
+ .monitor{padding:6px}
+ .controls{gap:6px}
+ .controls button{min-width:0;flex:1}
+ .right-stack{grid-template-columns:1fr}
+ .bottom{grid-template-columns:1fr}
+}
+
+
+/* Integrated Streamiov Music panel */
+.music-studio{grid-column:1/-1;overflow:hidden}
+.music-layout{display:grid;grid-template-columns:minmax(220px,1fr) minmax(260px,1.2fr) minmax(220px,1fr);gap:16px;align-items:center;padding:16px}
+.music-now{display:flex;align-items:center;gap:13px;min-width:0}
+.music-art{width:66px;height:66px;flex:0 0 66px;display:grid;place-items:center;border:1px solid #3de4f4;border-radius:12px;background:radial-gradient(circle at 50% 40%,#4b2b8a,#111a36 72%);color:#48e8f4;font-size:30px;box-shadow:0 0 22px #22dff233}
+.music-track{display:grid;gap:7px;min-width:0}
+.music-track strong{overflow-wrap:anywhere;font-size:14px}
+.music-track small,.music-scenes small{color:#9fa9cb;font-size:10px;line-height:1.5}
+.music-file-label{display:inline-block;padding:9px 12px;border:1px solid #4d4380;border-radius:8px;background:#171d39;color:#e8e5ff;font-size:12px;cursor:pointer}
+#studioMusicFile{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#studioMusicAudio{display:block;width:100%;height:36px;margin-top:9px;accent-color:var(--cyan)}
+.music-volume{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:8px;color:#c9c9e6;font-size:10px;letter-spacing:.8px}
+.music-volume input{grid-column:1/-1;width:100%;accent-color:var(--cyan)}
+.music-scenes{display:grid;gap:10px}
+.music-scenes>strong{font-size:11px;letter-spacing:1.2px;color:#c7baff}
+.music-scene-chips{display:flex;flex-wrap:wrap;gap:6px}
+.music-scene-chips span{padding:6px 8px;border:1px solid #4a397b;border-radius:20px;background:#17162e;color:#d8d1ff;font-size:10px}
+@media(max-width:850px){.music-layout{grid-template-columns:1fr 1fr}.music-scenes{grid-column:1/-1}}
+@media(max-width:700px){.music-layout{grid-template-columns:1fr}.music-scenes{grid-column:auto}}
+
+
+
+/* Mobile-first touch layout for the integrated Regie and Music panel */
+@media (max-width:700px){
+  html{scroll-padding-top:10px}
+  body{font-size:14px}
+  header{gap:9px;padding:12px 14px}
+  .brand{font-size:20px;letter-spacing:1.8px}
+  header .status{flex-wrap:wrap;justify-content:flex-start;column-gap:12px;row-gap:6px}
+  #mobile-content-stage{margin:10px 9px 0;padding:10px;border-color:#51417d;box-shadow:0 8px 24px #0006}
+  #mobile-content-stage .mobile-game-view{min-height:150px;max-height:36svh;border-color:#51417d;box-shadow:inset 0 0 26px #6b37bd22,0 0 18px #27e5f21a}
+  #mobile-regie-toggle{position:sticky;top:6px;z-index:20;width:calc(100% - 18px);min-height:48px;margin:9px auto;padding:12px;background:linear-gradient(110deg,#43208b,#153e62);box-shadow:0 6px 20px #0009}
+  main{padding:8px;gap:10px}
+  main#studio-regie{scroll-margin-top:64px}
+  main#studio-regie>section.panel:first-child{order:0}
+  #scenes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  #scenes .scene{margin:0;min-height:46px;padding:10px 9px;font-size:12px}
+  .scene-actions{gap:7px}
+  .scene-actions button{min-height:44px;font-size:12px}
+  .scene-preview{height:94px;font-size:22px}
+  .monitors{grid-template-columns:minmax(0,1fr);gap:9px}
+  .monitor{padding:8px}
+  .screen{min-height:0}
+  .controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px}
+  .controls button{width:100%;min-height:46px}
+  #take{grid-column:1/-1;min-height:52px}
+  .right-stack,.bottom{grid-template-columns:minmax(0,1fr);gap:10px}
+  .mixer{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .channel{min-width:0;padding:11px 8px}
+  .source-row{grid-template-columns:minmax(0,1fr);gap:8px}
+  .source-actions{justify-content:flex-start}
+  .source-actions button{min-height:40px;padding:8px 10px}
+  .music-studio{width:100%;scroll-margin-top:64px}
+  .music-layout{grid-template-columns:minmax(0,1fr);gap:14px;padding:12px}
+  .music-now{align-items:center}
+  .music-art{width:54px;height:54px;flex-basis:54px;font-size:25px}
+  .music-track strong{font-size:13px}
+  .music-player-controls{min-width:0}
+  .music-file-label{display:flex;align-items:center;justify-content:center;min-height:46px;width:100%;text-align:center}
+  #studioMusicAudio{height:44px;margin-top:10px}
+  .music-volume{font-size:11px;gap:10px}
+  .music-volume input{min-height:28px}
+  .music-scenes{grid-column:auto;gap:8px}
+  .music-scene-chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .music-scene-chips span{text-align:center;padding:9px 6px}
+  #creator-settings{grid-template-columns:minmax(0,1fr)}
+  #creator-settings .grid2{grid-template-columns:minmax(0,1fr)}
+  #creator-settings input,#creator-settings select{width:100%;min-height:44px}
+  dialog{width:calc(100vw - 18px);max-width:none;max-height:88svh;padding:14px}
+  .dialog-actions{position:sticky;bottom:0;padding-top:8px;background:var(--panel);z-index:2}
+}
+@media(max-width:380px){
+  .brand{font-size:18px;letter-spacing:1.2px}
+  header .status{font-size:10px}
+  #scenes{grid-template-columns:minmax(0,1fr)}
+  .mixer{grid-template-columns:minmax(0,1fr)}
+  .music-scene-chips{grid-template-columns:minmax(0,1fr)}
+}
+@media (hover:none) and (pointer:coarse){
+  button,.music-file-label{touch-action:manipulation}
+  button{min-height:44px}
+  input[type="range"]{min-height:32px}
+}
+
+
+/* Pre-LIVE setup flow */
+.prelive-setup{grid-column:1/-1;border-color:#4b3d7b;box-shadow:0 0 24px #7c70ff12}
+.prelive-intro{margin:0 0 12px;color:var(--muted);line-height:1.5}
+.prelive-steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.prelive-steps button{min-height:46px;text-align:left;padding:10px 12px}
+.prelive-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:14px}
+.prelive-checks label{display:flex;align-items:center;gap:9px;padding:10px;border:1px solid var(--line);border-radius:9px;color:var(--text);font-size:12px}
+.prelive-checks input{width:18px;height:18px;accent-color:var(--cyan);flex:0 0 auto}
+.prelive-finish{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:14px}
+#preliveFinish{min-height:48px;padding:12px 18px;border-color:var(--cyan);font-weight:800}
+#preliveFinish:disabled{opacity:.45;cursor:not-allowed}
+#preliveStatus{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+@media(max-width:700px){.prelive-steps,.prelive-checks{grid-template-columns:minmax(0,1fr)}.prelive-steps button{min-height:48px}.prelive-finish{align-items:stretch}#preliveFinish{width:100%}}
+
 </style>
 </head>
 <body>
@@ -252,6 +506,32 @@ dialog::backdrop{background:#000b}
 <button id="mobile-regie-toggle" type="button" aria-controls="studio-regie" aria-expanded="true">REGIE / STUDIO AUSBLENDEN</button>
 
 <main id="studio-regie">
+
+ <section class="panel prelive-setup" id="prelive-setup" aria-labelledby="preliveTitle">
+  <div class="panel-title" id="preliveTitle">VORBEREITUNG · DEINE REGIE VOR DEM LIVE-START</div>
+  <div class="pad">
+   <p class="prelive-intro">Richte deinen Stream in Ruhe ein. Nichts startet automatisch – du entscheidest, wann du wirklich LIVE gehst.</p>
+   <div class="prelive-steps">
+    <button type="button" data-setup-target="scenes">① Szenen &amp; Layout einstellen</button>
+    <button type="button" data-setup-target="studio-music-panel">② Musik &amp; Playlists prüfen</button>
+    <button type="button" data-setup-target="creator-settings">③ Stream-, Bild- &amp; Audioeinstellungen</button>
+    <button type="button" data-setup-target="sourceList">④ Quellen, Kamera &amp; Mikrofon einrichten</button>
+    <button type="button" data-setup-target="platformConnectionState">⑤ TikTok-Verbindung kontrollieren</button>
+   </div>
+   <div class="prelive-checks" aria-label="Vorbereitungscheckliste">
+    <label><input type="checkbox" data-prelive-check="scene"> Szenen und Vorschau kontrolliert</label>
+    <label><input type="checkbox" data-prelive-check="audio"> Mikrofon, Ton und Lautstärken geprüft</label>
+    <label><input type="checkbox" data-prelive-check="camera"> Kamera und Bildquellen geprüft</label>
+    <label><input type="checkbox" data-prelive-check="music"> Musik und gewünschte Wiedergabe geprüft</label>
+    <label><input type="checkbox" data-prelive-check="connection"> TikTok-Verbindung und Stream-Einstellungen geprüft</label>
+   </div>
+   <div class="prelive-finish">
+    <button type="button" id="preliveFinish">VORBEREITUNG ABSCHLIESSEN</button>
+    <p id="preliveStatus" role="status" aria-live="polite">Noch nicht bereit – gehe die Einstellungen durch und bestätige deine Checks.</p>
+   </div>
+  </div>
+ </section>
+
 
  <section class="panel">
   <div class="panel-title">SZENEN / PRODUKTION</div>
@@ -407,6 +687,23 @@ dialog::backdrop{background:#000b}
    <div class="pad"><div class="log">Bereit für lokale Regieaktionen.<br>Keine externe Aktion wird ohne Verbindung ausgeführt.</div></div>
   </div>
  </section>
+
+  <section class="panel music-studio" id="studio-music-panel" aria-labelledby="studioMusicTitle">
+   <div class="panel-title" id="studioMusicTitle">♫ STREAMIOV MUSIC · INTEGRIERTER PLAYER</div>
+   <div class="music-layout">
+    <div class="music-now">
+     <div class="music-art">♫</div>
+     <div class="music-track"><strong id="studioMusicTrack">Noch kein Titel geladen</strong><small id="studioMusicStatus">LOKALE MUSIKVORSCHAU · NICHT LIVE AUSGEGEBEN</small></div>
+    </div>
+    <div class="music-player-controls">
+     <label class="music-file-label" for="studioMusicFile">＋ Musikdatei auswählen</label>
+     <input id="studioMusicFile" type="file" accept="audio/*">
+     <audio id="studioMusicAudio" controls preload="none"></audio>
+     <label class="music-volume" for="studioMusicVolume">PLAYER-LAUTSTÄRKE <output id="studioMusicVolumeValue">70 %</output><input id="studioMusicVolume" type="range" min="0" max="100" value="70"></label>
+    </div>
+    <div class="music-scenes"><strong>SZENEN-PLAYLISTS</strong><div class="music-scene-chips"><span>STARTING SOON</span><span>LIVE</span><span>PAUSE</span><span>ENDING</span></div><small>Vorgesehene Szenen-Zuordnung · Automatische Wiedergabe noch nicht angebunden</small></div>
+   </div>
+  </section>
 
   <section class="bottom" id="creator-settings">
    <div class="panel">
@@ -1923,6 +2220,62 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
   });
  }
  refreshTikTokStatus();
+})();
+</script>
+
+
+const studioMusicFile=document.getElementById("studioMusicFile");
+const studioMusicAudio=document.getElementById("studioMusicAudio");
+const studioMusicVolume=document.getElementById("studioMusicVolume");
+if(studioMusicFile&&studioMusicAudio){
+ studioMusicFile.addEventListener("change",()=>{
+  const file=studioMusicFile.files?.[0];if(!file)return;
+  if(studioMusicAudio.dataset.objectUrl)URL.revokeObjectURL(studioMusicAudio.dataset.objectUrl);
+  const url=URL.createObjectURL(file);studioMusicAudio.dataset.objectUrl=url;studioMusicAudio.src=url;
+  document.getElementById("studioMusicTrack").textContent=file.name;
+  document.getElementById("studioMusicStatus").textContent="DATEI GELADEN · LOKALE VORSCHAU";
+  studioMusicAudio.play().catch(()=>{});
+ });
+ studioMusicVolume?.addEventListener("input",()=>{
+  studioMusicAudio.volume=Number(studioMusicVolume.value)/100;
+  document.getElementById("studioMusicVolumeValue").textContent=studioMusicVolume.value+" %";
+ });
+ studioMusicAudio.volume=0.7;
+}
+
+
+<script>
+(() => {
+ const panel=document.getElementById("prelive-setup");
+ if(!panel)return;
+ const checks=[...panel.querySelectorAll("[data-prelive-check]")];
+ const status=document.getElementById("preliveStatus");
+ const finish=document.getElementById("preliveFinish");
+ panel.querySelectorAll("[data-setup-target]").forEach(button=>{
+  button.addEventListener("click",()=>{
+   const target=document.getElementById(button.dataset.setupTarget);
+   if(!target)return;
+   target.scrollIntoView({behavior:"smooth",block:"start"});
+   if(target.matches("input,select,textarea,button"))target.focus({preventScroll:true});
+  });
+ });
+ const key="streamiov.studio.prelive-checks.v1";
+ try{const saved=JSON.parse(localStorage.getItem(key)||"{}");checks.forEach(c=>c.checked=saved[c.dataset.preliveCheck]===true);}catch(_){}
+ function update(){
+  const values=Object.fromEntries(checks.map(c=>[c.dataset.preliveCheck,c.checked]));
+  try{localStorage.setItem(key,JSON.stringify(values));}catch(_){}
+  const done=checks.filter(c=>c.checked).length;
+  finish.disabled=done!==checks.length;
+  status.textContent=done===checks.length
+   ?"Alle Vorbereitungschecks bestätigt. Du kannst jetzt in der Regie bewusst LIVE gehen, sobald die echte Streaming-Ausgabe verfügbar und verbunden ist."
+   :done+" von "+checks.length+" Punkten bestätigt. Der LIVE-Start bleibt gesperrt, bis du alle Punkte geprüft hast.";
+ }
+ checks.forEach(c=>c.addEventListener("change",update));
+ finish.addEventListener("click",()=>{
+  if(checks.some(c=>!c.checked))return;
+  status.textContent="Vorbereitung abgeschlossen. Es wurde KEIN Stream gestartet. LIVE muss separat und bewusst in der Regie ausgelöst werden.";
+ });
+ update();
 })();
 </script>
 
