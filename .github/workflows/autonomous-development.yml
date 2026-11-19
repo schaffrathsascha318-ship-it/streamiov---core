@@ -369,6 +369,28 @@ jobs:
               -f publish_release=false -f release_version="$app_version" -f prerelease=false; then
               echo "::warning::Could not dispatch Studio platform builds."
             fi
+
+            # Dispatching workflows is asynchronous. Do not treat the branch as
+            # verified until the checks attached to the PR head have completed.
+            checks_ready=false
+            for attempt in {1..36}; do
+              check_count="$(gh pr checks "$pr_number" --json name,state --jq 'length' 2>/dev/null || echo 0)"
+              if [[ "$check_count" -gt 0 ]]; then
+                if gh pr checks "$pr_number" --json name,state --jq 'all(.[]; .state == "SUCCESS")' | grep -qx true; then
+                  checks_ready=true
+                  break
+                fi
+                if gh pr checks "$pr_number" --json name,state --jq 'any(.[]; .state == "FAILURE" or .state == "ERROR" or .state == "CANCELLED")' | grep -qx true; then
+                  echo "::error::One or more required pull request checks failed."
+                  break
+                fi
+              fi
+              sleep 10
+            done
+            if [[ "$checks_ready" != true ]]; then
+              echo "::error::Pull request checks did not all reach SUCCESS within six minutes."
+              exit 1
+            fi
           fi
 
           if [[ "$TESTS_PASSED" == "true" && "${MISSION_STATUS:-active}" == "completed" ]]; then
