@@ -137,22 +137,69 @@ class ProjectToolTests(unittest.TestCase):
         (self.root / "ai").mkdir()
         (self.root / "ai/existing.py").write_text("safe")
         with self.assertRaises(ToolError): self.tools.write_file("ai/existing.py", "overwrite")
-    def test_run_python_executes_project_script_and_reports_exit_code(self):
+    def test_run_python_executes_through_setpriv_and_reports_output(self):
+        import subprocess
         (self.root / "ai").mkdir()
-        os.chmod(self.root, 0o755)
         script = self.root / "ai" / "check.py"
         script.write_text("print('python-ready')\n", encoding="utf-8")
-        output = self.tools.run_python("ai/check.py")
+        completed = subprocess.CompletedProcess(["setpriv"], 0, "python-ready", "")
+        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/setpriv" if name == "setpriv" else None), \
+             patch("ai.runtime.project_tools.subprocess.run", return_value=completed) as run:
+            output = self.tools.run_python("ai/check.py")
         self.assertIn("exit_code=0", output)
         self.assertIn("python-ready", output)
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual(run.call_args.args[0][0], "/usr/bin/setpriv")
 
-    def test_run_python_reports_nonzero_exit_code(self):
+    def test_run_python_reports_nonzero_exit_code_from_sandbox(self):
+        import subprocess
         (self.root / "ai").mkdir()
-        os.chmod(self.root, 0o755)
         script = self.root / "ai" / "failing.py"
         script.write_text("raise SystemExit(7)\n", encoding="utf-8")
-        output = self.tools.run_python("ai/failing.py")
+        completed = subprocess.CompletedProcess(["setpriv"], 7, "", "script failed")
+        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/setpriv" if name == "setpriv" else None), \
+             patch("ai.runtime.project_tools.subprocess.run", return_value=completed):
+            output = self.tools.run_python("ai/failing.py")
         self.assertIn("exit_code=7", output)
+        self.assertIn("script failed", output)
+
+    def test_run_python_falls_back_to_bubblewrap_after_setpriv_permission_failure(self):
+        import subprocess
+        (self.root / "ai").mkdir()
+        script = self.root / "ai" / "check.py"
+        script.write_text("print('sandboxed')\n", encoding="utf-8")
+        denied = subprocess.CompletedProcess(["setpriv"], 127, "", "setresuid failed: Operation not permitted")
+        sandboxed = subprocess.CompletedProcess(["bwrap"], 0, "sandboxed", "")
+        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: f"/usr/bin/{name}" if name in {"setpriv", "bwrap"} else None), \
+             patch("ai.runtime.project_tools.subprocess.run", side_effect=[denied, sandboxed]) as run:
+            output = self.tools.run_python("ai/check.py")
+        self.assertIn("exit_code=0", output)
+        self.assertIn("sandboxed", output)
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_args_list[1].args[0][0], "/usr/bin/bwrap")
+
+    def test_run_python_fails_closed_when_no_sandbox_backend_exists(self):
+        (self.root / "ai").mkdir()
+        script = self.root / "ai" / "check.py"
+        script.write_text("print('must-not-run')\n", encoding="utf-8")
+        with patch("ai.runtime.project_tools.shutil.which", return_value=None), \
+             patch("ai.runtime.project_tools.subprocess.run") as run:
+            with self.assertRaisesRegex(ToolError, "unsandboxed execution is disabled"):
+                self.tools.run_python("ai/check.py")
+        run.assert_not_called()
+
+    def test_run_python_fails_closed_when_setpriv_fails_and_bubblewrap_is_missing(self):
+        import subprocess
+        (self.root / "ai").mkdir()
+        script = self.root / "ai" / "check.py"
+        script.write_text("print('must-not-run')\n", encoding="utf-8")
+        denied = subprocess.CompletedProcess(["setpriv"], 127, "", "setresuid failed: Operation not permitted")
+        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/setpriv" if name == "setpriv" else None), \
+             patch("ai.runtime.project_tools.subprocess.run", return_value=denied) as run:
+            with self.assertRaisesRegex(ToolError, "setpriv failed and bubblewrap is unavailable"):
+                self.tools.run_python("ai/check.py")
+        self.assertEqual(run.call_count, 1)
+        self.assertNotEqual(run.call_args.args[0][0], __import__("sys").executable)
 
     def test_run_python_drops_privileges_and_cannot_write_workspace(self):
         import shutil
@@ -169,7 +216,9 @@ class ProjectToolTests(unittest.TestCase):
             "from pathlib import Path\n"
             "target = Path(__file__).parents[1] / 'protected.txt'\n"
             "try:\n    target.write_text('changed')\n"
-            "except PermissionError:\n    print('write-blocked')\n"
+            "except OSError as exc:\n"
+            "    if exc.errno not in (1, 13, 30):\n        raise\n"
+            "    print('write-blocked')\n"
             "else:\n    raise SystemExit(9)\n",
             encoding="utf-8",
         )
@@ -342,22 +391,33 @@ class AgentTests(unittest.TestCase):
     def test_format_correction_retries_again_after_durable_task_resume(self):
         with tempfile.TemporaryDirectory() as tmp:
             checkpoint_db = Path(tmp, "missions.sqlite3")
-            provider = FakeProvider(["not json", "still not json", '{"final":"Recovered on resumed attempt."}'])
+            class CountingProvider(FakeProvider):
+                def __init__(self, outputs):
+                    super().__init__(outputs)
+                    self.calls = 0
+                def generate(self, **kwargs):
+                    self.calls += 1
+                    return super().generate(**kwargs)
+            provider = CountingProvider([
+                "not json", "still not json", "invalid three", "invalid four",
+                "invalid after resume", '{"final":"Recovered on resumed attempt."}',
+            ])
             agent = DevelopmentAgent(provider, tmp, checkpoint_db=checkpoint_db)
             with self.assertRaises(AgentError):
                 agent.run("Do task", checkpoint_id="format-recovery")
             result = agent.run("Do task", checkpoint_id="format-recovery")
             self.assertEqual(result, "Recovered on resumed attempt.")
+            self.assertEqual(provider.calls, 6)
 
     def test_invalid_json_still_fails_closed_after_retry(self):
         with tempfile.TemporaryDirectory() as tmp:
-            provider = FakeProvider(["not json", "still not json"])
+            provider = FakeProvider(["not json", "still not json", "invalid three", "invalid four"])
             with self.assertRaises(AgentError):
                 DevelopmentAgent(provider, tmp).run("Do task")
     def test_mixed_tool_and_final_response_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             response = '{"tool":"read_file","arguments":{"path":"README.md"},"final":"fake"}'
-            with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider([response]), tmp).run("Do task")
+            with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider([response, response, response, response]), tmp).run("Do task")
 
     def test_specialist_role_sets_expertise_prompt_and_project_wide_write_access(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -392,7 +452,7 @@ class AgentTests(unittest.TestCase):
     def test_non_game_agent_cannot_request_game_check_tool(self):
         with tempfile.TemporaryDirectory() as tmp:
             agent = DevelopmentAgent(
-                FakeProvider(['{"tool":"run_game_checks","arguments":{}}']), tmp, specialist="code"
+                FakeProvider(['{"tool":"run_game_checks","arguments":{}}'] * 4), tmp, specialist="code"
             )
             with self.assertRaises(AgentError):
                 agent.run("Run game checks.")
@@ -410,7 +470,8 @@ class AgentTests(unittest.TestCase):
             target = Path(tmp, "ai", "must_not_exist.py")
             p = FakeProvider([
                 '{"tool":"write_file","arguments":{"path":"ai/must_not_exist.py","content":"unsafe partial batch"}}'
-                '{"tool":"read_file","arguments":{"path":"README.md","unexpected":"extra"}}'
+                '{"tool":"read_file","arguments":{"path":"README.md","unexpected":"extra"}}',
+                "still invalid", "invalid three", "invalid four",
             ])
             with self.assertRaises(AgentError):
                 DevelopmentAgent(p, tmp).run("Do not partially execute invalid batches")
@@ -418,7 +479,7 @@ class AgentTests(unittest.TestCase):
 
     def test_tool_arguments_reject_non_string_values(self):
         with tempfile.TemporaryDirectory() as tmp:
-            p = FakeProvider(['{"tool":"read_file","arguments":{"path":42}}'])
+            p = FakeProvider(['{"tool":"read_file","arguments":{"path":42}}'] * 4)
             with self.assertRaises(AgentError):
                 DevelopmentAgent(p, tmp).run("Reject malformed tool arguments")
 

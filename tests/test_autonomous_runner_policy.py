@@ -69,7 +69,7 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
 
     def test_mission_runner_exports_checkpoint_counts_for_auditable_status(self):
         source = (ROOT / "scripts" / "autonomous" / "run_issue.py").read_text(encoding="utf-8")
-        for field in ("status", "mission_id", "cycle", "pending_tasks", "running_tasks", "completed_tasks", "attempts"):
+        for field in ("status", "mission_id", "cycle", "pending_tasks", "running_tasks", "completed_tasks", "failed_tasks", "attempts"):
             with self.subTest(field=field):
                 self.assertIn(f'output.write(f"{field}=', source)
 

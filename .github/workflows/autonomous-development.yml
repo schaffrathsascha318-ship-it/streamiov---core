@@ -369,6 +369,25 @@ jobs:
               -f publish_release=false -f release_version="$app_version" -f prerelease=false; then
               echo "::warning::Could not dispatch Studio platform builds."
             fi
+
+            # Dispatch is asynchronous: do not treat a successful dispatch as a
+            # successful check. Wait for actual PR check-runs and fail closed.
+            checks_deadline=$((SECONDS + 900))
+            checks_verified=false
+            while (( SECONDS < checks_deadline )); do
+              checks_json="$(gh pr checks "$pr_number" --json name,state 2>/dev/null || true)"
+              if jq -e 'length > 0 and all(.[]; .state == "SUCCESS")' <<<"$checks_json" >/dev/null 2>&1; then
+                checks_verified=true
+                break
+              fi
+              sleep 15
+            done
+            if [[ "$checks_verified" != true ]]; then
+              echo "::warning::Required PR checks did not all reach SUCCESS within 15 minutes; this checkpoint is not CI-verified."
+              TESTS_PASSED=false
+            else
+              echo "All reported PR checks reached SUCCESS."
+            fi
           fi
 
           if [[ "$TESTS_PASSED" == "true" && "${MISSION_STATUS:-active}" == "completed" ]]; then
