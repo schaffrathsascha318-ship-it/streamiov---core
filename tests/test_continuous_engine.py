@@ -241,6 +241,39 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(legacy, ("queued", 2, 0, "partial result"))
         self.assertEqual(migrated_status, "failed")
 
+
+    def test_daily_ai_quota_exhaustion_uses_long_backoff_and_yields_runner_slice(self):
+        planner = SequencePlanner([
+            MissionPlan("continue", "Wait for the free AI quota to reset.", (
+                SpecialistTask("quota-task", "code", "resume after quota reset"),
+            )),
+        ])
+        engine = self.make_engine(planner, lambda _role: None)
+        mission_id = engine.create_mission("Pause safely after daily AI quota exhaustion")
+        engine._claim_planning(mission_id, "planner")
+        engine._store_plan(mission_id, "planner", 1, planner.plans[0])
+        task = engine._claim_task(mission_id, "worker")
+        self.assertIsNotNone(task)
+
+        before = time.time()
+        engine._finish_task(
+            task.task_id, "worker",
+            error="CloudflareWorkerError: HTTP 429 (code: daily_ai_limit_reached)",
+        )
+        with closing(sqlite3.connect(self.db)) as db, db:
+            available_at = db.execute(
+                "SELECT available_at FROM development_mission_tasks WHERE task_id=?",
+                (task.task_id,),
+            ).fetchone()[0]
+        self.assertGreaterEqual(available_at - before, 6 * 60 * 60 - 1)
+
+        events = []
+        snapshot = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=events.append)
+        self.assertEqual(snapshot.status, "active")
+        self.assertEqual(snapshot.pending_tasks, 1)
+        self.assertEqual(len(planner.calls), 1)
+        self.assertTrue(any('"event": "mission_waiting_for_retry"' in event for event in events))
+
     def test_planning_retry_backoff_survives_engine_recreation(self):
         engine = self.make_engine(SequencePlanner([]), lambda _role: None)
         mission_id = engine.create_mission("Persist planner backoff")
