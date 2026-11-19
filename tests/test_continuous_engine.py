@@ -1,5 +1,6 @@
 import json
 import sqlite3
+import subprocess
 import tempfile
 import threading
 import time
@@ -7,6 +8,7 @@ import unittest
 from pathlib import Path
 
 from ai.core.orchestrator import SpecialistTask
+from ai.review.independent_reviewer import review_repository
 from ai.runtime.continuous_engine import (
     ContinuousDevelopmentEngine,
     MissionEngineError,
@@ -584,6 +586,125 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(result.status, "active")
         self.assertEqual(result.pending_tasks, 0)
         self.assertTrue(any('"event": "planning_retry_scheduled"' in event for event in events))
+
+
+    def _make_native_review_repository(self, changed_files):
+        root = Path(self.temp.name) / "review-worktree"
+        root.mkdir()
+        def git(*args):
+            return subprocess.run(
+                ["git", "-C", str(root), *args],
+                capture_output=True, text=True, check=True,
+            ).stdout.strip()
+        git("init", "-q")
+        git("config", "user.name", "Streamiov Review Test")
+        git("config", "user.email", "review-test@streamiov.invalid")
+        git("branch", "-M", "main")
+        (root / "README.md").write_text("baseline\n", encoding="utf-8")
+        git("add", "README.md")
+        git("commit", "-q", "-m", "baseline")
+        git("checkout", "-q", "-b", "review-target")
+        for relative, content in changed_files.items():
+            path = root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+        git("add", "-A")
+        git("commit", "-q", "-m", "review target")
+        return root
+
+    def test_native_reviewer_is_a_required_completion_gate_for_ai_chief(self):
+        review_root = self._make_native_review_repository({
+            "src/app.py": "VALUE = 1\n",
+            "tests/test_app.py": "import unittest\nclass AppTests(unittest.TestCase):\n    def test_value(self):\n        self.assertEqual(1, 1)\n",
+        })
+        preflight = review_repository(review_root, "main", "HEAD")
+        self.assertEqual(preflight.decision, "pass", preflight.to_dict())
+        planner = SequencePlanner([
+            MissionPlan("continue", "Implement the change.", (
+                SpecialistTask("change", "code", "implement the change"),
+            )),
+            MissionPlan("completed", "Planner proposes completion."),
+            MissionPlan("completed", "Planner proposes completion after testing."),
+        ])
+        stop = threading.Event()
+        calls = []
+        class Agent:
+            def __init__(self, role):
+                self.role = role
+            def run(self, prompt):
+                calls.append((self.role, prompt))
+                if "STREAMIOV_FINAL_VERIFICATION" in prompt:
+                    return '{"verdict":"passed","evidence":["unit tests passed"],"findings":[]}'
+                if "STREAMIOV_NATIVE_REVIEW_REPAIR" in prompt:
+                    stop.set()
+                    return "Unexpected native review repair task."
+                return "implemented"
+        engine = ContinuousDevelopmentEngine(
+            self.db, planner, lambda role: Agent(role), retry_base_seconds=0.01,
+            lease_seconds=10, review_root=review_root, review_base="main",
+        )
+        mission_id = engine.create_mission("Implement and independently review")
+        result = engine.run(mission_id, stop, poll_seconds=0.01, emit=lambda _: None)
+        self.assertEqual(result.status, "completed")
+        self.assertEqual([role for role, _ in calls], ["code", "testing"])
+        with sqlite3.connect(self.db) as db:
+            saved = db.execute(
+                "SELECT decision,base_sha,head_sha,report_json FROM native_review_reports WHERE mission_id=?",
+                (mission_id,),
+            ).fetchone()
+        self.assertEqual(saved[0], "pass", saved[3])
+        self.assertEqual(len(saved[1]), 40)
+        self.assertEqual(len(saved[2]), 40)
+        self.assertIn("changed_files", saved[3])
+
+    def test_native_reviewer_blocks_protected_changes_and_queues_safe_repair(self):
+        review_root = self._make_native_review_repository({
+            ".github/workflows/release.yml": "name: release\non: workflow_dispatch\n",
+            "docs/review.md": "Documented change\n",
+        })
+        planner = SequencePlanner([
+            MissionPlan("continue", "Implement the change.", (
+                SpecialistTask("change", "code", "implement the change"),
+            )),
+            MissionPlan("completed", "Planner proposes completion."),
+            MissionPlan("completed", "Planner proposes completion after testing."),
+        ])
+        stop = threading.Event()
+        calls = []
+        class Agent:
+            def __init__(self, role):
+                self.role = role
+            def run(self, prompt):
+                calls.append((self.role, prompt))
+                if "STREAMIOV_FINAL_VERIFICATION" in prompt:
+                    return '{"verdict":"passed","evidence":["unit tests passed"],"findings":[]}'
+                if "STREAMIOV_NATIVE_REVIEW_REPAIR" in prompt:
+                    self_prompt = prompt
+                    stop.set()
+                    return "Protected workflow change requires owner-level policy handling."
+                return "implemented"
+        engine = ContinuousDevelopmentEngine(
+            self.db, planner, lambda role: Agent(role), retry_base_seconds=0.01,
+            lease_seconds=10, review_root=review_root, review_base="main",
+        )
+        mission_id = engine.create_mission("Do not accept unreviewed control-plane changes")
+        result = engine.run(mission_id, stop, poll_seconds=0.01, emit=lambda _: None)
+        with sqlite3.connect(self.db) as db:
+            decision = db.execute(
+                "SELECT decision,report_json FROM native_review_reports WHERE mission_id=?",
+                (mission_id,),
+            ).fetchone()
+        self.assertEqual(result.status, "active", f"calls={calls!r}; review={decision!r}")
+        self.assertEqual([role for role, _ in calls], ["code", "testing", "repair"])
+        repair_prompt = calls[-1][1]
+        self.assertIn("protected-control-plane-change", repair_prompt)
+        self.assertIn("do not edit protected workflow", repair_prompt)
+        with sqlite3.connect(self.db) as db:
+            decision = db.execute(
+                "SELECT decision FROM native_review_reports WHERE mission_id=?",
+                (mission_id,),
+            ).fetchone()
+        self.assertEqual(decision[0], "needs_attention")
 
 
 if __name__ == "__main__":

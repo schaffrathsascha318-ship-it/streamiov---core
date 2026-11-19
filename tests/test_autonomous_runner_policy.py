@@ -43,10 +43,11 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("ai/security/*", guard)
         self.assertIn("ai/*permissions*", guard)
         self.assertIn("*wrangler.toml", guard)
-        self.assertNotIn("ai/core/agent.py", guard)
-        self.assertNotIn("ai/providers/*", guard)
-        self.assertNotIn("ai/runtime/continuous_engine.py", guard)
-        self.assertNotIn("ai/runtime/project_tools.py", guard)
+        self.assertIn("ai/core/agent.py", guard)
+        self.assertIn("ai/providers/*", guard)
+        self.assertIn("ai/review/*", guard)
+        self.assertIn("ai/runtime/continuous_engine.py", guard)
+        self.assertIn("ai/runtime/project_tools.py", guard)
 
     def test_persistent_mission_enables_full_project_development(self):
         tree = ast.parse(RUNNER.read_text(encoding="utf-8"))
@@ -84,6 +85,15 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("gh pr checks", workflow)
         self.assertIn("all(.[]; .state == \"SUCCESS\")", workflow)
 
+    def test_autonomous_missions_enable_the_provider_free_native_review_gate(self):
+        source = (ROOT / "scripts" / "autonomous" / "run_issue.py").read_text(encoding="utf-8")
+        self.assertIn("review_root=REPOSITORY_ROOT", source)
+        self.assertIn('review_base=os.environ.get("STREAMIOV_REVIEW_BASE", "origin/main")', source)
+        engine = (ROOT / "ai" / "runtime" / "continuous_engine.py").read_text(encoding="utf-8")
+        self.assertIn("review_repository(", engine)
+        self.assertIn("repair-after-native-review", engine)
+        self.assertIn("STREAMIOV_NATIVE_REVIEW_REPAIR", engine)
+        self.assertIn("ai.review.independent_reviewer", engine)
     def test_self_improvement_does_not_authorize_bypassing_security(self):
         tree = ast.parse(RUNNER.read_text(encoding="utf-8"))
         build_task = next(

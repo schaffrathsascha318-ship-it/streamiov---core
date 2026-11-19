@@ -17,6 +17,7 @@ DENIED_PATH_PREFIXES = {"scripts/autonomous"}
 DENIED_SUFFIXES = {".pem", ".key", ".p12", ".pfx"}
 PROTECTED_WRITE_PREFIXES = (
     "ai/providers/",
+    "ai/review/",
     ".github/workflows/",
     ".github/actions/",
     "scripts/autonomous/",
@@ -27,11 +28,10 @@ PROTECTED_WRITE_FILES = {
     "ai/runtime/continuous_engine.py",
     "ai/runtime/project_tools.py",
 }
-# These four files define the Chief itself. A persistent mission may edit them
-# only when the owner explicitly starts it in self-development mode. Runner
-# controls, providers, workflows, secrets, and deployment configuration remain
-# protected even in that mode.
-SELF_MODIFIABLE_CORE_FILES = frozenset(PROTECTED_WRITE_FILES)
+# The CLI shell may be self-improved by a mission. Agent execution, the mission
+# completion gate, permission enforcement, and the native reviewer are trust
+# anchors and remain owner-controlled even in full-project mode.
+SELF_MODIFIABLE_CORE_FILES = frozenset({"ai/__main__.py"})
 PROTECTED_WRITE_NAMES = {"wrangler.jsonc", "wrangler.toml"}
 TEST_COMMANDS = {
     "python -m unittest discover -s tests": [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
@@ -103,10 +103,9 @@ class ProjectTools:
             or any(
                 normalized.startswith(prefix)
                 for prefix in PROTECTED_WRITE_PREFIXES
-                if not (self.full_project_development and prefix == "ai/providers/")
             )
         ):
-            raise ToolError("Protected permission, provider, deployment, and runner-control files require explicit owner approval.")
+            raise ToolError("Protected reviewer, permission, provider, deployment, and runner-control files require explicit owner approval.")
         if "*" not in self.writable_prefixes and not any(
             normalized.startswith(prefix) for prefix in self.writable_prefixes
         ):
