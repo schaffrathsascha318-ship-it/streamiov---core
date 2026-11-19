@@ -493,7 +493,10 @@ class MissionEngineTests(unittest.TestCase):
         result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=lambda _: None)
         self.assertEqual(result.status, "completed")
         self.assertEqual(calls[0], ("core", "create contract"))
-        self.assertEqual(calls[1], ("integration", "integrate"))
+        self.assertEqual(calls[1][0], "integration")
+        self.assertIn("COMPLETED DEPENDENCY RESULTS", calls[1][1])
+        self.assertIn("foundation (core)", calls[1][1])
+        self.assertIn("ok", calls[1][1])
 
 
     def test_failed_independent_verification_forces_repair_and_a_new_verification(self):
