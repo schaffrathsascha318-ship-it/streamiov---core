@@ -31,7 +31,7 @@ PROTECTED_WRITE_FILES = {
 # Only the CLI shell and tool-using agent may be self-improved by a mission.
 # The mission completion gate, permission enforcement, and native reviewer are
 # trust anchors and remain owner-controlled even in full-project mode.
-SELF_MODIFIABLE_CORE_FILES = frozenset({"ai/__main__.py", "ai/core/agent.py"})
+SELF_MODIFIABLE_CORE_FILES = frozenset({"ai/__main__.py"})
 PROTECTED_WRITE_NAMES = {"wrangler.jsonc", "wrangler.toml"}
 TEST_COMMANDS = {
     "python -m unittest discover -s tests": [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
