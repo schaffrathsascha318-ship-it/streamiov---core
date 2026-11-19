@@ -44,9 +44,10 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("ai/*permissions*", guard)
         self.assertIn("*wrangler.toml", guard)
         self.assertNotIn("ai/core/agent.py", guard)
-        self.assertNotIn("ai/providers/*", guard)
-        self.assertNotIn("ai/runtime/continuous_engine.py", guard)
-        self.assertNotIn("ai/runtime/project_tools.py", guard)
+        self.assertIn("ai/providers/*", guard)
+        self.assertIn("ai/review/*", guard)
+        self.assertIn("ai/runtime/continuous_engine.py", guard)
+        self.assertIn("ai/runtime/project_tools.py", guard)
 
     def test_persistent_mission_enables_full_project_development(self):
         tree = ast.parse(RUNNER.read_text(encoding="utf-8"))
