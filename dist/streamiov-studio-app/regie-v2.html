@@ -187,6 +187,7 @@ dialog::backdrop{background:#000b}
   <span><i class="dot"></i>LOKALER REGIE-MODUS</span>
   <span class="pill" id="connection">NICHT VERBUNDEN</span>
   <span class="pill">ZUM NULLTARIF</span>
+  <span class="pill" id="platformCapabilities" aria-live="polite">GERÄT WIRD ERKANNT …</span>
  </div>
 </header>
 
@@ -376,6 +377,7 @@ dialog::backdrop{background:#000b}
     <button data-tool="Spiele">♧ Spiele</button>
     <button data-tool="Musik">♫ Musik</button>
     <button data-tool="KI-Regie">✧ KI-Regie</button>
+    <button data-tool="Game-KI">◈ Game-KI</button>
     <button data-tool="Geräte">▦ Geräte</button>
    </div>
   </section>
@@ -1688,6 +1690,78 @@ async function renderAiTool(body){
   toolField("Auftrag",request),submit
  );
 }
+async function renderGameAiTool(body){
+ const studio=window.streamiovStudio;
+ if(!studio?.gameAiAnalyze){
+  body.append(toolNote("Die Game-KI benötigt die installierte Streamiov-Desktop-App."));
+  return;
+ }
+ const game=document.createElement("input");
+ game.maxLength=160;
+ game.placeholder="z. B. Minecraft, Fortnite, Elden Ring";
+ const platform=document.createElement("input");
+ platform.maxLength=80;
+ platform.value="Windows 11";
+ const evidence=document.createElement("textarea");
+ evidence.maxLength=4000;
+ evidence.placeholder="Beobachtete Spielsituation oder belegte Daten (z. B. Runde beendet, Punktestand 3:1).";
+ const source=document.createElement("select");
+ for(const [value,label] of [
+  ["manual","Manuelle Beobachtung"],["screen_capture","Bildschirmaufnahme"],
+  ["ocr","Texterkennung (OCR)"],["game_api","Offizielle Spiel-API"],
+  ["audio_transcript","Audio-Transkript"],["capture_card","Capture Card"]
+ ]){
+  const option=document.createElement("option");
+  option.value=value;option.textContent=label;source.append(option);
+ }
+ const signals=document.createElement("input");
+ signals.value="";
+ signals.maxLength=120;
+ signals.placeholder="video, ocr, audio, game_api, window_title";
+ const status=toolNote("Bereit. Die Eingaben werden zunächst validiert und an die sechs spezialisierten KI-Bereiche übergeben.");
+ const output=toolNode("pre","tool-pre","Noch keine Analyse vorbereitet.");
+ const run=toolButton("Spielanalyse vorbereiten",async()=>{
+  status.textContent="Beobachtungsdaten werden geprüft …";
+  const availableSignals=signals.value.split(",").map(value=>value.trim()).filter(Boolean);
+  const result=await studio.gameAiAnalyze({
+   gameTitle:game.value.trim(),platform:platform.value.trim(),
+   evidence:evidence.value,sourceType:source.value,availableSignals
+  });
+  output.textContent=JSON.stringify(result,null,2);
+  status.textContent=result?.ok
+   ?"Eingaben validiert. Sechs Game-LIVE-Aufträge und neun bestehende Entwicklungsrollen sind registriert; die autonome Ausführung ist noch nicht verbunden."
+   :"Keine Analyse vorbereitet: "+(result?.error||"Unbekannter Fehler");
+ });
+ const agentList=toolNode("div","tool-grid");
+ for(const [name,description] of [
+  ["Game-KI","Streamiov-Spiele entwickeln und alle belegbar beobachtbaren Fremdspiele analysieren"],
+  ["Code-KI","Programmcode entwickeln und verbessern"],
+  ["Design-KI","Originalgrafiken, Overlays, 3D-Objekte und Animationen gestalten"],
+  ["Gifts-KI","Eigenständige Streamiov-Geschenke entwickeln"],
+  ["Testing-KI","Änderungen unabhängig testen"],
+  ["Repair-KI","Bestätigte Fehler gezielt beheben"],
+  ["Integration-KI","Geprüfte Module und Schnittstellen integrieren"],
+  ["Studio-KI","Studio, Regie und Medienpipeline weiterentwickeln"],
+  ["General-KI","Allgemeine Aufgaben koordinieren"],
+  ["Game Analyzer","Spiele und Spielsituationen analysieren"],
+  ["Interaction AI","Zuschaueraktionen und Challenges entwickeln"],
+  ["Overlay AI","Overlays und Animationen erstellen"],
+  ["Event AI","Verfügbare LIVE-Ereignisse verarbeiten"],
+  ["Balance AI","Fairness und Spielbalance prüfen"],
+  ["Learning AI","Ergebnisse auswerten und Verbesserungen entwickeln"]
+ ]){
+  const card=toolNode("div","source");
+  card.append(toolNode("b",null,name),toolNode("small",null,description));
+  agentList.append(card);
+ }
+ body.append(
+  toolNote("Universell für fremde und Streamiov-eigene Spiele. Die Game-KI verwendet nur tatsächlich übermittelte Capture-, OCR-, Audio-, Game-API- oder manuelle Beobachtungsdaten. Keine Spielinjektion und keine Umgehung von Anti-Cheat."),
+  toolField("Spiel",game),toolField("Plattform",platform),
+  toolField("Datenquelle",source),toolField("Beobachtung / Belege",evidence),
+  toolField("Vorhandene Signale (kommagetrennt)",signals),
+  run,status,toolNode("h3",null,"Alle 15 KI-Rollen – neun bestehende Spezialisten plus sechs Game-LIVE-Agenten"),agentList,output
+ );
+}
 async function renderDevicesTool(body){
  const studio=window.streamiovStudio;
  const pre=toolNode("pre","tool-pre","Diagnose wird geladen …");
@@ -1726,6 +1800,7 @@ async function openTool(name){
   else if(name==="Musik")await renderMusicTool(body);
   else if(name==="Spiele")await renderGamesTool(body);
   else if(name==="KI-Regie")await renderAiTool(body);
+  else if(name==="Game-KI")await renderGameAiTool(body);
   else if(name==="Geräte")await renderDevicesTool(body);
   else body.append(toolNote("Dieses Werkzeug ist noch nicht angebunden."));
  }catch(error){
@@ -1923,6 +1998,38 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
   });
  }
  refreshTikTokStatus();
+})();
+</script>
+
+
+<script>
+(() => {
+ const badge = document.getElementById('platformCapabilities');
+ if (!badge) return;
+ const features = {
+  camera: Boolean(navigator.mediaDevices?.getUserMedia),
+  screenCapture: Boolean(navigator.mediaDevices?.getDisplayMedia),
+  audioOutputRouting: typeof HTMLMediaElement !== 'undefined' &&
+   typeof HTMLMediaElement.prototype.setSinkId === 'function'
+ };
+ if (!window.streamiovStudio?.getPlatformCapabilities) {
+  badge.textContent = 'BROWSER-MODUS · DESKTOP-BRIDGE FEHLT';
+  return;
+ }
+ window.streamiovStudio.getPlatformCapabilities(features).then(result => {
+  const labels = {
+   windows: 'WINDOWS', linux: 'LINUX', chromeos: 'CHROMEOS',
+   android: 'ANDROID', ios: 'IOS', macos: 'MACOS', unknown: 'GERÄT'
+  };
+  const name = labels[result?.platform] || 'GERÄT';
+  const enabled = Object.values(result?.capabilities || {}).filter(Boolean).length;
+  badge.textContent = name + ' · ' + enabled + ' FÄHIGKEITEN ERKANNT';
+  badge.title = Object.entries(result?.capabilities || {})
+   .map(([key, value]) => key + ': ' + (value ? 'verfügbar' : 'nicht verfügbar'))
+   .join(' | ');
+ }).catch(() => {
+  badge.textContent = 'GERÄTEERKENNUNG NICHT VERFÜGBAR';
+ });
 })();
 </script>
 
