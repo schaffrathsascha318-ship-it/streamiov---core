@@ -41,8 +41,12 @@ This is a deterministic, local policy reviewer, not a claim of human-level seman
 
 ## Trust-anchor protection
 
-The autonomous agent cannot modify `ai/review/`, `ai/runtime/continuous_engine.py`, `ai/runtime/project_tools.py`, or `ai/providers/`, even in full-project development mode. The workflow independently rejects changes to those paths from autonomous mission branches. This keeps the reviewer, completion gate, permission enforcement, and existing provider boundary outside the developer agent's self-approval loop. The CLI and ordinary agent implementation remain eligible for controlled self-improvement.
+The autonomous agent cannot modify `ai/review/`, `ai/core/agent.py`, `ai/runtime/continuous_engine.py`, `ai/runtime/project_tools.py`, or `ai/providers/`, even in full-project development mode. The workflow independently rejects changes to those paths from autonomous mission branches. This keeps the reviewer, completion gate, permission enforcement, and existing provider boundary outside the developer agent's self-approval loop. The CLI and ordinary agent implementation remain eligible for controlled self-improvement.
 
 ## Architecture and provider policy
 
 The reviewer also flags new imports, package references, and endpoints for unapproved third-party AI providers. It rejects adapter/integration paths for OBS, Twitch, YouTube, Kick, and Facebook; the supported external LIVE adapter remains TikTok. These are local static checks and do not call any of those providers or platforms.
+
+## Pull-request review
+
+The `.github/workflows/native-reviewer.yml` check runs the reviewer code from the pull request's trusted base commit. It fetches the PR head into Git's object database but never checks out or executes the untrusted PR source. The job has read-only repository permissions, does not run patch-supplied tests or commands, and publishes the structured review report to the Actions summary. No AI/model provider or external review service is called.
