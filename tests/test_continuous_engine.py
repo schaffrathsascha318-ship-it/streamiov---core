@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 from ai.core.orchestrator import SpecialistTask
+from ai.review.independent_reviewer import review_repository
 from ai.runtime.continuous_engine import (
     ContinuousDevelopmentEngine,
     MissionEngineError,
@@ -336,7 +337,7 @@ class MissionEngineTests(unittest.TestCase):
 
         engine = self.make_engine(planner, lambda _role: Agent())
         mission_id = engine.create_mission("Implement component")
-        result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=lambda _: None)
+        result = engine.run(mission_id, stop, poll_seconds=0.01, emit=lambda _: None)
 
         self.assertEqual(result.status, "completed")
         self.assertEqual(result.attempts, 4)
@@ -599,7 +600,7 @@ class MissionEngineTests(unittest.TestCase):
         git("config", "user.name", "Streamiov Review Test")
         git("config", "user.email", "review-test@streamiov.invalid")
         git("checkout", "-q", "-b", "main")
-        (root / "README.md").write_text("baseline\\n", encoding="utf-8")
+        (root / "README.md").write_text("baseline\n", encoding="utf-8")
         git("add", "README.md")
         git("commit", "-q", "-m", "baseline")
         git("checkout", "-q", "-b", "review-target")
@@ -613,9 +614,11 @@ class MissionEngineTests(unittest.TestCase):
 
     def test_native_reviewer_is_a_required_completion_gate_for_ai_chief(self):
         review_root = self._make_native_review_repository({
-            "src/app.py": "VALUE = 1\\n",
-            "tests/test_app.py": "import unittest\\nclass AppTests(unittest.TestCase):\\n    def test_value(self):\\n        self.assertEqual(1, 1)\\n",
+            "src/app.py": "VALUE = 1\n",
+            "tests/test_app.py": "import unittest\nclass AppTests(unittest.TestCase):\n    def test_value(self):\n        self.assertEqual(1, 1)\n",
         })
+        preflight = review_repository(review_root, "main", "HEAD")
+        self.assertEqual(preflight.decision, "pass", preflight.to_dict())
         planner = SequencePlanner([
             MissionPlan("continue", "Implement the change.", (
                 SpecialistTask("change", "code", "implement the change"),
@@ -623,6 +626,7 @@ class MissionEngineTests(unittest.TestCase):
             MissionPlan("completed", "Planner proposes completion."),
             MissionPlan("completed", "Planner proposes completion after testing."),
         ])
+        stop = threading.Event()
         calls = []
         class Agent:
             def __init__(self, role):
@@ -631,6 +635,9 @@ class MissionEngineTests(unittest.TestCase):
                 calls.append((self.role, prompt))
                 if "STREAMIOV_FINAL_VERIFICATION" in prompt:
                     return '{"verdict":"passed","evidence":["unit tests passed"],"findings":[]}'
+                if "STREAMIOV_NATIVE_REVIEW_REPAIR" in prompt:
+                    stop.set()
+                    return "Unexpected native review repair task."
                 return "implemented"
         engine = ContinuousDevelopmentEngine(
             self.db, planner, lambda role: Agent(role), retry_base_seconds=0.01,
@@ -652,8 +659,8 @@ class MissionEngineTests(unittest.TestCase):
 
     def test_native_reviewer_blocks_protected_changes_and_queues_safe_repair(self):
         review_root = self._make_native_review_repository({
-            ".github/workflows/release.yml": "name: release\\non: workflow_dispatch\\n",
-            "docs/review.md": "Documented change\\n",
+            ".github/workflows/release.yml": "name: release\non: workflow_dispatch\n",
+            "docs/review.md": "Documented change\n",
         })
         planner = SequencePlanner([
             MissionPlan("continue", "Implement the change.", (
