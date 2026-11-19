@@ -90,16 +90,16 @@ class NativeReviewerIntegrationTests(unittest.TestCase):
         self.git("config", "user.name", "Streamiov Test")
         self.git("config", "user.email", "test@streamiov.invalid")
         self.git("branch", "-M", "main")
-        (self.root / "README.md").write_text("baseline\\n", encoding="utf-8")
+        (self.root / "README.md").write_text("baseline\n", encoding="utf-8")
         self.git("add", "README.md")
         self.git("commit", "-q", "-m", "baseline")
         self.base = self.git("rev-parse", "HEAD")
         (self.root / "src").mkdir()
-        (self.root / "src/app.py").write_text("VALUE = 1\\n", encoding="utf-8")
+        (self.root / "src/app.py").write_text("VALUE = 1\n", encoding="utf-8")
         (self.root / "tests").mkdir()
         (self.root / "tests/test_app.py").write_text(
-            "import unittest\\nclass AppTests(unittest.TestCase):\\n"
-            "    def test_value(self):\\n        self.assertEqual(1, 1)\\n",
+            "import unittest\nclass AppTests(unittest.TestCase):\n"
+            "    def test_value(self):\n        self.assertEqual(1, 1)\n",
             encoding="utf-8",
         )
         self.git("add", "src/app.py", "tests/test_app.py")
