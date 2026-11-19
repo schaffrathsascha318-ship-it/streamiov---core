@@ -9,8 +9,8 @@ WORKFLOW = ROOT / ".github" / "workflows" / "native-reviewer.yml"
 class NativeReviewerWorkflowTests(unittest.TestCase):
     def test_runs_on_pull_request_with_read_only_permissions(self):
         source = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("pull_request:", source)
-        self.assertNotIn("pull_request_target:", source)
+        self.assertIn("pull_request_target:", source)
+        self.assertNotIn("\n  pull_request:\n", source)
         self.assertIn("contents: read", source)
         self.assertIn("pull-requests: read", source)
         self.assertNotIn("contents: write", source)
@@ -31,7 +31,7 @@ class NativeReviewerWorkflowTests(unittest.TestCase):
         self.assertNotIn("npm install", source)
         self.assertNotIn("npm test", source)
         self.assertNotIn("--run-tests", source)
-        self.assertNotIn("pull_request_target", source)
+        self.assertIn("pull_request_target", source)
 
     def test_publishes_structured_report_to_the_actions_summary(self):
         source = WORKFLOW.read_text(encoding="utf-8")
