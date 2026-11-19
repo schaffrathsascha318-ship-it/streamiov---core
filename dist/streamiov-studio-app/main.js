@@ -597,6 +597,7 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
  * tokens are handled by the encrypted OAuth service in the main process.
  */
 const { TikTokOAuth } = require('./tiktok-oauth.js');
+const { TikTokDisplayApi } = require('./tiktok-display-api.js');
 let tikTokOAuth = null;
 let tikTokCallbackServer = null;
 let tikTokCallbackTimeout = null;
@@ -611,6 +612,14 @@ function getTikTokOAuth() {
     });
   }
   return tikTokOAuth;
+}
+
+let tikTokDisplayApi = null;
+function getTikTokDisplayApi() {
+  if (!tikTokDisplayApi) {
+    tikTokDisplayApi = new TikTokDisplayApi({ oauth: getTikTokOAuth() });
+  }
+  return tikTokDisplayApi;
 }
 
 function sendTikTokAuthResult(result) {
@@ -630,6 +639,16 @@ ipcMain.handle('studio:tiktok-status', async (event) => {
       environment: 'sandbox',
       error: String(error.message || error)
     };
+  }
+});
+
+ipcMain.handle('studio:tiktok-profile', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  try {
+    const profile = await getTikTokDisplayApi().getCurrentUser();
+    return { ok: true, profile };
+  } catch (error) {
+    return { ok: false, error: String(error.message || error) };
   }
 });
 
