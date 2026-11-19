@@ -599,7 +599,7 @@ class MissionEngineTests(unittest.TestCase):
         git("init", "-q")
         git("config", "user.name", "Streamiov Review Test")
         git("config", "user.email", "review-test@streamiov.invalid")
-        git("checkout", "-q", "-b", "main")
+        git("branch", "-M", "main")
         (root / "README.md").write_text("baseline\n", encoding="utf-8")
         git("add", "README.md")
         git("commit", "-q", "-m", "baseline")
@@ -644,7 +644,7 @@ class MissionEngineTests(unittest.TestCase):
             lease_seconds=10, review_root=review_root, review_base="main",
         )
         mission_id = engine.create_mission("Implement and independently review")
-        result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=lambda _: None)
+        result = engine.run(mission_id, stop, poll_seconds=0.01, emit=lambda _: None)
         self.assertEqual(result.status, "completed")
         self.assertEqual([role for role, _ in calls], ["code", "testing"])
         with sqlite3.connect(self.db) as db:
