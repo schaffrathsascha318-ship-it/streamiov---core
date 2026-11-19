@@ -34,6 +34,9 @@ UNSAFE_PATTERNS = (
     ("world-writable-permissions", re.compile(r"(?i)\bchmod\s+(?:-R\s+)?777\b")),
     ("dynamic-eval", re.compile(r"(?i)\beval\s*\(")),
     ("unsafe-deserialization", re.compile(r"\bpickle\.loads\s*\(")),
+    ("unapproved-ai-provider-import", re.compile(r"(?i)^\s*(?:from|import)\s+(?:openai|anthropic|cohere|mistralai|replicate|together|groq|google\.generativeai|google\.genai)\b")),
+    ("unapproved-ai-provider-endpoint", re.compile(r"(?i)\b(?:api\.openai\.com|api\.anthropic\.com|api\.cohere\.com|api\.mistral\.ai|api\.groq\.com|generativelanguage\.googleapis\.com)\b")),
+    ("unapproved-ai-provider-package", re.compile(r"(?i)[\"']?(?:openai|anthropic|cohere|mistralai|replicate|together|groq|google-generativeai)[\"']?\s*[:@]")),
 )
 PROTECTED_PATH_PREFIXES = (
     ".github/workflows/",
@@ -102,6 +105,15 @@ def classify_changed_path(path: str) -> Finding | None:
         normalized = normalized[2:]
     lowered = normalized.lower()
     name = lowered.rsplit("/", 1)[-1]
+    path_parts = set(lowered.split("/"))
+    adapter_segments = {"adapter", "adapters", "integration", "integrations", "platform", "platforms"}
+    unsupported_platforms = {"obs", "twitch", "youtube", "kick", "facebook"}
+    if path_parts & adapter_segments and path_parts & unsupported_platforms:
+        return Finding(
+            "high", "unsupported-platform-adapter", normalized, None,
+            "Only the approved TikTok LIVE platform adapter is in scope; this path introduces a prohibited platform adapter.",
+        )
+
     if name in PROTECTED_FILE_NAMES or any(
         lowered == prefix.rstrip("/") or lowered.startswith(prefix)
         for prefix in PROTECTED_PATH_PREFIXES
