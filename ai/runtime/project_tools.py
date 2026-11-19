@@ -28,9 +28,9 @@ PROTECTED_WRITE_FILES = {
     "ai/runtime/continuous_engine.py",
     "ai/runtime/project_tools.py",
 }
-# Only the CLI shell and tool-using agent may be self-improved by a mission.
-# The mission completion gate, permission enforcement, and native reviewer are
-# trust anchors and remain owner-controlled even in full-project mode.
+# The CLI shell may be self-improved by a mission. Agent execution, the mission
+# completion gate, permission enforcement, and the native reviewer are trust
+# anchors and remain owner-controlled even in full-project mode.
 SELF_MODIFIABLE_CORE_FILES = frozenset({"ai/__main__.py"})
 PROTECTED_WRITE_NAMES = {"wrangler.jsonc", "wrangler.toml"}
 TEST_COMMANDS = {
@@ -105,7 +105,7 @@ class ProjectTools:
                 for prefix in PROTECTED_WRITE_PREFIXES
             )
         ):
-            raise ToolError("Protected permission, provider, deployment, and runner-control files require explicit owner approval.")
+            raise ToolError("Protected reviewer, permission, provider, deployment, and runner-control files require explicit owner approval.")
         if "*" not in self.writable_prefixes and not any(
             normalized.startswith(prefix) for prefix in self.writable_prefixes
         ):
