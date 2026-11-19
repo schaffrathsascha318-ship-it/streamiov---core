@@ -720,7 +720,7 @@ class ContinuousDevelopmentEngine:
                 "attempt": task.attempts,
                 "error": error,
             }
-             emit(json.dumps(event, ensure_ascii=False))
+            emit(json.dumps(event, ensure_ascii=False))
         else:
             checkpoint_store = getattr(agent, "checkpoints", None)
             if checkpoint_store is not None:
