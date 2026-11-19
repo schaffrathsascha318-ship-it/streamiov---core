@@ -17,6 +17,10 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
         source = WORKFLOW.read_text(encoding="utf-8")
         required = (
             "ai/security/*",
+            "ai/review/*",
+            "ai/providers/*",
+            "ai/runtime/continuous_engine.py",
+            "ai/runtime/project_tools.py",
             ".github/*",
             "scripts/autonomous/*",
             "*oauth*",
@@ -36,9 +40,6 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
         for editable_source in (
             "ai/__main__.py",
             "ai/core/agent.py",
-            "ai/runtime/continuous_engine.py",
-            "ai/runtime/project_tools.py",
-            "ai/providers/*",
         ):
             with self.subTest(editable_source=editable_source):
                 self.assertNotIn(editable_source, source)
