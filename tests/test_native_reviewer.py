@@ -118,7 +118,7 @@ class NativeReviewerIntegrationTests(unittest.TestCase):
 
     def test_reviews_exact_head_and_runs_only_fixed_test_suite(self):
         report = review_repository(self.root, self.base, self.head, run_tests=True)
-        self.assertEqual(report.decision, "pass")
+        self.assertEqual(report.decision, "pass", report.to_dict())
         self.assertEqual(report.test_result["status"], "passed")
         self.assertIn("src/app.py", report.changed_files)
         self.assertIn("tests/test_app.py", report.changed_files)
