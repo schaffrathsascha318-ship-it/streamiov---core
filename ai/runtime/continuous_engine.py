@@ -194,6 +194,19 @@ class ContinuousDevelopmentEngine:
                 CREATE INDEX IF NOT EXISTS idx_mission_tasks_lease
                 ON development_mission_tasks(status,lease_until)
             """)
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS native_review_reports (
+                    report_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    mission_id TEXT NOT NULL REFERENCES development_missions(mission_id),
+                    cycle INTEGER NOT NULL,
+                    base_sha TEXT NOT NULL,
+                    head_sha TEXT NOT NULL,
+                    decision TEXT NOT NULL,
+                    report_json TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    UNIQUE(mission_id,cycle,head_sha)
+                )
+            """)
 
     def create_mission(self, goal: str, *, mission_id: str | None = None) -> str:
         if not isinstance(goal, str) or not goal.strip() or len(goal) > 8000:
@@ -320,6 +333,27 @@ class ContinuousDevelopmentEngine:
             return {"verdict": "invalid", "findings": ["Verifier supplied no concrete evidence."]}
         return payload
 
+    def _record_native_review(self, mission_id: str, cycle: int, report: dict) -> None:
+        """Persist exact native-review evidence in the encrypted mission checkpoint."""
+        required = {"base", "head", "decision"}
+        if not isinstance(report, dict) or not required.issubset(report):
+            raise MissionEngineError("Native reviewer returned an invalid evidence envelope.")
+        now = time.time()
+        with self._transaction() as db:
+            db.execute("""
+                INSERT INTO native_review_reports
+                (mission_id,cycle,base_sha,head_sha,decision,report_json,created_at)
+                VALUES(?,?,?,?,?,?,?)
+                ON CONFLICT(mission_id,cycle,head_sha) DO UPDATE SET
+                    base_sha=excluded.base_sha,
+                    decision=excluded.decision,
+                    report_json=excluded.report_json,
+                    created_at=excluded.created_at
+            """, (
+                mission_id, cycle, report["base"], report["head"], report["decision"],
+                json.dumps(report, ensure_ascii=False), now,
+            ))
+
     def _require_final_verification(self, mission_id: str, cycle: int, goal: str) -> MissionPlan | None:
         """Require testing evidence and a separate deterministic native review before completion."""
         verification = self._latest_final_verification(mission_id, cycle - 1)
@@ -332,6 +366,7 @@ class ContinuousDevelopmentEngine:
                     run_tests=False,
                 )
                 payload = report.to_dict()
+                self._record_native_review(mission_id, cycle, payload)
                 if report.decision in {"reject", "needs_attention"}:
                     findings = json.dumps(payload, ensure_ascii=False)[:6000]
                     task = SpecialistTask(
