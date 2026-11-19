@@ -84,6 +84,15 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("gh pr checks", workflow)
         self.assertIn("all(.[]; .state == \"SUCCESS\")", workflow)
 
+    def test_autonomous_missions_enable_the_provider_free_native_review_gate(self):
+        source = (ROOT / "scripts" / "autonomous" / "run_issue.py").read_text(encoding="utf-8")
+        self.assertIn("review_root=REPOSITORY_ROOT", source)
+        self.assertIn('review_base=os.environ.get("STREAMIOV_REVIEW_BASE", "main")', source)
+        engine = (ROOT / "ai" / "runtime" / "continuous_engine.py").read_text(encoding="utf-8")
+        self.assertIn("review_repository(", engine)
+        self.assertIn("repair-after-native-review", engine)
+        self.assertIn("STREAMIOV_NATIVE_REVIEW_REPAIR", engine)
+        self.assertIn("ai.review.independent_reviewer", engine)
     def test_self_improvement_does_not_authorize_bypassing_security(self):
         tree = ast.parse(RUNNER.read_text(encoding="utf-8"))
         build_task = next(
