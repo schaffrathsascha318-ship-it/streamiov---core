@@ -242,7 +242,9 @@ class ContinuousDevelopmentEngine:
                 ORDER BY cycle DESC, updated_at DESC LIMIT ?
             """, (mission_id, max_tasks)).fetchall()
         summary = (mission["summary"] or "")[-max_summary_chars:]
-        heading = (\n            "\n\nRECENT TASK RECORDS (status is authoritative; only succeeded rows contain completed results):\n"\n        )
+        heading = (
+            "\n\nRECENT TASK RECORDS (status is authoritative; only succeeded rows contain completed results):\n"
+        )
         prefix = summary + heading
         budget = max(0, max_context_chars - len(prefix))
         newest_first = []
