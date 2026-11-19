@@ -62,7 +62,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
                 self.assertTrue({"format_retries", "final_result", "in_flight_action_index", "checkpoint_version"} <= columns)
                 self.assertEqual(db.execute("SELECT COUNT(*) FROM agent_checkpoints").fetchone()[0], 1)
 
-    def test_checkpoint_stops_instead_of_replaying_action_interrupted_during_execution(self):
+    def test_interrupted_action_is_not_replayed_and_checkpoint_recovers_through_inspection(self):
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory, "checkpoints.sqlite3")
             task = "create a file"
@@ -74,12 +74,19 @@ class SpecialistActionProtocolTests(unittest.TestCase):
                 "final_result": None, "in_flight_action_index": 0, "checkpoint_version": 1,
             }
             store.save("crash", task, "code", state)
-            provider = SequenceProvider('{"final":"must not replay"}')
+            provider = SequenceProvider('{"final":"Inspected the workspace; no file was created."}')
             agent = DevelopmentAgent(provider, directory, specialist="code", checkpoint_db=database)
-            with self.assertRaisesRegex(AgentError, "side effects cannot be proven"):
-                agent.run(task, checkpoint_id="crash")
-            self.assertEqual(provider.calls, 0)
+            result = agent.run(task, checkpoint_id="crash")
+            self.assertIn("Inspected the workspace", result)
+            self.assertEqual(provider.calls, 1)
+            recovery = provider.messages[0][-1]["content"]
+            self.assertIn("CRASH RECOVERY", recovery)
+            self.assertIn("UNKNOWN", recovery)
+            self.assertIn("NEVER replay", recovery)
             self.assertFalse(Path(directory, "created.txt").exists())
+            resumed = store.load("crash", task, "code")
+            self.assertIsNone(resumed["in_flight_action_index"])
+            self.assertEqual(resumed["pending_actions"], [])
 
     def test_parses_single_object_array_and_fenced_json(self):
         action = {"tool": "list_files", "arguments": {"path": "."}}
