@@ -369,6 +369,16 @@ jobs:
               -f publish_release=false -f release_version="$app_version" -f prerelease=false; then
               echo "::warning::Could not dispatch Studio platform builds."
             fi
+
+            # Dispatching checks is not evidence that they passed. Wait for the
+            # PR's checks and fail closed unless every reported check succeeds.
+            gh pr checks "$pr_number" --watch --interval 10
+            check_count="$(gh pr checks "$pr_number" --json state --jq 'length')"
+            checks_passed="$(gh pr checks "$pr_number" --json state --jq 'all(.[]; .state == "SUCCESS")')"
+            if [[ "$check_count" -eq 0 || "$checks_passed" != "true" ]]; then
+              echo "::error::Required PR checks are missing or did not all succeed."
+              exit 1
+            fi
           fi
 
           if [[ "$TESTS_PASSED" == "true" && "${MISSION_STATUS:-active}" == "completed" ]]; then
