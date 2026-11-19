@@ -16,7 +16,7 @@ Do not describe Streamiov as a TikTok product, imply endorsement, or claim that 
 
 | TikTok product / scope | Intended user-visible feature | Evidence required before claiming it works | Current status |
 |---|---|---|---|
-| Login Kit / `user.info.basic` | Creator chooses “Mit TikTok verbinden”; after consent, Streamiov identifies the connected account and shows basic profile information and connection state. | Real authorization through the existing app's Sandbox configuration; callback/state/PKCE validation; successful official Display API profile request; disconnect behavior; recording of the complete flow. | OAuth module exists on main. Desktop PKCE correction is in Draft PR #179. Display API profile adapter and Studio harness are in Draft PR #180. No real Sandbox E2E proof recorded. |
+| Login Kit / `user.info.basic` | Creator chooses “Mit TikTok verbinden”; after consent, Streamiov identifies the connected account and shows basic profile information and connection state. | Real authorization through the existing app's Sandbox configuration; callback/state/PKCE validation; successful official Display API profile request; disconnect behavior; recording of the complete flow. | OAuth module exists on main. The desktop PKCE correction is in non-Draft PR #131 (all observed checks green); callback/scope validation is stacked in Draft PR #138 (all observed checks green). A newer duplicate PKCE PR #179 is Draft. Display API profile adapter and Studio harness are in Draft PR #180. No real Sandbox E2E proof recorded. |
 | TikTok LIVE chat/gift/like/follow/viewer events | No claim in this submission. | Separate official TikTok product/partner entitlement, documented event schemas and written access confirmation, followed by authorized E2E test. | Not verified / do not claim. |
 | TikTok LIVE broadcast start or stream destination | No claim in this submission. | Official product/account entitlement and provider documentation for this exact app/creator, followed by authorized E2E test. | Not verified / do not claim. |
 | TikTok native gift-gallery placement | No claim in this submission. | Written TikTok product/partnership approval and commercial/technical terms. | No public API/scope found in current audit; not implemented. |
@@ -92,10 +92,12 @@ The existing privacy page is generic in parts and refers users to the imprint fo
 The following open PRs were inspected on 2026-11-19:
 
 - **PR #178** — official TikTok capability audit. Draft, documentation-only. It records that the public scopes/webhook catalogue reviewed does not document ordinary LIVE gift/chat/viewer-event access and that LIVE/gift entitlements require separate provider confirmation.
-- **PR #179** — desktop Login Kit PKCE challenge encoding. Draft. Its dedicated TikTok sandbox OAuth test workflow passed on the inspected head. Full repository verification and Phase 1 agent tests failed on a separate autonomous-runner policy test because the workflow source did not contain the expected `gh pr checks` guard. Do not weaken that test or bypass required checks.
+- **PR #131** — desktop Login Kit PKCE challenge encoding. Open and marked ready for review (not Draft). Observed checks: TikTok sandbox OAuth tests, Phase 1 agent tests and secret scanning all passed. The correction is not yet in `main`.
+- **PR #138** — callback error and granted-scope validation. Draft and stacked on PR #131. Observed checks: TikTok sandbox OAuth tests, Phase 1 agent tests and secret scanning all passed. It requires the PR #131 base branch to be integrated first.
+- **PR #179** — newer duplicate desktop PKCE correction. Draft. Its dedicated TikTok sandbox OAuth test passed, but full repository verification and Phase 1 agent tests failed on a separate autonomous-runner policy test because the workflow source did not contain the expected `gh pr checks` guard. Prefer reviewing the earlier PR #131 rather than integrating duplicate PKCE changes. Do not weaken the policy test or bypass required checks.
 - **PR #180** — Display API basic-profile adapter and Studio sandbox harness. Draft. Its TikTok sandbox OAuth tests and Studio build passed on the inspected head; full repository verification and Phase 1 agent tests failed on the same autonomous-runner policy test. The PR itself states that the Electron flow is sandbox-only and production token brokerage must move to authenticated Core.
 
-All three PRs remain unmerged. Their branches are not the same as the current `main` branch. Therefore their features must not be described as already present in the distributed production Studio.
+These PRs remain unmerged. Their branches are not the same as the current `main` branch. Therefore their features must not be described as already present in the distributed production Studio.
 
 ## 7. Submission readiness gates
 
@@ -137,6 +139,8 @@ Do not request or claim TikTok LIVE chat, gift, like, follow, share, viewer-pres
 |---|---|---|
 | 2026-11-19 | Repository homepage footer inspected | Legal and compliance routes are linked in source. Live deployment not independently verified. |
 | 2026-11-19 | Legal page source files inspected | Privacy, terms, imprint and compliance source files exist. Legal adequacy/live reachability remain unverified. |
+| 2026-11-19 | PR #131 TikTok OAuth, Phase 1 and secret scan | All three observed checks passed; PR remains unmerged. |
+| 2026-11-19 | PR #138 TikTok OAuth, Phase 1 and secret scan | All three observed checks passed; PR remains Draft and depends on #131. |
 | 2026-11-19 | PR #179 dedicated TikTok OAuth workflow | Passed on inspected head; full repo and Phase 1 checks failed due separate autonomous-runner policy assertion. |
 | 2026-11-19 | PR #180 TikTok OAuth workflow and Studio build | Passed on inspected head; full repo and Phase 1 checks failed due separate autonomous-runner policy assertion. |
 | 2026-11-19 | Real TikTok Sandbox authorization | Not performed / no evidence available in repository inspection. |
