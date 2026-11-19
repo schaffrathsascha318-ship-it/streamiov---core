@@ -96,7 +96,9 @@ class ReviewReport:
 
 
 def classify_changed_path(path: str) -> Finding | None:
-    normalized = path.replace("\\", "/").lstrip("./")
+    normalized = path.replace("\\", "/")
+    if normalized.startswith("./"):
+        normalized = normalized[2:]
     lowered = normalized.lower()
     name = lowered.rsplit("/", 1)[-1]
     if name in PROTECTED_FILE_NAMES or any(
@@ -253,6 +255,16 @@ def review_repository(
                 report.findings.append(Finding("high", "source-read-failed", path, None, str(exc)))
 
     if run_tests:
+        current_head = _git(project, "rev-parse", "HEAD").strip()
+        requested_head = _git(project, "rev-parse", f"{head}^{{commit}}").strip()
+        if current_head != requested_head:
+            report.test_result = {
+                "status": "wrong-worktree",
+                "command": "python -m unittest discover -s tests -v",
+                "exit_code": None,
+                "summary": "Tests were not run because the checked-out worktree does not match the requested head commit.",
+            }
+            return report.finalize()
         command = [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"]
         try:
             result = subprocess.run(
