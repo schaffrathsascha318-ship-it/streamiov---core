@@ -133,6 +133,8 @@ def main() -> int:
                 checkpoint_db=database,
                 full_project_development=True,
             ),
+            review_root=REPOSITORY_ROOT,
+            review_base=os.environ.get("STREAMIOV_REVIEW_BASE", "main"),
         )
         try:
             snapshot = engine.get_mission(mission_id)
