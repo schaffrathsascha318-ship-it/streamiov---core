@@ -49,7 +49,7 @@ jobs:
         with:
           node-version: "22"
       - name: Run sandbox-only OAuth tests
-        run: node --test tests/tiktok-oauth.test.js tests/tiktok-oauth-registry.test.js
+        run: node --test tests/tiktok-oauth.test.js tests/tiktok-oauth-registry.test.js tests/tiktok-display-api.test.js
       - name: Check Electron Studio JavaScript syntax
         run: |
           node --check dist/streamiov-studio-app/main.js
