@@ -463,6 +463,40 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(result.pending_tasks, 1)
         self.assertTrue(any('"event": "task_retry_scheduled"' in event for event in events))
 
+    def test_dependency_with_empty_result_fails_closed_and_keeps_dependent_queued(self):
+        engine = self.make_engine(SequencePlanner([]), lambda _role: None)
+        mission_id = engine.create_mission("Reject empty prerequisite output")
+        now = 1.0
+        with sqlite3.connect(self.db) as db:
+            db.execute(
+                """
+                INSERT INTO development_mission_tasks
+                (task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
+                 result,last_error,available_at,worker_id,lease_until,created_at,updated_at)
+                VALUES(?,?,?,?,?,'[]','succeeded',1,'','',0,'',NULL,?,?)
+                """,
+                (f"{mission_id}:1:foundation", mission_id, 1, "core", "create contract", now, now),
+            )
+            db.execute(
+                """
+                INSERT INTO development_mission_tasks
+                (task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
+                 result,last_error,available_at,worker_id,lease_until,created_at,updated_at)
+                VALUES(?,?,?,?,?,'["foundation"]','queued',0,'','',0,'',NULL,?,?)
+                """,
+                (f"{mission_id}:1:integration", mission_id, 1, "integration", "integrate", now, now),
+            )
+
+        with self.assertRaisesRegex(MissionEngineError, "result is unavailable"):
+            engine._claim_task(mission_id, "worker-empty-dependency")
+        with sqlite3.connect(self.db) as db:
+            dependent = db.execute(
+                "SELECT status,attempts FROM development_mission_tasks WHERE task_id=?",
+                (f"{mission_id}:1:integration",),
+            ).fetchone()
+        self.assertEqual(tuple(dependent), ("queued", 0))
+
+
     def test_dependency_order_is_respected_within_a_mission_batch(self):
         planner = SequencePlanner([
             MissionPlan("continue", "Two dependent tasks.", (
