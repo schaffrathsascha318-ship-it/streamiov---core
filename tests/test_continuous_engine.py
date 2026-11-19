@@ -639,6 +639,15 @@ class MissionEngineTests(unittest.TestCase):
         result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=lambda _: None)
         self.assertEqual(result.status, "completed")
         self.assertEqual([role for role, _ in calls], ["code", "testing"])
+        with sqlite3.connect(self.db) as db:
+            saved = db.execute(
+                "SELECT decision,base_sha,head_sha,report_json FROM native_review_reports WHERE mission_id=?",
+                (mission_id,),
+            ).fetchone()
+        self.assertEqual(saved[0], "pass")
+        self.assertEqual(len(saved[1]), 40)
+        self.assertEqual(len(saved[2]), 40)
+        self.assertIn("changed_files", saved[3])
 
     def test_native_reviewer_blocks_protected_changes_and_queues_safe_repair(self):
         review_root = self._make_native_review_repository({
@@ -677,6 +686,12 @@ class MissionEngineTests(unittest.TestCase):
         repair_prompt = calls[-1][1]
         self.assertIn("protected-control-plane-change", repair_prompt)
         self.assertIn("do not edit protected workflow", repair_prompt)
+        with sqlite3.connect(self.db) as db:
+            decision = db.execute(
+                "SELECT decision FROM native_review_reports WHERE mission_id=?",
+                (mission_id,),
+            ).fetchone()
+        self.assertEqual(decision[0], "needs_attention")
 
 
 if __name__ == "__main__":
