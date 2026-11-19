@@ -42,11 +42,12 @@ PROTECTED_PATH_PREFIXES = (
     "scripts/deploy/",
     "ai/providers/",
     "ai/security/",
+    "ai/review/",
 )
 PROTECTED_FILE_NAMES = {
     "wrangler.toml", "wrangler.jsonc", "client_secret.json",
     "credentials.json", "token.json", "tokens.json", "oauth.json",
-    "auth.json", "tiktok-oauth.js",
+    "auth.json", "tiktok-oauth.js", "continuous_engine.py", "project_tools.py",
 }
 SOURCE_SUFFIXES = {".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx"}
 TEST_PATH_PARTS = {"test", "tests", "__tests__", "spec"}
