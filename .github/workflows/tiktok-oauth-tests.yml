@@ -21,6 +21,11 @@ on:
     branches: [main]
     paths:
       - "core/integration/tiktok-oauth.js"
+      - "dist/streamiov-studio-app/tiktok-display-api.js"
+      - "scripts/sync-studio-tiktok-oauth.py"
+      - "docs/integrations/tiktok-display-api.md"
+      - "tests/tiktok-display-api.test.js"
+      - "core/integration/tiktok-display-api.js"
       - "tests/tiktok-oauth.test.js"
       - "config/platforms/tiktok/oauth.json"
       - "docs/integrations/tiktok-oauth.md"
