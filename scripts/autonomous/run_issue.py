@@ -134,7 +134,7 @@ def main() -> int:
                 full_project_development=True,
             ),
             review_root=REPOSITORY_ROOT,
-            review_base=os.environ.get("STREAMIOV_REVIEW_BASE", "main"),
+            review_base=os.environ.get("STREAMIOV_REVIEW_BASE", "origin/main"),
         )
         try:
             snapshot = engine.get_mission(mission_id)
