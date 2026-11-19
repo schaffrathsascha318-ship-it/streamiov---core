@@ -21,6 +21,7 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
             "ai/providers/*",
             "ai/runtime/continuous_engine.py",
             "ai/runtime/project_tools.py",
+            "ai/core/agent.py",
             ".github/*",
             "scripts/autonomous/*",
             "*oauth*",
@@ -39,7 +40,6 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
                 self.assertIn(pattern, source)
         for editable_source in (
             "ai/__main__.py",
-            "ai/core/agent.py",
         ):
             with self.subTest(editable_source=editable_source):
                 self.assertNotIn(editable_source, source)
