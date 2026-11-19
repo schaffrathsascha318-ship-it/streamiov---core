@@ -163,7 +163,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
         first = {"tool": "list_files", "arguments": {"path": "."}}
         second = {"tool": "read_file", "arguments": {"path": "README.md"}}
         self.assertEqual(
-            _parse_actions(json.dumps(first) + "\\n" + json.dumps(second)),
+            _parse_actions(json.dumps(first) + "\n" + json.dumps(second)),
             [first, second],
         )
 
