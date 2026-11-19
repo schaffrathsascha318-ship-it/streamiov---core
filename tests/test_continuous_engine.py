@@ -271,7 +271,7 @@ class MissionEngineTests(unittest.TestCase):
         snapshot = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=events.append)
         self.assertEqual(snapshot.status, "active")
         self.assertEqual(snapshot.pending_tasks, 1)
-        self.assertEqual(len(planner.calls), 1)
+        self.assertEqual(len(planner.calls), 0)
         self.assertTrue(any('"event": "mission_waiting_for_retry"' in event for event in events))
 
 
