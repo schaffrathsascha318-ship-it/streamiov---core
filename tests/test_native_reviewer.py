@@ -1,9 +1,13 @@
 """Tests for the provider-free Streamiov native reviewer."""
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 
 from ai.review.independent_reviewer import (
     classify_changed_path,
     parse_name_status,
+    review_repository,
     scan_added_lines,
 )
 
@@ -75,6 +79,55 @@ class NativeReviewerPolicyTests(unittest.TestCase):
 
     def test_clean_documentation_path_is_not_flagged(self):
         self.assertIsNone(classify_changed_path("docs/AI_REVIEW.md"))
+
+
+
+class NativeReviewerIntegrationTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.git("init", "-q")
+        self.git("config", "user.name", "Streamiov Test")
+        self.git("config", "user.email", "test@streamiov.invalid")
+        self.git("branch", "-M", "main")
+        (self.root / "README.md").write_text("baseline\\n", encoding="utf-8")
+        self.git("add", "README.md")
+        self.git("commit", "-q", "-m", "baseline")
+        self.base = self.git("rev-parse", "HEAD")
+        (self.root / "src").mkdir()
+        (self.root / "src/app.py").write_text("VALUE = 1\\n", encoding="utf-8")
+        (self.root / "tests").mkdir()
+        (self.root / "tests/test_app.py").write_text(
+            "import unittest\\nclass AppTests(unittest.TestCase):\\n"
+            "    def test_value(self):\\n        self.assertEqual(1, 1)\\n",
+            encoding="utf-8",
+        )
+        self.git("add", "src/app.py", "tests/test_app.py")
+        self.git("commit", "-q", "-m", "add app and tests")
+        self.head = self.git("rev-parse", "HEAD")
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def git(self, *args):
+        result = subprocess.run(
+            ["git", "-C", str(self.root), *args],
+            capture_output=True, text=True, check=True,
+        )
+        return result.stdout.strip()
+
+    def test_reviews_exact_head_and_runs_only_fixed_test_suite(self):
+        report = review_repository(self.root, self.base, self.head, run_tests=True)
+        self.assertEqual(report.decision, "pass")
+        self.assertEqual(report.test_result["status"], "passed")
+        self.assertIn("src/app.py", report.changed_files)
+        self.assertIn("tests/test_app.py", report.changed_files)
+
+    def test_refuses_to_run_tests_for_a_different_checked_out_head(self):
+        self.git("checkout", "-q", self.base)
+        report = review_repository(self.root, self.base, self.head, run_tests=True)
+        self.assertEqual(report.decision, "reject")
+        self.assertEqual(report.test_result["status"], "wrong-worktree")
 
 
 if __name__ == "__main__":
