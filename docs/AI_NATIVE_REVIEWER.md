@@ -25,3 +25,16 @@ Decisions:
 - `reject`: critical findings or failed/timed-out tests.
 
 This first version is deliberately deterministic, not an LLM pretending to be an independent reviewer. It provides reproducible local checks without vendor dependence. Its findings supplement, but do not replace, CI, security review, or external platform authorization.
+
+## AI Chief integration
+
+The continuous mission engine runs this reviewer immediately before accepting a planner's completion proposal, after the separate testing-specialist evidence report passes. The autonomous runner configures the review against the checked-out `main` ref and the exact current `HEAD` commit.
+
+- The reviewer report records immutable base/head commit SHAs and is persisted in the encrypted SQLite mission checkpoint.
+- A `reject` or `needs_attention` decision prevents mission completion and creates a repair/evidence task for the AI Chief.
+- Repair instructions explicitly forbid editing protected workflows, deployment, provider, OAuth, credential, and permission-control paths.
+- The reviewer does not write files, run patch-supplied commands, call external services, approve releases, merge pull requests, or deploy.
+- Medium/low findings remain visible as warnings; critical/high findings block completion.
+- If the review cannot run or its Git evidence is unavailable, completion is not accepted.
+
+This is a deterministic, local policy reviewer, not a claim of human-level semantic review. It supplements the independent testing specialist and repository CI. The first integration release must itself pass its own CI and bootstrap safety review.
