@@ -644,7 +644,7 @@ class MissionEngineTests(unittest.TestCase):
                 "SELECT decision,base_sha,head_sha,report_json FROM native_review_reports WHERE mission_id=?",
                 (mission_id,),
             ).fetchone()
-        self.assertEqual(saved[0], "pass")
+        self.assertEqual(saved[0], "pass", saved[3])
         self.assertEqual(len(saved[1]), 40)
         self.assertEqual(len(saved[2]), 40)
         self.assertIn("changed_files", saved[3])
@@ -681,7 +681,12 @@ class MissionEngineTests(unittest.TestCase):
         )
         mission_id = engine.create_mission("Do not accept unreviewed control-plane changes")
         result = engine.run(mission_id, stop, poll_seconds=0.01, emit=lambda _: None)
-        self.assertEqual(result.status, "active")
+        with sqlite3.connect(self.db) as db:
+            decision = db.execute(
+                "SELECT decision,report_json FROM native_review_reports WHERE mission_id=?",
+                (mission_id,),
+            ).fetchone()
+        self.assertEqual(result.status, "active", f"calls={calls!r}; review={decision!r}")
         self.assertEqual([role for role, _ in calls], ["code", "testing", "repair"])
         repair_prompt = calls[-1][1]
         self.assertIn("protected-control-plane-change", repair_prompt)
