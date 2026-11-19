@@ -29,6 +29,27 @@ class NativeReviewerPolicyTests(unittest.TestCase):
                 self.assertIsNotNone(finding)
                 self.assertEqual(finding.severity, "high")
 
+    def test_unapproved_ai_provider_imports_and_endpoints_are_high(self):
+        diff = (
+            "diff --git a/ai/client.py b/ai/client.py\\n"
+            "--- a/ai/client.py\\n+++ b/ai/client.py\\n"
+            "@@ -1,0 +1,2 @@\\n"
+            "+import anthropic\\n"
+            "+BASE_URL = 'https://api.openai.com/v1'\\n"
+        )
+        findings = scan_added_lines(diff)
+        self.assertEqual({item.code for item in findings}, {
+            "unapproved-ai-provider-import", "unapproved-ai-provider-endpoint",
+        })
+        self.assertTrue(all(item.severity == "high" for item in findings))
+
+    def test_only_tiktok_live_adapter_paths_are_allowed(self):
+        for path in ("integrations/twitch/adapter.py", "platforms/youtube/client.ts", "adapters/obs/bridge.js"):
+            with self.subTest(path=path):
+                finding = classify_changed_path(path)
+                self.assertIsNotNone(finding)
+                self.assertEqual(finding.code, "unsupported-platform-adapter")
+        self.assertIsNone(classify_changed_path("integrations/tiktok/live_adapter.py"))
     def test_private_credentials_and_environment_files_are_critical(self):
         for path in ("keys/signing.pem", "config/client.key", ".env.production", ".env"):
             with self.subTest(path=path):
