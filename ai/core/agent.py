@@ -372,7 +372,7 @@ class DevelopmentAgent:
         # A persisted format failure belongs to the previous model turn. Give each
         # resumed execution one fresh, bounded correction attempt; the mission
         # engine's durable retry/backoff remains responsible for repeated failures.
-        format_retry_used = False
+        format_corrections_this_run = 0
 
         def persist() -> None:
             if checkpoint_id:
@@ -500,11 +500,11 @@ class DevelopmentAgent:
                         _validate_tool_action(action, allow_game_checks=self.allow_game_checks)
             except (TypeError, json.JSONDecodeError, ValueError, AgentError) as exc:
                 corrections_used = int(state.get("format_retries", 0))
-                if format_retry_used or corrections_used >= MAX_FORMAT_CORRECTIONS:
+                if format_corrections_this_run >= MAX_FORMAT_CORRECTIONS:
                     raise AgentError(
                         f"Model action protocol remained invalid after {MAX_FORMAT_CORRECTIONS} bounded corrections; refusing to execute."
                     ) from exc
-                format_retry_used = True
+                format_corrections_this_run += 1
                 state["format_retries"] = corrections_used + 1
                 # The completion is untrusted data; retain only a bounded excerpt
                 # and never execute any action until parsing and schema validation pass.
