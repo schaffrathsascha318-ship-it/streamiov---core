@@ -338,7 +338,7 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(enforced_verification["state"], "continue")
         self.assertEqual(enforced_verification["task_count"], 1)
 
-    def test_repeated_agent_error_is_persisted_and_mission_can_be_stopped_safely(self):
+    def test_agent_interruption_is_persisted_and_mission_can_be_stopped_safely(self):
         planner = SequencePlanner([
             MissionPlan("continue", "Implement a component.", (
                 SpecialistTask("component", "code", "implement component"),
@@ -364,7 +364,7 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(result.pending_tasks, 1)
         self.assertEqual(result.completed_tasks, 0)
         self.assertEqual(len(planner.calls), 1)
-        self.assertTrue(any('"event": "task_retry_scheduled"' in event for event in events))
+        self.assertTrue(any('"event": "task_interrupted"' in event for event in events))
         self.assertFalse(any('"event": "mission_blocked"' in event for event in events))
         self.assertFalse(any('"event": "mission_completed"' in event for event in events))
 
