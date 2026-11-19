@@ -32,6 +32,20 @@ MAX_DAILY_AI_QUOTA_BACKOFF_SECONDS = 24 * 60 * 60
 RUNNER_EARLY_RETURN_BACKOFF_SECONDS = 60
 
 
+def _is_daily_ai_quota_error(error: str) -> bool:
+    return (
+        "daily_ai_limit_reached" in error
+        or ("daily free allocation" in error.lower() and "429" in error)
+    )
+
+
+def _daily_ai_quota_backoff(failures: int) -> float:
+    return min(
+        DAILY_AI_QUOTA_BACKOFF_SECONDS * (2 ** min(max(failures - 1, 0), 2)),
+        MAX_DAILY_AI_QUOTA_BACKOFF_SECONDS,
+    )
+
+
 @dataclass(frozen=True)
 class MissionPlan:
     state: Literal["continue", "completed"]
@@ -323,6 +337,14 @@ class ContinuousDevelopmentEngine:
             newest_first.append(entry)
             budget -= len(entry) + 1
         return prefix + "\n".join(reversed(newest_first))
+
+    def _next_planning_retry_at(self, mission_id: str) -> float | None:
+        with self._connection() as db:
+            row = db.execute(
+                "SELECT planning_retry_at FROM development_missions WHERE mission_id=?",
+                (mission_id,),
+            ).fetchone()
+        return row[0] if row and row[0] is not None else None
 
     def _next_queued_task_available_at(self, mission_id: str) -> float | None:
         with self._connection() as db:
@@ -645,18 +667,12 @@ class ContinuousDevelopmentEngine:
                 failures = row["failure_count"] + 1
                 # Backoff is bounded per attempt, never across the lifetime of a mission.
                 # Repeated errors remain resumable and are surfaced as diagnostic context.
-                quota_exhausted = (
-                    "daily_ai_limit_reached" in error
-                    or ("daily free allocation" in error.lower() and "429" in error)
-                )
+                quota_exhausted = _is_daily_ai_quota_error(error)
                 if quota_exhausted:
                     # Workers AI daily free-quota errors will not recover in a
                     # minute. Persist a long cooldown and increase it up to one
                     # day if the next daily window is still unavailable.
-                    delay = min(
-                        DAILY_AI_QUOTA_BACKOFF_SECONDS * (2 ** min(failures - 1, 2)),
-                        MAX_DAILY_AI_QUOTA_BACKOFF_SECONDS,
-                    )
+                    delay = _daily_ai_quota_backoff(failures)
                 else:
                     delay = min(self.retry_base_seconds * (2 ** min(failures - 1, 6)), 60.0)
                 db.execute("""
@@ -807,6 +823,15 @@ class ContinuousDevelopmentEngine:
 
             claim = self._claim_planning(mission_id, worker_id)
             if claim is None:
+                planning_retry_at = self._next_planning_retry_at(mission_id)
+                retry_delay = (planning_retry_at - time.time()) if planning_retry_at is not None else 0
+                if retry_delay > RUNNER_EARLY_RETURN_BACKOFF_SECONDS:
+                    emit(json.dumps({
+                        "event": "mission_waiting_for_planning_retry",
+                        "mission_id": mission_id,
+                        "retry_after_seconds": int(retry_delay),
+                    }, ensure_ascii=False))
+                    return snapshot
                 stop_event.wait(poll_seconds)
                 continue
             goal, cycle = claim
@@ -828,7 +853,11 @@ class ContinuousDevelopmentEngine:
                     ).fetchone()
                     if row is not None:
                         failures = row["planning_failures"] + 1
-                        delay = min(self.retry_base_seconds * (2 ** min(failures - 1, 6)), 300.0)
+                        delay = (
+                            _daily_ai_quota_backoff(failures)
+                            if _is_daily_ai_quota_error(f"{type(exc).__name__}: {exc}")
+                            else min(self.retry_base_seconds * (2 ** min(failures - 1, 6)), 300.0)
+                        )
                         db.execute("""
                             UPDATE development_missions
                             SET planning_owner='',planning_lease_until=NULL,
@@ -844,6 +873,13 @@ class ContinuousDevelopmentEngine:
                     "retry_after_seconds": delay,
                     "error": f"{type(exc).__name__}: {str(exc)[:2000]}",
                 }, ensure_ascii=False))
+                if delay > RUNNER_EARLY_RETURN_BACKOFF_SECONDS:
+                    emit(json.dumps({
+                        "event": "mission_waiting_for_planning_retry",
+                        "mission_id": mission_id,
+                        "retry_after_seconds": int(delay),
+                    }, ensure_ascii=False))
+                    return self.get_mission(mission_id)
                 stop_event.wait(min(max(poll_seconds, delay), 300.0))
 
         return self.get_mission(mission_id)
