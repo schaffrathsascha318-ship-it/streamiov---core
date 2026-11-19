@@ -19,6 +19,9 @@ class NativeReviewerPolicyTests(unittest.TestCase):
             "scripts/autonomous/run_issue.py",
             "ai/providers/cloudflare_worker.py",
             "ai/security/permissions.py",
+            "ai/review/independent_reviewer.py",
+            "ai/runtime/continuous_engine.py",
+            "ai/runtime/project_tools.py",
             "wrangler.toml",
         ):
             with self.subTest(path=path):
