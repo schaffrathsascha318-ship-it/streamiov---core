@@ -43,7 +43,7 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("ai/security/*", guard)
         self.assertIn("ai/*permissions*", guard)
         self.assertIn("*wrangler.toml", guard)
-        self.assertNotIn("ai/core/agent.py", guard)
+        self.assertIn("ai/core/agent.py", guard)
         self.assertIn("ai/providers/*", guard)
         self.assertIn("ai/review/*", guard)
         self.assertIn("ai/runtime/continuous_engine.py", guard)
