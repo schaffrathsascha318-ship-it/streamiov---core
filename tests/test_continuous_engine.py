@@ -337,7 +337,7 @@ class MissionEngineTests(unittest.TestCase):
 
         engine = self.make_engine(planner, lambda _role: Agent())
         mission_id = engine.create_mission("Implement component")
-        result = engine.run(mission_id, stop, poll_seconds=0.01, emit=lambda _: None)
+        result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=lambda _: None)
 
         self.assertEqual(result.status, "completed")
         self.assertEqual(result.attempts, 4)
