@@ -274,6 +274,30 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(len(planner.calls), 1)
         self.assertTrue(any('"event": "mission_waiting_for_retry"' in event for event in events))
 
+
+    def test_daily_ai_quota_exhaustion_pauses_planner_and_returns_runner_slice(self):
+        class QuotaPlanner:
+            def plan(self, goal, progress, *, mission_id, cycle):
+                raise RuntimeError("CloudflareWorkerError: HTTP 429 (code: daily_ai_limit_reached)")
+
+        engine = self.make_engine(QuotaPlanner(), lambda _role: None)
+        mission_id = engine.create_mission("Pause planner until free AI quota resets")
+        events = []
+        before = time.time()
+        snapshot = engine.run(
+            mission_id, threading.Event(), poll_seconds=0.01, emit=events.append,
+        )
+        with closing(sqlite3.connect(self.db)) as db, db:
+            retry_at = db.execute(
+                "SELECT planning_retry_at FROM development_missions WHERE mission_id=?",
+                (mission_id,),
+            ).fetchone()[0]
+        self.assertEqual(snapshot.status, "active")
+        self.assertEqual(snapshot.cycle, 0)
+        self.assertGreaterEqual(retry_at - before, 6 * 60 * 60 - 1)
+        self.assertTrue(any('"event": "planning_retry_scheduled"' in event for event in events))
+        self.assertTrue(any('"event": "mission_waiting_for_planning_retry"' in event for event in events))
+
     def test_planning_retry_backoff_survives_engine_recreation(self):
         engine = self.make_engine(SequencePlanner([]), lambda _role: None)
         mission_id = engine.create_mission("Persist planner backoff")
