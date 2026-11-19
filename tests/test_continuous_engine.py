@@ -304,28 +304,26 @@ class MissionEngineTests(unittest.TestCase):
             ('{"verdict":"failed","evidence":["tests failed"],"findings":[]}', "must identify concrete findings"),
             ('{"verdict":"passed","evidence":[42],"findings":[]}', "required schema"),
         )
-        with sqlite3.connect(self.db) as db:
-            for index, (result, _expected) in enumerate(cases):
-                db.execute(
-                    """
-                    INSERT INTO development_mission_tasks
-                    (task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
-                     result,last_error,available_at,worker_id,lease_until,created_at,updated_at)
-                    VALUES(?,?,?,?,?,'[]','succeeded',1,?,'',0,'',NULL,?,?)
-                    """,
-                    (f"verification-{index}", mission_id, 1, "testing",
-                     "STREAMIOV_FINAL_VERIFICATION: verify", result, index, index),
-                )
-        for index, (_result, expected) in enumerate(cases):
+        for index, (result, expected) in enumerate(cases):
             with self.subTest(expected=expected):
+                with sqlite3.connect(self.db) as db:
+                    db.execute(
+                        """
+                        INSERT INTO development_mission_tasks
+                        (task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
+                         result,last_error,available_at,worker_id,lease_until,created_at,updated_at)
+                        VALUES(?,?,?,?,?,'[]','succeeded',1,?,'',0,'',NULL,?,?)
+                        """,
+                        (f"verification-{index}", mission_id, 1, "testing",
+                         "STREAMIOV_FINAL_VERIFICATION: verify", result, index, index),
+                    )
                 report = engine._latest_final_verification(mission_id, 1)
                 self.assertEqual(report["verdict"], "invalid")
                 self.assertIn(expected, report["findings"][0])
-                # Remove the newest row so the next case is evaluated independently.
                 with sqlite3.connect(self.db) as db:
                     db.execute(
                         "DELETE FROM development_mission_tasks WHERE task_id=?",
-                        (f"verification-{len(cases) - index - 1}",),
+                        (f"verification-{index}",),
                     )
 
     def test_mission_continues_across_unbounded_planning_cycles_until_explicit_completion(self):
