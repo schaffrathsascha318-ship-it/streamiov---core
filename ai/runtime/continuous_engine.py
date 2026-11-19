@@ -108,7 +108,7 @@ class ContinuousDevelopmentEngine:
         self.agent_factory = agent_factory
         self.retry_base_seconds = float(retry_base_seconds)
         self.lease_seconds = lease_seconds
-        self.max_task_failures = max_task_failures
+        self.max_task_failures = max_task_failures  # legacy compatibility; not a mission stop limit
         self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
@@ -218,6 +218,14 @@ class ContinuousDevelopmentEngine:
                 except Exception:
                     db.rollback()
                     raise
+            # Recover terminal failures from older engine versions while preserving diagnostics.
+            db.execute("""
+                UPDATE development_mission_tasks
+                SET status='queued',worker_id='',lease_until=NULL,available_at=0,
+                    last_error=CASE WHEN last_error='' THEN 'Recovered legacy terminal failure; adapting strategy.' ELSE last_error END,
+                    updated_at=?
+                WHERE status='failed'
+            """, (time.time(),))
             db.execute("""
                 CREATE INDEX IF NOT EXISTS idx_mission_tasks_ready
                 ON development_mission_tasks(mission_id,status,available_at,cycle)
@@ -294,7 +302,7 @@ class ContinuousDevelopmentEngine:
                 ORDER BY cycle DESC, updated_at DESC LIMIT ?
             """, (mission_id, max_tasks)).fetchall()
         summary = (mission["summary"] or "")[-max_summary_chars:]
-        heading = "\n\nRECENT VERIFIED TASK RECORDS:\n"
+        heading = "\n\nRECENT TASK RECORDS (status is authoritative; only succeeded rows contain completed results):\n"
         prefix = summary + heading
         budget = max(0, max_context_chars - len(prefix))
         newest_first = []
@@ -325,8 +333,7 @@ class ContinuousDevelopmentEngine:
                 "SELECT COUNT(*) FROM development_mission_tasks WHERE mission_id=? AND status='failed'",
                 (mission_id,),
             ).fetchone()[0]
-            if failed:
-                return None
+            # Failure diagnostics are retained on task rows; failures must not strand a mission.
             if mission["planning_retry_at"] is not None and mission["planning_retry_at"] > now:
                 return None
             active = db.execute("""
@@ -365,10 +372,16 @@ class ContinuousDevelopmentEngine:
             or payload.get("verdict") not in {"passed", "failed"}
             or not isinstance(payload.get("evidence"), list)
             or not isinstance(payload.get("findings"), list)
+            or any(not isinstance(item, str) or not item.strip() for item in payload["evidence"])
+            or any(not isinstance(item, str) or not item.strip() for item in payload["findings"])
         ):
             return {"verdict": "invalid", "findings": ["Verifier report did not match the required schema."]}
         if payload["verdict"] == "passed" and not payload["evidence"]:
             return {"verdict": "invalid", "findings": ["Verifier supplied no concrete evidence."]}
+        if payload["verdict"] == "passed" and payload["findings"]:
+            return {"verdict": "invalid", "findings": ["Verifier cannot pass while unresolved findings remain."]}
+        if payload["verdict"] == "failed" and not payload["findings"]:
+            return {"verdict": "invalid", "findings": ["A failed verifier report must identify concrete findings."]}
         return payload
 
     def _require_final_verification(self, mission_id: str, cycle: int, goal: str) -> MissionPlan | None:
@@ -587,13 +600,8 @@ class ContinuousDevelopmentEngine:
                 return "queued"
             if error:
                 failures = row["failure_count"] + 1
-                if failures >= self.max_task_failures:
-                    db.execute("""
-                        UPDATE development_mission_tasks
-                        SET status='failed',failure_count=?,last_error=?,worker_id='',lease_until=NULL,
-                            updated_at=? WHERE task_id=?
-                    """, (failures, error[:4000], now, task_id))
-                    return "failed"
+                # Backoff is bounded per attempt, never across the lifetime of a mission.
+                # Repeated errors remain resumable and are surfaced as diagnostic context.
                 delay = min(self.retry_base_seconds * (2 ** min(failures - 1, 6)), 60.0)
                 db.execute("""
                     UPDATE development_mission_tasks
@@ -632,6 +640,15 @@ class ContinuousDevelopmentEngine:
         if task.last_error:
             prompt += "\n\nPREVIOUS ATTEMPT FAILURE (untrusted diagnostic context):\n" + task.last_error
             prompt += "\nAddress the failure safely; inspect actual project state before changing files."
+        if task.attempts >= 3:
+            prompt += (
+                "\n\nAUTONOMOUS RECOVERY: This task has failed repeatedly. Do not repeat the same "
+                "failed procedure. Diagnose the cause from current source, logs and tool results; "
+                "choose a materially different implementation or verification strategy; use "
+                "research/repair or another suitable specialist/tool when useful; reduce the change "
+                "to a safe isolated step; preserve checkpoints and report what changed in your "
+                "approach. Never weaken tests or bypass safety gates."
+            )
         try:
             agent = self.agent_factory(task.specialist)
             if mission_stop_event is not None and mission_stop_event.is_set():
@@ -666,7 +683,6 @@ class ContinuousDevelopmentEngine:
             event = {
                 "event": (
                     "task_interrupted" if interrupted else
-                    "task_failed" if outcome == "failed" else
                     "task_retry_scheduled"
                 ),
                 "task_id": task.task_id,
@@ -674,9 +690,7 @@ class ContinuousDevelopmentEngine:
                 "attempt": task.attempts,
                 "error": error,
             }
-            if outcome == "failed":
-                event["failure_limit"] = self.max_task_failures
-            emit(json.dumps(event, ensure_ascii=False))
+             emit(json.dumps(event, ensure_ascii=False))
         else:
             checkpoint_store = getattr(agent, "checkpoints", None)
             if checkpoint_store is not None:
@@ -714,15 +728,7 @@ class ContinuousDevelopmentEngine:
             if snapshot.status == "completed":
                 emit(json.dumps({"event": "mission_completed", "mission_id": mission_id, "summary": snapshot.summary}, ensure_ascii=False))
                 return snapshot
-            if snapshot.failed_tasks:
-                emit(json.dumps({
-                    "event": "mission_blocked", "mission_id": mission_id,
-                    "failed_tasks": snapshot.failed_tasks,
-                    "summary": "A specialist task reached its failure limit. Repair is required before planning or completion can continue.",
-                }, ensure_ascii=False))
-                return snapshot
-
-            task = self._claim_task(mission_id, worker_id)
+             task = self._claim_task(mission_id, worker_id)
             if task is not None:
                 self._execute_task(task, worker_id, emit, stop_event)
                 continue
