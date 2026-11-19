@@ -265,6 +265,9 @@ class MissionEngineTests(unittest.TestCase):
         )
         self.assertEqual([task.specialist for task in plan.tasks], roles)
         self.assertIn("at most one task per specialist", provider.system)
+        self.assertIn("durable cumulative memory", provider.system)
+        self.assertIn("unresolved blockers", provider.system)
+        self.assertIn("independently verified evidence", provider.system)
         self.assertEqual(len({task.prompt for task in plan.tasks}), 11)
 
         duplicate_aliases = [
