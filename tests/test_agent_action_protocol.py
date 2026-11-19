@@ -157,13 +157,13 @@ class SpecialistActionProtocolTests(unittest.TestCase):
         self.assertIn("allowed keys are ['path']", diagnostic)
         self.assertIn("unexpected keys are ['length', 'offset']", diagnostic)
 
-    def test_malformed_replies_have_one_bounded_correction_per_run(self):
-        provider = SequenceProvider("not json", "still not json")
+    def test_malformed_replies_have_bounded_corrections_per_run(self):
+        provider = SequenceProvider("not json", "still not json", "still invalid", "invalid again")
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="code")
             with self.assertRaisesRegex(AgentError, "bounded corrections"):
                 agent.run("Perform a harmless task.")
-        self.assertEqual(provider.calls, 2)
+        self.assertEqual(provider.calls, 4)
 
 
     def test_adjacent_legacy_objects_are_parsed_as_one_ordered_action_batch(self):
