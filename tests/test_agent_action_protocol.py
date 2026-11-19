@@ -159,5 +159,45 @@ class SpecialistActionProtocolTests(unittest.TestCase):
         self.assertEqual(provider.calls, 2)
 
 
+    def test_adjacent_legacy_objects_are_parsed_as_one_ordered_action_batch(self):
+        first = {"tool": "list_files", "arguments": {"path": "."}}
+        second = {"tool": "read_file", "arguments": {"path": "README.md"}}
+        self.assertEqual(
+            _parse_actions(json.dumps(first) + "\\n" + json.dumps(second)),
+            [first, second],
+        )
+
+    def test_invalid_later_action_prevents_every_earlier_batch_side_effect(self):
+        provider = SequenceProvider(
+            json.dumps([
+                {"tool": "write_file", "arguments": {"path": "must-not-exist.txt", "content": "unsafe partial batch"}},
+                {"tool": "write_file", "arguments": {"path": "also-invalid.txt", "content": "x", "unexpected": "field"}},
+            ]),
+            '{"final":"rejected the entire batch before execution"}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="code")
+            result = agent.run("Do not create either file; reject malformed action batches atomically.")
+            self.assertEqual(result, "rejected the entire batch before execution")
+            self.assertFalse(Path(directory, "must-not-exist.txt").exists())
+            self.assertFalse(Path(directory, "also-invalid.txt").exists())
+        self.assertEqual(provider.calls, 2)
+        self.assertIn("unexpected keys are ['unexpected']", provider.messages[1][-1]["content"])
+
+    def test_mixed_final_and_tool_actions_are_rejected_before_execution(self):
+        provider = SequenceProvider(
+            json.dumps([
+                {"tool": "write_file", "arguments": {"path": "must-not-exist.txt", "content": "x"}},
+                {"final": "must not complete a mixed batch"},
+            ]),
+            '{"final":"mixed batch rejected"}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="code")
+            self.assertEqual(agent.run("Reject a mixed final/action response."), "mixed batch rejected")
+            self.assertFalse(Path(directory, "must-not-exist.txt").exists())
+        self.assertEqual(provider.calls, 2)
+
+
 if __name__ == "__main__":
     unittest.main()
