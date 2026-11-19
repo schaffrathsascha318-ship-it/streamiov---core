@@ -391,22 +391,26 @@ class AgentTests(unittest.TestCase):
     def test_format_correction_retries_again_after_durable_task_resume(self):
         with tempfile.TemporaryDirectory() as tmp:
             checkpoint_db = Path(tmp, "missions.sqlite3")
-            provider = FakeProvider(["not json", "still not json", '{"final":"Recovered on resumed attempt."}'])
+            provider = FakeProvider([
+                "not json", "still not json", "invalid three", "invalid four",
+                "invalid after resume", '{"final":"Recovered on resumed attempt."}',
+            ])
             agent = DevelopmentAgent(provider, tmp, checkpoint_db=checkpoint_db)
             with self.assertRaises(AgentError):
                 agent.run("Do task", checkpoint_id="format-recovery")
             result = agent.run("Do task", checkpoint_id="format-recovery")
             self.assertEqual(result, "Recovered on resumed attempt.")
+            self.assertEqual(provider.calls, 6)
 
     def test_invalid_json_still_fails_closed_after_retry(self):
         with tempfile.TemporaryDirectory() as tmp:
-            provider = FakeProvider(["not json", "still not json"])
+            provider = FakeProvider(["not json", "still not json", "invalid three", "invalid four"])
             with self.assertRaises(AgentError):
                 DevelopmentAgent(provider, tmp).run("Do task")
     def test_mixed_tool_and_final_response_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             response = '{"tool":"read_file","arguments":{"path":"README.md"},"final":"fake"}'
-            with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider([response, response]), tmp).run("Do task")
+            with self.assertRaises(AgentError): DevelopmentAgent(FakeProvider([response, response, response, response]), tmp).run("Do task")
 
     def test_specialist_role_sets_expertise_prompt_and_project_wide_write_access(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -441,7 +445,7 @@ class AgentTests(unittest.TestCase):
     def test_non_game_agent_cannot_request_game_check_tool(self):
         with tempfile.TemporaryDirectory() as tmp:
             agent = DevelopmentAgent(
-                FakeProvider(['{"tool":"run_game_checks","arguments":{}}', '{"tool":"run_game_checks","arguments":{}}']), tmp, specialist="code"
+                FakeProvider(['{"tool":"run_game_checks","arguments":{}}'] * 4), tmp, specialist="code"
             )
             with self.assertRaises(AgentError):
                 agent.run("Run game checks.")
@@ -468,7 +472,7 @@ class AgentTests(unittest.TestCase):
 
     def test_tool_arguments_reject_non_string_values(self):
         with tempfile.TemporaryDirectory() as tmp:
-            p = FakeProvider(['{"tool":"read_file","arguments":{"path":42}}', '{"tool":"read_file","arguments":{"path":42}}'])
+            p = FakeProvider(['{"tool":"read_file","arguments":{"path":42}}'] * 4)
             with self.assertRaises(AgentError):
                 DevelopmentAgent(p, tmp).run("Reject malformed tool arguments")
 
