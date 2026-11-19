@@ -1,0 +1,231 @@
+{
+  "schema_version": 1,
+  "family_id": "streamiov-original-01",
+  "title": "Streamiov Eigenständige Geschenkfamilie",
+  "language": "de",
+  "policy": {
+    "rose": "preserve_unchanged",
+    "generic_legacy_gifts": "archive_as_non_original_not_in_original_family",
+    "previous_streamiov_concepts": "rework_or_replace_after_individual_design_review",
+    "tiktok_native_gift_copying": "prohibited",
+    "release_status": "design_specification_only",
+    "official_tiktok_gallery": "requires_explicit_written_tiktok_approval_and_platform_integration"
+  },
+  "visual_system": {
+    "signature": "Streamiov Resonanzgeometrie",
+    "palette": [
+      "deep_night",
+      "electric_turquoise",
+      "ion_violet",
+      "silver_glass"
+    ],
+    "material_language": [
+      "translucent engineered glass",
+      "brushed iridescent titanium",
+      "fine luminous filaments",
+      "volumetric light"
+    ],
+    "quality_bar": "distinct silhouette, physically plausible volume, clean premium materials, readable at small gift-gallery size",
+    "animation_rule": "Each gift must have its own authored motion choreography, timing, particles, sound cue and end state; no shared generic fall animation as the primary effect.",
+    "technical_target": "authored 3D asset (glTF 2.0 or equivalent) plus optimized runtime animation; SVG is preview art only, never a 3D completion claim"
+  },
+  "gifts": [
+    {
+      "id": "iov_resonanzkern",
+      "name": "Resonanzkern",
+      "tier": "entry",
+      "silhouette": "A suspended faceted core held inside three offset precision hoops; no heart, star or crown outline.",
+      "materials": [
+        "smoked crystal",
+        "turquoise inner refraction",
+        "violet microfilament"
+      ],
+      "animation": {
+        "intro": "three hoops align independently",
+        "hero": "core emits a concentric pressure wave through the hoops",
+        "outro": "the hoops fold into a compact floating seal"
+      },
+      "runtime_seconds": 4.2
+    },
+    {
+      "id": "iov_fluxweber",
+      "name": "Fluxweber",
+      "tier": "entry",
+      "silhouette": "Two broad metallic ribbons weave through one another into a self-supporting knot, then separate without forming a bow.",
+      "materials": [
+        "iridescent titanium",
+        "thin cyan edge light"
+      ],
+      "animation": {
+        "intro": "ribbons enter from opposing axes",
+        "hero": "one continuous over-under weave closes in mid-air",
+        "outro": "the weave resolves into two orbiting bands"
+      },
+      "runtime_seconds": 4.8
+    },
+    {
+      "id": "iov_echo_prisma",
+      "name": "Echo-Prisma",
+      "tier": "entry",
+      "silhouette": "A tall asymmetrical prism with a hollow acoustic chamber and visible internal facets.",
+      "materials": [
+        "clear optical glass",
+        "violet refractive core"
+      ],
+      "animation": {
+        "intro": "prism rotates from edge-on",
+        "hero": "a visible light pulse refracts into three internal echoes",
+        "outro": "echoes converge into one stable beam"
+      },
+      "runtime_seconds": 4
+    },
+    {
+      "id": "iov_impulsbrunnen",
+      "name": "Impulsbrunnen",
+      "tier": "mid",
+      "silhouette": "A levitating metal droplet feeds a closed loop of liquid-light channels; no fountain bowl.",
+      "materials": [
+        "liquid chrome",
+        "turquoise energy fluid"
+      ],
+      "animation": {
+        "intro": "droplet rises against gravity",
+        "hero": "fluid splits into four streams and reconnects above the droplet",
+        "outro": "loop drains upward into a hovering bead"
+      },
+      "runtime_seconds": 5.1
+    },
+    {
+      "id": "iov_prismensaat",
+      "name": "Prismensaat",
+      "tier": "mid",
+      "silhouette": "A compact faceted seed-shell with six unequal shutters, not a flower or jewel-heart.",
+      "materials": [
+        "ceramic titanium shell",
+        "opal glass interior"
+      ],
+      "animation": {
+        "intro": "shell turns slowly with six seams lighting",
+        "hero": "shutters open in a staggered mechanical iris",
+        "outro": "interior light condenses into a small floating point"
+      },
+      "runtime_seconds": 4.6
+    },
+    {
+      "id": "iov_gyrokompass",
+      "name": "Gyrokompass",
+      "tier": "mid",
+      "silhouette": "A precision navigation instrument with three differently shaped gimbals and a suspended directional needle.",
+      "materials": [
+        "satin titanium",
+        "etched glass",
+        "violet bearing lights"
+      ],
+      "animation": {
+        "intro": "outer gimbal starts, inner gimbals lag",
+        "hero": "all axes precess and the needle locks to the viewer",
+        "outro": "gimbals brake independently into a quiet hover"
+      },
+      "runtime_seconds": 5
+    },
+    {
+      "id": "iov_lichtarchiv",
+      "name": "Lichtarchiv",
+      "tier": "mid",
+      "silhouette": "A vertical stack of offset translucent data plates, each with a different cut-out geometry.",
+      "materials": [
+        "frosted glass",
+        "micro-etched silver",
+        "cyan volumetric textless glyphs"
+      ],
+      "animation": {
+        "intro": "plates arrive one by one",
+        "hero": "plates fan open to reveal a travelling light trace",
+        "outro": "the stack closes in reverse order"
+      },
+      "runtime_seconds": 5.2
+    },
+    {
+      "id": "iov_graviturm",
+      "name": "Graviturm",
+      "tier": "mid",
+      "silhouette": "Five non-identical architectural modules float in a vertical balance with visible magnetic gaps.",
+      "materials": [
+        "dark ceramic",
+        "brushed titanium",
+        "violet levitation fields"
+      ],
+      "animation": {
+        "intro": "modules rise from below at different speeds",
+        "hero": "the stack tilts and counterbalances without touching",
+        "outro": "modules settle into a stable suspended column"
+      },
+      "runtime_seconds": 4.7
+    },
+    {
+      "id": "iov_zeitspule",
+      "name": "Zeitspule",
+      "tier": "premium",
+      "silhouette": "A compact open-frame spool carrying one continuous luminous filament through a changing path.",
+      "materials": [
+        "black titanium frame",
+        "turquoise fibre-optic filament"
+      ],
+      "animation": {
+        "intro": "filament traces the frame",
+        "hero": "spool accelerates while the filament draws a three-dimensional helix",
+        "outro": "helix contracts into the spool's central axis"
+      },
+      "runtime_seconds": 5.5
+    },
+    {
+      "id": "iov_nexussiegel",
+      "name": "Nexus-Siegel",
+      "tier": "premium",
+      "silhouette": "An original interlocking three-part mechanical glyph with no familiar crown, shield, badge or star contour.",
+      "materials": [
+        "iridescent metal",
+        "deep violet glass",
+        "cyan engraved channels"
+      ],
+      "animation": {
+        "intro": "three pieces approach from separate planes",
+        "hero": "pieces interlock with a precise quarter-turn and illuminate the seams",
+        "outro": "the assembled glyph rotates once and holds"
+      },
+      "runtime_seconds": 5
+    },
+    {
+      "id": "iov_vektorbruecke",
+      "name": "Vektorbrücke",
+      "tier": "premium",
+      "silhouette": "Two separated anchor forms are connected by a flexible luminous bridge that bends through space.",
+      "materials": [
+        "polished titanium anchors",
+        "volumetric turquoise light"
+      ],
+      "animation": {
+        "intro": "anchors drift apart",
+        "hero": "a light bridge grows between them and carries a travelling wave",
+        "outro": "the bridge folds into a compact arc between anchors"
+      },
+      "runtime_seconds": 5.4
+    },
+    {
+      "id": "iov_auroramatrix",
+      "name": "Auroramatrix",
+      "tier": "signature",
+      "silhouette": "A dense but legible volumetric lattice of curved filaments around an empty central volume; not a galaxy or explosion.",
+      "materials": [
+        "fine iridescent filaments",
+        "volumetric cyan-violet light"
+      ],
+      "animation": {
+        "intro": "filaments trace a sparse three-dimensional cage",
+        "hero": "the lattice braids into a shifting multi-layer volume with parallax",
+        "outro": "the volume contracts to a single luminous node and fades"
+      },
+      "runtime_seconds": 6
+    }
+  ]
+}
