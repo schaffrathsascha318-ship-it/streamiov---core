@@ -64,9 +64,25 @@ class MissionEngineTests(unittest.TestCase):
                         0, float(index), float(index),
                     ),
                 )
+            db.execute(
+                """
+                INSERT INTO development_mission_tasks
+                (task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
+                 result,last_error,available_at,worker_id,lease_until,created_at,updated_at)
+                VALUES(?,?,?,?,?,'[]','queued',1,'',?,?, '',NULL,?,?)
+                """,
+                (
+                    f"{mission_id}:2:pending-task", mission_id, 2, "studio",
+                    "finish the pending studio work", "temporary dependency wait",
+                    0, 31.0, 31.0,
+                ),
+            )
 
         context = engine._progress_context(mission_id)
         self.assertLessEqual(len(context), 18_000)
+        self.assertIn("only succeeded rows contain completed results", context)
+        self.assertIn("status=queued", context)
+        self.assertIn("temporary dependency wait", context)
         self.assertIn("task-result-29", context)
         self.assertNotIn("task-result-0", context)
         self.assertTrue(context.startswith("S" * 3_000))
