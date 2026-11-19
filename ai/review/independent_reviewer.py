@@ -201,11 +201,11 @@ def review_repository(
         raise ValueError("Review root must be a Git working tree.")
     if not base or not head or base.startswith("-") or head.startswith("-"):
         raise ValueError("Both base and head must be explicit Git refs.")
-    _git(project, "rev-parse", "--verify", f"{base}^{{commit}}")
-    _git(project, "rev-parse", "--verify", f"{head}^{{commit}}")
-    _git(project, "merge-base", base, head)
+    base_commit = _git(project, "rev-parse", "--verify", f"{base}^{{commit}}").strip()
+    head_commit = _git(project, "rev-parse", "--verify", f"{head}^{{commit}}").strip()
+    _git(project, "merge-base", base_commit, head_commit)
 
-    report = ReviewReport(base=base, head=head)
+    report = ReviewReport(base=base_commit, head=head_commit)
     raw_names = _git(project, "diff", "--name-status", "--no-renames", f"{base}...{head}")
     report.changed_files = parse_name_status(raw_names)
     if len(report.changed_files) > MAX_CHANGED_FILES:
