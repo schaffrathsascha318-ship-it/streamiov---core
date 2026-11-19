@@ -101,42 +101,42 @@ class MissionEngineTests(unittest.TestCase):
                 "Reject oversized batch.", "", mission_id="twelve-limit", cycle=1,
             )
 
-    def test_task_failure_becomes_terminal_at_configured_limit(self):
+    def test_repeated_task_failures_never_create_a_terminal_mission_stop(self):
         planner = SequencePlanner([
-            MissionPlan("continue", "Retry task.", (
-                SpecialistTask("retry", "code", "retry this task"),
+            MissionPlan("continue", "Recover the task.", (
+                SpecialistTask("retry", "code", "retry this task using a different strategy"),
             )),
         ])
         engine = ContinuousDevelopmentEngine(
             self.db, planner, lambda _role: None, retry_base_seconds=0.01,
             lease_seconds=10, max_task_failures=3,
         )
-        mission_id = engine.create_mission("Stop a specialist retry loop")
+        mission_id = engine.create_mission("Keep a specialist task resumable")
         engine._claim_planning(mission_id, "planner")
         engine._store_plan(mission_id, "planner", 1, planner.plans[0])
 
-        for failure in range(1, 4):
+        for failure in range(1, 7):
             task = engine._claim_task(mission_id, "worker")
             self.assertIsNotNone(task)
+            self.assertEqual(task.attempts, failure)
             outcome = engine._finish_task(task.task_id, "worker", error=f"RuntimeError: failure {failure}")
-            self.assertEqual(outcome, "failed" if failure == 3 else "queued")
-            if failure < 3:
-                with closing(sqlite3.connect(self.db)) as db, db:
-                    db.execute(
-                        "UPDATE development_mission_tasks SET available_at=0 WHERE task_id=?",
-                        (task.task_id,),
-                    )
+            self.assertEqual(outcome, "queued")
+            with closing(sqlite3.connect(self.db)) as db, db:
+                db.execute(
+                    "UPDATE development_mission_tasks SET available_at=0 WHERE task_id=?",
+                    (task.task_id,),
+                )
 
         snapshot = engine.get_mission(mission_id)
-        self.assertEqual(snapshot.pending_tasks, 0)
-        self.assertEqual(snapshot.failed_tasks, 1)
-        self.assertEqual(snapshot.attempts, 3)
+        self.assertEqual(snapshot.pending_tasks, 1)
+        self.assertEqual(snapshot.failed_tasks, 0)
+        self.assertEqual(snapshot.attempts, 6)
         with closing(sqlite3.connect(self.db)) as db, db:
             row = db.execute(
                 "SELECT status,failure_count,last_error FROM development_mission_tasks WHERE task_id=?",
                 (f"{mission_id}:1:retry",),
             ).fetchone()
-        self.assertEqual(row, ("failed", 3, "RuntimeError: failure 3"))
+        self.assertEqual(row, ("queued", 6, "RuntimeError: failure 6"))
 
     def test_planner_response_parser_accepts_markdown_json_fences_and_preambles(self):
         responses = (
@@ -338,30 +338,34 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(enforced_verification["state"], "continue")
         self.assertEqual(enforced_verification["task_count"], 1)
 
-    def test_terminal_task_failure_blocks_mission_without_false_completion(self):
+    def test_repeated_agent_error_is_persisted_and_mission_can_be_stopped_safely(self):
         planner = SequencePlanner([
             MissionPlan("continue", "Implement a component.", (
                 SpecialistTask("component", "code", "implement component"),
             )),
         ])
         events = []
+        stop = threading.Event()
 
         class BrokenAgent:
             def run(self, _prompt):
+                stop.set()
                 raise RuntimeError("persistent invalid action protocol")
 
         engine = ContinuousDevelopmentEngine(
             self.db, planner, lambda _role: BrokenAgent(),
             retry_base_seconds=0.01, lease_seconds=10, max_task_failures=1,
         )
-        mission_id = engine.create_mission("Do not loop forever or report false success")
-        result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=events.append)
+        mission_id = engine.create_mission("Persist failure and remain resumable")
+        result = engine.run(mission_id, stop, poll_seconds=0.01, emit=events.append)
 
         self.assertEqual(result.status, "active")
-        self.assertEqual(result.failed_tasks, 1)
+        self.assertEqual(result.failed_tasks, 0)
+        self.assertEqual(result.pending_tasks, 1)
         self.assertEqual(result.completed_tasks, 0)
         self.assertEqual(len(planner.calls), 1)
-        self.assertTrue(any('"event": "mission_blocked"' in event for event in events))
+        self.assertTrue(any('"event": "task_retry_scheduled"' in event for event in events))
+        self.assertFalse(any('"event": "mission_blocked"' in event for event in events))
         self.assertFalse(any('"event": "mission_completed"' in event for event in events))
 
     def test_transient_task_failures_retry_and_recover_before_the_failure_limit(self):
