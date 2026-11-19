@@ -1215,16 +1215,16 @@ function setSourceControlsLocked(locked){
 function setBroadcastStatus(status,detail=""){
  if(status==="error")lastStreamError=detail||"Ziel oder Encoder prüfen.";
  else if(status==="connecting"||status==="offline")lastStreamError="";
- const labels={offline:"Offline · Keine Verbindung.",connecting:"Verbinde mit RTMP-Ziel …",live:"Encoder sendet an das RTMP-Ziel · Plattform-Veröffentlichung nicht bestätigt.",stopping:"Stream wird beendet …",error:"Streamfehler · "+(detail||"Ziel oder Encoder prüfen.")};
+ const labels={offline:"Offline · Keine Verbindung.",connecting:"Verbinde mit RTMP-Ziel …",output_ready:"Encoder-Ausgabe initialisiert · RTMP-Empfang und Plattform-LIVE nicht bestätigt.",stopping:"Stream wird beendet …",error:"Streamfehler · "+(detail||"Ziel oder Encoder prüfen.")};
  liveStatus.textContent=labels[status]||"Status unbekannt.";
  liveButton.textContent=status==="offline"||status==="error"?"● STREAM STARTEN":"■ STREAM BEENDEN";
  liveButton.disabled=status==="stopping";
- setSourceControlsLocked(["connecting","live","stopping"].includes(status));
- $("connection").textContent=status==="live"?"RTMP VERBUNDEN":status.toUpperCase();
- $("rtmpMetric").textContent=status==="live"?"RTMP AKTIV":status.toUpperCase();
- const badge={offline:"NICHT LIVE",connecting:"VERBINDE …",live:"RTMP AKTIV",stopping:"BEENDE …",error:"FEHLER"};
+ setSourceControlsLocked(["connecting","output_ready","stopping"].includes(status));
+ $("connection").textContent=status==="output_ready"?"AUSGABE BEREIT":status.toUpperCase();
+ $("rtmpMetric").textContent=status==="output_ready"?"AUSGABE BEREIT":status.toUpperCase();
+ const badge={offline:"NICHT LIVE",connecting:"VERBINDE …",output_ready:"AUSGABE BEREIT",stopping:"BEENDE …",error:"FEHLER"};
  $("programBadge").textContent=badge[status]||"NICHT LIVE";
- if(status==="live")log("Encoder meldet RTMP-Ausgabe. Ob die Plattform den Stream veröffentlicht, zeigt nur die Plattform selbst.");
+ if(status==="output_ready")log("FFmpeg hat die lokale RTMP-Ausgabe initialisiert. Empfang durch den RTMP-Server und Veröffentlichung auf TikTok sind noch nicht bestätigt.");
  if(status==="error")log("Streamfehler: "+(detail||"Ziel oder Encoder prüfen."));
 }
 async function releaseBroadcastMedia(){
@@ -1240,15 +1240,24 @@ async function stopBroadcast(preserveStatus=false){
  const recorder=broadcastRecorder;
  broadcastRecorder=null;
  if(!preserveStatus)setBroadcastStatus("stopping");
- if(recorder&&recorder.state!=="inactive"){
-  await new Promise(resolve=>{
-   recorder.addEventListener("stop",resolve,{once:true});
-   recorder.stop();
-  });
-  await streamChunkQueue.catch(()=>{});
+ try{
+  if(recorder&&recorder.state!=="inactive"){
+   await new Promise(resolve=>{
+    let settled=false;
+    const finish=()=>{if(settled)return;settled=true;clearTimeout(timer);resolve();};
+    const timer=setTimeout(finish,2500);
+    recorder.addEventListener("stop",finish,{once:true});
+    try{recorder.stop();}catch(_){finish();}
+   });
+   await Promise.race([
+    streamChunkQueue.catch(()=>{}),
+    new Promise(resolve=>setTimeout(resolve,5000))
+   ]);
+  }
+ }finally{
+  await releaseBroadcastMedia();
+  await window.streamiovStudio?.stopStream?.().catch(()=>{});
  }
- await releaseBroadcastMedia();
- await window.streamiovStudio?.stopStream?.().catch(()=>{});
 }
 window.streamiovStudio?.onStreamStatus?.(payload=>{
  if(lastStreamError&&["stopping","offline"].includes(payload?.status))return;
