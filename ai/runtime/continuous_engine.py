@@ -309,10 +309,16 @@ class ContinuousDevelopmentEngine:
             or payload.get("verdict") not in {"passed", "failed"}
             or not isinstance(payload.get("evidence"), list)
             or not isinstance(payload.get("findings"), list)
+            or any(not isinstance(item, str) or not item.strip() for item in payload["evidence"])
+            or any(not isinstance(item, str) or not item.strip() for item in payload["findings"])
         ):
             return {"verdict": "invalid", "findings": ["Verifier report did not match the required schema."]}
         if payload["verdict"] == "passed" and not payload["evidence"]:
             return {"verdict": "invalid", "findings": ["Verifier supplied no concrete evidence."]}
+        if payload["verdict"] == "passed" and payload["findings"]:
+            return {"verdict": "invalid", "findings": ["Verifier cannot pass while unresolved findings remain."]}
+        if payload["verdict"] == "failed" and not payload["findings"]:
+            return {"verdict": "invalid", "findings": ["A failed verifier report must identify concrete findings."]}
         return payload
 
     def _require_final_verification(self, mission_id: str, cycle: int, goal: str) -> MissionPlan | None:
