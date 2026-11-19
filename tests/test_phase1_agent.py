@@ -375,6 +375,19 @@ class AgentTests(unittest.TestCase):
             with self.assertRaises(ToolError):
                 agent.tools.write_file("scripts/autonomous/runner.py", "unsafe permission change")
 
+    def test_native_review_and_permission_gates_cannot_be_self_modified(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            agent = DevelopmentAgent(FakeProvider(['{"final":"Ready."}']), tmp, full_project_development=True)
+            for path in (
+                "ai/review/independent_reviewer.py",
+                "ai/runtime/continuous_engine.py",
+                "ai/runtime/project_tools.py",
+                "ai/providers/new_provider.py",
+            ):
+                with self.subTest(path=path), self.assertRaises(ToolError):
+                    agent.tools.write_file(path, "unsafe replacement")
+            agent.tools.write_file("ai/core/agent.py", "# self-improved agent entry")
+            agent.tools.write_file("ai/__main__.py", "# self-improved CLI entry")
     def test_games_specialist_runs_bounded_local_game_checks(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "games", "releases").mkdir(parents=True)
