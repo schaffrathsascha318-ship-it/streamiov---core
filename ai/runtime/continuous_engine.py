@@ -511,7 +511,7 @@ class ContinuousDevelopmentEngine:
                     remaining_chars = 20_000
                     for dependency_id in dependencies:
                         dependency = completed_by_id.get(dependency_id)
-                        if dependency is None:
+                        if dependency is None or not (dependency["result"] or "").strip():
                             raise MissionEngineError(
                                 f"Dependency {dependency_id} succeeded but its result is unavailable."
                             )
