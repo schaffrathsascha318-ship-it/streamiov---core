@@ -4,6 +4,9 @@ on:
     paths:
       - "core/integration/tiktok-oauth.js"
       - "core/integration/tiktok-oauth-registry.js"
+      - "core/integration/tiktok-display-api.js"
+      - "tests/tiktok-display-api.test.js"
+      - "docs/integrations/tiktok-display-api.md"
       - "tests/tiktok-oauth-registry.test.js"
       - "tests/tiktok-oauth.test.js"
       - "config/platforms/tiktok/oauth.json"
