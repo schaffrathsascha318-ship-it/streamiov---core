@@ -84,6 +84,9 @@ Before submission, manually verify in a clean browser session:
 - `https://streamiov.pages.dev/impressum/` loads and contains complete, current operator details.
 - Footer links work on desktop and mobile widths.
 - No placeholder text, broken links or contradictory product claims remain.
+- In TikTok Developer Portal, verify URL ownership for the exact URLs required by the app's creation date and client type. TikTok's current app-registration documentation says apps created after 2024-09-09 must verify the Terms of Service URL, Privacy Policy URL and Web or Desktop URL in Production mode. Do not assume that a working public URL is automatically verified.
+- Confirm the app's Web/Desktop URL is a complete public product website, not merely a login page or a thin landing page; the current homepage's actual suitability is a review risk to assess before submission.
+- Confirm the public app name and icon are custom, consistent with Streamiov branding, and do not imply TikTok endorsement or use TikTok in the app name.
 
 The existing privacy page is generic in parts and refers users to the imprint for the controller. It must be checked against the actual deployed data flow and, where needed, reviewed by the responsible operator/legal adviser. Do not claim legal compliance solely because a page exists.
 
@@ -112,6 +115,9 @@ Do not mark ready until each applicable item has evidence:
 - [ ] Disconnect/revocation behavior tested and accurately described.
 - [ ] Production token exchange/refresh/storage architecture remains server-side; no production secret in the desktop package.
 - [ ] Homepage, Privacy Policy, Terms and Imprint verified live and consistent with actual data processing.
+- [ ] TikTok URL ownership verified in Production for the Privacy Policy URL, Terms URL and Web/Desktop URL (if the app was created after 2024-09-09, as applicable).
+- [ ] Public website meets TikTok's requirement for a fully developed external-facing website, not merely a login page or landing page.
+- [ ] App name and icon meet TikTok's branding and consistency requirements.
 - [ ] Actual end-to-end demo recorded and reviewed for truthfulness and secret/PII exposure.
 - [ ] Video file is readable and within TikTok's file-size limit.
 - [ ] App description, icon, website, redirect URI, products and scope rationale match the real app.
@@ -126,6 +132,7 @@ Do not request or claim TikTok LIVE chat, gift, like, follow, share, viewer-pres
 
 - App Review FAQ: https://developers.tiktok.com/doc/getting-started-faq/
 - App Review Guidelines: https://developers.tiktok.com/docs/en/app-review-guidelines
+- Register Your App / URL verification: https://developers.tiktok.com/docs/en/getting-started-create-an-app
 - Scopes overview: https://developers.tiktok.com/docs/en/scopes-overview
 - TikTok API scopes: https://developers.tiktok.com/docs/en/tiktok-api-scopes
 - Display API getting started: https://developers.tiktok.com/docs/en/display-api-get-started
