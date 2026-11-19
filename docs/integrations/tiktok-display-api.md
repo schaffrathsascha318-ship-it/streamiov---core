@@ -7,7 +7,8 @@
 - The OAuth service remains responsible for encrypted token storage, refresh and revocation.
 - The Display API adapter returns a token-free profile object and never returns raw OAuth tokens.
 - It refreshes an expiring access token before calling TikTok and refuses to call the endpoint if the account or required scope is missing.
-- This adapter is not a Core HTTP route or Electron UI integration by itself. It must be called only from an authenticated server-side account context; do not expose access tokens to the renderer.
+- The current Electron usage is a sandbox-only review harness. It retrieves the profile in the trusted main process and exposes only the sanitized profile object to the renderer.
+- This does not make the desktop app a production token broker. Production authorization-code exchange, refresh/revocation and durable token storage must move to an authenticated Core service; never embed a production client secret in the desktop app.
 
 TikTok requires approval for the Login Kit and TikTok API products and the user must grant the requested scope. A working local unit test does not establish Console approval or a live sandbox connection.
 
