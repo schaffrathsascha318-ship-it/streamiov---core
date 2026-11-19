@@ -4,6 +4,8 @@ on:
     paths:
       - "core/integration/tiktok-oauth.js"
       - "core/integration/tiktok-oauth-registry.js"
+      - "dist/streamiov-studio-app/tiktok-display-api.js"
+      - "scripts/sync-studio-tiktok-oauth.py"
       - "core/integration/tiktok-display-api.js"
       - "tests/tiktok-display-api.test.js"
       - "docs/integrations/tiktok-display-api.md"
@@ -54,3 +56,4 @@ jobs:
           test -s dist/streamiov-studio-app/index.html
           test -s dist/streamiov-studio-app/tiktok-oauth.js
           cmp core/integration/tiktok-oauth.js dist/streamiov-studio-app/tiktok-oauth.js
+          cmp core/integration/tiktok-display-api.js dist/streamiov-studio-app/tiktok-display-api.js
