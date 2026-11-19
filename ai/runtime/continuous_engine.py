@@ -758,7 +758,7 @@ class ContinuousDevelopmentEngine:
             if snapshot.status == "completed":
                 emit(json.dumps({"event": "mission_completed", "mission_id": mission_id, "summary": snapshot.summary}, ensure_ascii=False))
                 return snapshot
-             task = self._claim_task(mission_id, worker_id)
+            task = self._claim_task(mission_id, worker_id)
             if task is not None:
                 self._execute_task(task, worker_id, emit, stop_event)
                 continue
