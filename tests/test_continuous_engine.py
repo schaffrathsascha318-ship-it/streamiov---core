@@ -602,6 +602,7 @@ class MissionEngineTests(unittest.TestCase):
         (root / "README.md").write_text("baseline\\n", encoding="utf-8")
         git("add", "README.md")
         git("commit", "-q", "-m", "baseline")
+        git("checkout", "-q", "-b", "review-target")
         for relative, content in changed_files.items():
             path = root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
