@@ -31,11 +31,11 @@ class NativeReviewerPolicyTests(unittest.TestCase):
 
     def test_unapproved_ai_provider_imports_and_endpoints_are_high(self):
         diff = (
-            "diff --git a/ai/client.py b/ai/client.py\\n"
-            "--- a/ai/client.py\\n+++ b/ai/client.py\\n"
-            "@@ -1,0 +1,2 @@\\n"
-            "+import anthropic\\n"
-            "+BASE_URL = 'https://api.openai.com/v1'\\n"
+            "diff --git a/ai/client.py b/ai/client.py\n"
+            "--- a/ai/client.py\n+++ b/ai/client.py\n"
+            "@@ -1,0 +1,2 @@\n"
+            "+import anthropic\n"
+            "+BASE_URL = 'https://api.openai.com/v1'\n"
         )
         findings = scan_added_lines(diff)
         self.assertEqual({item.code for item in findings}, {
