@@ -391,7 +391,14 @@ class AgentTests(unittest.TestCase):
     def test_format_correction_retries_again_after_durable_task_resume(self):
         with tempfile.TemporaryDirectory() as tmp:
             checkpoint_db = Path(tmp, "missions.sqlite3")
-            provider = FakeProvider([
+            class CountingProvider(FakeProvider):
+                def __init__(self, outputs):
+                    super().__init__(outputs)
+                    self.calls = 0
+                def generate(self, **kwargs):
+                    self.calls += 1
+                    return super().generate(**kwargs)
+            provider = CountingProvider([
                 "not json", "still not json", "invalid three", "invalid four",
                 "invalid after resume", '{"final":"Recovered on resumed attempt."}',
             ])
@@ -464,7 +471,7 @@ class AgentTests(unittest.TestCase):
             p = FakeProvider([
                 '{"tool":"write_file","arguments":{"path":"ai/must_not_exist.py","content":"unsafe partial batch"}}'
                 '{"tool":"read_file","arguments":{"path":"README.md","unexpected":"extra"}}',
-                "still invalid",
+                "still invalid", "invalid three", "invalid four",
             ])
             with self.assertRaises(AgentError):
                 DevelopmentAgent(p, tmp).run("Do not partially execute invalid batches")
