@@ -49,4 +49,4 @@ The reviewer also flags new imports, package references, and endpoints for unapp
 
 ## Pull-request review
 
-The `.github/workflows/native-reviewer.yml` check runs the reviewer code from the pull request's trusted base commit. It fetches the PR head into Git's object database but never checks out or executes the untrusted PR source. The job has read-only repository permissions, does not run patch-supplied tests or commands, and publishes the structured review report to the Actions summary. No AI/model provider or external review service is called.
+The `.github/workflows/native-reviewer.yml` check uses `pull_request_target` with explicit read-only permissions, so GitHub runs the workflow from the trusted base branch. It checks out the base SHA and runs only the reviewer code from that revision. It fetches the PR head into Git's object database but never checks out or executes the untrusted PR source. The job has read-only repository permissions, does not run patch-supplied tests or commands, and publishes the structured review report to the Actions summary. No AI/model provider or external review service is called.
