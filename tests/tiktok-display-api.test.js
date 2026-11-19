@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const { TikTokDisplayApi, BASIC_FIELDS, USER_INFO_ENDPOINT } = require("../core/integration/tiktok-display-api");
 
 function fixture({ tokens, refreshTokens, fetchResponse, fetchImpl } = {}) {
-  let current = tokens || {
+  let current = Object.prototype.hasOwnProperty.call(arguments[0] || {}, "tokens") ? tokens : {
     access_token: "access-secret",
     refresh_token: "refresh-secret",
     scope: "user.info.basic",
