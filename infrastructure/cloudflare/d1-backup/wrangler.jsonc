@@ -9,7 +9,10 @@
   "r2_buckets": [
     { "binding": "BACKUPS", "bucket_name": "REPLACE_AFTER_READ_ONLY_INVENTORY" }
   ],
+  "triggers": { "crons": ["0 0 * * *"] },
   "vars": {
+    "CLOUDFLARE_ACCOUNT_ID": "SET_AFTER_RESOURCE_INVENTORY",
+    "D1_DATABASE_ID": "SET_AFTER_RESOURCE_INVENTORY",
     "BACKUP_SCHEDULE_UTC": "0 0 * * *"
   }
 }
