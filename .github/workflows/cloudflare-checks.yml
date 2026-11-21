@@ -5,6 +5,7 @@ on:
     paths:
       - "dist/streamiov-homepage-worker/**"
       - "infrastructure/cloudflare/**"
+      - "tests/test_d1_backup_manager.mjs"
       - "scripts/deploy-streamiov-ai-worker.sh"
       - "scripts/verify-cloudflare-config.py"
       - "tests/test_cloudflare_config.py"
@@ -53,6 +54,9 @@ jobs:
 
       - name: Run Cloudflare AI Worker contract tests
         run: node --test tests/test_cloudflare_ai_worker.mjs
+
+      - name: Run D1 backup manager contract tests
+        run: node --test tests/test_d1_backup_manager.mjs
 
       - name: Run Cloudflare provider and public-site tests
         run: >-
