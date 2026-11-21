@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "streamiov-d1-backup",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-11-22",
+  "workflows": [
+    { "name": "streamiov-d1-backup", "binding": "D1_BACKUP_WORKFLOW", "class_name": "D1BackupWorkflow" }
+  ],
+  "r2_buckets": [
+    { "binding": "BACKUPS", "bucket_name": "REPLACE_AFTER_READ_ONLY_INVENTORY" }
+  ],
+  "vars": {
+    "BACKUP_SCHEDULE_UTC": "0 0 * * *"
+  }
+}
