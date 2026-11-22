@@ -371,6 +371,18 @@ jobs:
               -f publish_release=false -f release_version="$app_version" -f prerelease=false; then
               echo "::warning::Could not dispatch Studio platform builds."
             fi
+
+            # Dispatches are asynchronous. Wait for required checks and verify
+            # their terminal states; never treat a successful dispatch as a pass.
+            if ! gh pr checks "$pr_number" --watch --required; then
+              echo "::error::Required pull request checks did not all pass."
+              exit 1
+            fi
+            required_states="$(gh pr checks "$pr_number" --required --json state)"
+            if ! jq -e 'length > 0 and all(.[]; .state == "SUCCESS")' <<< "$required_states" >/dev/null; then
+              echo "::error::Required check states are missing or not successful."
+              exit 1
+            fi
           fi
 
           if [[ "$TESTS_PASSED" == "true" && "${MISSION_STATUS:-active}" == "completed" ]]; then
