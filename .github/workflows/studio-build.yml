@@ -1,6 +1,7 @@
 name: Streamiov Studio Builds (Windows ARM64 + mobile PWA)
 
 # Release 1.0.2: Windows x64/ARM64, Linux x64/ARM64, ChromeOS Crostini, and the installable mobile PWA are built independently.
+# Verified releases publish automatically from main after every required platform build and test succeeds.
 on:
   workflow_dispatch:
     inputs:
@@ -156,7 +157,7 @@ jobs:
           retention-days: 30
 
   publish-release:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release))
     name: Installer dauerhaft veröffentlichen
     needs: [build, media-pipeline-smoke, pwa-package]
     runs-on: ubuntu-latest
