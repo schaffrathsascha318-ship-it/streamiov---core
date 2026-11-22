@@ -76,9 +76,17 @@ jobs:
             issue_title="$(jq -r '.[0].title' <<< "$issue_json")"
           fi
 
+          # Issue 172 is the repair/control ticket for the existing issue-145
+          # mission. Reuse its durable checkpoint instead of creating issue-172.
+          mission_key="$issue_number"
+          if [[ "$issue_number" == "172" ]]; then
+            mission_key="145"
+          fi
+
           issue_b64="$(jq -r '.[0] | @base64' <<< "$issue_json")"
           {
             echo "issue_number=$issue_number"
+            echo "mission_key=$mission_key"
             echo "issue_title=$issue_title"
             echo "issue_b64=$issue_b64"
           } >> "$GITHUB_OUTPUT"
@@ -114,7 +122,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/streamiov-ai-missions"
-          artifact_name="streamiov-ai-missions-${{ steps.pick.outputs.issue_number }}"
+          artifact_name="streamiov-ai-missions-${{ steps.pick.outputs.mission_key }}"
           run_ids="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/autonomous-development.yml/runs?per_page=30" --jq '.workflow_runs[].id')"
           restored=false
           while IFS= read -r previous_run; do
@@ -154,7 +162,7 @@ jobs:
         if: steps.pick.outputs.issue_number != ''
         env:
           STREAMIOV_AGENT_ISSUE_B64: ${{ steps.pick.outputs.issue_b64 }}
-          STREAMIOV_MISSION_ID: ${{ steps.pick.outputs.issue_number == '0' && 'streamiov-platform' || format('streamiov-issue-{0}', steps.pick.outputs.issue_number) }}
+          STREAMIOV_MISSION_ID: ${{ steps.pick.outputs.mission_key == '0' && 'streamiov-platform' || format('streamiov-issue-{0}', steps.pick.outputs.mission_key) }}
           STREAMIOV_MISSION_DB: ${{ runner.temp }}/streamiov-ai-missions/missions.sqlite3
           STREAMIOV_AI_WORKER_TOKEN: ${{ secrets.STREAMIOV_AI_WORKER_TOKEN }}
           STREAMIOV_MODEL_URL: ${{ vars.STREAMIOV_MODEL_URL }}
