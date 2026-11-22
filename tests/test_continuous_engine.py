@@ -141,8 +141,8 @@ class MissionEngineTests(unittest.TestCase):
     def test_repeated_invalid_action_protocol_is_blocked_across_engine_slices(self):
         planner = SequencePlanner([
             MissionPlan("continue", "Run one protocol task and one independent task.", (
-                SpecialistTask("protocol", "code", "produce valid tool actions"),
-                SpecialistTask("independent", "research", "continue independent research"),
+                SpecialistTask("a-protocol", "code", "produce valid tool actions"),
+                SpecialistTask("z-independent", "research", "continue independent research"),
             )),
         ])
         engine = self.make_engine(planner, lambda _role: None, max_task_failures=3)
@@ -157,7 +157,7 @@ class MissionEngineTests(unittest.TestCase):
         for attempt in range(1, 4):
             task = engine._claim_task(mission_id, "worker")
             self.assertIsNotNone(task)
-            self.assertTrue(task.task_id.endswith(":protocol"))
+            self.assertTrue(task.task_id.endswith(":a-protocol"))
             outcome = engine._finish_task(task.task_id, "worker", error=repeated_error)
             self.assertEqual(outcome, "failed" if attempt == 3 else "queued")
             if attempt < 3:
@@ -173,7 +173,7 @@ class MissionEngineTests(unittest.TestCase):
         with closing(sqlite3.connect(self.db)) as db, db:
             row = db.execute(
                 "SELECT status,failure_count,last_error_class,last_error FROM development_mission_tasks WHERE task_id=?",
-                (f"{mission_id}:1:protocol",),
+                (f"{mission_id}:1:a-protocol",),
             ).fetchone()
         self.assertEqual(row[0:3], ("failed", 3, "action_protocol"))
         self.assertIn("refusing to execute", row[3])
@@ -181,7 +181,7 @@ class MissionEngineTests(unittest.TestCase):
         # A separate specialist remains eligible even though the protocol task is blocked.
         independent = engine._claim_task(mission_id, "worker")
         self.assertIsNotNone(independent)
-        self.assertTrue(independent.task_id.endswith(":independent"))
+        self.assertTrue(independent.task_id.endswith(":z-independent"))
         self.assertEqual(engine._finish_task(independent.task_id, "worker", result="research complete"), "succeeded")
 
         resumed_engine = self.make_engine(planner, lambda _role: None, max_task_failures=3)
