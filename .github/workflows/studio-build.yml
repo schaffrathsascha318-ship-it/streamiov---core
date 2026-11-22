@@ -136,7 +136,7 @@ jobs:
       - name: Installer aller Plattformen herunterladen
         uses: actions/download-artifact@v4
         with:
-          pattern: streamiov-studio-*
+          pattern: streamiov-*
           path: artifacts
 
       - name: Determine and validate release version
