@@ -26,6 +26,7 @@ on:
       - "scripts/sync-studio-ui.py"
       - "scripts/sync-studio-games.py"
       - "scripts/test-studio-media-pipeline.cjs"
+      - "scripts/prepare-ffmpeg-runtime.py"
       - ".github/workflows/studio-build.yml"
   push:
     branches:
