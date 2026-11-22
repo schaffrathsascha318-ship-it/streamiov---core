@@ -68,6 +68,17 @@
         "AppImage",
         "deb"
       ]
-    }
+    },
+    "extraResources": [
+      {
+        "from": "ffmpeg",
+        "to": "ffmpeg",
+        "filter": [
+          "bin/**/*",
+          "COPYING.GPLv3",
+          "BUILD-INFO.json"
+        ]
+      }
+    ]
   }
 }
