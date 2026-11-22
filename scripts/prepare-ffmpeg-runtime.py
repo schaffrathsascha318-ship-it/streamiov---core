@@ -84,6 +84,7 @@ def main() -> int:
     parser.add_argument("--sha256", required=True)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--source-commit", required=True)
+    parser.add_argument("--build-scripts-commit", required=True)
     parser.add_argument("--target", choices=("win64", "winarm64", "linux64", "linuxarm64"), required=True)
     args = parser.parse_args()
 
@@ -146,7 +147,7 @@ def main() -> int:
         "archive_sha256": actual,
         "ffmpeg_source_commit": args.source_commit,
         "ffmpeg_source_url": f"{FFMPEG_SOURCE}/tree/{args.source_commit}",
-        "build_scripts_url": f"{UPSTREAM}/tree/master",
+        "build_scripts_commit": args.build_scripts_commit,\n        "build_scripts_url": f"{UPSTREAM}/tree/{args.build_scripts_commit}",
         "binary": f"bin/{executable_name}",
         "target": args.target,
         "version": version_line,
