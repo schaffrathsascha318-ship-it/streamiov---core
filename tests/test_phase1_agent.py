@@ -429,7 +429,7 @@ class AgentTests(unittest.TestCase):
                 tools.write_file("dist/streamiov-studio-app/secrets/token.json", "secret")
 
 
-    def test_tool_batch_is_fully_validated_before_first_action(self):
+    def test_tool_batch_schema_error_is_corrected_once_before_any_action_executes(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp, "ai", "must_not_exist.py")
             invalid_batch = (
