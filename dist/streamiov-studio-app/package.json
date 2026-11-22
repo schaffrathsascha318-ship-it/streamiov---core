@@ -54,7 +54,8 @@
       "!**/*.save.*",
       "!**/*.before-*",
       "!**/__pycache__/**",
-      "!**/*.pyc"
+      "!**/*.pyc",
+      "!ffmpeg/**"
     ],
     "win": {
       "target": [
