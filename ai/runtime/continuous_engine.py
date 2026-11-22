@@ -268,7 +268,7 @@ class ContinuousDevelopmentEngine:
                 SET status='queued',worker_id='',lease_until=NULL,available_at=0,
                     last_error=CASE WHEN last_error='' THEN 'Recovered legacy terminal failure; adapting strategy.' ELSE last_error END,
                     updated_at=?
-                WHERE status='failed'
+                WHERE status='failed' AND last_error_class=''
             """, (time.time(),))
             db.execute("""
                 CREATE INDEX IF NOT EXISTS idx_mission_tasks_ready
