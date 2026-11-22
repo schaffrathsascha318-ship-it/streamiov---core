@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
   getStatus: () => ipcRenderer.invoke('studio:get-status'),
+  getPlatformCapabilities: (features) => ipcRenderer.invoke('studio:get-platform-capabilities', features || {}),
   getDisplays: () => ipcRenderer.invoke('studio:get-displays'),
   openProgramOutput: () => ipcRenderer.invoke('studio:open-program-output'),
   moveRegieToDisplay: (displayId) => ipcRenderer.invoke('studio:move-regie-to-display', { displayId }),
@@ -34,6 +35,7 @@ contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
   aiLogin: (payload) => ipcRenderer.invoke('studio:ai-login', payload),
   aiLogout: () => ipcRenderer.invoke('studio:ai-logout'),
   aiSubmit: (payload) => ipcRenderer.invoke('studio:ai-submit', payload),
+  gameAiAnalyze: (payload) => ipcRenderer.invoke('studio:game-ai-analyze', payload),
   tiktokStatus: () => ipcRenderer.invoke('studio:tiktok-status'),
   tiktokConnect: () => ipcRenderer.invoke('studio:tiktok-connect'),
   tiktokDisconnect: () => ipcRenderer.invoke('studio:tiktok-disconnect'),
