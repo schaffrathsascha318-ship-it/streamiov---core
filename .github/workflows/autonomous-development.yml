@@ -48,9 +48,11 @@ jobs:
           gh label create agent-review --color 0E8A16 --description "AI Chief prepared a draft pull request for review" --force >/dev/null
           gh label create agent-blocked --color B60205 --description "AI Chief is blocked and needs investigation" --force >/dev/null
 
-          issue_json="$(gh issue list --state open --label agent-in-progress --limit 1 --json number,title,body)"
+          # Explicitly ready owner-approved work takes priority over a stale
+          # in-progress label left by an interrupted or misrouted runner.
+          issue_json="$(gh issue list --state open --label agent-ready --limit 1 --json number,title,body)"
           if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
-            issue_json="$(gh issue list --state open --label agent-ready --limit 1 --json number,title,body)"
+            issue_json="$(gh issue list --state open --label agent-in-progress --limit 1 --json number,title,body)"
           fi
 
           if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
@@ -368,6 +370,18 @@ jobs:
             if ! gh workflow run studio-build.yml --ref "$branch" \
               -f publish_release=false -f release_version="$app_version" -f prerelease=false; then
               echo "::warning::Could not dispatch Studio platform builds."
+            fi
+
+            # Dispatches are asynchronous. Wait for required checks and verify
+            # their terminal states; never treat a successful dispatch as a pass.
+            if ! gh pr checks "$pr_number" --watch --required; then
+              echo "::error::Required pull request checks did not all pass."
+              exit 1
+            fi
+            required_states="$(gh pr checks "$pr_number" --required --json state)"
+            if ! jq -e 'length > 0 and all(.[]; .state == "SUCCESS")' <<< "$required_states" >/dev/null; then
+              echo "::error::Required check states are missing or not successful."
+              exit 1
             fi
           fi
 

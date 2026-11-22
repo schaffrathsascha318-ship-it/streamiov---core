@@ -85,6 +85,23 @@ def checkpoint_database(path: Path) -> None:
         db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 
 
+def run_with_signal_handlers(run_callable, stop_event: threading.Event):
+    """Convert process termination signals into cooperative mission cancellation."""
+    watched = (signal.SIGINT, signal.SIGTERM)
+    previous = {item: signal.getsignal(item) for item in watched}
+
+    def request_stop(_signum, _frame):
+        stop_event.set()
+
+    try:
+        for item in watched:
+            signal.signal(item, request_stop)
+        return run_callable()
+    finally:
+        for item, handler in previous.items():
+            signal.signal(item, handler)
+
+
 def main() -> int:
     encoded = os.environ.get("STREAMIOV_AGENT_ISSUE_B64", "")
     if not encoded:
@@ -158,23 +175,18 @@ def main() -> int:
         def request_stop(_signum, _frame):
             stop_event.set()
 
-        watched = (signal.SIGINT, signal.SIGTERM)
-        previous = {item: signal.getsignal(item) for item in watched}
-        try:
-            for item in watched:
-                signal.signal(item, request_stop)
-            run_id = os.environ.get("GITHUB_RUN_ID", "local")
-            attempt = os.environ.get("GITHUB_RUN_ATTEMPT", "1")
-            result = engine.run(
+        run_id = os.environ.get("GITHUB_RUN_ID", "local")
+        attempt = os.environ.get("GITHUB_RUN_ATTEMPT", "1")
+        result = run_with_signal_handlers(
+            lambda: engine.run(
                 mission_id,
                 stop_event,
                 poll_seconds=5.0,
                 worker_id=f"github-actions-{run_id}-{attempt}",
                 emit=lambda event: print(event, flush=True),
-            )
-        finally:
-            for item, handler in previous.items():
-                signal.signal(item, handler)
+            ),
+            stop_event,
+        )
 
         print(json.dumps({
             "event": "mission_checkpoint",
@@ -184,6 +196,7 @@ def main() -> int:
             "pending_tasks": result.pending_tasks,
             "running_tasks": result.running_tasks,
             "completed_tasks": result.completed_tasks,
+            "failed_tasks": result.failed_tasks,
             "attempts": result.attempts,
             "summary": result.summary,
         }, ensure_ascii=False), flush=True)
@@ -196,6 +209,7 @@ def main() -> int:
                 output.write(f"pending_tasks={result.pending_tasks}\n")
                 output.write(f"running_tasks={result.running_tasks}\n")
                 output.write(f"completed_tasks={result.completed_tasks}\n")
+                output.write(f"failed_tasks={result.failed_tasks}\n")
                 output.write(f"attempts={result.attempts}\n")
         return 0
     except (ProjectContextError, ProviderError, MissionEngineError, OSError, ValueError, sqlite3.Error) as exc:

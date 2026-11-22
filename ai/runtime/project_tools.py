@@ -174,41 +174,54 @@ class ProjectTools:
         return f"Updated {normalized}: one exact match replaced."
 
     def run_python(self, path: str) -> str:
-        """Run a project Python file with a clean environment and privilege dropping where available."""
+        """Run project Python in a read-only, unprivileged sandbox."""
         target = self._resolve(path)
         if target.suffix.lower() != ".py" or not target.is_file():
             raise ToolError("Python execution requires an existing .py file inside the project workspace.")
         if target.stat().st_size > MAX_FILE_BYTES:
             raise ToolError("Python source exceeds the 200 KB execution limit.")
         env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": "", "PYTHONIOENCODING": "utf-8"}
-        setpriv = shutil.which("setpriv")
+        setpriv = shutil.which("setpriv") if os.name == "posix" else None
+        bwrap = shutil.which("bwrap") if os.name == "posix" else None
         command = [sys.executable, "-I", str(target)]
-        if setpriv is not None and os.name == "posix":
-            with tempfile.TemporaryDirectory(prefix="streamiov-python-home-") as home:
-                os.chmod(home, 0o755)
-                env["HOME"] = home
+        with tempfile.TemporaryDirectory(prefix="streamiov-python-home-") as home:
+            os.chmod(home, 0o755)
+            env["HOME"] = home
+            result = None
+            if setpriv is not None:
                 sandbox_command = [
                     setpriv, "--reuid=65534", "--regid=65534", "--clear-groups", "--no-new-privs",
-                    "--", sys.executable, "-I", str(target),
+                    "--", *command,
                 ]
                 result = subprocess.run(
                     sandbox_command, cwd=self.root, capture_output=True, text=True,
                     timeout=120, check=False, env=env,
                 )
-                # GitHub-hosted CI containers may forbid setresuid. The CI fallback
-                # is only for tests in a disposable runner with no user credentials.
-                if result.returncode == 127 and "setresuid failed" in result.stderr and os.environ.get("CI") == "true":
-                    result = subprocess.run(
-                        command, cwd=self.root, capture_output=True, text=True,
-                        timeout=120, check=False, env=env,
-                    )
-        elif os.environ.get("STREAMIOV_AI_ALLOW_UNSANDBOXED_PYTHON") == "1":
+                # Some container runtimes expose setpriv but prohibit setresuid.
+                # Fall through only for that specific environment failure.
+                if not (result.returncode == 127 and "setresuid failed" in result.stderr):
+                    output = (result.stdout + "\n" + result.stderr).strip()
+                    return f"exit_code={result.returncode}\n{output[-12000:]}"
+            if bwrap is None:
+                raise ToolError(
+                    "Safe Python execution could not establish a sandbox: setpriv failed and bubblewrap is unavailable; "
+                    "unsandboxed execution is disabled."
+                )
+            # Bubblewrap keeps the host filesystem read-only, gives the process
+            # an isolated user namespace and a disposable writable /tmp, and
+            # runs it as an unprivileged UID. There is deliberately no unsafe fallback.
+            # Keep the complete host filesystem read-only. In particular,
+            # do not hide /tmp: test workspaces are commonly created there.
+            sandbox_command = [
+                bwrap, "--unshare-user", "--uid", "65534", "--gid", "65534",
+                "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc",
+                "--chdir", str(self.root), "--", *command,
+            ]
+            sandbox_env = {**env, "HOME": ""}
             result = subprocess.run(
-                command, cwd=self.root, capture_output=True, text=True,
-                timeout=120, check=False, env=env,
+                sandbox_command, cwd=self.root, capture_output=True, text=True,
+                timeout=120, check=False, env=sandbox_env,
             )
-        else:
-            raise ToolError("Safe Python execution requires Linux setpriv; explicit local opt-in is required when unavailable.")
         output = (result.stdout + "\n" + result.stderr).strip()
         return f"exit_code={result.returncode}\n{output[-12000:]}"
 

@@ -317,12 +317,12 @@ class SpecialistTaskQueue:
             connection.close()
 
     def get(self, task_id: str) -> QueuedTask | None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute("SELECT * FROM specialist_tasks WHERE task_id=?", (task_id,)).fetchone()
         return self._row_to_task(row) if row else None
 
     def list_tasks(self) -> list[QueuedTask]:
-        with self._connect() as connection:
+        with self._connection() as connection:
             rows = connection.execute("SELECT * FROM specialist_tasks ORDER BY created_at, task_id").fetchall()
         return [self._row_to_task(row) for row in rows]
 
