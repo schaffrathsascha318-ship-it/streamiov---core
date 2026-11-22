@@ -123,7 +123,6 @@ jobs:
           --sha256 "${{ matrix.ffmpeg_sha256 }}"
           --tag "${{ env.FFMPEG_RELEASE_TAG }}"
           --source-commit "${{ env.FFMPEG_SOURCE_COMMIT }}"
-
           --target "${{ matrix.ffmpeg_target }}"
 
       - name: Eigene Regie-Engine testen
