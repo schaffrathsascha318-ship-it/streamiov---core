@@ -49,6 +49,18 @@ The static site is published to the `streamiov` Pages project at `https://stream
 
 Still externally gated: TikTok app review/scopes, a real live broadcast received by a streaming service, hardware verification on Windows/Chromebook/Android/iOS, local model inference on a machine with sufficient memory, CA-backed OS code signing (the free Ed25519 release signature is implemented), and legal rights review.
 
+## Chromebook first launch (Crostini)
+
+For the Chromebook development environment, run the one-time setup and launch helper from the repository root:
+
+```bash
+bash scripts/setup-studio-crostini.sh
+```
+
+The helper checks Node.js 22.12+, installs the free Debian FFmpeg package only when FFmpeg is absent, verifies that FFmpeg exposes `libx264`, AAC and RTMP, installs the exact locked Electron dependencies with `npm ci`, runs the Studio engine tests, and then starts the local Electron Studio with Crostini-friendly GPU flags. It does not configure Cloudflare, change production services, access credentials, or install a server. If FFmpeg exists but lacks a required codec/protocol, the helper stops and explains what is missing rather than replacing the existing installation.
+
+This prepares the local Studio runtime; it does not prove camera/audio hardware works on the Chromebook or that a remote platform accepts a stream. The app still needs a valid RTMP destination, and platform LIVE verification remains a separate step.
+
 ## Build and launch the desktop app
 
 Install Node.js 22.12 or newer and Python 3.10 or newer. From the repository root:
