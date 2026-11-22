@@ -140,7 +140,8 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("not_implemented", self.main)
         self.assertNotIn("missingPythonModules", self.main)
         self.assertNotIn("notBundledResult", self.main)
-        self.assertNotIn("process.resourcesPath", self.main)
+        self.assertIn("resolveFfmpegExecutable", self.main)
+        self.assertIn("process.resourcesPath", self.main)
 
     def test_ai_bridge_uses_the_documented_host_contract(self):
         self.assertIn(

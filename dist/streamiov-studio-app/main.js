@@ -9,6 +9,7 @@ const { pathToFileURL } = require('node:url');
 const { buildSyntheticAvPipelineArgs } = require('./media-pipeline');
 const { StudioSourceModel } = require('./engine/source-model');
 const { StudioSceneEngine } = require('./engine/scene-engine');
+const { resolveFfmpegExecutable } = require('./engine/ffmpeg-runtime');
 
 const { execFile, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
@@ -91,7 +92,7 @@ ipcMain.handle('studio:start-stream', async (event, payload = {}) => {
   ];
 
   try {
-    const child = spawn('ffmpeg', args, { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
+    const child = spawn(encoder.executable, args, { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
     liveStreamProcess = child;
     publishStreamStatus('connecting');
 
@@ -516,12 +517,18 @@ async function probeGStreamerPlugin(plugin) {
 }
 
 async function probeFfmpegRtmp() {
+  const executable = resolveFfmpegExecutable({
+    resourcesPath: process.resourcesPath,
+    appPath: app.getAppPath(),
+    platform: process.platform,
+    env: process.env
+  });
   try {
     const [{ stdout: encoders }, { stdout: protocols }] = await Promise.all([
-      execFileAsync('ffmpeg', ['-hide_banner', '-encoders'], {
+      execFileAsync(executable, ['-hide_banner', '-encoders'], {
         timeout: 10000, windowsHide: true, maxBuffer: 1024 * 1024
       }),
-      execFileAsync('ffmpeg', ['-hide_banner', '-protocols'], {
+      execFileAsync(executable, ['-hide_banner', '-protocols'], {
         timeout: 10000, windowsHide: true, maxBuffer: 1024 * 1024
       })
     ]);
@@ -531,6 +538,7 @@ async function probeFfmpegRtmp() {
     return {
       available: video && audio && rtmp,
       ffmpeg_available: true,
+      executable,
       video_encoder_available: video,
       audio_encoder_available: audio,
       rtmp_protocol_available: rtmp,
@@ -544,6 +552,7 @@ async function probeFfmpegRtmp() {
     return {
       available: false,
       ffmpeg_available: false,
+      executable,
       video_encoder_available: false,
       audio_encoder_available: false,
       rtmp_protocol_available: false,
