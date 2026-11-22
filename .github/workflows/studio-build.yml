@@ -13,7 +13,7 @@ on:
         description: "Release-Version ohne studio-v-Präfix"
         required: true
         type: string
-        default: "1.0.1"
+        default: "1.0.2"
       prerelease:
         description: "Als Vorabversion kennzeichnen"
         required: true

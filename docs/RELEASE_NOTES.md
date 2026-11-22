@@ -1,6 +1,15 @@
-# StreamioV Studio 1.0.1
+# StreamioV Studio 1.0.2
 
 **Schutzregie / Privacy Shield ist jetzt in den Installern enthalten.**
+
+## Plattform- und PWA-Erweiterung 1.0.2
+
+- Windows ARM64 wird als eigener NSIS-Build erzeugt und in den Release-Pfad aufgenommen; Windows x64 bleibt die primäre Desktop-Plattform.
+- Die mobile Web-Regie wird im Release-Workflow aus der kanonischen Regie generiert, validiert und als HTTPS-hostbares PWA-Bundle paketiert.
+- Browser außerhalb der Electron-Desktop-App können Bildschirmfreigabe über die native `getDisplayMedia`-Auswahl des Browsers anfordern.
+- Windows-, Linux- und ChromeOS-Builds werden für die vorgesehenen x64-/ARM64-Ziele getrennt erstellt.
+
+**Wichtig:** Ein erfolgreich gebautes Paket beweist noch keinen Hardwaretest. Die PWA kann lokale Browser-Medienfunktionen nutzen, hat aber keinen Electron-Core-Bridge-Zugriff und bestätigt keinen echten Streamstart. Native Android-/iOS-Apps, reale Hardwareabnahmen und produktive LIVE-Verbindungen bleiben separat offen.
 
 ## Neu
 
