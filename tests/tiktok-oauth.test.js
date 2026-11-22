@@ -20,7 +20,12 @@ test("sandbox and production redirect validation",()=>{
 test("authorization uses basic scope and PKCE S256",()=>{
  const {oauth}=fixture(), a=oauth.createAuthorizationUrl(), u=new URL(a.url);
  assert.equal(u.searchParams.get("scope"),"user.info.basic"); assert.equal(u.searchParams.get("code_challenge_method"),"S256");
- assert.ok(u.searchParams.get("code_challenge")); assert.equal(u.searchParams.get("redirect_uri"),"http://127.0.0.1:3455/callback");
+ const challenge=u.searchParams.get("code_challenge");
+ assert.match(challenge,/^[a-f0-9]{64}$/);
+ assert.equal(u.searchParams.get("redirect_uri"),"http://127.0.0.1:3455/callback");
+ const verifier=oauth.pending.get(a.state).verifier;
+ assert.match(verifier,/^[A-Za-z0-9._~-]{43,128}$/);
+ assert.equal(challenge,require("node:crypto").createHash("sha256").update(verifier).digest("hex"));
 });
 test("state mismatch and missing state are rejected",async()=>{
  const {oauth}=fixture(); oauth.createAuthorizationUrl();
