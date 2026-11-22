@@ -432,17 +432,19 @@ class AgentTests(unittest.TestCase):
     def test_tool_batch_is_fully_validated_before_first_action(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp, "ai", "must_not_exist.py")
-            p = FakeProvider([
+            invalid_batch = (
                 '{"tool":"write_file","arguments":{"path":"ai/must_not_exist.py","content":"unsafe partial batch"}}'
                 '{"tool":"read_file","arguments":{"path":"README.md","unexpected":"extra"}}'
-            ])
+            )
+            p = FakeProvider([invalid_batch, invalid_batch])
             with self.assertRaises(AgentError):
                 DevelopmentAgent(p, tmp).run("Do not partially execute invalid batches")
             self.assertFalse(target.exists())
 
     def test_tool_arguments_reject_non_string_values(self):
         with tempfile.TemporaryDirectory() as tmp:
-            p = FakeProvider(['{"tool":"read_file","arguments":{"path":42}}'])
+            invalid_arguments = '{"tool":"read_file","arguments":{"path":42}}'
+            p = FakeProvider([invalid_arguments, invalid_arguments])
             with self.assertRaises(AgentError):
                 DevelopmentAgent(p, tmp).run("Reject malformed tool arguments")
 
