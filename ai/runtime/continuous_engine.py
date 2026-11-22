@@ -45,6 +45,7 @@ class MissionSnapshot:
     running_tasks: int
     completed_tasks: int
     attempts: int
+    blocked_tasks: int = 0
 
 
 @dataclass(frozen=True)
@@ -84,6 +85,7 @@ class ContinuousDevelopmentEngine:
         *,
         retry_base_seconds: float = 5.0,
         lease_seconds: int = 300,
+        max_task_attempts: int = 3,
     ) -> None:
         if not callable(getattr(planner, "plan", None)):
             raise TypeError("planner must provide plan()")
@@ -93,6 +95,8 @@ class ContinuousDevelopmentEngine:
             raise ValueError("retry_base_seconds must be positive")
         if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or lease_seconds < 10:
             raise ValueError("lease_seconds must be at least 10")
+        if isinstance(max_task_attempts, bool) or not isinstance(max_task_attempts, int) or max_task_attempts < 1:
+            raise ValueError("max_task_attempts must be a positive integer")
         self.database_path = str(database_path)
         if self.database_path == ":memory:":
             raise MissionEngineError("Continuous missions require a durable on-disk database.")
@@ -104,6 +108,7 @@ class ContinuousDevelopmentEngine:
         self.agent_factory = agent_factory
         self.retry_base_seconds = float(retry_base_seconds)
         self.lease_seconds = lease_seconds
+        self.max_task_attempts = max_task_attempts
         self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
@@ -212,17 +217,19 @@ class ContinuousDevelopmentEngine:
                 raise MissionEngineError("Mission not found.")
             counts = db.execute("""
                 SELECT
-                    SUM(CASE WHEN status='queued' THEN 1 ELSE 0 END) AS pending,
+                    SUM(CASE WHEN status='queued' AND attempts < ? THEN 1 ELSE 0 END) AS pending,
                     SUM(CASE WHEN status='running' THEN 1 ELSE 0 END) AS running,
                     SUM(CASE WHEN status='succeeded' THEN 1 ELSE 0 END) AS completed,
+                    SUM(CASE WHEN status='queued' AND attempts >= ? THEN 1 ELSE 0 END) AS blocked,
                     SUM(attempts) AS attempts
                 FROM development_mission_tasks WHERE mission_id=?
-            """, (mission_id,)).fetchone()
+            """, (self.max_task_attempts, self.max_task_attempts, mission_id)).fetchone()
         return MissionSnapshot(
             mission_id=row["mission_id"], goal=row["goal"], status=row["status"],
             cycle=row["cycle"], summary=row["summary"],
             pending_tasks=counts["pending"] or 0, running_tasks=counts["running"] or 0,
             completed_tasks=counts["completed"] or 0, attempts=counts["attempts"] or 0,
+            blocked_tasks=counts["blocked"] or 0,
         )
 
     def _progress_context(self, mission_id: str) -> str:
@@ -466,9 +473,9 @@ class ContinuousDevelopmentEngine:
             """, (now, now, mission_id, now))
             rows = db.execute("""
                 SELECT * FROM development_mission_tasks
-                WHERE mission_id=? AND status='queued' AND available_at<=?
+                WHERE mission_id=? AND status='queued' AND attempts < ? AND available_at<=?
                 ORDER BY cycle,created_at,task_id
-            """, (mission_id, now)).fetchall()
+            """, (mission_id, self.max_task_attempts, now)).fetchall()
             for row in rows:
                 dependencies = json.loads(row["depends_on"])
                 if dependencies:
@@ -518,9 +525,12 @@ class ContinuousDevelopmentEngine:
             if row is None:
                 raise MissionEngineError("Task lease expired before its result could be saved.")
             if error:
-                # Retry indefinitely with exponential backoff; the attempt count is informational,
-                # not a stop condition. The latest failure is fed into the next attempt.
-                delay = min(self.retry_base_seconds * (2 ** min(row["attempts"] - 1, 6)), 60.0)
+                # Repeated protocol/provider failures must stop consuming runner slices.
+                # Keep the task and its checkpoint queued but ineligible until explicitly resumed.
+                exhausted = row["attempts"] >= self.max_task_attempts
+                delay = 365 * 24 * 60 * 60 if exhausted else min(
+                    self.retry_base_seconds * (2 ** min(row["attempts"] - 1, 6)), 60.0
+                )
                 db.execute("""
                     UPDATE development_mission_tasks
                     SET status='queued',last_error=?,worker_id='',lease_until=NULL,
@@ -532,6 +542,17 @@ class ContinuousDevelopmentEngine:
                     SET status='succeeded',result=?,last_error='',worker_id='',lease_until=NULL,
                         updated_at=? WHERE task_id=?
                 """, (result[:12000], now, task_id))
+
+    def resume_blocked_tasks(self, mission_id: str) -> int:
+        """Explicitly re-enable exhausted tasks after their underlying blocker is repaired."""
+        now = time.time()
+        with self._transaction() as db:
+            cursor = db.execute("""
+                UPDATE development_mission_tasks
+                SET attempts=0,available_at=?,updated_at=?
+                WHERE mission_id=? AND status='queued' AND attempts>=?
+            """, (now, now, mission_id, self.max_task_attempts))
+            return cursor.rowcount
 
     def _execute_task(self, task: MissionTask, worker_id: str, emit: Callable[[str], None], mission_stop_event: threading.Event | None = None) -> None:
         stop = threading.Event()
@@ -631,6 +652,13 @@ class ContinuousDevelopmentEngine:
                 continue
 
             snapshot = self.get_mission(mission_id)
+            if snapshot.blocked_tasks:
+                emit(json.dumps({
+                    "event": "mission_blocked", "mission_id": mission_id,
+                    "blocked_tasks": snapshot.blocked_tasks,
+                    "message": "Task retry limit reached; repair the blocker and explicitly resume.",
+                }, ensure_ascii=False))
+                return snapshot
             if snapshot.pending_tasks or snapshot.running_tasks:
                 stop_event.wait(poll_seconds)
                 continue
