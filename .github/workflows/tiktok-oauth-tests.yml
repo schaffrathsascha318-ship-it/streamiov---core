@@ -4,6 +4,11 @@ on:
     paths:
       - "core/integration/tiktok-oauth.js"
       - "core/integration/tiktok-oauth-registry.js"
+      - "dist/streamiov-studio-app/tiktok-display-api.js"
+      - "scripts/sync-studio-tiktok-oauth.py"
+      - "core/integration/tiktok-display-api.js"
+      - "tests/tiktok-display-api.test.js"
+      - "docs/integrations/tiktok-display-api.md"
       - "tests/tiktok-oauth-registry.test.js"
       - "tests/tiktok-oauth.test.js"
       - "config/platforms/tiktok/oauth.json"
@@ -16,6 +21,11 @@ on:
     branches: [main]
     paths:
       - "core/integration/tiktok-oauth.js"
+      - "dist/streamiov-studio-app/tiktok-display-api.js"
+      - "scripts/sync-studio-tiktok-oauth.py"
+      - "docs/integrations/tiktok-display-api.md"
+      - "tests/tiktok-display-api.test.js"
+      - "core/integration/tiktok-display-api.js"
       - "tests/tiktok-oauth.test.js"
       - "config/platforms/tiktok/oauth.json"
       - "docs/integrations/tiktok-oauth.md"
@@ -39,7 +49,7 @@ jobs:
         with:
           node-version: "22"
       - name: Run sandbox-only OAuth tests
-        run: node --test tests/tiktok-oauth.test.js tests/tiktok-oauth-registry.test.js
+        run: node --test tests/tiktok-oauth.test.js tests/tiktok-oauth-registry.test.js tests/tiktok-display-api.test.js
       - name: Check Electron Studio JavaScript syntax
         run: |
           node --check dist/streamiov-studio-app/main.js
@@ -51,3 +61,4 @@ jobs:
           test -s dist/streamiov-studio-app/index.html
           test -s dist/streamiov-studio-app/tiktok-oauth.js
           cmp core/integration/tiktok-oauth.js dist/streamiov-studio-app/tiktok-oauth.js
+          cmp core/integration/tiktok-display-api.js dist/streamiov-studio-app/tiktok-display-api.js

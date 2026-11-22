@@ -1,4 +1,4 @@
-"""Sync the canonical TikTok OAuth service into the Electron app package."""
+"""Sync canonical TikTok OAuth and Display API adapters into the sandbox Electron app."""
 from __future__ import annotations
 
 import os
@@ -6,32 +6,40 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "core" / "integration" / "tiktok-oauth.js"
 APP = ROOT / "dist" / "streamiov-studio-app"
-TARGET = APP / "tiktok-oauth.js"
+FILES = (
+    (ROOT / "core" / "integration" / "tiktok-oauth.js", APP / "tiktok-oauth.js"),
+    (ROOT / "core" / "integration" / "tiktok-display-api.js", APP / "tiktok-display-api.js"),
+)
 
 
-def main() -> int:
-    if not SOURCE.is_file() or SOURCE.is_symlink():
-        raise SystemExit(f"Canonical OAuth service is missing or unsafe: {SOURCE}")
-    APP.mkdir(parents=True, exist_ok=True)
-    payload = SOURCE.read_bytes()
+def sync_file(source: Path, target: Path) -> int:
+    if not source.is_file() or source.is_symlink():
+        raise SystemExit(f"Canonical TikTok service is missing or unsafe: {source}")
+    payload = source.read_bytes()
     if not payload.strip():
-        raise SystemExit("Canonical OAuth service is empty.")
-    fd, temporary_name = tempfile.mkstemp(prefix=".tiktok-oauth.", suffix=".tmp", dir=APP)
+        raise SystemExit(f"Canonical TikTok service is empty: {source}")
+    fd, temporary_name = tempfile.mkstemp(prefix=".tiktok-service.", suffix=".tmp", dir=APP)
     temporary = Path(temporary_name)
     try:
         with os.fdopen(fd, "wb") as output:
             output.write(payload)
             output.flush()
             os.fsync(output.fileno())
-        os.replace(temporary, TARGET)
+        os.replace(temporary, target)
     finally:
         try:
             temporary.unlink()
         except FileNotFoundError:
             pass
-    print(f"Prepared packaged OAuth service: {TARGET.relative_to(ROOT)} ({len(payload)} bytes)")
+    print(f"Prepared packaged TikTok service: {target.relative_to(ROOT)} ({len(payload)} bytes)")
+    return 0
+
+
+def main() -> int:
+    APP.mkdir(parents=True, exist_ok=True)
+    for source, target in FILES:
+        sync_file(source, target)
     return 0
 
 

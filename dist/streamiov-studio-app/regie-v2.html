@@ -436,6 +436,11 @@ dialog::backdrop{background:#000b}
       <option value="tiktok">TikTok LIVE</option>
      </select>
      <p id="platformConnectionState" class="pill" role="status">Nicht verbunden</p>
+     <div id="tiktokProfileCard" hidden style="display:flex;align-items:center;gap:10px;margin-top:10px">
+      <img id="tiktokProfileAvatar" alt="TikTok-Profilbild" width="44" height="44" style="border-radius:50%;object-fit:cover" referrerpolicy="no-referrer">
+      <strong id="tiktokProfileName"></strong>
+     </div>
+     <button id="tiktokProfileLoad" type="button" hidden style="margin-top:8px">TikTok-Profil laden</button>
      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
       <button id="platformConnectInfo" type="button">TikTok-Konto verbinden</button>
       <button id="platformDisconnect" type="button" hidden>Verbindung trennen</button>
@@ -1843,6 +1848,10 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
  const connectButton = byId('platformConnectInfo');
  const disconnectButton = byId('platformDisconnect');
  const platformHelp = byId('platformHelp');
+ const profileCard = byId('tiktokProfileCard');
+ const profileAvatar = byId('tiktokProfileAvatar');
+ const profileName = byId('tiktokProfileName');
+ const profileLoadButton = byId('tiktokProfileLoad');
  let tiktokConnected = false;
 
  function renderTikTokStatus(result) {
@@ -1856,6 +1865,8 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
      : 'Nicht verbunden · TikTok-Login erforderlich';
   connectButton.textContent = tiktokConnected ? 'Verbindung aktualisieren' : 'Mit TikTok verbinden';
   disconnectButton.hidden = !tiktokConnected;
+  profileLoadButton.hidden = !tiktokConnected;
+  if (!tiktokConnected) profileCard.hidden = true;
   if (result?.status === 'configuration_required') {
    platformHelp.textContent = 'Im sicheren App-/Server-Secret-Speicher fehlen STREAMIOV_TIKTOK_SANDBOX_CLIENT_KEY, CLIENT_SECRET, REDIRECT_URI oder TOKEN_ENCRYPTION_KEY.';
   } else {
@@ -1868,9 +1879,39 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
    renderTikTokStatus({ok:false,status:'configuration_required',error:'Electron-Schnittstelle nicht verfügbar.'});
    return;
   }
-  try { renderTikTokStatus(await window.streamiovStudio.tiktokStatus()); }
-  catch (error) { connection.textContent = 'Status konnte nicht geladen werden: ' + error.message; }
+  try {
+   const result = await window.streamiovStudio.tiktokStatus();
+   renderTikTokStatus(result);
+   if (result?.status === 'connected') await loadTikTokProfile();
+  } catch (error) { connection.textContent = 'Status konnte nicht geladen werden: ' + error.message; }
  }
+
+ async function loadTikTokProfile() {
+  if (!tiktokConnected || !window.streamiovStudio?.tiktokProfile) return;
+  profileLoadButton.disabled = true;
+  profileLoadButton.textContent = 'Profil wird geladen …';
+  try {
+   const result = await window.streamiovStudio.tiktokProfile();
+   if (!result?.ok || !result.profile) throw new Error(result?.error || 'Profil nicht verfügbar');
+   profileName.textContent = result.profile.displayName || 'TikTok-Creator';
+   if (result.profile.avatarUrl) {
+    profileAvatar.src = result.profile.avatarUrl;
+    profileAvatar.hidden = false;
+   } else {
+    profileAvatar.removeAttribute('src');
+    profileAvatar.hidden = true;
+   }
+   profileCard.hidden = false;
+   connection.textContent = 'TikTok-Konto verbunden · Profil bestätigt · Sandbox';
+  } catch (error) {
+   connection.textContent = 'TikTok-Profil konnte nicht geladen werden: ' + error.message;
+  } finally {
+   profileLoadButton.disabled = false;
+   profileLoadButton.textContent = 'TikTok-Profil erneut laden';
+  }
+ }
+
+ profileLoadButton.addEventListener('click', loadTikTokProfile);
 
  byId('platformSelect').addEventListener('change', () => {
   const platform = byId('platformSelect').value;
