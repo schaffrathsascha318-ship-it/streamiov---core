@@ -134,7 +134,7 @@ class HomepageDownloadPageTests(unittest.TestCase):
         self.assertIn(f"{total} Bytes", html)
         self.assertIn(archive_hash.group(1), html)
         self.assertIn('href="/downloads/SHA256SUMS.txt"', html)
-        self.assertIn("inzwischen zusätzlich in Studio 1.0.1 enthalten", html)
+        self.assertIn("inzwischen zusätzlich in Studio 1.0.2 enthalten", html)
         self.assertIn("Release-Signatur", html)
         self.assertIn("/downloads/STREAMIOV-RELEASE-KEY.pub", html)
         self.assertIn("/downloads/SHA256SUMS.txt.sig", html)

@@ -1,8 +1,8 @@
 name: Deploy Cloudflare (manual, owner-approved)
 
-# Production deployment remains explicitly owner-approved.
-# This workflow never deploys automatically on merge or push.
-# It never creates accounts, provisions paid resources, or changes OAuth.
+# Homepage updates deploy automatically from main after the verified public assets and PWA are built.
+# The production environment protection remains active; AI Worker deployment stays manually owner-approved.
+# This workflow never creates accounts, provisions paid resources, or changes OAuth.
 
 on:
   workflow_dispatch:
@@ -49,6 +49,7 @@ jobs:
           bash -n scripts/deploy-streamiov-ai-worker.sh
           python scripts/verify-cloudflare-config.py
           node --test tests/test_cloudflare_ai_worker.mjs
+          python scripts/test-mobile-pwa.py
 
   deploy-homepage:
     needs: verify
@@ -60,6 +61,13 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Build the current mobile PWA into the public site
+        run: python scripts/build-mobile-pwa.py
 
       - uses: actions/setup-node@v4
         with:
