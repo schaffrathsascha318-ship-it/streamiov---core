@@ -67,7 +67,7 @@ def pe_machine(path: pathlib.Path) -> int:
         stream.seek(0x3C)
         offset = struct.unpack("<I", stream.read(4))[0]
         stream.seek(offset)
-        if stream.read(4) != b"PE\\0\\0":
+        if stream.read(4) != b"PE\0\0":
             raise RuntimeError("Windows FFmpeg binary has an invalid PE signature")
         return struct.unpack("<H", stream.read(2))[0]
 
