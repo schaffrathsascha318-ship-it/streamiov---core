@@ -2,6 +2,8 @@
 
 This is the first self-hosted host component. It uses only Python's standard library, serves the complete static site from `dist/streamiov-homepage-worker/public`, and exposes non-sensitive diagnostic routes:
 
+The entry page is intentionally independent: static HTML/CSS that does not call the Core, require a session, or depend on a backend to render and navigate. Backend-dependent services may be unavailable when the host is offline, but that does not affect the entry homepage. The Core remains a separate optional service; no second Core is introduced.
+
 - `GET /healthz` reports process health, version, and uptime.
 - `GET /api/v1/status` reports that local account routes are enabled while the broader application API remains unavailable, plus read-only catalog counts and import errors.
 - `GET /api/v1/catalog`, `/api/v1/catalog/gifts`, `/api/v1/catalog/games`, `/api/v1/music/library`, and `/api/v1/studio/templates` expose the read-only catalog seeded from the repository JSON files under `data/`. They never read or modify the legacy `data/db/*.sqlite3` databases and never import accounts, sessions, devices, or platform credentials.
