@@ -48,9 +48,11 @@ jobs:
           gh label create agent-review --color 0E8A16 --description "AI Chief prepared a draft pull request for review" --force >/dev/null
           gh label create agent-blocked --color B60205 --description "AI Chief is blocked and needs investigation" --force >/dev/null
 
-          issue_json="$(gh issue list --state open --label agent-in-progress --limit 1 --json number,title,body)"
+          # Explicitly ready owner-approved work takes priority over a stale
+          # in-progress label left by an interrupted or misrouted runner.
+          issue_json="$(gh issue list --state open --label agent-ready --limit 1 --json number,title,body)"
           if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
-            issue_json="$(gh issue list --state open --label agent-ready --limit 1 --json number,title,body)"
+            issue_json="$(gh issue list --state open --label agent-in-progress --limit 1 --json number,title,body)"
           fi
 
           if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
