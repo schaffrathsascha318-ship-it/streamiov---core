@@ -90,3 +90,25 @@ test("environment-bound encryption prevents sandbox/production token crossover",
  const s=new EncryptedTokenStore({filePath:p,encryptionKey:key,environment:"sandbox"}),prod=new EncryptedTokenStore({filePath:p,encryptionKey:key,environment:"production"});
  s.save({access_token:"sandbox"}); assert.throws(()=>prod.load(),/token_environment_mismatch/);
 });
+
+
+test("callback validates returned scopes and token grants",async()=>{
+ const {oauth,store}=fixture();
+ const missing=oauth.createAuthorizationUrl();
+ await assert.rejects(()=>oauth.callback({code:"c",state:missing.state,scopes:"user.info.profile"}),/oauth_scope_missing/);
+ assert.equal(store.load(),null);
+ const tokenMissing=fixture({fetch:async()=>({ok:true,json:async()=>({access_token:"a",refresh_token:"r",expires_in:3600,scope:"user.info.profile"})})});
+ const a=tokenMissing.oauth.createAuthorizationUrl();
+ await assert.rejects(()=>tokenMissing.oauth.callback({code:"c",state:a.state,scopes:"user.info.basic"}),/oauth_scope_missing/);
+ assert.equal(tokenMissing.store.load(),null);
+ const valid=oauth.createAuthorizationUrl();
+ const result=await oauth.callback({code:"c",state:valid.state,scopes:"user.info.basic"});
+ assert.equal(result.status,"connected");
+});
+
+test("callback rejects malformed provider fields without reflecting provider text",async()=>{
+ const {oauth}=fixture();
+ await assert.rejects(()=>oauth.callback({error:"access_denied",error_description:"User denied access"}),err=>err.message==="provider_authorization_error" && !err.message.includes("User denied"));
+ const a=oauth.createAuthorizationUrl();
+ await assert.rejects(()=>oauth.callback({code:"c",state:a.state,scopes:["user.info.basic"]}),/oauth_scopes_invalid/);
+});

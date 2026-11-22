@@ -6,6 +6,15 @@ const AUTH = "https://www.tiktok.com/v2/auth/authorize/";
 const TOKEN = "https://open.tiktokapis.com/v2/oauth/token/";
 const REVOKE = "https://open.tiktokapis.com/v2/oauth/revoke/";
 const BASIC_SCOPE = "user.info.basic";
+function parseScopes(value) {
+  if (typeof value !== "string" || !value.trim() || value.length > 4096) throw new Error("oauth_scopes_invalid");
+  return [...new Set(value.split(/[ ,]+/).map(scope => scope.trim()).filter(Boolean))];
+}
+function assertRequiredScopes(value, required) {
+  const granted = parseScopes(value);
+  if (required.some(scope => !granted.includes(scope))) throw new Error("oauth_scope_missing");
+  return granted;
+}
 
 function need(v, n) { if (typeof v !== "string" || !v.trim()) throw new Error(n + "_required"); return v.trim(); }
 function keyBytes(v) { const b = Buffer.from(need(v, "token_encryption_key"), "base64"); if (b.length !== 32) throw new Error("token_encryption_key_must_be_32_bytes"); return b; }
@@ -70,14 +79,20 @@ class TikTokOAuth {
     const expires=Number(t.expires_in), refreshExpires=Number(t.refresh_expires_in);
     return {access_token:t.access_token,refresh_token:typeof t.refresh_token==="string"?t.refresh_token:null,token_type:t.token_type||"Bearer",scope:t.scope||BASIC_SCOPE,expires_at:this.clock()+(Number.isFinite(expires)?expires:0)*1000,refresh_expires_at:Number.isFinite(refreshExpires)&&refreshExpires>0?this.clock()+refreshExpires*1000:null,open_id:t.open_id||null};
   }
-  async callback({code,state,error}={}) {
+  async callback({code,state,error,error_description,scopes}={}) {
+    // Provider text is untrusted. Bound it and never reflect it into logs or UI.
+    if (error !== undefined && (typeof error !== "string" || error.length > 256)) throw new Error("provider_authorization_error");
+    if (error_description !== undefined && (typeof error_description !== "string" || error_description.length > 2048)) throw new Error("provider_authorization_error");
     if (error) throw new Error("provider_authorization_error");
     if (typeof state!=="string" || !state) throw new Error("oauth_state_missing");
     const p=this.pending.get(state); this.pending.delete(state);
     if (!p) throw new Error("oauth_state_mismatch");
     if (this.clock()-p.created>this.ttl) throw new Error("oauth_state_expired");
     if (typeof code!=="string" || !code || code.length>2048) throw new Error("authorization_code_invalid");
+    if (scopes !== undefined) assertRequiredScopes(scopes, this.scopes);
     const tokens=await this.tokenRequest({client_key:this.clientKey,client_secret:this.clientSecret,code,grant_type:"authorization_code",redirect_uri:this.redirectUri,code_verifier:p.verifier});
+    // Require the token response to confirm every requested permission; never infer grants.
+    assertRequiredScopes(tokens && tokens.scope, this.scopes);
     this.store.save(this.normalize(tokens));
     return {ok:true,status:"connected",environment:this.environment};
   }
