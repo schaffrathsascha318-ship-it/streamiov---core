@@ -37,6 +37,7 @@ on:
       - "scripts/sync-studio-ui.py"
       - "scripts/sync-studio-games.py"
       - "scripts/test-studio-media-pipeline.cjs"
+      - "scripts/prepare-ffmpeg-runtime.py"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -48,6 +49,7 @@ permissions:
 env:
   FFMPEG_RELEASE_TAG: autobuild-2026-11-22-12-36
   FFMPEG_SOURCE_COMMIT: 359c825152
+  FFMPEG_BUILD_SCRIPTS_COMMIT: 7f2a6b1050d302144de8366afa37a75e46f326aa
 
 jobs:
   build:
@@ -124,6 +126,7 @@ jobs:
           --sha256 "${{ matrix.ffmpeg_sha256 }}"
           --tag "${{ env.FFMPEG_RELEASE_TAG }}"
           --source-commit "${{ env.FFMPEG_SOURCE_COMMIT }}"
+          --build-scripts-commit "${{ env.FFMPEG_BUILD_SCRIPTS_COMMIT }}"
           --target "${{ matrix.ffmpeg_target }}"
 
       - name: Eigene Regie-Engine testen
@@ -222,6 +225,18 @@ jobs:
             exit 1
           fi
           echo "version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: GPL-Quellcode-Nachweis für FFmpeg prüfen
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_DIR="artifacts/streamiov-ffmpeg-source-code"
+          test -s "$SOURCE_DIR/ffmpeg-source-bundle.tar.xz" || {
+            echo "::error::FFmpeg binaries are GPLv3. A complete corresponding-source bundle must be attached before redistribution."
+            exit 1
+          }
+          test -s "$SOURCE_DIR/SHA256SUMS.txt"
+          echo "Corresponding-source bundle present; continuing release validation."
 
       - name: Installer eindeutig benennen und prüfen
         shell: bash
