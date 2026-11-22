@@ -1,6 +1,6 @@
-name: Streamiov Studio Builds
+name: Streamiov Studio Builds (Windows ARM64 + mobile PWA)
 
-# Windows desktop packages target x64; Linux and ChromeOS retain their native architectures.
+# Windows x64/ARM64, Linux x64/ARM64, ChromeOS Crostini, and the installable mobile PWA are built independently.
 on:
   workflow_dispatch:
     inputs:
