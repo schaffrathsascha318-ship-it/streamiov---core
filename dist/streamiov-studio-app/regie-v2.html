@@ -983,11 +983,17 @@ $("screenStart").onclick=async()=>{
  const button=$("screenStart"),status=$("screenCaptureStatus");button.disabled=true;
  status.textContent="Lade verfügbare Fenster und Bildschirme …";
  try{
-  if(!navigator.mediaDevices?.getDisplayMedia||!window.streamiovStudio?.listDisplaySources)throw new Error("Bildschirmaufnahme ist in dieser Laufzeit nicht verfügbar.");
-  const sources=await window.streamiovStudio.listDisplaySources();
-  if(!sources.length)throw new Error("Es wurden keine Fenster oder Bildschirme gefunden.");
-  status.textContent="Wähle das Fenster oder den Bildschirm, den du teilen möchtest.";
-  const stream=await chooseDisplayStream(sources);
+  if(!navigator.mediaDevices?.getDisplayMedia)throw new Error("Bildschirmaufnahme wird von diesem Browser oder Gerät nicht unterstützt.");
+  let stream;
+  if(window.streamiovStudio?.listDisplaySources){
+   const sources=await window.streamiovStudio.listDisplaySources();
+   if(!sources.length)throw new Error("Es wurden keine Fenster oder Bildschirme gefunden.");
+   status.textContent="Wähle das Fenster oder den Bildschirm, den du teilen möchtest.";
+   stream=await chooseDisplayStream(sources);
+  }else{
+   status.textContent="Öffne die Browser-Auswahl für Bildschirm oder Fenster …";
+   stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});
+  }
   captureState.screen=stream;screenVideo.srcObject=stream;screenVideo.style.display="block";
   await screenVideo.play();
   const track=stream.getVideoTracks()[0];

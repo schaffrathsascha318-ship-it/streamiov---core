@@ -1,6 +1,7 @@
-name: Streamiov Studio Builds
+name: Streamiov Studio Builds (Windows ARM64 + mobile PWA)
 
-# Windows desktop packages target x64; Linux and ChromeOS retain their native architectures.
+# Release 1.0.2: Windows x64/ARM64, Linux x64/ARM64, ChromeOS Crostini, and the installable mobile PWA are built independently.
+# Verified releases publish automatically from main after every required platform build and test succeeds.
 on:
   workflow_dispatch:
     inputs:
@@ -13,7 +14,7 @@ on:
         description: "Release-Version ohne studio-v-Präfix"
         required: true
         type: string
-        default: "1.0.1"
+        default: "1.0.2"
       prerelease:
         description: "Als Vorabversion kennzeichnen"
         required: true
@@ -54,6 +55,9 @@ jobs:
           - name: Windows x64
             runner: windows-latest
             command: dist:win
+          - name: Windows ARM64
+            runner: windows-latest
+            command: dist:win:arm64
           - name: Linux x64
             runner: ubuntu-latest
             command: dist:linux
@@ -124,10 +128,38 @@ jobs:
         timeout-minutes: 5
         run: node scripts/test-studio-media-pipeline.cjs
 
+  pwa-package:
+    name: Build and package installable mobile web Regie
+    runs-on: ubuntu-latest
+    steps:
+      - name: Quellcode laden
+        uses: actions/checkout@v4
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: PWA generieren und vollständig prüfen
+        run: python scripts/test-mobile-pwa.py
+      - name: PWA-Bundle für HTTPS-Hosting paketieren
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(python -c "import json; print(json.load(open('dist/streamiov-studio-app/package.json'))['version'])")
+          mkdir -p release
+          (cd dist/streamiov-homepage-worker/public && zip -qr "$GITHUB_WORKSPACE/release/Streamiov.Mobile.Regie.${VERSION}-PWA.zip" app)
+          test -s "release/Streamiov.Mobile.Regie.${VERSION}-PWA.zip"
+      - name: PWA-Bundle als Release-Artefakt speichern
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamiov-mobile-pwa
+          path: release/*.zip
+          if-no-files-found: error
+          retention-days: 30
+
   publish-release:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release))
     name: Installer dauerhaft veröffentlichen
-    needs: [build, media-pipeline-smoke]
+    needs: [build, media-pipeline-smoke, pwa-package]
     runs-on: ubuntu-latest
     steps:
       - name: Quellcode laden
@@ -136,7 +168,7 @@ jobs:
       - name: Installer aller Plattformen herunterladen
         uses: actions/download-artifact@v4
         with:
-          pattern: streamiov-studio-*
+          pattern: streamiov-*
           path: artifacts
 
       - name: Determine and validate release version
@@ -182,10 +214,12 @@ jobs:
             cp "$source" "release/$destination"
           }
           copy_one "artifacts/streamiov-studio-Windows x64" "*.exe" "Streamiov.Studio.Setup.${APP_VERSION}-x64.exe"
+          copy_one "artifacts/streamiov-studio-Windows ARM64" "*.exe" "Streamiov.Studio.Setup.${APP_VERSION}-arm64.exe"
           copy_one "artifacts/streamiov-studio-Linux x64" "*.AppImage" "Streamiov.Studio-${APP_VERSION}-x64.AppImage"
           copy_one "artifacts/streamiov-studio-Linux ARM64" "*.AppImage" "Streamiov.Studio-${APP_VERSION}-arm64.AppImage"
           copy_one "artifacts/streamiov-studio-Linux x64" "*.deb" "streamiov-studio_${APP_VERSION}_amd64.deb"
           copy_one "artifacts/streamiov-studio-Linux ARM64" "*.deb" "streamiov-studio_${APP_VERSION}_arm64.deb"
+          copy_one "artifacts/streamiov-mobile-pwa" "*.zip" "Streamiov.Mobile.Regie.${APP_VERSION}-PWA.zip"
           cd release
           find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
           ls -lh
