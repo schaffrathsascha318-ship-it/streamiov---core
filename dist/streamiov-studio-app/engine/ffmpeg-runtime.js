@@ -15,9 +15,7 @@ function resolveFfmpegExecutable(options = {}) {
   const appPath = options.appPath;
 
   const candidates = [];
-  if (typeof env.STREAMIOV_FFMPEG_PATH === 'string' && env.STREAMIOV_FFMPEG_PATH.trim()) {
-    candidates.push(env.STREAMIOV_FFMPEG_PATH.trim());
-  }
+  // Packaged binaries are the deterministic default for end users.
   if (resourcesPath) {
     candidates.push(path.join(resourcesPath, 'ffmpeg', 'bin', executableName));
     candidates.push(path.join(resourcesPath, 'ffmpeg', executableName));
@@ -25,6 +23,9 @@ function resolveFfmpegExecutable(options = {}) {
   if (appPath) {
     candidates.push(path.join(appPath, 'ffmpeg', 'bin', executableName));
     candidates.push(path.join(appPath, 'ffmpeg', executableName));
+  }
+  if (typeof env.STREAMIOV_FFMPEG_PATH === 'string' && env.STREAMIOV_FFMPEG_PATH.trim()) {
+    candidates.push(env.STREAMIOV_FFMPEG_PATH.trim());
   }
 
   for (const candidate of candidates) {
