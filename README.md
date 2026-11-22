@@ -1,5 +1,7 @@
 # Streamiov
 
+> **Streamiov 2.0 product direction (2026-11-18):** Streamiov is being developed as an independent streaming and community platform with its own live delivery, chat, audience, gifts, alerts, games, Core and Studio. TikTok is not the platform or a required dependency. Existing integrations are preserved until separately audited. See [STREAMIOV_2_PLATFORM_BOUNDARY.md](docs/STREAMIOV_2_PLATFORM_BOUNDARY.md) for the authoritative boundary; this README's implementation snapshot may describe older capabilities.
+
 Streamiov is a downloadable desktop studio for streamers. The goal is to give creators one place to prepare a broadcast, manage its sources and scenes, and send it to the streaming service they use.
 
 **Von Streamern für Streamer. Zum Nulltarif.**

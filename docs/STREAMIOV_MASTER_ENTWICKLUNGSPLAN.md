@@ -1,6 +1,13 @@
 # STREAMIOV – MASTER-ENTWICKLUNGSPLAN
 ## Vom Projektanfang bis zum fertigen Endprodukt
 
+> **Verbindliche Aktualisierung vom 18.11.2026:** Für die aktuelle Produktgrenze gilt
+> [STREAMIOV_2_PLATFORM_BOUNDARY.md](STREAMIOV_2_PLATFORM_BOUNDARY.md). STREAMIOV
+> ist eine eigenständige Streaming- und Community-Plattform. Ältere Abschnitte, die
+> TikTok als zentrale Plattform oder Pflichtintegration festlegen, sind überholt.
+> Bestehende TikTok-Integrationen bleiben bis zu einer gesonderten Prüfung erhalten,
+> sind aber kein Architekturzwang. Bei Widersprüchen hat die aktuelle Produktgrenze Vorrang.
+
 **Leitgedanke:** Von Streamern für Streamer. Zum Nulltarif.
 **Gesamtauftrag:** STREAMIOV vollständig entwickeln, integrieren, testen,
 reparieren und für die Veröffentlichung vorbereiten.

@@ -1,16 +1,29 @@
 # StreamioV implementation sequence
 
+> **Verbindliche Aktualisierung vom 18.11.2026:** Die aktuelle Produktgrenze steht in
+> [STREAMIOV_2_PLATFORM_BOUNDARY.md](STREAMIOV_2_PLATFORM_BOUNDARY.md). STREAMIOV
+> wird als eigenständige Plattform mit eigener Live-Übertragung, eigenem Chat, eigenen
+> Zuschauer-, Geschenk-, Alert-, Game- und Regiefunktionen gebaut. TikTok ist keine
+> primäre Plattform und keine Pflichtintegration. Bestehende TikTok-Integrationen
+> dürfen nicht ungeprüft gelöscht oder verändert werden.
+>
+> Ältere Aussagen in diesem Dokument, die TikTok als einzige Live-Plattform oder
+> Geldgeschenke pauschal als ausgeschlossen festlegen, sind für Streamiov 2.0 nicht
+> maßgeblich. Geldgeschenke benötigen eine gesonderte, sichere Umsetzung: maximal
+> 500 € je Einzelgeschenk; eine monatliche Aufladegrenze ist nur bei einem tatsächlich
+> eingeführten Guthaben erforderlich. Ein verpflichtendes Streamiov-Wallet ist zu vermeiden.
+
 This sequence combines the GitHub [`DEVELOPMENT_ROADMAP.md`](DEVELOPMENT_ROADMAP.md) with the owner's zero-spend, self-built-product, music, game-branding, TikTok-login, and TikTok-gift-gallery requirements. It is a work plan, not a claim that listed features are already complete.
 
-The owner's later no-revenue decision supersedes any earlier roadmap language about paid STREAMIOV gifts, payment ledgers, commissions, or payouts. StreamioV-native gifts are free effects only; TikTok-native gifting stays entirely in TikTok's own purchase and reward systems.
+Streamiov bleibt ohne Abonnements, Pro-Stufen und künstliche Bezahlschranken. Visuelle Streamiov-Geschenke können kostenlos sein; zusätzlich sind eigenständige Geldgeschenke als separater, ausdrücklich freigegebener Zahlungsweg möglich. Für Geldgeschenke gelten maximal 500 € je Einzelgeschenk. Streamiov erhebt keine eigene Geschenkprovision; der beim Empfänger ankommende Betrag und mögliche Drittanbieter-/Zahlungsgebühren müssen transparent ausgewiesen werden. Eine monatliche Einzahlungs-/Aufladegrenze ist nur erforderlich, falls tatsächlich ein aufladbares Guthaben eingeführt wird. Ein verpflichtendes Streamiov-Wallet ist zu vermeiden. Streamiov soll Geld möglichst nicht selbst halten oder verwalten. TikTok-Geschenke bleiben ein optionaler externer Vorgang und sind keine Voraussetzung für Streamiov.
 
 ## Non-negotiable product constraints
 
-- StreamioV earns no revenue: no ads, subscriptions, paid tiers, sales, donations to StreamioV, paid gifts, commission, or payment collection. Core use requires no purchase. No paid APIs, models, hosting, codecs, music services, commercial SDKs, payment services, or paid fallback may be mandatory.
+- Streamiov bleibt dauerhaft ohne Abonnements, Pro-Stufen und künstliche Paywalls. Keine automatische Werbung in LIVE-Streams; freiwillige Sponsoring-Kooperationen sind nach den Plattformregeln zulässig. Geldgeschenke dürfen nur als getrenntes, ausdrücklich freigegebenes Modul umgesetzt werden: maximal 500 € je Einzelgeschenk, 0 % Streamiov-Provision, transparente Drittanbietergebühren und eine monatliche Aufladegrenze nur bei echtem Guthaben. Kein verpflichtendes Wallet und keine unnötige Verwahrung von Nutzergeld. Keine kostenpflichtigen APIs, Modelle, Hostingdienste oder externen Verpflichtungen ohne Freigabe.
 - StreamioV builds its own product logic: Studio/Regie, scene and media system, local music library and rights registry, games framework, and bounded AI specialists. Local open-source components may be used after license review; their hosted vendors must not be required.
 - Use already-owned hardware for local AI and any self-hosted persistent service. A machine that is powered off cannot serve remote requests. A static homepage cannot host a persistent worker or backend.
 - GitHub Pages is limited to static project information/downloads, and GitHub Actions to bounded CI/build jobs; neither is the persistent StreamioV server. Actions quotas depend on repository visibility and plan, so guard against billable overages.
-- Keep TikTok as an explicit external platform integration, using only official, approved interfaces. Its availability, developer review, granted scopes, account eligibility, and any provider-side requirements are separate from StreamioV-owned software.
+- Streamiov betreibt seine eigene Streaming- und Community-Plattform. TikTok ist höchstens ein optionaler, separat geprüfter externer Adapter und keine Pflichtabhängigkeit. Offizielle Schnittstellen, Freigaben und vorhandene Integrationen sind vor jeder Änderung zu prüfen und zu erhalten.
 - Target Windows, Linux, ChromeOS, Android, and iOS from one shared product core, with device-specific builds and capture/authentication adapters. Design responsive layouts for phones, tablets, Chromebook screens, and desktop displays; verify each target on real hardware before marking it supported.
 - Never overwrite existing working-tree changes, creator connections, OAuth configuration, tokens, or production data as routine development.
 - Planned, mock, built, and verified states must remain distinct in code, UI, downloads, and public claims.
@@ -41,18 +54,18 @@ The owner's later no-revenue decision supersedes any earlier roadmap language ab
 - Keep Windows, Linux, ChromeOS, Android, and iOS as product targets. Use desktop installers where appropriate and a mobile-friendly/native delivery path per operating system; do not claim that one web build automatically provides full feature parity on every device.
 - Own the Regie and stream lifecycle. Do not require OBS, a paid relay, cloud encoder, hosted login, or plugin marketplace.
 - Package legally redistributable local media/codec components where possible; document optional system prerequisites and unsupported hardware honestly.
-- Keep RTMP-style destinations an advanced adapter only if needed; the intended creator flow is sign-in, connect an eligible TikTok account, and go live through approved means without forcing server/RTMP setup.
+- Keep the creator flow native to Streamiov: create or sign in to a Streamiov account, configure Studio/Regie, run the device/network preflight, and start a Streamiov LIVE session. External platform connections such as TikTok are optional adapters only and must never be required to broadcast on Streamiov.
 
 **Acceptance:** supported installer starts on a clean supported device, camera/audio/capture and preview are hardware-verified, and every claimed live path is separately authorized and tested.
 
 ### 3. TikTok login and gift gallery
 
-- Implement TikTok Login Kit as an optional account-linking method after maintaining a separate StreamioV account/login path where appropriate.
-- Use authorization code + PKCE and exact registered redirect URIs; exchange credentials server-side and request only approved, necessary scopes. Do not put client secrets or long-lived tokens in the desktop renderer or public website.
+- Implementiere zuerst Streamiov-eigene Konten, Anmeldung, Sessions und Berechtigungen. TikTok Login Kit darf ausschließlich eine optionale externe Kontoverknüpfung sein und darf die Streamiov-Anmeldung oder den eigenen LIVE-Betrieb nicht ersetzen.
+- Für optionale externe OAuth-Verknüpfungen gelten Authorization Code + PKCE, exakt registrierte Redirect-URIs, serverseitiger Credential-Austausch und minimale genehmigte Scopes. Keine Client-Secrets oder langlebigen Tokens im Desktop-Renderer oder auf der öffentlichen Website.
 - Preserve existing creator sessions and OAuth configuration. Do not rotate or invalidate credentials without an explicit, tested migration plan.
 - Build the gift gallery with two clearly separate catalogues: TikTok-native gift data that an approved official interface actually makes available, and StreamioV-native gifts created by StreamioV. A selected TikTok gift must use TikTok's own approved gifting flow; do not build a StreamioV checkout or imply that StreamioV can send gifts or observe live gift events unless that exact capability is officially granted and verified.
-- StreamioV-native gifts are free visual/event actions only. StreamioV does not sell/settle gifts, collect money, take a commission, or process payouts. TikTok-native gifts remain transactions handled by TikTok.
-- StreamioV takes no share and handles no TikTok payment or payout. The creator's balance and any withdrawal/reward are governed by TikTok's Diamonds/Virtual Items rules, eligibility, region, and payout terms. Do not promise that a TikTok gift's purchase price converts 1:1 to cash for the streamer.
+- Streamiov-eigene visuelle Geschenke und Geldgeschenke müssen technisch und in der Oberfläche getrennt sein. Bei freigegebenen Geldgeschenken erhebt Streamiov 0 % eigene Provision; der Empfänger erhält den ausgewiesenen Betrag ohne Streamiov-Abzug. Drittanbieter- und Zahlungsgebühren sind vorab transparent zu machen. Streamiov soll keine unnötige Wallet- oder Verwahrfunktion einführen. TikTok-Geschenke bleiben optional und werden ausschließlich über tatsächlich genehmigte TikTok-Funktionen abgewickelt.
+- Streamiov zieht bei eigenen Geldgeschenken keine Provision ab. Für optionale TikTok-Geschenke gelten ausschließlich TikToks eigene Regeln, Verfügbarkeiten, Gebühren und Auszahlungsbedingungen; eine 1:1-Auszahlung aus einem TikTok-Kaufpreis darf nicht versprochen werden.
 - Handle denial, revocation, expired tokens, rate limits, unavailable scopes, and review rejection without blocking local Studio use.
 - TikTok app review and permissions are an external prerequisite; do not claim approval in code or copy without evidence.
 
