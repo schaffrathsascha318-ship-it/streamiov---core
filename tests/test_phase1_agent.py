@@ -413,7 +413,10 @@ class AgentTests(unittest.TestCase):
     def test_non_game_agent_cannot_request_game_check_tool(self):
         with tempfile.TemporaryDirectory() as tmp:
             agent = DevelopmentAgent(
-                FakeProvider(['{"tool":"run_game_checks","arguments":{}}']), tmp, specialist="code"
+                FakeProvider([
+                    '{"tool":"run_game_checks","arguments":{}}',
+                    '{"tool":"run_game_checks","arguments":{}}',
+                ]), tmp, specialist="code"
             )
             with self.assertRaises(AgentError):
                 agent.run("Run game checks.")
