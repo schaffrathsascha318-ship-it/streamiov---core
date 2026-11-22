@@ -153,7 +153,7 @@ def main() -> int:
         "verification": "PE architecture checked; runtime execution deferred for Windows ARM64" if args.target == "winarm64" else "native execution verified: libx264, native AAC, RTMP, GPLv3, no nonfree",
         "license": "GPL-3.0-or-later; complete corresponding source and dependency notices must accompany redistribution",
     }
-    (runtime_dir / "BUILD-INFO.json").write_text(json.dumps(metadata, indent=2) + "\\n", encoding="utf-8")
+    (runtime_dir / "BUILD-INFO.json").write_text(json.dumps(metadata, indent=2) + chr(10), encoding="utf-8")
     print(json.dumps(metadata, indent=2))
     return 0
 
