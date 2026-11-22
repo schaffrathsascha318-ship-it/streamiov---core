@@ -100,7 +100,7 @@ class MissionEngineTests(unittest.TestCase):
                 "Reject oversized batch.", "", mission_id="twelve-limit", cycle=1,
             )
 
-    def test_task_retry_backoff_is_capped_at_one_minute_without_attempt_ceiling(self):
+    def test_task_retry_limit_blocks_without_losing_task_and_supports_explicit_resume(self):
         planner = SequencePlanner([
             MissionPlan("continue", "Retry task.", (
                 SpecialistTask("retry", "code", "retry this task"),
@@ -127,11 +127,40 @@ class MissionEngineTests(unittest.TestCase):
                 "SELECT available_at FROM development_mission_tasks WHERE task_id=?",
                 (task.task_id,),
             ).fetchone()[0]
-        self.assertGreaterEqual(available_at - before, 59)
-        self.assertLessEqual(available_at - before, 61)
+        self.assertGreaterEqual(available_at - before, 365 * 24 * 60 * 60 - 2)
         snapshot = engine.get_mission(mission_id)
-        self.assertEqual(snapshot.pending_tasks, 1)
+        self.assertEqual(snapshot.pending_tasks, 0)
+        self.assertEqual(snapshot.blocked_tasks, 1)
         self.assertEqual(snapshot.attempts, 100)
+        self.assertEqual(engine.resume_blocked_tasks(mission_id), 1)
+        resumed = engine.get_mission(mission_id)
+        self.assertEqual(resumed.pending_tasks, 1)
+        self.assertEqual(resumed.blocked_tasks, 0)
+        self.assertEqual(resumed.attempts, 0)
+
+
+    def test_repeated_specialist_failures_stop_at_configured_attempt_limit(self):
+        planner = SequencePlanner([
+            MissionPlan("continue", "One task.", (
+                SpecialistTask("broken", "code", "run a task that fails"),
+            )),
+        ])
+        class BrokenAgent:
+            def run(self, _prompt):
+                raise RuntimeError("invalid JSON action protocol")
+        engine = ContinuousDevelopmentEngine(
+            self.db, planner, lambda _role: BrokenAgent(),
+            retry_base_seconds=0.01, lease_seconds=10, max_task_attempts=2,
+        )
+        mission_id = engine.create_mission("Block repeated invalid action responses")
+        events = []
+        result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=events.append)
+        self.assertEqual(result.status, "active")
+        self.assertEqual(result.pending_tasks, 0)
+        self.assertEqual(result.running_tasks, 0)
+        self.assertEqual(result.blocked_tasks, 1)
+        self.assertEqual(result.attempts, 2)
+        self.assertTrue(any('"event": "mission_blocked"' in event for event in events))
 
     def test_planner_response_parser_accepts_markdown_json_fences_and_preambles(self):
         responses = (
