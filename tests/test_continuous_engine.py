@@ -138,6 +138,98 @@ class MissionEngineTests(unittest.TestCase):
             ).fetchone()
         self.assertEqual(row, ("queued", 6, "RuntimeError: failure 6"))
 
+    def test_repeated_invalid_action_protocol_is_blocked_across_engine_slices(self):
+        planner = SequencePlanner([
+            MissionPlan("continue", "Run one protocol task and one independent task.", (
+                SpecialistTask("protocol", "code", "produce valid tool actions"),
+                SpecialistTask("independent", "research", "continue independent research"),
+            )),
+        ])
+        engine = self.make_engine(planner, lambda _role: None, max_task_failures=3)
+        mission_id = engine.create_mission("Bound repeated invalid specialist action responses")
+        engine._claim_planning(mission_id, "planner")
+        engine._store_plan(mission_id, "planner", 1, planner.plans[0])
+        repeated_error = (
+            "AgentError: Model action protocol remained invalid after 3 bounded corrections; "
+            "refusing to execute."
+        )
+
+        for attempt in range(1, 4):
+            task = engine._claim_task(mission_id, "worker")
+            self.assertIsNotNone(task)
+            self.assertTrue(task.task_id.endswith(":protocol"))
+            outcome = engine._finish_task(task.task_id, "worker", error=repeated_error)
+            self.assertEqual(outcome, "failed" if attempt == 3 else "queued")
+            if attempt < 3:
+                with closing(sqlite3.connect(self.db)) as db, db:
+                    db.execute(
+                        "UPDATE development_mission_tasks SET available_at=0 WHERE task_id=?",
+                        (task.task_id,),
+                    )
+
+        blocked = engine.get_mission(mission_id)
+        self.assertEqual(blocked.failed_tasks, 1)
+        self.assertEqual(blocked.pending_tasks, 1)
+        with closing(sqlite3.connect(self.db)) as db, db:
+            row = db.execute(
+                "SELECT status,failure_count,last_error_class,last_error FROM development_mission_tasks WHERE task_id=?",
+                (f"{mission_id}:1:protocol",),
+            ).fetchone()
+        self.assertEqual(row[0:3], ("failed", 3, "action_protocol"))
+        self.assertIn("refusing to execute", row[3])
+
+        # A separate specialist remains eligible even though the protocol task is blocked.
+        independent = engine._claim_task(mission_id, "worker")
+        self.assertIsNotNone(independent)
+        self.assertTrue(independent.task_id.endswith(":independent"))
+        self.assertEqual(engine._finish_task(independent.task_id, "worker", result="research complete"), "succeeded")
+
+        resumed_engine = self.make_engine(planner, lambda _role: None, max_task_failures=3)
+        resumed = resumed_engine.get_mission(mission_id)
+        self.assertEqual(resumed.failed_tasks, 1)
+        self.assertIsNone(resumed_engine._claim_task(mission_id, "next-slice"))
+
+    def test_worker_timeout_backoff_is_classified_and_persisted_across_slices(self):
+        planner = SequencePlanner([
+            MissionPlan("continue", "Wait safely after provider timeout.", (
+                SpecialistTask("timeout", "code", "call the configured provider"),
+            )),
+        ])
+        engine = self.make_engine(planner, lambda _role: None)
+        mission_id = engine.create_mission("Persist provider timeout backoff")
+        engine._claim_planning(mission_id, "planner")
+        engine._store_plan(mission_id, "planner", 1, planner.plans[0])
+        timeout_error = "TimeoutError: Cloudflare Worker request timed out"
+
+        first = engine._claim_task(mission_id, "worker")
+        before = time.time()
+        self.assertEqual(engine._finish_task(first.task_id, "worker", error=timeout_error), "queued")
+        with closing(sqlite3.connect(self.db)) as db, db:
+            row = db.execute(
+                "SELECT failure_count,last_error_class,available_at FROM development_mission_tasks WHERE task_id=?",
+                (first.task_id,),
+            ).fetchone()
+        self.assertEqual(row[0:2], (1, "provider_timeout"))
+        self.assertGreaterEqual(row[2] - before, 60)
+
+        resumed_engine = self.make_engine(planner, lambda _role: None)
+        self.assertIsNone(resumed_engine._claim_task(mission_id, "next-slice"))
+        with closing(sqlite3.connect(self.db)) as db, db:
+            db.execute(
+                "UPDATE development_mission_tasks SET available_at=0 WHERE task_id=?",
+                (first.task_id,),
+            )
+        second = resumed_engine._claim_task(mission_id, "next-slice")
+        self.assertIsNotNone(second)
+        before_second = time.time()
+        self.assertEqual(resumed_engine._finish_task(second.task_id, "next-slice", error=timeout_error), "queued")
+        with closing(sqlite3.connect(self.db)) as db, db:
+            second_available = db.execute(
+                "SELECT available_at FROM development_mission_tasks WHERE task_id=?",
+                (first.task_id,),
+            ).fetchone()[0]
+        self.assertGreaterEqual(second_available - before_second, 120)
+
     def test_planner_response_parser_accepts_markdown_json_fences_and_preambles(self):
         responses = (
             ' ```json\n{"state":"completed","summary":"Verified.","tasks":[]}\n``` ',
