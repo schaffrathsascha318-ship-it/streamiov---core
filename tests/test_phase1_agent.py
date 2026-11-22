@@ -349,6 +349,27 @@ class AgentTests(unittest.TestCase):
             result = agent.run("Do task", checkpoint_id="format-recovery")
             self.assertEqual(result, "Recovered on resumed attempt.")
 
+    def test_schema_invalid_action_gets_one_correction_before_any_tool_executes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            class CapturingProvider(FakeProvider):
+                def __init__(self, replies):
+                    super().__init__(replies)
+                    self.calls = []
+                def generate(self, **kwargs):
+                    self.calls.append(kwargs["messages"])
+                    return super().generate(**kwargs)
+
+            target = Path(tmp, "ai", "must_not_exist.py")
+            provider = CapturingProvider([
+                '{"tool":"unknown_tool","arguments":{}}',
+                '{"final":"Recovered from the schema error."}',
+            ])
+            result = DevelopmentAgent(provider, tmp).run("Create a safe file")
+            self.assertEqual(result, "Recovered from the schema error.")
+            self.assertFalse(target.exists())
+            self.assertEqual(len(provider.calls), 2)
+            self.assertIn("schema", provider.calls[1][-1]["content"].lower())
+
     def test_invalid_json_still_fails_closed_after_retry(self):
         with tempfile.TemporaryDirectory() as tmp:
             provider = FakeProvider(["not json", "still not json"])
