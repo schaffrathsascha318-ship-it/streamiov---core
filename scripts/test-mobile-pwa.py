@@ -14,6 +14,8 @@ assert manifest["start_url"] == "/app/"
 assert manifest["scope"] == "/app/"
 assert manifest["display"] == "standalone"
 assert "/app/manifest.webmanifest" in html
+assert "navigator.mediaDevices.getDisplayMedia({video:true,audio:true})" in html
+assert "window.streamiovStudio?.listDisplaySources" in html
 assert "serviceWorker.register('/app/sw.js'" in html
 assert "LIVE-Ausgabe ist hier nicht als aktiv bestätigt" in html
 assert "privacy-shield.js" in html
