@@ -566,12 +566,18 @@ ipcMain.handle('studio:get-runtime-diagnostics', async (event) => {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
 
-  const [gstInspect, gstLaunch, ffmpeg] = await Promise.all([
+  const [gstInspect, gstLaunch] = await Promise.all([
     probeExecutable('gst-inspect-1.0'),
-    probeExecutable('gst-launch-1.0'),
-    probeExecutable('ffmpeg')
+    probeExecutable('gst-launch-1.0')
   ]);
+  // Use the exact same packaged/override/PATH resolution for diagnostics
+  // and streaming. A bundled FFmpeg must not appear missing just because it
+  // is not separately installed on the user's system PATH.
   const rtmp = await probeFfmpegRtmp();
+  const ffmpeg = {
+    available: rtmp.ffmpeg_available,
+    executable: rtmp.executable
+  };
 
   let plugins = {};
   if (gstInspect.available) {
