@@ -29,7 +29,10 @@ class MissionEngineError(RuntimeError):
 
 DAILY_AI_QUOTA_BACKOFF_SECONDS = 6 * 60 * 60
 MAX_DAILY_AI_QUOTA_BACKOFF_SECONDS = 24 * 60 * 60
-RUNNER_EARLY_RETURN_BACKOFF_SECONDS = 60
+MAX_FORMAT_PROTOCOL_FAILURES = 3
+WORKER_TIMEOUT_BACKOFF_SECONDS = 60
+MAX_WORKER_TIMEOUT_BACKOFF_SECONDS = 15 * 60
+RUNNER_EARLY_RETURN_BACKOFF_SECONDS = 30
 
 
 def _is_daily_ai_quota_error(error: str) -> bool:
@@ -44,6 +47,22 @@ def _daily_ai_quota_backoff(failures: int) -> float:
         DAILY_AI_QUOTA_BACKOFF_SECONDS * (2 ** min(max(failures - 1, 0), 2)),
         MAX_DAILY_AI_QUOTA_BACKOFF_SECONDS,
     )
+
+
+def _classify_task_error(error: str) -> str:
+    lowered = error.lower()
+    if _is_daily_ai_quota_error(error):
+        return "daily_ai_quota"
+    if "timeout" in lowered or "timed out" in lowered or "deadline exceeded" in lowered:
+        return "provider_timeout"
+    protocol_markers = (
+        "model action protocol remained invalid", "jsondecodeerror", "invalid json",
+        "tool response must contain", "unknown tool name", "invalid arguments for tool",
+        "tool arguments must be a json object", "expected exactly one json object",
+    )
+    if any(marker in lowered for marker in protocol_markers):
+        return "action_protocol"
+    return "task_error"
 
 
 @dataclass(frozen=True)
@@ -184,6 +203,7 @@ class ContinuousDevelopmentEngine:
                     status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded','failed')),
                     attempts INTEGER NOT NULL DEFAULT 0,
                     failure_count INTEGER NOT NULL DEFAULT 0,
+                    last_error_class TEXT NOT NULL DEFAULT '',
                     result TEXT NOT NULL DEFAULT '',
                     last_error TEXT NOT NULL DEFAULT '',
                     available_at REAL NOT NULL,
@@ -213,6 +233,7 @@ class ContinuousDevelopmentEngine:
                             status TEXT NOT NULL CHECK(status IN ('queued','running','succeeded','failed')),
                             attempts INTEGER NOT NULL DEFAULT 0,
                             failure_count INTEGER NOT NULL DEFAULT 0,
+                            last_error_class TEXT NOT NULL DEFAULT '',
                             result TEXT NOT NULL DEFAULT '',
                             last_error TEXT NOT NULL DEFAULT '',
                             available_at REAL NOT NULL,
@@ -223,12 +244,13 @@ class ContinuousDevelopmentEngine:
                         )
                     """)
                     failure_expr = "failure_count" if "failure_count" in task_columns else "0"
+                    error_class_expr = "last_error_class" if "last_error_class" in task_columns else "''"
                     db.execute(f"""
                         INSERT INTO development_mission_tasks_new
                         (task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
-                         failure_count,result,last_error,available_at,worker_id,lease_until,created_at,updated_at)
+                         failure_count,last_error_class,result,last_error,available_at,worker_id,lease_until,created_at,updated_at)
                         SELECT task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
-                               {failure_expr},result,last_error,available_at,worker_id,lease_until,created_at,updated_at
+                               {failure_expr},{error_class_expr},result,last_error,available_at,worker_id,lease_until,created_at,updated_at
                         FROM development_mission_tasks
                     """)
                     db.execute("DROP TABLE development_mission_tasks")
@@ -237,6 +259,9 @@ class ContinuousDevelopmentEngine:
                 except Exception:
                     db.rollback()
                     raise
+            migrated_columns = {row[1] for row in db.execute("PRAGMA table_info(development_mission_tasks)")}
+            if "last_error_class" not in migrated_columns:
+                db.execute("ALTER TABLE development_mission_tasks ADD COLUMN last_error_class TEXT NOT NULL DEFAULT ''")
             # Recover terminal failures from older engine versions while preserving diagnostics.
             db.execute("""
                 UPDATE development_mission_tasks
@@ -316,7 +341,7 @@ class ContinuousDevelopmentEngine:
                 "SELECT summary FROM development_missions WHERE mission_id=?", (mission_id,)
             ).fetchone()
             rows = db.execute("""
-                SELECT cycle,specialist,status,attempts,result,last_error
+                SELECT cycle,specialist,status,attempts,result,last_error,last_error_class
                 FROM development_mission_tasks WHERE mission_id=?
                 ORDER BY cycle DESC, updated_at DESC LIMIT ?
             """, (mission_id, max_tasks)).fetchall()
@@ -329,7 +354,8 @@ class ContinuousDevelopmentEngine:
             detail = row["result"] if row["status"] == "succeeded" else row["last_error"]
             entry = (
                 f"cycle={row['cycle']} specialist={row['specialist']} "
-                f"status={row['status']} attempts={row['attempts']}: {detail[-max_detail_chars:]}"
+                f"status={row['status']} attempts={row['attempts']} "
+                f"error_class={row['last_error_class'] or 'none'}: {detail[-max_detail_chars:]}"
             )
             if budget <= 0:
                 break
@@ -665,25 +691,31 @@ class ContinuousDevelopmentEngine:
                 return "queued"
             if error:
                 failures = row["failure_count"] + 1
-                # Backoff is bounded per attempt, never across the lifetime of a mission.
-                # Repeated errors remain resumable and are surfaced as diagnostic context.
-                quota_exhausted = _is_daily_ai_quota_error(error)
-                if quota_exhausted:
-                    # Workers AI daily free-quota errors will not recover in a
-                    # minute. Persist a long cooldown and increase it up to one
-                    # day if the next daily window is still unavailable.
+                error_class = _classify_task_error(error)
+                terminal_protocol_failure = (
+                    error_class == "action_protocol"
+                    and failures >= min(self.max_task_failures, MAX_FORMAT_PROTOCOL_FAILURES)
+                )
+                if error_class == "daily_ai_quota":
                     delay = _daily_ai_quota_backoff(failures)
+                elif error_class == "provider_timeout":
+                    delay = min(
+                        WORKER_TIMEOUT_BACKOFF_SECONDS * (2 ** min(failures - 1, 4)),
+                        MAX_WORKER_TIMEOUT_BACKOFF_SECONDS,
+                    )
                 else:
                     delay = min(self.retry_base_seconds * (2 ** min(failures - 1, 6)), 60.0)
+                next_status = "failed" if terminal_protocol_failure else "queued"
+                available_at = now if terminal_protocol_failure else now + delay
                 db.execute("""
                     UPDATE development_mission_tasks
-                    SET status='queued',failure_count=?,last_error=?,worker_id='',lease_until=NULL,
+                    SET status=?,failure_count=?,last_error_class=?,last_error=?,worker_id='',lease_until=NULL,
                         available_at=?,updated_at=? WHERE task_id=?
-                """, (failures, error[:4000], now + delay, now, task_id))
-                return "queued"
+                """, (next_status, failures, error_class, error[:4000], available_at, now, task_id))
+                return next_status
             db.execute("""
                 UPDATE development_mission_tasks
-                SET status='succeeded',result=?,last_error='',worker_id='',lease_until=NULL,
+                SET status='succeeded',result=?,last_error='',last_error_class='',worker_id='',lease_until=NULL,
                     updated_at=? WHERE task_id=?
             """, (result[:12000], now, task_id))
             return "succeeded"
@@ -755,11 +787,13 @@ class ContinuousDevelopmentEngine:
             event = {
                 "event": (
                     "task_interrupted" if interrupted else
+                    "task_blocked" if outcome == "failed" else
                     "task_retry_scheduled"
                 ),
                 "task_id": task.task_id,
                 "specialist": task.specialist,
                 "attempt": task.attempts,
+                "error_class": _classify_task_error(error),
                 "error": error,
             }
             emit(json.dumps(event, ensure_ascii=False))
