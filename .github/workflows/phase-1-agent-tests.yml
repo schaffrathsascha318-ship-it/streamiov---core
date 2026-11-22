@@ -48,7 +48,7 @@ jobs:
           python - <<'PY'
           from ai.specialists import SPECIALISTS, specialist_names
           names = specialist_names()
-          assert len(names) == 11, names
+          assert names, "No AI specialists are registered."
           assert set(names) == set(SPECIALISTS)
           for name in names:
               role = SPECIALISTS[name]

@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - feat/opencode-core-foundation
+      - feat/opencode-device-client
   pull_request:
     branches:
       - main
+      - feat/opencode-core-foundation
 
 permissions:
   contents: read
