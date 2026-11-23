@@ -73,11 +73,19 @@ ipcMain.handle('studio:start-stream', async (event, payload = {}) => {
   if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
   if (liveStreamProcess) return { ok: false, error: 'Ein Stream läuft bereits.' };
 
-  const destination = normalizeRtmpDestination(payload.destination);
+  let destination = normalizeRtmpDestination(payload.destination);
+  if (payload.platform === 'twitch') {
+    try {
+      const credentials = await getTwitchOAuth().getStreamCredentials();
+      destination = normalizeRtmpDestination(credentials.ingestUrl + '/' + credentials.streamKey);
+    } catch (error) {
+      return { ok: false, error: String(error.message || error) };
+    }
+  }
   const resolution = ['720p', '1080p', '1440p'].includes(payload.resolution) ? payload.resolution : '1080p';
   const fps = Number(payload.fps);
   const bitrate = Number(payload.bitrate);
-  if (!destination) return { ok: false, error: 'Bitte eine gültige rtmp://- oder rtmps://-Adresse ohne Benutzername und Passwort eingeben.' };
+  if (!destination) return { ok: false, error: 'Kein autorisiertes Plattform-Ausgabeziel verfügbar. Bitte ein Konto verbinden.' };
   if (![30, 60].includes(fps) || !Number.isInteger(bitrate) || bitrate < 500 || bitrate > 20000) {
     return { ok: false, error: 'Stream-Einstellungen sind ungültig.' };
   }
