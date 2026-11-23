@@ -119,6 +119,60 @@ application/provisioning_profile=""
 application/code_sign_identity_debug=""
 application/code_sign_identity_release=""
 architectures/arm64=true
+
+[preset.4]
+name="Linux ARM64"
+platform="Linux/X11"
+runnable=false
+dedicated_server=false
+custom_features=""
+export_filter="all_resources"
+include_filter=""
+exclude_filter=""
+export_path="build/StreamioV-${game_id}-linux-arm64"
+encryption_include_filters=""
+encryption_exclude_filters=""
+encrypt_pck=false
+encrypt_directory=false
+
+[preset.4.options]
+custom_template/debug=""
+custom_template/release=""
+debug/export_console_wrapper=1
+binary_format/architecture="arm64"
+binary_format/embed_pck=true
+
+[preset.5]
+name="Android x86_64"
+platform="Android"
+runnable=false
+dedicated_server=false
+custom_features=""
+export_filter="all_resources"
+include_filter=""
+exclude_filter=""
+export_path="build/StreamioV-${game_id}-android-x86_64.apk"
+encryption_include_filters=""
+encryption_exclude_filters=""
+encrypt_pck=false
+encrypt_directory=false
+
+[preset.5.options]
+custom_template/debug=""
+custom_template/release=""
+gradle_build/use_gradle_build=false
+architectures/armeabi-v7a=false
+architectures/arm64-v8a=false
+architectures/x86=false
+architectures/x86_64=true
+version/code=1
+version/name="0.1.0"
+package/unique_name="${bundle}"
+package/name="StreamioV ${title}"
+screen/immersive_mode=true
+screen/orientation=1
+graphics/opengl_debug=false
+xr_features/xr_mode=0
 """
 def main():
  if not (TEMPLATE/"main.gd").is_file() or not (TEMPLATE/"main.tscn").is_file():
