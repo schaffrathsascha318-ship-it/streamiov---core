@@ -438,7 +438,7 @@ jobs:
           gh issue comment "$ISSUE_NUMBER" --body "The autonomous runner stopped safely. No unverified change is integrated or deployed. Review the workflow log and resume the persistent mission after repairing the cause." || true
 
       - name: Continue the project-wide supervisor immediately
-        if: always() && steps.pick.outputs.project_supervisor == 'true' && steps.encrypt_mission_state.outputs.saved == 'true' && steps.save_mission_artifact.outcome == 'success'
+        if: always() && steps.pick.outputs.project_supervisor == 'true' && steps.mission.outcome == 'success' && steps.encrypt_mission_state.outputs.saved == 'true' && steps.save_mission_artifact.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
