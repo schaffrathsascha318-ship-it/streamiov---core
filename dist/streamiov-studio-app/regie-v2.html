@@ -351,6 +351,9 @@ dialog::backdrop{background:#000b}
        <label><input type="checkbox" data-audio-route="headphones"> Kopfhörer</label><label><input type="checkbox" data-audio-route="communications"> Kommunikation</label>
       </div>
       <label for="audioMicGain">Mikrofon-Pegel im Mixer</label><input id="audioMicGain" type="range" min="0" max="200" value="100" style="width:100%">
+      <label for="micHighpass">Mikrofon-Tiefenschnitt / Rumpelfilter <span id="micHighpassValue">80 Hz</span></label><input id="micHighpass" type="range" min="20" max="250" step="5" value="80" style="width:100%">
+      <label><input id="micCompressor" type="checkbox" checked> Sprachkompressor aktivieren</label>
+      <small>Ein Limiter schützt jeden Ausgang zusätzlich vor digitalen Pegelspitzen.</small>
       <small id="audioMixerStatus" class="audio-bus-status" role="status">Audio-Engine bereit, noch keine Mikrofonquelle verbunden.</small>
       <div class="panel-title" style="margin-top:10px">SYSTEMTON-ROUTING</div>
       <div class="audio-route-list">
@@ -982,10 +985,14 @@ function applyMicrophoneRouting(){
  if(!studioAudioMixer||!studioAudioMixer.snapshot("microphone"))return;
  studioAudioMixer.setRoutes("microphone",effectiveAudioRoutes(selectedMicrophoneRoutes(),"microphone"));
  studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100*mixerValue("mixerMic"));
+ studioAudioMixer.setProcessing("microphone",{highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked});
+ $("micHighpassValue").textContent=$("micHighpass").value+" Hz";
  $("audioMixerStatus").textContent="Mikrofonquelle verbunden · Routing: "+(selectedMicrophoneRoutes().join(", ")||"kein Ausgang")+".";
 }
 document.querySelectorAll("[data-audio-route]").forEach(control=>control.addEventListener("change",applyMicrophoneRouting));
 $("audioMicGain").addEventListener("input",applyMicrophoneRouting);
+$("micHighpass").addEventListener("input",applyMicrophoneRouting);
+$("micCompressor").addEventListener("change",applyMicrophoneRouting);
 function selectedSystemRoutes(){return [...document.querySelectorAll("[data-system-route]:checked")].map(item=>item.dataset.systemRoute);}
 function applySystemRouting(){
  if(!studioAudioMixer||!studioAudioMixer.snapshot("system"))return;
@@ -1178,6 +1185,7 @@ $("microphoneStart").onclick=async()=>{
   captureState.microphone=stream;
   if(!studioAudioMixer)throw new Error("Audio-Mixer ist in dieser Laufzeit nicht verfügbar.");
   studioAudioMixer.connect("microphone",stream,{gain:Number($("audioMicGain").value)/100,routes:selectedMicrophoneRoutes()});
+  applyMicrophoneRouting();
   $("audioMixerStatus").textContent="Mikrofonquelle verbunden · Routing: "+(selectedMicrophoneRoutes().join(", ")||"kein Ausgang")+".";
   const AudioContextClass=window.AudioContext||window.webkitAudioContext;
   if(!AudioContextClass)throw new Error("AudioContext ist in dieser Laufzeit nicht verfügbar.");
