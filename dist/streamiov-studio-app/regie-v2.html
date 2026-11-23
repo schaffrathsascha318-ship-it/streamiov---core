@@ -2671,13 +2671,14 @@ $("voiceConnect").addEventListener("click",async()=>{
    websocketUrl:ticket.websocket_url,ticket:ticket.ticket,localStream,iceServers:ticket.ice_servers,
    onState:event=>{
     if(event.state==="connected"){voiceStatus("Verbunden · "+event.participantCount+" Teilnehmer · Peer-to-Peer · keine Aufzeichnung.");voiceSetButtons(true);}
-    else if(event.state==="disconnected"){voiceClient=null;voiceSetButtons(false);voiceStatus("Voice-Verbindung getrennt.");}
+    else if(event.state==="disconnected"){voiceClient=null;for(const channel of voiceChannelNames.values())studioAudioMixer?.disconnect(channel);voiceChannelNames.clear();voiceRenderParticipants([]);voiceSetButtons(false);voiceStatus("Voice-Verbindung getrennt.");}
     else if(event.state==="error"){voiceStatus("Voice-Fehler: "+(event.error||"Verbindung fehlgeschlagen."));voiceClient?.disconnect();voiceClient=null;voiceSetButtons(false);}
     else if(event.state==="signalling_error")voiceStatus("Voice-Signalisierung: "+(event.code||"Nachricht abgelehnt."));
    },
    onParticipants:voiceRenderParticipants,
    onRemoteStream:event=>{
     const channel="voice_"+event.participantId.replace(/-/g,"").slice(0,16);
+    if(event.removed){studioAudioMixer?.disconnect(channel);voiceChannelNames.delete(event.participantId);return;}
     try{
      studioAudioMixer.connect(channel,event.stream,{gain:1,routes:["headphones"]});
      voiceChannelNames.set(event.participantId,channel);
