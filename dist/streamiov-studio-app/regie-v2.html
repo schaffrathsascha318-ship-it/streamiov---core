@@ -410,14 +410,14 @@ dialog::backdrop{background:#000b}
     <div class="channel"><b>Mikrofon</b><div class="meter"><i data-mixer-meter="microphone" style="width:0%"></i></div>
      <input id="mixerMic" type="range" min="0" max="100" value="75" aria-label="Mikrofonlautstärke"><small id="mixerMicValue">MIC 1 · 75 %</small></div>
     <div class="channel"><b>System</b><div class="meter"><i data-mixer-meter="system" style="width:0%"></i></div>
-     <input id="mixerSystem" type="range" min="0" max="100" value="45" aria-label="Systemtonlautstärke"><small id="mixerSystemValue">SYSTEM · 45 %</small><button type="button" data-mixer-solo="system" aria-pressed="false">SOLO</button></div>
+     <input id="mixerSystem" type="range" min="0" max="100" value="45" aria-label="Systemtonlautstärke"><small id="mixerSystemValue">SYSTEM · 45 %</small><label>Pan <input data-mixer-pan="system" type="range" min="-100" max="100" value="0"></label><button type="button" data-mixer-solo="system" aria-pressed="false">SOLO</button></div>
     <div class="channel"><b>Musik</b><div class="meter"><i data-mixer-meter="music" style="width:0%"></i></div>
      <input id="mixerMusic" type="range" min="0" max="100" value="50" aria-label="Musiklautstärke"><small id="mixerMusicValue">MUSIK · 50 %</small>
-     <button id="mixerMusicMute" type="button" aria-pressed="false" style="width:100%;margin-top:6px;padding:4px">MUTE</button><button type="button" data-mixer-solo="music" aria-pressed="false">SOLO</button><label><input id="musicDucking" type="checkbox" checked> TTS/Alerts senken Musik</label></div>
+     <button id="mixerMusicMute" type="button" aria-pressed="false" style="width:100%;margin-top:6px;padding:4px">MUTE</button><label>Pan <input data-mixer-pan="music" type="range" min="-100" max="100" value="0"></label><button type="button" data-mixer-solo="music" aria-pressed="false">SOLO</button><label><input id="musicDucking" type="checkbox" checked> TTS/Alerts senken Musik</label></div>
     <div class="channel"><b>TTS</b><div class="meter"><i data-mixer-meter="tts" style="width:0%"></i></div>
-     <input id="mixerTts" type="range" min="0" max="100" value="100" aria-label="TTS-Lautstärke"><small id="mixerTtsValue">TTS · 100 %</small><button type="button" data-mixer-solo="tts" aria-pressed="false">SOLO</button></div>
+     <input id="mixerTts" type="range" min="0" max="100" value="100" aria-label="TTS-Lautstärke"><small id="mixerTtsValue">TTS · 100 %</small><label>Pan <input data-mixer-pan="tts" type="range" min="-100" max="100" value="0"></label><button type="button" data-mixer-solo="tts" aria-pressed="false">SOLO</button></div>
     <div class="channel"><b>Alerts</b><div class="meter"><i data-mixer-meter="alert" style="width:0%"></i></div>
-     <input id="mixerAlert" type="range" min="0" max="100" value="70" aria-label="Alert-Lautstärke"><small id="mixerAlertValue">ALERTS · 70 %</small><button type="button" data-mixer-solo="alert" aria-pressed="false">SOLO</button></div>
+     <input id="mixerAlert" type="range" min="0" max="100" value="70" aria-label="Alert-Lautstärke"><small id="mixerAlertValue">ALERTS · 70 %</small><label>Pan <input data-mixer-pan="alert" type="range" min="-100" max="100" value="0"></label><button type="button" data-mixer-solo="alert" aria-pressed="false">SOLO</button></div>
     <div class="channel"><b>Master</b><div class="meter"><i data-mixer-meter="output:stream" style="width:0%"></i></div>
      <input id="mixerMaster" type="range" min="0" max="100" value="80" aria-label="Masterlautstärke"><small id="mixerMasterValue">MASTER · 80 %</small></div>
    </div>
@@ -1042,6 +1042,7 @@ function applyMicrophoneRouting(){
  studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100*mixerValue("mixerMic"));
  studioAudioMixer.setProcessing("microphone",{highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked});
  studioAudioMixer.setPan("microphone",Number($("micPan").value)/100);
+ mixerPanState.microphone=Number($("micPan").value)/100;
  studioAudioMixer.setSolo("microphone",$("micSolo").checked);
  refreshMixerSoloButtons();
  $("micPanValue").textContent=Number($("micPan").value)===0?"Mitte":Number($("micPan").value)<0?"L "+Math.abs($("micPan").value):"R "+$("micPan").value;
@@ -1061,6 +1062,7 @@ function applySystemRouting(){
  if(!studioAudioMixer||!studioAudioMixer.snapshot("system")){saveAudioRoutingState();return;}
  studioAudioMixer.setRoutes("system",effectiveAudioRoutes(selectedSystemRoutes(),"system"));
  studioAudioMixer.setGain("system",Number($("audioSystemGain").value)/100*mixerValue("mixerSystem"));
+ studioAudioMixer.setPan("system",mixerPanState.system);
  saveAudioRoutingState();
  $("systemAudioMixerStatus").textContent="Systemton verbunden · Routing: "+(selectedSystemRoutes().join(", ")||"kein Ausgang")+".";
 }
@@ -1430,6 +1432,7 @@ function ensureBroadcastAudioGraph(){
    if(!musicBridgeDestination)musicBridgeDestination=broadcastAudioContext.createMediaStreamDestination();
    musicChannelGain.connect(musicBridgeDestination);
    if(!studioAudioMixer.snapshot("music"))studioAudioMixer.connect("music",musicBridgeDestination.stream,{gain:1,routes:["stream","monitor"]});
+   studioAudioMixer.setPan("music",mixerPanState.music);
    refreshMixerSoloButtons();
   }else musicChannelGain.connect(broadcastMasterGain);
  }
@@ -1439,6 +1442,7 @@ let broadcastFrame=0;
 const liveButton=$("live");
 const liveStatus=$("liveStatus");
 const mixerDefaults={mixerMic:75,mixerSystem:45,mixerMusic:50,mixerTts:100,mixerAlert:70,mixerMaster:80};
+const mixerPanState={microphone:0,system:0,music:0,tts:0,alert:0};
 const mixerStorageKey="streamiov.studio.audio-mixer.v1";
 function mixerValue(id){
  const value=Number($(id)?.value);
@@ -1453,6 +1457,12 @@ function refreshMixerSoloButtons(){
   button.setAttribute("aria-pressed",String(active));button.textContent=active?"SOLO AN":"SOLO";
  });
 }
+document.querySelectorAll("[data-mixer-pan]").forEach(control=>control.addEventListener("input",()=>{
+ const name=control.dataset.mixerPan,value=Number(control.value)/100;
+ mixerPanState[name]=value;
+ if(studioAudioMixer?.snapshot(name))studioAudioMixer.setPan(name,value);
+ saveMixerSettings();
+}));
 document.querySelectorAll("[data-mixer-solo]").forEach(button=>button.addEventListener("click",()=>{
  const name=button.dataset.mixerSolo,snapshot=studioAudioMixer?.snapshot(name);
  if(!snapshot){$("mixerStatus").textContent="Quelle ist noch nicht aktiv: "+name;return;}
@@ -1478,7 +1488,7 @@ function drawMixerMeters(){
  mixerMeterFrameState.frame=requestAnimationFrame(drawMixerMeters);
 }
 function saveMixerSettings(){
- try{localStorage.setItem(mixerStorageKey,JSON.stringify({...Object.fromEntries(Object.keys(mixerDefaults).map(id=>[id,mixerPercent(id)])),musicMuted,musicDuckingEnabled}));}
+ try{localStorage.setItem(mixerStorageKey,JSON.stringify({...Object.fromEntries(Object.keys(mixerDefaults).map(id=>[id,mixerPercent(id)])),musicMuted,musicDuckingEnabled,pan:mixerPanState}));}
  catch(_){/* local storage is optional */}
 }
 function applyMixerGains(){
@@ -1804,6 +1814,7 @@ async function playAlertTone(){
  alertToneGain.gain.value=mixerValue("mixerAlert");
  alertToneGain.connect(alertToneDestination);
  studioAudioMixer.connect("alert",alertToneDestination.stream,{gain:1,routes:["stream","monitor"]});
+ studioAudioMixer.setPan("alert",mixerPanState.alert);
  refreshMixerSoloButtons();
  alertToneActive=true;
  applyMixerGains();
@@ -1868,6 +1879,7 @@ async function playTtsAudio(base64,mime="audio/wav"){
    ttsBridgeDestination=context.createMediaStreamDestination();
    ttsMediaSource.connect(ttsChannelGain).connect(ttsBridgeDestination);
    studioAudioMixer.connect("tts",ttsBridgeDestination.stream,{gain:1,routes:["stream","monitor"]});
+   studioAudioMixer.setPan("tts",mixerPanState.tts);
    refreshMixerSoloButtons();
   }else ttsMediaSource.connect(ttsChannelGain).connect(broadcastMasterGain);
  }
@@ -2363,6 +2375,8 @@ try{
  musicMuted=saved.musicMuted===true;
  musicDuckingEnabled=saved.musicDuckingEnabled!==false;
  $("musicDucking").checked=musicDuckingEnabled;
+ if(saved.pan&&typeof saved.pan==="object")for(const name of Object.keys(mixerPanState)){const value=Number(saved.pan[name]);if(Number.isFinite(value))mixerPanState[name]=Math.max(-1,Math.min(1,value));}
+ document.querySelectorAll("[data-mixer-pan]").forEach(control=>{control.value=String(Math.round((mixerPanState[control.dataset.mixerPan]||0)*100));});
 }catch(_){/* markup defaults stay active */}
 updateMixerLabels();
 $("musicDucking").addEventListener("change",()=>{musicDuckingEnabled=$("musicDucking").checked;saveMixerSettings();applyMixerGains();});
