@@ -165,6 +165,16 @@ export class VoiceRoom {
     this.state = state;
   }
 
+  async #pruneExpired(prefix) {
+    const entries = await this.state.storage.list({ prefix, limit: 1000 });
+    const now = Date.now();
+    for (const [key, value] of entries) {
+      if (!value || !Number.isFinite(value.expiresAt) || value.expiresAt <= now) {
+        await this.state.storage.delete(key);
+      }
+    }
+  }
+
   async fetch(request) {
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/token") {
@@ -176,6 +186,7 @@ export class VoiceRoom {
         return json({ error: "invalid_token_claims" }, 400);
       }
       if (await this.state.storage.get("closed")) return json({ error: "room_closed" }, 410);
+      await this.#pruneExpired("token:");
       const consumed = await this.state.storage.transaction(async txn => {
         const key = "token:" + body.jti;
         if (await txn.get(key)) return false;
@@ -191,6 +202,7 @@ export class VoiceRoom {
           !body.claims || typeof body.claims.sub !== "string" || body.expiresAt <= Date.now() ||
           body.expiresAt > Date.now() + 60_000) return json({ error: "invalid_ticket" }, 400);
       if (await this.state.storage.get("closed")) return json({ error: "room_closed" }, 410);
+      await this.#pruneExpired("ticket:");
       await this.state.storage.put("ticket:" + body.hash, { expiresAt: body.expiresAt, claims: body.claims });
       return json({ ok: true }, 201);
     }
