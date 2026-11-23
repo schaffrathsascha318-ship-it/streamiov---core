@@ -1848,6 +1848,7 @@ async function renderChatTool(body){
  body.append(toolNote("Ein gemeinsamer Nachrichtenstrom mit Plattformfilter und Suche. Discord ist nur eingehender Community-Chat. Ausgehende Nachrichten gehen ausschließlich an ausdrücklich ausgewählte TikTok-/Twitch-LIVE-Ziele; ohne offizielle Verbindung werden sie nicht gesendet."),stateLine,toggle,filter,search,logBox,toolField("Lokale Testnachricht",input),receive,toolNote("Ausgehende Nachricht"),outbound,toolField("Nachricht",outgoing),send);
  apply(await api({action:"status"}));
 }
+let ttsPlaybackFinish=null;
 async function playTtsAudio(base64,mime="audio/wav"){
  if(typeof base64!=="string"||!base64.length)throw new Error("TTS-Audiodaten fehlen.");
  const binary=atob(base64);
@@ -1870,14 +1871,57 @@ async function playTtsAudio(base64,mime="audio/wav"){
  ttsObjectUrl=URL.createObjectURL(new Blob([bytes],{type:mime}));
  ttsAudio.src=ttsObjectUrl;
  ttsAudio.load();
- await ttsAudio.play();
+ await new Promise((resolve,reject)=>{
+  const finish=error=>{
+   if(ttsPlaybackFinish===finish)ttsPlaybackFinish=null;
+   ttsAudio.removeEventListener("ended",onEnded);
+   ttsAudio.removeEventListener("error",onError);
+   if(error)reject(error);else resolve();
+  };
+  const onEnded=()=>finish();
+  const onError=()=>finish(new Error("TTS-Audiowiedergabe fehlgeschlagen."));
+  ttsPlaybackFinish=finish;
+  ttsAudio.addEventListener("ended",onEnded,{once:true});
+  ttsAudio.addEventListener("error",onError,{once:true});
+  ttsAudio.play().catch(finish);
+ });
 }
 ttsAudio.addEventListener("ended",()=>{if(ttsObjectUrl){URL.revokeObjectURL(ttsObjectUrl);ttsObjectUrl=null;}});
 async function renderTtsTool(body){
  const api=window.streamiovStudio?.chatAction;
  if(!api){body.append(toolNote("TTS benötigt die installierte Desktop-App."));return;}
  const stateLine=toolNote("TTS-Status wird geladen …");
- const toggle=toolButton("TTS einschalten",async()=>{const result=await api({action:"toggle-tts"});if(result?.tts!=="online")ttsAudio.pause();apply(result);});
+ const queueLabel=toolNote("Warteschlange: 0 / 20");
+ const queue=[];
+ let queueRunning=false;
+ let cancelRequested=false;
+ const updateQueueLabel=()=>{queueLabel.textContent="Warteschlange: "+queue.length+" / 20"+(queueRunning?" · Wiedergabe aktiv":"");};
+ const cancelQueue=()=>{
+  cancelRequested=true;
+  queue.length=0;
+  if(ttsPlaybackFinish)ttsPlaybackFinish(new Error("TTS wurde abgebrochen."));
+  ttsAudio.pause();ttsAudio.currentTime=0;
+  if(ttsObjectUrl){URL.revokeObjectURL(ttsObjectUrl);ttsObjectUrl=null;}
+  stateLine.textContent="TTS-Warteschlange abgebrochen.";
+  updateQueueLabel();
+ };
+ const apply=result=>{
+  if(!result?.ok){
+   stateLine.textContent="TTS fehlgeschlagen: "+(result?.error||"unbekannter Fehler");
+   return;
+  }
+  stateLine.textContent="Lokale Sprachausgabe: "+(result.tts==="online"?"an":"aus")+
+   " · Audioausgabe nicht automatisch verifiziert.";
+  toggle.textContent=result.tts==="online"?"TTS ausschalten":"TTS einschalten";
+  speak.disabled=result.tts!=="online";
+  input.disabled=result.tts!=="online";
+  cancel.disabled=result.tts!=="online";
+ };
+ const toggle=toolButton("TTS einschalten",async()=>{
+  const result=await api({action:"toggle-tts"});
+  if(result?.tts!=="online")cancelQueue();
+  apply(result);
+ });
  const input=document.createElement("textarea");
  input.maxLength=1000;
  input.placeholder="Text für die lokale deutsche Sprachausgabe";
@@ -1889,33 +1933,43 @@ async function renderTtsTool(body){
  amplitude.type="range";amplitude.min="0";amplitude.max="100";amplitude.value="100";
  const amplitudeLabel=toolNote("Sprachlautstärke: 100 %");
  amplitude.addEventListener("input",()=>{amplitudeLabel.textContent="Sprachlautstärke: "+amplitude.value+" %";});
- const speak=toolButton("Lokal sprechen",async()=>{
+ const speak=toolButton("In TTS-Warteschlange",()=>{
   const text=input.value.trim();
   if(!text){input.focus();return;}
-  stateLine.textContent="Deutsche Sprachausgabe wird erzeugt …";
-  const result=await api({action:"speak",text,speed:Number(speed.value),amplitude:Number(amplitude.value)});
-  apply(result);
-  if(result?.ok&&result.audio_base64){
-   try{await playTtsAudio(result.audio_base64,result.audio_mime||"audio/wav");stateLine.textContent="TTS läuft über Stream-/Monitor-Bus."}
-   catch(error){stateLine.textContent="TTS-Audio konnte nicht in die Busse geroutet werden: "+String(error.message||error);}
-  }
+  if(queue.length>=20){stateLine.textContent="TTS-Warteschlange ist voll (maximal 20 Texte).";return;}
+  queue.push({text,speed:Number(speed.value),amplitude:Number(amplitude.value)});
+  input.value="";
+  updateQueueLabel();
+  void runQueue();
  });
- const apply=result=>{
-  if(!result?.ok){
-   stateLine.textContent="TTS fehlgeschlagen: "+(result?.error||"unbekannter Fehler");
-   return;
+ const cancel=toolButton("Warteschlange abbrechen",cancelQueue);
+ async function runQueue(){
+  if(queueRunning)return;
+  queueRunning=true;cancelRequested=false;updateQueueLabel();
+  while(queue.length&&!cancelRequested){
+   const item=queue.shift();updateQueueLabel();
+   stateLine.textContent="Deutsche Sprachausgabe wird erzeugt …";
+   let result;
+   try{result=await api({action:"speak",...item});}
+   catch(error){stateLine.textContent="TTS-Aufruf fehlgeschlagen: "+String(error.message||error);break;}
+   if(cancelRequested)break;
+   apply(result);
+   if(!result?.ok)break;
+   if(!result.audio_base64){stateLine.textContent="TTS lieferte keine Audiodaten.";break;}
+   stateLine.textContent="TTS-Wiedergabe über Stream-/Monitor-Bus …";
+   try{await playTtsAudio(result.audio_base64,result.audio_mime||"audio/wav");}
+   catch(error){if(!cancelRequested)stateLine.textContent="TTS-Wiedergabe fehlgeschlagen: "+String(error.message||error);break;}
   }
-  stateLine.textContent="Lokale Sprachausgabe: "+(result.tts==="online"?"an":"aus")+
-   " · Audioausgabe nicht automatisch verifiziert.";
-  toggle.textContent=result.tts==="online"?"TTS ausschalten":"TTS einschalten";
-  speak.disabled=result.tts!=="online";
-  input.disabled=result.tts!=="online";
- };
+  queueRunning=false;updateQueueLabel();
+  if(cancelRequested)stateLine.textContent="TTS-Warteschlange abgebrochen.";
+  else if(queue.length===0)stateLine.textContent="TTS-Warteschlange abgeschlossen.";
+ }
  body.append(
-  toolNote("Sprachausgabe läuft über das lokale Systemwerkzeug espeak-ng. Es wird kein Cloud-Dienst verwendet."),
+  toolNote("Lokale deutsche Stimme: espeak-ng oder unter Windows die native System.Speech-Stimme. Kein Cloud-Dienst."),
   stateLine,toggle,toolField("Sprechtext",input),
   toolField("Sprechgeschwindigkeit (80–300 Wörter/Minute)",speed),speedLabel,
-  toolField("Sprachlautstärke (0–100 %)",amplitude),amplitudeLabel,speak
+  toolField("Sprachlautstärke (0–100 %)",amplitude),amplitudeLabel,
+  speak,cancel,queueLabel
  );
  apply(await api({action:"status"}));
 }
