@@ -1517,7 +1517,9 @@ function ensureBroadcastAudioGraph(){
   broadcastAudioContext=new AudioContextClass();
   broadcastMasterGain=broadcastAudioContext.createGain();
   broadcastMasterGain.gain.value=mixerValue("mixerMaster");
-  broadcastMasterGain.connect(broadcastAudioContext.destination);
+  // In the real mixer path, local playback is exclusively handled by the
+  // explicit Monitor/Headphones buses. Never mirror the Stream bus to speakers.
+  if(!studioAudioMixer)broadcastMasterGain.connect(broadcastAudioContext.destination);
  }
  if(!musicMediaSource){
   musicMediaSource=broadcastAudioContext.createMediaElementSource(musicPlayerAudio);
