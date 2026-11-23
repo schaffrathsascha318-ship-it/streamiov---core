@@ -487,17 +487,19 @@ class MissionEngineTests(unittest.TestCase):
             mission_id="eleven-specialists", cycle=1,
         )
         self.assertEqual([task.specialist for task in plan.tasks], roles)
-        self.assertIn("at most one task per specialist", provider.system)
+        self.assertIn("1–50 independent tasks", provider.system)
         self.assertEqual(len({task.prompt for task in plan.tasks}), 11)
 
         duplicate_aliases = [
             {"id": "legacy-core", "specialist": "core", "prompt": "Research the model runtime.", "depends_on": []},
             {"id": "research", "specialist": "research", "prompt": "Build the model runtime.", "depends_on": []},
         ]
-        with self.assertRaisesRegex(MissionEngineError, "multiple tasks in one planning cycle"):
-            ModelMissionPlanner(Provider(duplicate_aliases)).plan(
-                "Build AI infrastructure.", "", mission_id="duplicate-specialist", cycle=1,
-            )
+        duplicate_role_plan = ModelMissionPlanner(Provider(duplicate_aliases)).plan(
+            "Build AI infrastructure with two independent research workers.", "",
+            mission_id="duplicate-specialist", cycle=1,
+        )
+        self.assertEqual(len(duplicate_role_plan.tasks), 2)
+        self.assertEqual([task.specialist for task in duplicate_role_plan.tasks], ["core", "research"])
 
     def test_mission_continues_across_unbounded_planning_cycles_until_explicit_completion(self):
         planner = SequencePlanner([
