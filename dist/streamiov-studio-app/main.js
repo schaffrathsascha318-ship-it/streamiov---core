@@ -869,9 +869,10 @@ ipcMain.handle('studio:get-module-status', async (event) => {
       { id: 'source-model', status: 'automated_tested', note: 'Quellen-Metadaten werden lokal gespeichert; keine Capture-/Encoder-Verbindung.' },
       { id: 'local-camera-preview', status: 'renderer_local_only', note: 'Getrennte lokale MediaDevices-Vorschau; nicht in Program/Encoder eingebunden.' },
       { id: 'synthetic-av-test', status: 'dependency_gated', note: 'Lokaler Test mit installierten GStreamer-Komponenten.' },
-      { id: 'compositor', status: 'not_implemented' },
-      { id: 'production-encoder', status: 'not_implemented' },
-      { id: 'audio-mixer-routing', status: 'local_four_bus_engine', note: 'Mikrofon, Bildschirm-Systemton, lokaler Musikplayer, Soundboard-Pads, deutsches TTS und manuelle Alert-Töne werden über getrennte Stream-, Monitor-, Kopfhörer- und Kommunikationsbusse geroutet. Jeder Ausgang besitzt einen Limiter; ein plattformneutraler Geräteadapter übernimmt Geräteinventar, Mikrofonöffnung, Ausgabeverbindung und Hot-plug-Beobachtung. Mikrofon bietet Hochpass, optionalen Sprachkompressor, Noise Gate/Expander mit Hysterese, Pan, Solo und konfigurierbare OS-Echo-/Rauschunterdrückung sowie automatische Pegelregelung. Live-RMS-/Peak-Meter zeigen Quellen- und Stream-Ausgangspegel samt Clipping-Hinweis. Der Stream-Bus speist den lokalen MediaRecorder/Encoder-Eingang. Spiel-/Fensterton wird über den ausgewählten Capture-Track aufgenommen, sofern Windows/Electron einen Loopback-Audiotrack liefert; separate App-Audio-Kanäle, Voice-Räume und automatische Plattform-Event-Zuordnung für Alerts sind noch nicht angebunden. TTS nutzt espeak-ng, wenn vorhanden, und unter Windows zusätzlich die native System.Speech-Fallback-Ausgabe. Physische Geräteausgabe und LIVE-Übertragung sind nicht hardwareverifiziert.' },
+      { id: 'compositor', status: 'canvas_2d_scene_capture', note: 'Programmszene wird in einen Canvas gerendert und per captureStream an MediaRecorder übergeben; native GPU-Compositing-/Multi-Source-Clock-Abnahme fehlt.' },
+      { id: 'production-encoder', status: 'ffmpeg_rtmp_pipe', note: 'MediaRecorder-WebM wird über eine begrenzte IPC-Pipe an FFmpeg (libx264/AAC/FLV/RTMP) übergeben. Abhängigkeiten und Plattformberechtigungen müssen verfügbar sein; Serverempfang und Plattform-LIVE bleiben unverifiziert.' },
+      { id: 'voice-rooms', status: 'implementation_not_verified', note: 'Room-/Invite-API, Core-Tokens, WebRTC-Client, separates Signalling-Worker-Source und optionale coturn-REST-Credentials/Config-Vorlage vorhanden; Worker-Secrets, TURN-Deployment und Zwei-Client-Hardwareabnahme fehlen.' },
+      { id: 'audio-mixer-routing', status: 'local_four_bus_engine', note: 'Mikrofon, Bildschirm-Systemton, lokaler Musikplayer, Soundboard-Pads, deutsches TTS und manuelle Alert-Töne werden über getrennte Stream-, Monitor-, Kopfhörer- und Kommunikationsbusse geroutet. Jeder Ausgang besitzt einen Limiter; ein plattformneutraler Geräteadapter übernimmt Geräteinventar, Mikrofonöffnung, Ausgabeverbindung und Hot-plug-Beobachtung. Mikrofon bietet Hochpass, optionalen Sprachkompressor, Noise Gate/Expander mit Hysterese, Pan, Solo und konfigurierbare OS-Echo-/Rauschunterdrückung sowie automatische Pegelregelung. Live-RMS-/Peak-Meter zeigen Quellen- und Stream-Ausgangspegel samt Clipping-Hinweis. Der Stream-Bus speist den lokalen MediaRecorder/Encoder-Eingang. Spiel-/Fensterton wird über den ausgewählten Capture-Track aufgenommen, sofern Windows/Electron einen Loopback-Audiotrack liefert; separate App-Audio-Kanäle und automatische Plattform-Event-Zuordnung für Alerts sind noch nicht angebunden; Voice-Räume sind als separater WebRTC-Bereich implementiert, benötigen aber Worker-Deployment, TURN und Zwei-Client-Abnahme. TTS nutzt espeak-ng, wenn vorhanden, und unter Windows zusätzlich die native System.Speech-Fallback-Ausgabe. Physische Geräteausgabe und LIVE-Übertragung sind nicht hardwareverifiziert.' },
       { id: 'tiktok-live-output', status: 'oauth_and_live_verification_pending' },
       { id: 'chat-events', status: 'not_connected' },
       { id: 'gift-events', status: 'not_connected' },
@@ -886,26 +887,29 @@ ipcMain.handle('studio:get-status', async (event) => {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
 
+  const encoderProcessActive = Boolean(liveStreamProcess);
+  const encoderOutputInitialized = liveStreamState === 'output_ready';
   return {
     ok: true,
     bridge: 'ready',
     backend: {
-      connected: false,
-      state: 'foundation_only',
+      connected: encoderProcessActive,
+      state: encoderProcessActive ? liveStreamState : 'local_runtime_ready',
       engine: {
         name: 'STREAMIOV Studio Runtime',
         scene_engine: 'available',
         source_metadata_store: 'available',
-        compositor: 'not_implemented',
-        encoder: 'not_implemented',
+        compositor: 'canvas_2d_scene_capture',
+        encoder: 'ffmpeg_rtmp_pipe',
+        encoder_process_active: encoderProcessActive,
+        encoder_output_initialized: encoderOutputInitialized,
         output_connected: false,
         output_active: false,
         live_stream_verified: false
       },
-      note: 'Die eigene Medienpipeline und der produktive Encoder sind noch nicht integriert.'
+      note: 'Canvas/MediaRecorder/FFmpeg-RTMP-Pipeline ist implementiert. output_ready bestätigt nur initialisierten FLV-Encoder-Output, nicht RTMP-Serverempfang oder Plattform-LIVE.'
     }
   };
-
 });
 
 ipcMain.handle('studio:run-media-test', async (event) => {
@@ -1175,6 +1179,102 @@ ipcMain.handle('studio:ai-logout', async (event) => {
   streamiovSessionCookie = null;
   streamiovSessionUser = null;
   return { ok: true };
+});
+
+ipcMain.handle('studio:voice-action', async (event, payload = {}) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  if (!streamiovSessionCookie) return { ok: false, error: 'Bitte zuerst im KI-Manager anmelden.' };
+  const action = String(payload.action || '');
+  const roomId = String(payload.room_id || '');
+  const headers = {
+    'Content-Type': 'application/json',
+    Cookie: streamiovSessionCookie,
+    'X-Streamiov-Client': STREAMIOV_CLIENT_HEADER
+  };
+  const hostPost = async (route, body) => {
+    const response = await fetch(STREAMIOV_API + route, {
+      method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(10000)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      streamiovSessionCookie = null;
+      streamiovSessionUser = null;
+    }
+    if (!response.ok || data.ok !== true) throw new Error(data.error || data.detail || 'Voice-Core-Anfrage fehlgeschlagen.');
+    return data;
+  };
+  try {
+    if (action === 'create') {
+      const data = await hostPost('/api/v1/voice/rooms', { name: String(payload.name || '') });
+      const room = data.room || {};
+      const token = room.token;
+      if (typeof token !== 'string') throw new Error('Core hat kein Voice-Token ausgegeben.');
+      const safeRoom = { ...room };
+      delete safeRoom.token;
+      delete safeRoom.ice_servers;
+      delete safeRoom.turn_available;
+      return { ok: true, room: safeRoom };
+    }
+    if (action === 'join') {
+      const data = await hostPost('/api/v1/voice/join', { invite_code: String(payload.invite_code || '') });
+      const room = data.room || {};
+      if (typeof room.token !== 'string') throw new Error('Core hat kein Voice-Token ausgegeben.');
+      voiceSessionTokens.set(room.room_id, room.token);
+      const safeRoom = { ...room };
+      delete safeRoom.token;
+      delete safeRoom.ice_servers;
+      delete safeRoom.turn_available;
+      return { ok: true, room: safeRoom };
+    }
+    if (action === 'invite') {
+      if (!/^[a-f0-9]{32}$/.test(roomId)) throw new Error('Ungültige Voice-Raum-ID.');
+      return { ok: true, ...(await hostPost('/api/v1/voice/rooms/' + roomId + '/invites', {
+        role: payload.role || 'guest', ttl: payload.ttl ?? 3600, max_uses: payload.max_uses ?? 1
+      })) };
+    }
+    if (action === 'close') {
+      if (!/^[a-f0-9]{32}$/.test(roomId)) throw new Error('Ungültige Voice-Raum-ID.');
+      let roomToken = null, signallingUrl = '';
+      try {
+        const tokenData = await hostPost('/api/v1/voice/token', { room_id: roomId });
+        roomToken = tokenData.room?.token || null;
+        signallingUrl = String(tokenData.room?.signalling_url || '').replace(/\/+$/, '');
+      } catch {}
+      const data = await hostPost('/api/v1/voice/rooms/' + roomId + '/close', { confirm: true });
+      let signallingRevoked = false;
+      if (roomToken && /^https:\/\//i.test(signallingUrl)) {
+        try {
+          const response = await fetch(signallingUrl + '/v1/voice/rooms/' + roomId + '/close', {
+            method: 'POST', headers: { Authorization: 'Bearer ' + roomToken },
+            signal: AbortSignal.timeout(8000)
+          });
+          signallingRevoked = response.ok;
+        } catch {}
+      }
+      return { ...data, signalling_revoked: signallingRevoked };
+    }
+    if (action === 'connect') {
+      if (!/^[a-f0-9]{32}$/.test(roomId)) throw new Error('Ungültige Voice-Raum-ID.');
+      const data = await hostPost('/api/v1/voice/token', { room_id: roomId });
+      const room = data.room || {};
+      if (typeof room.token !== 'string') throw new Error('Core hat kein Voice-Token ausgegeben.');
+      const base = String(room.signalling_url || '').replace(/\/+$/, '');
+      if (!/^https:\/\//i.test(base)) throw new Error('Voice-Signalisierungsdienst ist nicht sicher konfiguriert (HTTPS erforderlich).');
+      const ticketResponse = await fetch(base + '/v1/voice/ticket', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + room.token },
+        signal: AbortSignal.timeout(10000)
+      });
+      const ticketData = await ticketResponse.json().catch(() => ({}));
+      if (!ticketResponse.ok || typeof ticketData.ticket !== 'string' || typeof ticketData.websocket_url !== 'string') {
+        throw new Error(ticketData.error || 'Voice-Signalisierung konnte kein Einmal-Ticket ausstellen.');
+      }
+      return { ok: true, room_id: roomId, websocket_url: ticketData.websocket_url, ticket: ticketData.ticket, ticket_expires_in: ticketData.expires_in, ice_servers: Array.isArray(room.ice_servers) ? room.ice_servers : [] };
+    }
+    return { ok: false, error: 'Unbekannte Voice-Aktion.' };
+  } catch (error) {
+    return { ok: false, error: String(error.message || error).slice(0, 300) };
+  }
 });
 
 ipcMain.handle('studio:ai-submit', async (event, payload = {}) => {
