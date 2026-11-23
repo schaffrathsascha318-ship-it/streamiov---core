@@ -187,7 +187,11 @@ class ProjectTools:
         allow_game_checks: bool = False,
         allow_self_modification: bool = False,
         full_project_development: bool = False,
+        task_id: str | None = None,
     ) -> None:
+        if task_id is not None and (not isinstance(task_id, str) or not task_id.strip() or len(task_id) > 128 or "\\x00" in task_id):
+            raise ToolError("Task ID must be 1–128 characters.")
+        self.task_id = task_id.strip() if task_id else "process:" + str(os.getpid())
         self.root = Path(root).resolve()
         self.writable_prefixes = ("*",) if full_project_development else writable_prefixes
         self.allow_game_checks = allow_game_checks
@@ -275,7 +279,7 @@ class ProjectTools:
 
     def read_file(self, path: str) -> str:
         target = self._resolve(path)
-        with _locked_path(target):
+        with _locked_path(target, owner={"task_id": self.task_id}):
             target = self._resolve(path)
             if not target.is_file():
                 raise ToolError("Requested file does not exist or is not a regular file.")
