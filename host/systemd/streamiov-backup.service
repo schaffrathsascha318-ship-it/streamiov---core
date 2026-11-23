@@ -1,5 +1,5 @@
 [Unit]
-Description=Encrypted StreamioV host database backup
+Description=Encrypted Streamiov host database backup
 After=local-fs.target
 
 [Service]
