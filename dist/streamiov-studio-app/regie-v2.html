@@ -373,7 +373,6 @@ dialog::backdrop{background:#000b}
    <div class="panel-title">CREATOR-WERKZEUGE</div>
    <div class="pad tool-grid">
     <button data-tool="Chat">▤ Chat</button>
-    <button data-tool="Geschenke">💜 Geschenke</button>
     <button data-tool="Alerts">⚡ Alerts</button>
     <button data-tool="TTS">◖ TTS</button>
     <button data-tool="Spiele">♧ Spiele</button>
@@ -394,16 +393,10 @@ dialog::backdrop{background:#000b}
    <div class="pad"><div class="log">Noch keine Chat-Verbindung.<br>Chat wird nach Plattformverbindung verfügbar.</div></div>
   </div>
   <div class="panel">
-   <div class="panel-title">GESCHENKE / GALERIEBOX</div>
-   <div class="pad">
-    <div class="log" role="status" aria-live="polite">
-     <strong>TikTok-Geschenke</strong><br>
-     TikTok wickelt Kauf, Zuordnung und mögliche Auszahlung direkt ab. StreamioV zieht nichts ab und nimmt kein Geld entgegen. Auszahlungshöhe und Berechtigung bestimmt TikTok; eine 1:1-Umrechnung des Kaufpreises ist nicht zugesichert.<br><br>
-     <strong>StreamioV-Galerie</strong><br>
-     Eigene Galerieeffekte sind kostenlos und lösen keine Zahlung oder Auszahlung aus.<br><br>
-     Noch keine offizielle TikTok-Geschenkefreigabe oder Live-Ereignisverbindung eingerichtet.
-    </div>
-   </div>
+   <div class="panel-title">TIKTOK-LIVE-GESCHENKEREIGNISSE</div>
+   <div class="pad"><div class="log" role="status" aria-live="polite">
+    Hier erscheinen ausschließlich offizielle TikTok-Geschenkereignisse. Streamiov Studio bietet keine eigene Geschenke-Galerie, keinen Shop und keinen Kauf- oder Zahlungsfluss. Auf bestätigte TikTok-Ereignisse kann die Regie mit Alerts, Animationen und Sounds reagieren. Die offizielle TikTok-Galerie-Freigabe ist separat erforderlich.
+   </div></div>
   </div>
   <div class="panel">
    <div class="panel-title">KI-REGIE / AUTOMATION</div>
@@ -1512,66 +1505,6 @@ async function renderTtsTool(body){
  );
  apply(await api({action:"status"}));
 }
-async function renderGiftsTool(body){
- const api=window.streamiovStudio?.dataQuery;
- if(!api){
-  body.append(toolNote("Der Geschenk-Katalog benötigt die installierte Desktop-App und den lokalen Host."));
-  return;
- }
- const stateLine=toolNote("Rohdaten-Katalog wird geladen …");
- const grid=toolNode("div","gift-grid");
- body.append(
-  toolNote("Kostenlose lokale Effekte aus dem Rohdaten-Katalog. Es werden keine Geschenke gekauft, "+
-   "keine Zahlungen ausgelöst und keine TikTok-Geschenke beansprucht."),
-  stateLine,grid
- );
- const result=await api({kind:"gifts"});
- if(!result?.ok){
-  stateLine.textContent="Geschenk-Katalog nicht erreichbar: "+(result?.error||"unbekannter Fehler");
-  return;
- }
- const catalog=result.data||{};
- const gifts=Array.isArray(catalog.gifts)?catalog.gifts:[];
- stateLine.textContent="Lokaler Katalog: "+gifts.length+" Geschenke · TikTok-Geschenk-IDs: "+
-  (catalog.tiktok_gift_ids_present?"vorhanden":"keine")+" · keine TikTok-Freigabe.";
- for(const gift of gifts){
-  const card=toolNode("div","gift-card");
-  if(gift.svg&&result.assetBase){
-   const image=document.createElement("img");
-   image.alt=gift.name||"Geschenk";
-   image.loading="lazy";
-   image.style.width="56px";
-   image.style.height="56px";
-   image.src=String(result.assetBase).replace(/\/$/,"")+gift.svg;
-   image.addEventListener("error",()=>{
-    image.remove();
-    card.prepend(toolNode("div",null,"💜"));
-   },{once:true});
-   card.append(image);
-  }else{
-   card.append(toolNode("div",null,"💜"));
-  }
-  card.append(
-   toolNode("div",null,(gift.name||"Geschenk")+" · "+Number(gift.streamiov_points||0)+" Punkte"),
-   toolNode("small",null,gift.streamiov_custom?"StreamioV · "+(gift.status||"lokal"):(gift.status||"Katalog"))
-  );
-  card.append(toolButton("Lokalen Effekt auslösen",()=>{
-   showGiftEffect("💜");
-   log("Lokaler Geschenk-Effekt ausgelöst: "+(gift.name||"Geschenk")+".");
-  }));
-  grid.append(card);
- }
- const milestones=Array.isArray(catalog.like_milestones)?catalog.like_milestones:[];
- if(milestones.length){
-  body.append(toolNote("Like-Meilensteine aus den Rohdaten: "+milestones.join(", ")+
-   " · geplant, nicht aktiv."));
- }
- const rules=Array.isArray(catalog.rules)?catalog.rules:[];
- if(rules.length){
-  body.append(toolNote("Regeln: "+rules.map(rule=>
-   (rule.name||rule.id||"Regel")+" ["+(rule.status||"unbekannt")+"]").join(" · ")));
- }
-}
 function renderAlertsTool(body){
  const input=document.createElement("input");
  input.maxLength=120;
@@ -1777,7 +1710,6 @@ async function openTool(name){
  try{
   if(name==="Chat")await renderChatTool(body);
   else if(name==="TTS")await renderTtsTool(body);
-  else if(name==="Geschenke")await renderGiftsTool(body);
   else if(name==="Alerts")renderAlertsTool(body);
   else if(name==="Musik")await renderMusicTool(body);
   else if(name==="Spiele")await renderGamesTool(body);
