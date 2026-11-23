@@ -1659,6 +1659,7 @@ async function playAlertTone(){
  if(!studioAudioMixer)return;
  if(alertToneGain){try{alertToneGain.disconnect();}catch(_){}if(alertToneDestination)alertToneDestination.stream.getTracks().forEach(track=>track.stop());studioAudioMixer.disconnect("alert");}
  alertToneDestination=context.createMediaStreamDestination();
+ const thisDestination=alertToneDestination;
  alertToneGain=context.createGain();
  alertToneGain.gain.value=mixerValue("mixerAlert");
  alertToneGain.connect(alertToneDestination);
@@ -1672,9 +1673,10 @@ async function playAlertTone(){
  first.start(start);first.stop(start+0.11);
  second.start(start+0.12);second.stop(start+0.30);
  second.addEventListener("ended",()=>{
+  if(alertToneDestination!==thisDestination)return;
   if(studioAudioMixer)studioAudioMixer.disconnect("alert");
   alertToneActive=false;
-  if(alertToneDestination)alertToneDestination.stream.getTracks().forEach(track=>track.stop());
+  thisDestination.stream.getTracks().forEach(track=>track.stop());
   alertToneDestination=null;alertToneGain=null;
  },{once:true});
 }
