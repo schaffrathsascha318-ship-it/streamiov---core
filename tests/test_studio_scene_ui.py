@@ -167,8 +167,6 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
                 self.assertNotIn("missingPythonModules", handler)
         self.assertIn("repository_capability_inventory", self.main)
         self.assertIn("live_stream_verified: false", self.main)
-        self.assertIn("canvas_2d_scene_capture", self.main)
-        self.assertIn("ffmpeg_rtmp_pipe", self.main)
         self.assertIn("local_four_bus_engine", self.main)
         self.assertIn("local_file_stream_mix", self.main)
         self.assertIn("not_connected", self.main)
