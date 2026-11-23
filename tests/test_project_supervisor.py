@@ -17,6 +17,8 @@ class FakeMissionEngine:
         self.runs = []
 
     def create_mission(self, goal, *, mission_id=None):
+        if not isinstance(goal, str) or not goal.strip() or len(goal) > 8000:
+            raise MissionEngineError("Mission goal must contain 1–8000 characters.")
         mission_id = mission_id or f"mission-{len(self.created) + 1}"
         if mission_id in self.missions:
             raise MissionEngineError("Mission ID already exists.")
@@ -68,6 +70,21 @@ class ProjectSupervisorTests(unittest.TestCase):
         self.assertTrue(args.project_supervisor_run)
         self.assertEqual(args.project_supervisor_adopt_mission, "streamiov-platform")
         self.assertTrue(args.full_project_development)
+
+    def test_long_project_goal_is_bounded_before_creating_next_mission(self):
+        engine = FakeMissionEngine([("active", True)])
+        supervisor = self.make_supervisor(engine)
+        long_goal = "STREAMIOV-BEGIN " + ("important project requirements " * 250) + " STREAMIOV-END"
+        supervisor.configure(long_goal)
+
+        supervisor.run(threading.Event(), poll_seconds=0.01, emit=lambda _message: None)
+
+        self.assertEqual(len(engine.created), 1)
+        mission_goal = engine.created[0][1]
+        self.assertLessEqual(len(mission_goal), 8000)
+        self.assertIn("STREAMIOV-BEGIN", mission_goal)
+        self.assertIn("STREAMIOV-END", mission_goal)
+        self.assertIn("VERIFIED PROJECT PROGRESS", mission_goal)
 
     def test_verified_mission_immediately_starts_next_distinct_mission(self):
         engine = FakeMissionEngine([("completed", False), ("completed", True)])
