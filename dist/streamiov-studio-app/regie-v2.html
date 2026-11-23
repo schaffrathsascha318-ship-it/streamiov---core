@@ -80,6 +80,7 @@ body.privacy-shield-active .monitor.program{border-color:var(--red);box-shadow:0
 .channel{padding:10px 7px;background:#0c131b;border:1px solid var(--line);
  border-radius:8px;text-align:center}
 .channel input{width:100%;accent-color:var(--cyan)}
+.meter.clipping{outline:1px solid var(--red);box-shadow:0 0 7px #ff496c55}.meter.clipping i{background:var(--red)}
 .meter{height:5px;background:#263543;border-radius:5px;margin:9px 0}
 .meter i{display:block;height:100%;width:65%;background:var(--green)}
 .channel small{display:block;color:var(--muted)}
@@ -1431,7 +1432,8 @@ function drawMixerMeters(){
   const level=key.startsWith("output:")?studioAudioMixer.getOutputMeter(key.slice(7)):studioAudioMixer.getChannelMeter(key);
   const percent=Math.min(100,Math.round(level.rms*220));
   element.style.width=percent+"%";
-  element.title="RMS "+Math.round(level.rms*100)+" % · Peak "+Math.round(level.peak*100)+" %";
+  element.title="RMS "+Math.round(level.rms*100)+" % · Peak "+Math.round(level.peak*100)+" %"+(level.clipping?" · CLIPPING":"");
+  element.closest(".meter")?.classList.toggle("clipping",level.clipping);
  });
  mixerMeterFrameState.frame=requestAnimationFrame(drawMixerMeters);
 }
