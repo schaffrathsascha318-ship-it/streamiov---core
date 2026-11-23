@@ -1518,7 +1518,7 @@ function mixerLabel(id){return ({mixerMic:"MIC 1",mixerSystem:"SYSTEM",mixerMusi
 function refreshMixerMuteButtons(){
  document.querySelectorAll("[data-mixer-mute]").forEach(button=>{
   const name=button.dataset.mixerMute,muted=name==="music"?musicMuted:mixerSourceMuteState[name]===true;
-  button.setAttribute("aria-pressed",String(muted));button.textContent=muted?"STUMM AN":"STUMM";
+  button.setAttribute("aria-pressed",String(muted));button.textContent=muted?"STUMM AUS":"STUMM";
  });
 }
 document.querySelectorAll("[data-mixer-mute]").forEach(button=>button.addEventListener("click",()=>{
