@@ -123,6 +123,7 @@ class StreamiovVoiceClient {
       if (event.candidate) this.#send({ type: 'ice', target: peerId, payload: event.candidate.toJSON() });
     });
     connection.addEventListener('track', event => {
+      event.track.enabled = !this.deafened;
       const stream = event.streams?.[0] || new MediaStream([event.track]);
       this.onRemoteStream({ participantId: peerId, stream });
     });
