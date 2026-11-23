@@ -1,6 +1,6 @@
 # STREAMIOV Studio – unabhängige Audio-Busse
 
-Die Regie enthält eine lokale Web-Audio-Engine mit vier voneinander getrennten Ausgängen:
+Die Regie enthält eine lokale Web-Audio-Engine mit vier voneinander getrennten Ausgängen und einen plattformneutralen Geräteadapter (`engine/audio-device-adapter.js`) für Geräteinventar, Mikrofonöffnung, Ausgabeverbindung und Hot-plug-Beobachtung:
 
 - **Stream / Programm** – eigener MediaStreamDestination-Bus, der in den lokalen MediaRecorder-/Encoder-Eingang eingespeist wird.
 - **Monitor** – separat aktivierbare lokale Wiedergabe mit optionaler Auswahl eines Audioausgabegeräts.
