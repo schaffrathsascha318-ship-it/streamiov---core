@@ -233,7 +233,7 @@ jobs:
         if: always() && steps.pick.outputs.issue_number != '' && steps.mission.outcome != 'skipped'
         uses: actions/upload-artifact@v4
         with:
-          name: streamiov-ai-missions-${{ steps.pick.outputs.issue_number }}
+          name: streamiov-ai-missions-${{ steps.pick.outputs.mission_key }}
           path: ${{ runner.temp }}/streamiov-ai-missions/mission-state.enc
           if-no-files-found: warn
           retention-days: 90
