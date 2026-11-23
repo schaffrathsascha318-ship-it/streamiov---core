@@ -30,6 +30,8 @@ class VoiceRoomStoreTests(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(self.store.database.stat().st_mode), 0o600)
 
     def test_voice_store_rejects_database_symlink(self):
+        if os.name == "nt":
+            self.skipTest("Symlink creation requires elevated Windows privileges.")
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             target = root / "outside.sqlite3"
