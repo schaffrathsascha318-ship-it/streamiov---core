@@ -152,7 +152,7 @@ jobs:
             "$GODOT_BIN" --headless --path "$project" --export-debug "iOS Xcode Project" "build/StreamioV-$game-ios-xcode.zip"
             mkdir -p "artifacts/$game"
             cp "$project/build/"*ios-xcode.zip "artifacts/$game/"
-            echo "Unsigned Xcode project. Apple Developer signing, provisioning and physical-device validation are required before installation." > "artifacts/$game/IOS-SIGNING-REQUIRED.txt"
+            echo "Unsigned Xcode project with placeholder Team ID 0000000000. Replace with the real Apple Developer Team ID, signing, provisioning and physical-device validation before installation." > "artifacts/$game/IOS-SIGNING-REQUIRED.txt"
             (cd "artifacts/$game" && shasum -a 256 * > SHA256SUMS.txt)
           done
 
