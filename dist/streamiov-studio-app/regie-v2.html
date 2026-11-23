@@ -1907,6 +1907,7 @@ async function playTtsAudio(base64,mime="audio/wav"){
    if(ttsPlaybackFinish===finish)ttsPlaybackFinish=null;
    ttsAudio.removeEventListener("ended",onEnded);
    ttsAudio.removeEventListener("error",onError);
+   applyMixerGains();
    if(error)reject(error);else resolve();
   };
   const onEnded=()=>finish();
@@ -1933,6 +1934,7 @@ async function renderTtsTool(body){
   queue.length=0;
   if(ttsPlaybackFinish)ttsPlaybackFinish(new Error("TTS wurde abgebrochen."));
   ttsAudio.pause();ttsAudio.currentTime=0;
+  applyMixerGains();
   if(ttsObjectUrl){URL.revokeObjectURL(ttsObjectUrl);ttsObjectUrl=null;}
   stateLine.textContent="TTS-Warteschlange abgebrochen.";
   updateQueueLabel();
