@@ -184,10 +184,12 @@ def main():
   project.mkdir(parents=True)
   shutil.copy2(TEMPLATE/"main.gd",project/"main.gd")
   shutil.copy2(TEMPLATE/"main.tscn",project/"main.tscn")
+  shutil.copy2(TEMPLATE/"icon.svg",project/"icon.svg")
   settings=f'''config_version=5
 
 [application]
 config/name="StreamioV {title}"
+config/icon="res://icon.svg"
 config/description="Eigenständiges kostenloses StreamioV-Spiel: {genre}."
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
