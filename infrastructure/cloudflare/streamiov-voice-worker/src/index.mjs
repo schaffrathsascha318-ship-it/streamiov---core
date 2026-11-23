@@ -58,6 +58,7 @@ async function verifyVoiceToken(token, env, roomId) {
   }
   const now = Math.floor(Date.now() / 1000);
   if (claims.nbf > now + 5 || claims.iat > now + 5 || claims.exp <= now ||
+      claims.exp <= claims.iat || claims.nbf > claims.exp ||
       claims.exp - claims.iat > MAX_TOKEN_TTL) return { error: "expired" };
   const key = await crypto.subtle.importKey(
     "raw", new TextEncoder().encode(env.STREAMIOV_VOICE_SIGNING_KEY),
