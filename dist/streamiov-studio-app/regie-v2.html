@@ -1014,7 +1014,7 @@ async function refreshAudioBusDevices(){
  });
 }
 audioBusNames.forEach(renderAudioBus);
-if(!mixerMeterFrame)mixerMeterFrame=requestAnimationFrame(drawMixerMeters);
+if(!mixerMeterFrameState.frame)mixerMeterFrameState.frame=requestAnimationFrame(drawMixerMeters);
 refreshAudioBusDevices().catch(()=>audioBusNames.slice(1).forEach(name=>audioBusStatus(name,"Geräteliste nicht verfügbar.")));
 
 const cameraSelect=$("cameraDeviceSelect");
@@ -1217,7 +1217,7 @@ $("microphoneStart").onclick=async()=>{
 };
 if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener("devicechange",()=>refreshCaptureDevices().catch(()=>{}));
 if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener("devicechange",()=>refreshAudioBusDevices().catch(()=>{}));
-window.addEventListener("beforeunload",()=>{if(mixerMeterFrame)cancelAnimationFrame(mixerMeterFrame);stopBroadcast();stopCapture("camera");stopCapture("screen");stopCapture("microphone");if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
+window.addEventListener("beforeunload",()=>{if(mixerMeterFrameState.frame)cancelAnimationFrame(mixerMeterFrameState.frame);stopBroadcast();stopCapture("camera");stopCapture("screen");stopCapture("microphone");if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
 $("refreshDevices").click();
 $("runtimeCheck").onclick=async()=>{
  const output=$("runtimeDiagnostics");
@@ -1350,7 +1350,7 @@ function updateMixerLabels(){
   if(label)label.textContent=mixerLabel(id)+" · "+mixerPercent(id)+" %";
  }
 }
-let mixerMeterFrame=0;
+const mixerMeterFrameState={frame:0};
 function drawMixerMeters(){
  if(!studioAudioMixer)return;
  document.querySelectorAll("[data-mixer-meter]").forEach(element=>{
@@ -1360,7 +1360,7 @@ function drawMixerMeters(){
   element.style.width=percent+"%";
   element.title="RMS "+Math.round(level.rms*100)+" % · Peak "+Math.round(level.peak*100)+" %";
  });
- mixerMeterFrame=requestAnimationFrame(drawMixerMeters);
+ mixerMeterFrameState.frame=requestAnimationFrame(drawMixerMeters);
 }
 function saveMixerSettings(){
  try{localStorage.setItem(mixerStorageKey,JSON.stringify({...Object.fromEntries(Object.keys(mixerDefaults).map(id=>[id,mixerPercent(id)])),musicMuted}));}
