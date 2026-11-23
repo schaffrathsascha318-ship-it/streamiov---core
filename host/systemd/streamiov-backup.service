@@ -4,6 +4,8 @@ After=local-fs.target
 
 [Service]
 Type=oneshot
+TimeoutStartSec=30min
+TimeoutStopSec=30s
 User=streamiov
 Group=streamiov
 WorkingDirectory=/opt/streamiov
