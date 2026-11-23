@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "streamiov-voice-signalling",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-11-23",
+  "durable_objects": {
+    "bindings": [
+      { "name": "VOICE_ROOMS", "class_name": "VoiceRoom" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["VoiceRoom"] }
+  ]
+}
