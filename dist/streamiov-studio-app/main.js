@@ -1219,7 +1219,6 @@ ipcMain.handle('studio:voice-action', async (event, payload = {}) => {
       const data = await hostPost('/api/v1/voice/join', { invite_code: String(payload.invite_code || '') });
       const room = data.room || {};
       if (typeof room.token !== 'string') throw new Error('Core hat kein Voice-Token ausgegeben.');
-      voiceSessionTokens.set(room.room_id, room.token);
       const safeRoom = { ...room };
       delete safeRoom.token;
       delete safeRoom.ice_servers;
