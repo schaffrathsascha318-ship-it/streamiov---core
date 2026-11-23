@@ -53,12 +53,13 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("Keep the AudioContext and the single MediaElementAudioSourceNode alive.", self.ui)
         self.assertIn("Playlist-Rohdaten sind noch nicht mit einer automatischen Wiedergabe-Warteschlange verbunden.", self.ui)
 
-    def test_gift_gallery_keeps_tiktok_payouts_external_and_streamiov_gifts_free(self):
-        self.assertIn("TikTok wickelt Kauf, Zuordnung und mögliche Auszahlung direkt ab.", self.ui)
-        self.assertIn("StreamioV zieht nichts ab und nimmt kein Geld entgegen.", self.ui)
-        self.assertIn("eine 1:1-Umrechnung des Kaufpreises ist nicht zugesichert.", self.ui)
-        self.assertIn("Eigene Galerieeffekte sind kostenlos", self.ui)
-        self.assertIn("keine offizielle TikTok-Geschenkefreigabe", self.ui)
+    def test_studio_only_reacts_to_official_tiktok_gift_events_and_has_no_gift_gallery(self):
+        self.assertNotIn('data-tool="Geschenke"', self.ui)
+        self.assertNotIn("renderGiftsTool", self.ui)
+        self.assertNotIn("GESCHENKE / GALERIEBOX", self.ui)
+        self.assertIn("TIKTOK-LIVE-GESCHENKEREIGNISSE", self.ui)
+        self.assertIn("keine eigene Geschenke-Galerie", self.ui)
+        self.assertIn("function showGiftEffect(symbol)", self.ui)
 
         self.assertIn('id="rtmpDestination"', self.ui)
         self.assertIn("window.streamiovStudio.startStream({", self.ui)
