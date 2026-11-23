@@ -13,7 +13,7 @@ Die Regie enthält eine lokale Web-Audio-Engine mit vier voneinander getrennten 
 - **Bildschirm-Systemton:** wird nur verbunden, wenn die ausgewählte Bildschirmfreigabe tatsächlich einen aktiven Audiotrack liefert.
 - **Musik:** der lokale Musikplayer wird über eine MediaStream-Brücke in die Audio-Bus-Matrix eingespeist. Musik-Fader und Mute bleiben eigenständig; Stream- und Monitor-Routing laufen über die Busse.
 - **Soundboard:** jedes geladene Pad erhält einen eigenen Kanal und wird über eine MediaStream-Brücke in Stream und Monitor geroutet. Pad-Lautstärke und Mute bleiben pro Datei unabhängig.
-- **TTS:** die lokale deutsche espeak-ng-Ausgabe wird als WAV erzeugt und anschließend über einen eigenen TTS-Kanal in Stream und Monitor geroutet. Ein separater TTS-Fader ist vorhanden; Audioausgabe wird nicht allein durch den IPC-Erfolg als verifiziert markiert.
+- **TTS:** die lokale deutsche espeak-ng-Ausgabe wird als WAV erzeugt und anschließend über einen eigenen TTS-Kanal in Stream und Monitor geroutet. Ein separater TTS-Fader sowie einstellbare Sprechgeschwindigkeit (80–300 Wörter/Minute) und Sprachlautstärke (0–200) sind vorhanden; Audioausgabe wird nicht allein durch den IPC-Erfolg als verifiziert markiert.
 
 Der Stream-Ausgang verwendet den Stream-Bus als Audioquelle und nicht mehr die bisherigen direkten Mikrofon-/Systemton-Eingänge. Der Stream-Audiomodus begrenzt, welche Live-Quellen in den Stream-Bus gelangen. Bus-Pegel und Bus-Mute wirken unabhängig von Quellen-Fadern.
 
