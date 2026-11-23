@@ -97,6 +97,38 @@ class ProjectToolsConcurrencyTests(unittest.TestCase):
         self.assertEqual(sum(item.startswith("Created ") for item in outcomes), 1)
         self.assertEqual(sum(item.startswith("rejected:") for item in outcomes), 1)
 
+    def test_independent_processes_cannot_overwrite_same_file_edit(self):
+        import subprocess
+        import sys
+
+        path = self.root / "process-shared.txt"
+        path.write_text("base\\n", encoding="utf-8")
+        script = (
+            "import sys; from pathlib import Path; "
+            "from ai.runtime.project_tools import ProjectTools, ToolError; "
+            "tools=ProjectTools(Path(sys.argv[1]), full_project_development=True); "
+            "try_result=None; "
+            "\\ntry: try_result=tools.replace_text('process-shared.txt','base',sys.argv[2])"
+            "\\nexcept ToolError as exc: print('REJECTED:'+str(exc))"
+            "\\nelse: print('UPDATED:'+try_result)"
+        )
+        processes = [
+            subprocess.Popen(
+                [sys.executable, "-c", script, str(self.root), value],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+            for value in ("process-a", "process-b")
+        ]
+        results = []
+        for process in processes:
+            stdout, stderr = process.communicate(timeout=10)
+            self.assertEqual(process.returncode, 0, stderr)
+            results.append(stdout.strip())
+        final = path.read_text(encoding="utf-8")
+        self.assertIn(final, {"process-a\\n", "process-b\\n"})
+        self.assertEqual(sum(item.startswith("UPDATED:") for item in results), 1)
+        self.assertEqual(sum(item.startswith("REJECTED:") for item in results), 1)
+
     def test_atomic_replace_readers_never_observe_partial_content(self):
         path = self.root / "large.txt"
         old = "A" * 80_000
