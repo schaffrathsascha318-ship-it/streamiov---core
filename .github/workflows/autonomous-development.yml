@@ -220,6 +220,18 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
+      - name: Queue the next mission slice immediately
+        if: success() && steps.pick.outputs.issue_number != '' && steps.mission.outputs.status == 'active' && steps.encrypt_mission_state.outputs.saved == 'true' && steps.save_mission_artifact.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # workflow_dispatch is permitted with GITHUB_TOKEN. The current run
+          # keeps the concurrency lock, so this continuation waits safely and
+          # starts as soon as the current slice releases it.
+          gh workflow run autonomous-development.yml --ref main
+
       - name: Summarize mission status separately from runner status
         if: always() && steps.pick.outputs.issue_number != '' && steps.mission.outcome != 'skipped'
         env:
