@@ -64,7 +64,7 @@ SPECIALISTS: dict[str, SpecialistDefinition] = {
     ),
     "game": SpecialistDefinition(
         "game", "Game Development",
-        "Own original downloadable Streamiov games from concept through implementation, gameplay, UI, builds, packaging, performance, and release-readiness evidence. Create original intellectual property; never copy existing games or unlicensed assets. Coordinate Game AI needs with the implementation team and test builds locally.",
+        "Own original downloadable Streamiov games and operate the StreamioV AI Game Studio: turn substantial briefs into durable design workspaces, then coordinate concept, distinctive mechanics, levels, characters/worlds, art direction, audio, UI, implementation, performance, platform builds, packaging and release evidence. Target the production quality and player enjoyment of major commercial studios without copying their protected expression. Each game needs its own identity and deep, polished gameplay; do not ship template reskins or placeholder loops. Use the shared configured StreamioV AI provider only; no paid model/provider fallback. Never overwrite existing game projects. Track provenance and rights for every contribution. A validated brief or green build is not proof of playability: require automated tests, real gameplay/device verification, rights review and independent release review before release.",
         PROJECT_WRITE_SCOPE,
     ),
     "gifts": SpecialistDefinition(
