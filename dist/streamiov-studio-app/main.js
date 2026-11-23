@@ -696,6 +696,88 @@ ipcMain.handle('studio:tiktok-disconnect', async (event) => {
 });
 
 
+
+/** Official Twitch account connection and on-demand Helix stream-key retrieval. */
+const { TwitchOAuth } = require('./twitch-oauth.js');
+let twitchOAuth = null;
+let twitchCallbackServer = null;
+let twitchCallbackTimeout = null;
+let twitchConnectInProgress = false;
+function getTwitchOAuth() {
+  if (!twitchOAuth) twitchOAuth = new TwitchOAuth({
+    env: process.env,
+    tokenFile: path.join(app.getPath('userData'), 'oauth', 'twitch.json')
+  });
+  return twitchOAuth;
+}
+function sendTwitchAuthResult(result) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('studio:twitch-auth-result', result);
+}
+ipcMain.handle('studio:twitch-status', (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  try { return { ok: true, ...getTwitchOAuth().status() }; }
+  catch (error) { return { ok: false, status: 'configuration_required', error: String(error.message || error) }; }
+});
+ipcMain.handle('studio:twitch-connect', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  if (twitchConnectInProgress) return { ok: false, error: 'Twitch-Anmeldung läuft bereits.' };
+  try {
+    const oauth = getTwitchOAuth();
+    const authorization = oauth.createAuthorizationUrl();
+    const redirect = new URL(process.env.STREAMIOV_TWITCH_REDIRECT_URI);
+    if (redirect.protocol !== 'http:' || redirect.hostname !== '127.0.0.1' || !redirect.port ||
+        redirect.pathname !== '/callback' || redirect.search || redirect.hash) throw new Error('Ungültiger Twitch-Loopback-Callback.');
+    if (twitchCallbackServer) { await new Promise(resolve => twitchCallbackServer.close(resolve)); twitchCallbackServer = null; }
+    twitchConnectInProgress = true;
+    twitchCallbackServer = http.createServer(async (request, response) => {
+      const callbackUrl = new URL(request.url, 'http://127.0.0.1');
+      if (request.method !== 'GET' || callbackUrl.pathname !== '/callback') {
+        response.writeHead(404); response.end('Nicht gefunden'); return;
+      }
+      try {
+        const result = await oauth.callback({ code: callbackUrl.searchParams.get('code'), state: callbackUrl.searchParams.get('state'), error: callbackUrl.searchParams.get('error') });
+        response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+        response.end('<!doctype html><html lang="de"><meta charset="utf-8"><title>Streamiov</title><body><h1>Twitch verbunden</h1><p>Du kannst dieses Fenster schließen.</p></body></html>');
+        sendTwitchAuthResult({ ok: true, ...result });
+      } catch (error) {
+        response.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+        response.end('<!doctype html><html lang="de"><meta charset="utf-8"><title>Streamiov</title><body><h1>Twitch-Anmeldung fehlgeschlagen</h1><p>Bitte zu Streamiov zurückkehren.</p></body></html>');
+        sendTwitchAuthResult({ ok: false, error: String(error.message || error) });
+      } finally {
+        if (twitchCallbackTimeout) clearTimeout(twitchCallbackTimeout);
+        twitchCallbackTimeout = null; twitchConnectInProgress = false;
+        const server = twitchCallbackServer; twitchCallbackServer = null; if (server) server.close();
+      }
+    });
+    await new Promise((resolve, reject) => { twitchCallbackServer.once('error', reject); twitchCallbackServer.listen(Number(redirect.port), '127.0.0.1', resolve); });
+    twitchCallbackTimeout = setTimeout(() => {
+      twitchConnectInProgress = false; const server = twitchCallbackServer; twitchCallbackServer = null;
+      if (server) server.close(); sendTwitchAuthResult({ ok: false, error: 'twitch_oauth_timeout' });
+    }, 600000);
+    if (typeof twitchCallbackTimeout.unref === 'function') twitchCallbackTimeout.unref();
+    await shell.openExternal(authorization.url);
+    return { ok: true, status: 'authorization_opened' };
+  } catch (error) {
+    if (twitchCallbackTimeout) clearTimeout(twitchCallbackTimeout);
+    twitchCallbackTimeout = null; twitchConnectInProgress = false;
+    if (twitchCallbackServer) { try { twitchCallbackServer.close(); } catch {} twitchCallbackServer = null; }
+    return { ok: false, error: String(error.message || error) };
+  }
+});
+ipcMain.handle('studio:twitch-disconnect', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  try { const result = await getTwitchOAuth().disconnect(); sendTwitchAuthResult({ ok: true, ...result }); return result; }
+  catch (error) { return { ok: false, error: String(error.message || error) }; }
+});
+ipcMain.handle('studio:twitch-prepare-output', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  try {
+    const credentials = await getTwitchOAuth().getStreamCredentials();
+    // Keep the stream key in the main process. Never return it to the renderer.
+    return { ok: true, platform: 'twitch', status: 'ready', ingestUrl: credentials.ingestUrl };
+  } catch (error) { return { ok: false, platform: 'twitch', status: 'blocked', error: String(error.message || error) }; }
+});
+
 // Crostini-Kompatibilität: GPU-Beschleunigung vor app.whenReady deaktivieren.
 app.disableHardwareAcceleration();
 
