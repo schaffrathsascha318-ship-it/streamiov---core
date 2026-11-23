@@ -1,6 +1,9 @@
 """Constrained project tools: safe file access and fixed test commands only."""
 from __future__ import annotations
 import os
+import hashlib
+import json
+import stat
 import shutil
 import subprocess
 import sys
@@ -41,19 +44,109 @@ TEST_COMMANDS = {
 MAX_FILE_BYTES = 200_000
 MAX_LIST_ENTRIES = 100
 
-# All ProjectTools instances in one mission runner share these per-path locks.
-# Atomic replacement ensures readers see either the old or new complete file.
+# Thread locks protect instances in one process; OS file locks extend the
+# same guarantee to separate processes sharing this checkout on the same host.
+# Lock files live outside the repository and are released by the OS on process exit.
 _PATH_LOCKS_GUARD = threading.Lock()
 _PATH_LOCKS: dict[str, threading.RLock] = {}
+_LOCK_TIMEOUT_SECONDS = 300
+
+try:
+    import fcntl as _fcntl
+except ImportError:  # Windows
+    _fcntl = None
+try:
+    import msvcrt as _msvcrt
+except ImportError:  # POSIX
+    _msvcrt = None
+
+
+def _process_lock_path(key: str) -> Path:
+    user_scope = str(getattr(os, "getuid", lambda: os.environ.get("USERNAME", "default"))())
+    scope = hashlib.sha256(user_scope.encode("utf-8")).hexdigest()[:16]
+    root = Path(tempfile.gettempdir()) / ("streamiov-path-locks-" + scope)
+    if root.is_symlink():
+        raise ToolError("Cross-process lock directory must not be a symlink.")
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if root.is_symlink() or not root.is_dir():
+        raise ToolError("Cross-process lock directory is unsafe.")
+    try:
+        os.chmod(root, 0o700)
+    except OSError:
+        pass
+    digest = hashlib.sha256(os.path.normcase(key).encode("utf-8")).hexdigest()
+    return root / (digest + ".lock")
+
+
+def _acquire_process_lock(descriptor: int) -> None:
+    deadline = time.monotonic() + _LOCK_TIMEOUT_SECONDS
+    if _fcntl is not None:
+        while True:
+            try:
+                _fcntl.flock(descriptor, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+                return
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise ToolError("Timed out waiting for another process to release this file.")
+                time.sleep(0.05)
+    elif _msvcrt is not None:
+        if os.fstat(descriptor).st_size == 0:
+            os.write(descriptor, b"\\0")
+        while True:
+            try:
+                os.lseek(descriptor, 0, os.SEEK_SET)
+                _msvcrt.locking(descriptor, _msvcrt.LK_NBLCK, 1)
+                return
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise ToolError("Timed out waiting for another process to release this file.")
+                time.sleep(0.05)
+    else:
+        raise ToolError("No supported OS file-lock provider is available; refusing an unlocked write.")
+
+
+def _release_process_lock(descriptor: int) -> None:
+    if _fcntl is not None:
+        _fcntl.flock(descriptor, _fcntl.LOCK_UN)
+    elif _msvcrt is not None:
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        _msvcrt.locking(descriptor, _msvcrt.LK_UNLCK, 1)
 
 
 @contextmanager
-def _locked_path(path: Path):
+def _locked_path(path: Path, *, owner: dict | None = None):
     key = str(path.resolve(strict=False))
     with _PATH_LOCKS_GUARD:
         lock = _PATH_LOCKS.setdefault(key, threading.RLock())
     with lock:
-        yield
+        lock_path = _process_lock_path(key)
+        flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(lock_path, flags, 0o600)
+        except OSError as exc:
+            raise ToolError("Could not open a safe cross-process file lock.") from exc
+        acquired = False
+        try:
+            if not os.path.isfile(lock_path) or not stat.S_ISREG(os.fstat(descriptor).st_mode):
+                raise ToolError("Cross-process lock is not a regular file.")
+            _acquire_process_lock(descriptor)
+            acquired = True
+            metadata = {
+                "pid": os.getpid(),
+                "task_id": str((owner or {}).get("task_id") or "process:" + str(os.getpid()))[:128],
+                "path_sha256": hashlib.sha256(key.encode("utf-8")).hexdigest(),
+                "acquired_at": time.time(),
+            }
+            encoded = json.dumps(metadata, sort_keys=True).encode("utf-8")
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            os.ftruncate(descriptor, 0)
+            os.write(descriptor, encoded)
+            os.fsync(descriptor)
+            yield
+        finally:
+            if acquired:
+                _release_process_lock(descriptor)
+            os.close(descriptor)
 
 
 def _atomic_replace_text(target: Path, content: str) -> None:
