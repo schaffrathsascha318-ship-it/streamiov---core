@@ -1205,7 +1205,6 @@ ipcMain.handle('studio:voice-action', async (event, payload = {}) => {
       const room = data.room || {};
       const token = room.token;
       if (typeof token !== 'string') throw new Error('Core hat kein Voice-Token ausgegeben.');
-      voiceSessionTokens.set(room.room_id, token);
       const safeRoom = { ...room };
       delete safeRoom.token;
       return { ok: true, room: safeRoom };
@@ -1228,7 +1227,6 @@ ipcMain.handle('studio:voice-action', async (event, payload = {}) => {
     if (action === 'close') {
       if (!/^[a-f0-9]{32}$/.test(roomId)) throw new Error('Ungültige Voice-Raum-ID.');
       const data = await hostPost('/api/v1/voice/rooms/' + roomId + '/close', { confirm: true });
-      voiceSessionTokens.delete(roomId);
       return data;
     }
     if (action === 'connect') {
@@ -1254,7 +1252,6 @@ ipcMain.handle('studio:voice-action', async (event, payload = {}) => {
     return { ok: false, error: String(error.message || error).slice(0, 300) };
   }
 });
-const voiceSessionTokens = new Map();
 
 ipcMain.handle('studio:ai-submit', async (event, payload = {}) => {
   if (!isTrustedStudioSender(event)) {
