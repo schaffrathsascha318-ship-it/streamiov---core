@@ -111,6 +111,12 @@ export default {
       if (verified.error) return json({ error: verified.error }, verified.error === "not_configured" ? 503 : 401);
       let stub;
       try { stub = roomStub(env, roomId); } catch { return json({ error: "service_not_configured" }, 503); }
+      const consumed = await stub.fetch("https://voice-room.internal/token", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jti: verified.claims.jti, sub: verified.claims.sub, exp: verified.claims.exp })
+      });
+      if (!consumed.ok) return json({ error: "token_expired_or_replayed" }, consumed.status === 410 ? 410 : 401);
       const ticket = encodeBase64Url(crypto.getRandomValues(new Uint8Array(32)));
       const expiresAt = Date.now() + 60_000;
       const response = await stub.fetch("https://voice-room.internal/ticket", {
@@ -161,6 +167,23 @@ export class VoiceRoom {
 
   async fetch(request) {
     const url = new URL(request.url);
+    if (request.method === "POST" && url.pathname === "/token") {
+      let body;
+      try { body = await request.json(); } catch { return json({ error: "invalid_json" }, 400); }
+      if (!body || typeof body.jti !== "string" || body.jti.length < 16 || body.jti.length > 128 ||
+          typeof body.sub !== "string" || !body.sub || !Number.isInteger(body.exp) ||
+          body.exp <= Math.floor(Date.now() / 1000) || body.exp > Math.floor(Date.now() / 1000) + MAX_TOKEN_TTL) {
+        return json({ error: "invalid_token_claims" }, 400);
+      }
+      if (await this.state.storage.get("closed")) return json({ error: "room_closed" }, 410);
+      const consumed = await this.state.storage.transaction(async txn => {
+        const key = "token:" + body.jti;
+        if (await txn.get(key)) return false;
+        await txn.put(key, { sub: body.sub, expiresAt: body.exp * 1000 });
+        return true;
+      });
+      return consumed ? json({ ok: true }, 201) : json({ error: "token_replayed" }, 409);
+    }
     if (request.method === "POST" && url.pathname === "/ticket") {
       let body;
       try { body = await request.json(); } catch { return json({ error: "invalid_json" }, 400); }
