@@ -234,6 +234,11 @@ def main() -> int:
                 checkpoint_db=database,
                 full_project_development=True,
             ),
+            # The engine checks the cooperative stop event every lease/3 while
+            # a specialist is running. A 30s lease bounds shutdown detection to
+            # roughly 10s instead of the 100s default, leaving ample time for
+            # task interruption to be persisted before the runner is terminated.
+            lease_seconds=30,
         )
         stop_event = threading.Event()
         if number == 0 or os.environ.get("STREAMIOV_PROJECT_SUPERVISOR") == "true":
