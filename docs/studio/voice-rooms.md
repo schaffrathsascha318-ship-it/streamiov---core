@@ -46,7 +46,11 @@ Deploy the Durable Object migration before enabling the service. Do not reuse th
 
 ## Transport and limitations
 
-The current implementation is a peer-to-peer WebRTC mesh with a public STUN discovery fallback. The signalling Worker never receives media. There is no TURN relay/SFU in this branch. Direct connectivity can fail behind symmetric NAT, restrictive firewalls, or networks that block UDP; a real public Voice launch therefore requires a separately operated, authenticated TURN relay and two-client real-network acceptance. No third-party paid relay is configured.
+The current implementation is a peer-to-peer WebRTC mesh. It always includes a public STUN discovery fallback and can optionally issue short-lived coturn REST credentials from Core when both `STREAMIOV_TURN_URLS` and `STREAMIOV_TURN_SHARED_SECRET` are configured. The Core generates a one-hour username/credential pair using HMAC-SHA1 as required by coturn REST authentication; the shared secret is never sent to the renderer. A self-hosted coturn template is in `infrastructure/voice/coturn/turnserver.conf.example`.
+
+To enable a self-hosted relay on Debian/Ubuntu: install coturn with `sudo apt install coturn`; copy the template to `/etc/turnserver.conf`; replace the domain, certificate paths, public IP mapping (if behind NAT), and `static-auth-secret`; use a separate random TURN secret (for example `openssl rand -hex 32`) and set the same value as `STREAMIOV_TURN_SHARED_SECRET` in the protected Core environment file. Protect coturn's config with `root:turnserver` ownership and mode `0600`, enable the coturn service, and open UDP/TCP 3478, TCP 5349, and the configured UDP relay range (default 49160–49200). Do not use a public static TURN credential in the desktop app.
+
+The signalling Worker never receives media and is not an SFU. Without a configured and reachable TURN server, direct connectivity can still fail behind symmetric NAT, restrictive firewalls, or networks that block UDP. No third-party paid relay is configured.
 
 The room UI requires an authenticated Streamiov account, an active local microphone capture, a deployed Worker and configured secrets. It defaults to push-to-talk and headphones-only remote playback to reduce acoustic feedback. The system does not automatically record calls. Screen/system audio and music are not sent to Voice peers.
 
