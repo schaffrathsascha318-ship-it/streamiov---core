@@ -190,7 +190,7 @@ def main():
     raise SystemExit(f"Generator ownership marker mismatch: {project}")
    shutil.rmtree(project)
   project.mkdir(parents=True)
-  (project/".streamiov-generated-native-game").write_text(game_id+"\\n",encoding="utf-8")
+  (project/".streamiov-generated-native-game").write_text(game_id+"\n",encoding="utf-8")
   shutil.copy2(TEMPLATE/"main.gd",project/"main.gd")
   shutil.copy2(TEMPLATE/"main.tscn",project/"main.tscn")
   shutil.copy2(TEMPLATE/"icon.svg",project/"icon.svg")
