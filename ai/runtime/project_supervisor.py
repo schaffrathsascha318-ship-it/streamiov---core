@@ -216,13 +216,34 @@ class ProjectSupervisor:
         except MissionEngineError:
             goal = row["goal"].strip()
             progress = (row["progress"] or "").strip()
+            # The original intake goal may already be close to the engine's
+            # 8,000-character limit. Bound both carried sections before adding
+            # supervisor instructions, so a fresh mission can always be created.
+            truncation_marker = "\n\n[Middle omitted; see the durable project goal/progress record.]\n\n"
+
+            def bounded(value: str, limit: int, *, keep_tail: bool = False) -> str:
+                if len(value) <= limit:
+                    return value
+                available = max(0, limit - len(truncation_marker))
+                if keep_tail:
+                    return truncation_marker + value[-available:] if available else value[-limit:]
+                head = (available * 2) // 3
+                tail = available - head
+                return value[:head] + truncation_marker + (value[-tail:] if tail else "")
+
+            goal = bounded(goal, 5000)
+            progress = bounded(
+                progress or "No project missions have been verified yet.",
+                2000,
+                keep_tail=True,
+            )
             mission_goal = (
                 f"PROJECT-WIDE STREAMIOV GOAL:\n{goal}\n\n"
                 "Continue the project from its verified state. Identify the next highest-priority "
                 "unfinished deliverable from the repository and the cumulative progress below. "
                 "Do not repeat completed work; repair blockers before starting unrelated work. "
                 "Completion requires the mission engine's independent testing-specialist verification.\n\n"
-                f"VERIFIED PROJECT PROGRESS:\n{progress or 'No project missions have been verified yet.'}"
+                f"VERIFIED PROJECT PROGRESS:\n{progress}"
             )
             return self.engine.create_mission(mission_goal, mission_id=mission_id)
 
