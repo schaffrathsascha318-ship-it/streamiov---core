@@ -189,7 +189,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout --preserve-status --signal=INT --kill-after=90s 18m python scripts/autonomous/run_issue.py
+          # Keep each hosted-runner lease short: SIGINT requests a cooperative stop; the workflow then
+          # checkpoints, encrypts, and uploads mission state before starting the next slice.
+          timeout --preserve-status --signal=INT --kill-after=90s 5m python scripts/autonomous/run_issue.py
 
       - name: Checkpoint and encrypt durable AI Chief mission state
         id: encrypt_mission_state
