@@ -108,25 +108,25 @@ jobs:
           $game - Windows 11 x64
           Extract this package and double-click the EXE. Portable development build; no setup wizard.
           EOF
-            cp "build/StreamioV-$game-windows-x64.exe" "$temp_dir/windows/"
+            cp "$project/build/StreamioV-$game-windows-x64.exe" "$temp_dir/windows/"
             (cd "$temp_dir/windows" && zip -qr "$GITHUB_WORKSPACE/artifacts/packages/$game-windows-x64.zip" .)
 
             cat > "$temp_dir/linux-x86_64/INSTALL.txt" <<EOF
           $game - Linux x86_64
           Extract this archive, then run: chmod +x StreamioV-$game-linux-x86_64 && ./StreamioV-$game-linux-x86_64
           EOF
-            cp "build/StreamioV-$game-linux-x86_64" "$temp_dir/linux-x86_64/"
+            cp "$project/build/StreamioV-$game-linux-x86_64" "$temp_dir/linux-x86_64/"
             tar -czf "artifacts/packages/$game-linux-x86_64.tar.gz" -C "$temp_dir/linux-x86_64" .
 
             cat > "$temp_dir/linux-arm64/INSTALL.txt" <<EOF
           $game - Linux ARM64
           Extract this archive, then run: chmod +x StreamioV-$game-linux-arm64 && ./StreamioV-$game-linux-arm64
           EOF
-            cp "build/StreamioV-$game-linux-arm64" "$temp_dir/linux-arm64/"
+            cp "$project/build/StreamioV-$game-linux-arm64" "$temp_dir/linux-arm64/"
             tar -czf "artifacts/packages/$game-linux-arm64.tar.gz" -C "$temp_dir/linux-arm64" .
 
-            cp "build/StreamioV-$game-android-arm64.apk" "artifacts/packages/$game-android-arm64-phone-tablet-and-arm-chromeos-debug.apk"
-            cp "build/StreamioV-$game-android-x86_64.apk" "artifacts/packages/$game-android-x86_64-intel-chromeos-debug.apk"
+            cp "$project/build/StreamioV-$game-android-arm64.apk" "artifacts/packages/$game-android-arm64-phone-tablet-and-arm-chromeos-debug.apk"
+            cp "$project/build/StreamioV-$game-android-x86_64.apk" "artifacts/packages/$game-android-x86_64-intel-chromeos-debug.apk"
             rm -rf "$temp_dir"
           done
           (cd artifacts/packages && sha256sum *.zip *.tar.gz *.apk > SHA256SUMS.txt)
