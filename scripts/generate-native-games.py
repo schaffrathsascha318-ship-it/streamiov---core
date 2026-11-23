@@ -207,6 +207,7 @@ game_id="{game_id}"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=false
+textures/vram_compression/import_etc2_astc=true
 '''
   (project/"project.godot").write_text(settings,encoding="utf-8")
   (project/"export_presets.cfg").write_text(make_presets(game_id,title),encoding="utf-8")
