@@ -20,7 +20,7 @@ class StreamiovVoiceClient {
     this.websocketUrl = websocketUrl;
     this.ticket = ticket;
     this.localStream = localStream;
-    this.iceServers = Array.isArray(iceServers) ? iceServers : [{ urls: 'stun:stun.l.google.com:19302' }];
+    this.iceServers = Array.isArray(iceServers) && iceServers.length ? iceServers : [{ urls: 'stun:stun.l.google.com:19302' }];
     this.onState = typeof onState === 'function' ? onState : () => {};
     this.onParticipants = typeof onParticipants === 'function' ? onParticipants : () => {};
     this.onRemoteStream = typeof onRemoteStream === 'function' ? onRemoteStream : () => {};
