@@ -1,5 +1,5 @@
 # Copy to /etc/turnserver.conf and replace every REPLACE_* value.
-# Protect the resulting file: root:turnserver, mode 0600.
+# Protect the resulting file: root:turnserver, mode 0640 (root:turnserver).
 listening-port=3478
 tls-listening-port=5349
 fingerprint
