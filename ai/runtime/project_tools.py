@@ -1,6 +1,7 @@
 """Constrained project tools: safe file access and fixed test commands only."""
 from __future__ import annotations
 import os
+import hashlib
 import shutil
 import subprocess
 import sys
@@ -49,11 +50,38 @@ _PATH_LOCKS: dict[str, threading.RLock] = {}
 
 @contextmanager
 def _locked_path(path: Path):
+    """Serialize access across threads and independent processes on this host."""
     key = str(path.resolve(strict=False))
     with _PATH_LOCKS_GUARD:
         lock = _PATH_LOCKS.setdefault(key, threading.RLock())
     with lock:
-        yield
+        # A stable lock-file identity is essential: never unlink lock files,
+        # because another process may already have the old inode open.
+        lock_root = Path(tempfile.gettempdir()) / "streamiov-path-locks"
+        lock_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        lock_name = hashlib.sha256(os.fsencode(key)).hexdigest() + ".lock"
+        lock_path = lock_root / lock_name
+        with lock_path.open("a+b") as lock_file:
+            lock_file.seek(0, os.SEEK_END)
+            if lock_file.tell() == 0:
+                lock_file.write(b"\\0")
+                lock_file.flush()
+            lock_file.seek(0)
+            if os.name == "nt":
+                import msvcrt
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+                try:
+                    yield
+                finally:
+                    lock_file.seek(0)
+                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def _atomic_replace_text(target: Path, content: str) -> None:
