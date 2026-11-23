@@ -2612,6 +2612,7 @@ function voiceShowRoom(room){
  $("voiceInviteOutput").value=room.invite_code||"";
  $("voiceConnect").disabled=false;
  $("voiceRoomClose").disabled=room.role!=="owner";
+ $("voiceNewInvite").disabled=room.role!=="owner";
  voiceStatus("Raum bereit. Mikrofon aktivieren und anschließend verbinden. Keine Aufzeichnung.");
 }
 async function voiceRoomAction(payload){
@@ -2656,7 +2657,8 @@ $("voiceConnect").addEventListener("click",async()=>{
    onState:event=>{
     if(event.state==="connected"){voiceStatus("Verbunden · "+event.participantCount+" Teilnehmer · Peer-to-Peer · keine Aufzeichnung.");voiceSetButtons(true);}
     else if(event.state==="disconnected"){voiceClient=null;voiceSetButtons(false);voiceStatus("Voice-Verbindung getrennt.");}
-    else if(event.state==="error"||event.state==="signalling_error")voiceStatus("Voice-Fehler: "+(event.error||event.code||"Verbindung fehlgeschlagen."));
+    else if(event.state==="error"){voiceStatus("Voice-Fehler: "+(event.error||"Verbindung fehlgeschlagen."));voiceClient?.disconnect();voiceClient=null;voiceSetButtons(false);}
+    else if(event.state==="signalling_error")voiceStatus("Voice-Signalisierung: "+(event.code||"Nachricht abgelehnt."));
    },
    onParticipants:voiceRenderParticipants,
    onRemoteStream:event=>{
@@ -2689,6 +2691,8 @@ $("voiceDeafen").addEventListener("click",()=>{
 $("voicePushToTalk").addEventListener("pointerdown",()=>voiceClient?.setPushToTalkPressed(true));
 for(const eventName of ["pointerup","pointerleave","pointercancel"])$("voicePushToTalk").addEventListener(eventName,()=>voiceClient?.setPushToTalkPressed(false));
 $("voicePushToTalk").addEventListener("contextmenu",event=>event.preventDefault());
+$("voicePushToTalk").addEventListener("keydown",event=>{if(event.code==="Space"){event.preventDefault();voiceClient?.setPushToTalkPressed(true);}});
+$("voicePushToTalk").addEventListener("keyup",event=>{if(event.code==="Space"){event.preventDefault();voiceClient?.setPushToTalkPressed(false);}});
 $("voiceRoomClose").addEventListener("click",async()=>{
  if(!activeVoiceRoom||activeVoiceRoom.role!=="owner")return;
  try{
