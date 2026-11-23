@@ -14,7 +14,7 @@
     .wrap{width:min(var(--max),calc(100% - 40px));margin-inline:auto}
     .topbar{position:sticky;top:0;z-index:20;border-bottom:1px solid #253044cc;background:#080b12eF;backdrop-filter:blur(16px)}
     .nav{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:28px}
-    .brand-cluster{display:flex;align-items:center;gap:12px;flex:none;min-width:0}.brand{display:flex;align-items:center;flex:none}.brand img{display:block;width:186px;height:auto}.brand-ad-slot{display:none;width:5cm;height:5cm;max-width:5cm;max-height:5cm;flex:none;place-items:center;overflow:hidden;border:1px solid #35445b;border-radius:10px;background:#0c1420;color:#aebbd0;text-align:center;text-decoration:none;font-size:11px;font-weight:750}.brand-ad-slot[data-active="true"]{display:grid}.brand-ad-slot img{display:block;width:100%;height:100%;object-fit:contain}.brand-ad-slot .ad-label{position:absolute;align-self:start;justify-self:start;padding:2px 5px;border-radius:0 0 5px 0;background:#080b12dd;color:#aebbd0;font-size:10px}
+    .brand-cluster{display:flex;align-items:center;gap:12px;flex:none;min-width:0}.brand{display:flex;align-items:center;flex:none}.brand img{display:block;width:186px;height:auto}.brand-ad-slot{position:relative;width:5cm;height:5cm;max-width:5cm;max-height:5cm;flex:none;display:grid;place-items:center;overflow:hidden;border:1px dashed #42e8ff88;border-radius:10px;background:#0c1420;color:#aebbd0;text-align:center;font-size:11px;font-weight:750}.brand-ad-slot .ad-placeholder{padding:12px;color:#aebbd0;line-height:1.5}.brand-ad-slot .ad-label{position:absolute;top:0;left:0;padding:2px 5px;border-radius:0 0 5px 0;background:#080b12dd;color:#aebbd0;font-size:10px}
     .links{display:flex;align-items:center;justify-content:flex-end;gap:22px;flex-wrap:wrap}.links a{text-decoration:none;color:#ced7e7;font-size:14px;font-weight:650}.links a:hover{color:var(--cyan)}
     .links .nav-cta{padding:9px 15px;border:1px solid #42e8ff77;border-radius:999px;color:var(--cyan)}
     .hero{position:relative;isolation:isolate;overflow:hidden;padding:92px 0 78px;background:radial-gradient(ellipse 48% 70% at 78% 15%,#442c812b,transparent 72%),radial-gradient(ellipse 50% 80% at 82% 92%,#20c4d11b,transparent 76%)}
@@ -44,7 +44,7 @@
 <body>
   <header class="topbar">
     <div class="wrap nav">
-      <div class="brand-cluster"><a class="brand" href="/" aria-label="StreamioV Startseite"><img src="/assets/streamiov-wordmark.svg" alt="StreamioV"></a><a class="brand-ad-slot" data-active="false" href="#" aria-label="Anzeige – Werbefläche maximal 5 mal 5 Zentimeter" rel="sponsored nofollow noopener" hidden><span class="ad-label">Anzeige</span><img src="" alt="Werbeanzeige"></a></div>
+      <div class="brand-cluster"><a class="brand" href="/" aria-label="StreamioV Startseite"><img src="/assets/streamiov-wordmark.svg" alt="StreamioV"></a><div class="brand-ad-slot" data-active="true" role="img" aria-label="Freie Werbefläche, maximal 5 mal 5 Zentimeter"><span class="ad-label">Anzeige</span><span class="ad-placeholder">Werbefläche<br>5 × 5 cm</span></div></div>
       <nav class="links" aria-label="Hauptnavigation">
         <a href="#downloads">Studio-Downloads</a><a href="/promo/">Promo</a><a href="#studio">Studio</a><a href="#ki">KI</a><a href="#spiele">Spiele-Downloads</a><a href="#musik">Musik</a><a href="#tiktok">TikTok</a><a href="#status">Projektstand</a><a href="#entwickler">Entwickler</a><a href="/forum/">Forum</a><a href="/account/">Konto</a><a class="nav-cta" href="/download/">Download-Hub</a>
       </nav>
