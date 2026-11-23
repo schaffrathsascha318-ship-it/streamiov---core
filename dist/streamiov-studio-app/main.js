@@ -1177,6 +1177,85 @@ ipcMain.handle('studio:ai-logout', async (event) => {
   return { ok: true };
 });
 
+ipcMain.handle('studio:voice-action', async (event, payload = {}) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  if (!streamiovSessionCookie) return { ok: false, error: 'Bitte zuerst im KI-Manager anmelden.' };
+  const action = String(payload.action || '');
+  const roomId = String(payload.room_id || '');
+  const headers = {
+    'Content-Type': 'application/json',
+    Cookie: streamiovSessionCookie,
+    'X-Streamiov-Client': STREAMIOV_CLIENT_HEADER
+  };
+  const hostPost = async (route, body) => {
+    const response = await fetch(STREAMIOV_API + route, {
+      method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(10000)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      streamiovSessionCookie = null;
+      streamiovSessionUser = null;
+    }
+    if (!response.ok || data.ok !== true) throw new Error(data.error || data.detail || 'Voice-Core-Anfrage fehlgeschlagen.');
+    return data;
+  };
+  try {
+    if (action === 'create') {
+      const data = await hostPost('/api/v1/voice/rooms', { name: String(payload.name || '') });
+      const room = data.room || {};
+      const token = room.token;
+      if (typeof token !== 'string') throw new Error('Core hat kein Voice-Token ausgegeben.');
+      voiceSessionTokens.set(room.room_id, token);
+      const safeRoom = { ...room };
+      delete safeRoom.token;
+      return { ok: true, room: safeRoom };
+    }
+    if (action === 'join') {
+      const data = await hostPost('/api/v1/voice/join', { invite_code: String(payload.invite_code || '') });
+      const room = data.room || {};
+      if (typeof room.token !== 'string') throw new Error('Core hat kein Voice-Token ausgegeben.');
+      voiceSessionTokens.set(room.room_id, room.token);
+      const safeRoom = { ...room };
+      delete safeRoom.token;
+      return { ok: true, room: safeRoom };
+    }
+    if (action === 'invite') {
+      if (!/^[a-f0-9]{32}$/.test(roomId)) throw new Error('Ungültige Voice-Raum-ID.');
+      return { ok: true, ...(await hostPost('/api/v1/voice/rooms/' + roomId + '/invites', {
+        role: payload.role || 'guest', ttl: payload.ttl ?? 3600, max_uses: payload.max_uses ?? 1
+      })) };
+    }
+    if (action === 'close') {
+      if (!/^[a-f0-9]{32}$/.test(roomId)) throw new Error('Ungültige Voice-Raum-ID.');
+      const data = await hostPost('/api/v1/voice/rooms/' + roomId + '/close', { confirm: true });
+      voiceSessionTokens.delete(roomId);
+      return data;
+    }
+    if (action === 'connect') {
+      if (!/^[a-f0-9]{32}$/.test(roomId)) throw new Error('Ungültige Voice-Raum-ID.');
+      const data = await hostPost('/api/v1/voice/token', { room_id: roomId });
+      const room = data.room || {};
+      if (typeof room.token !== 'string') throw new Error('Core hat kein Voice-Token ausgegeben.');
+      const base = String(room.signalling_url || '').replace(/\/+$/, '');
+      if (!/^https:\/\//i.test(base)) throw new Error('Voice-Signalisierungsdienst ist nicht sicher konfiguriert (HTTPS erforderlich).');
+      const ticketResponse = await fetch(base + '/v1/voice/ticket', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + room.token },
+        signal: AbortSignal.timeout(10000)
+      });
+      const ticketData = await ticketResponse.json().catch(() => ({}));
+      if (!ticketResponse.ok || typeof ticketData.ticket !== 'string' || typeof ticketData.websocket_url !== 'string') {
+        throw new Error(ticketData.error || 'Voice-Signalisierung konnte kein Einmal-Ticket ausstellen.');
+      }
+      return { ok: true, room_id: roomId, websocket_url: ticketData.websocket_url, ticket: ticketData.ticket, ticket_expires_in: ticketData.expires_in };
+    }
+    return { ok: false, error: 'Unbekannte Voice-Aktion.' };
+  } catch (error) {
+    return { ok: false, error: String(error.message || error).slice(0, 300) };
+  }
+});
+const voiceSessionTokens = new Map();
+
 ipcMain.handle('studio:ai-submit', async (event, payload = {}) => {
   if (!isTrustedStudioSender(event)) {
     throw new Error('Nicht autorisierter Studio-Aufruf');
