@@ -1702,7 +1702,7 @@ async function renderTtsTool(body){
  const api=window.streamiovStudio?.chatAction;
  if(!api){body.append(toolNote("TTS benötigt die installierte Desktop-App."));return;}
  const stateLine=toolNote("TTS-Status wird geladen …");
- const toggle=toolButton("TTS einschalten",async()=>apply(await api({action:"toggle-tts"})));
+ const toggle=toolButton("TTS einschalten",async()=>{const result=await api({action:"toggle-tts"});if(result?.tts!=="online")ttsAudio.pause();apply(result);});
  const input=document.createElement("textarea");
  input.maxLength=1000;
  input.placeholder="Text für die lokale deutsche Sprachausgabe";
