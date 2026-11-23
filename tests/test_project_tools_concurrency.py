@@ -61,7 +61,11 @@ class ProjectToolsConcurrencyTests(unittest.TestCase):
         self.assertEqual(sum(item.startswith("rejected:") for item in outcomes), 1)
 
     def test_os_file_lock_serializes_separate_processes_and_recovers_after_crash(self):
-        context = multiprocessing.get_context("spawn")
+        # CI's Phase 1 runner executes the suite from stdin on POSIX, which
+        # cannot be re-imported by multiprocessing's spawn bootstrap. Use fork
+        # where available; retain spawn as the Windows-compatible fallback.
+        method = "fork" if "fork" in multiprocessing.get_all_start_methods() else "spawn"
+        context = multiprocessing.get_context(method)
         path = str(self.root / "process-shared.txt")
         ready = context.Event()
         release = context.Event()
