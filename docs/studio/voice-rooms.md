@@ -19,6 +19,13 @@ Configure the same random secret (at least 32 bytes) separately in the private C
 - `STREAMIOV_VOICE_SIGNING_KEY` — HMAC-SHA256 signing key; never commit it.
 - `STREAMIOV_VOICE_SIGNALING_URL` — HTTPS origin of the deployed Voice Worker, e.g. `https://voice.example.invalid` (replace with the actual deployed origin).
 
+Core configuration:
+
+- `STREAMIOV_VOICE_SIGNING_KEY` — HMAC signing key shared with the signalling Worker.
+- `STREAMIOV_VOICE_SIGNALING_URL` — deployed HTTPS origin of the Worker.
+- `STREAMIOV_TURN_URLS` — optional comma-separated `turn:`/`turns:` URLs.
+- `STREAMIOV_TURN_SHARED_SECRET` — optional coturn REST shared secret, same value as `static-auth-secret`; at least 32 bytes.
+
 Worker configuration:
 
 - `STREAMIOV_VOICE_SIGNING_KEY` — same value as the Core secret.
@@ -34,4 +41,4 @@ The room UI requires an authenticated Streamiov account, an active local microph
 
 ## Deployment / verification boundary
 
-This is source implementation only. The Worker has not been deployed, secrets have not been configured, the Core host has not been started with the required Voice settings, and two real clients have not completed an end-to-end call. Therefore Voice must remain labelled **IMPLEMENTED — DEPLOYMENT AND TWO-CLIENT VERIFICATION REQUIRED**, not production-ready.
+This is source implementation only. The Worker and TURN relay have not been deployed, secrets/domain/certificates/firewall rules have not been configured, the Core host has not been started with Voice settings, and two real clients have not completed an end-to-end call. Therefore Voice must remain labelled **IMPLEMENTED — DEPLOYMENT AND TWO-CLIENT VERIFICATION REQUIRED**, not production-ready.
