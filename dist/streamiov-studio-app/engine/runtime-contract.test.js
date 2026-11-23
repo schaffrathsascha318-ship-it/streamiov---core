@@ -11,11 +11,12 @@ test('packaged Studio does not call repository-only Python modules', () => {
   assert.doesNotMatch(mainProcess, /execFileAsync\(['"]python3['"]/);
 });
 
-test('runtime reports compositor, encoder and audio mixer as unfinished', () => {
-  assert.match(mainProcess, /compositor: 'not_implemented'/);
-  assert.match(mainProcess, /encoder: 'not_implemented'/);
-  assert.match(mainProcess, /stage: 'not_implemented'/);
+test('runtime reports implemented local pipeline without claiming a verified live stream', () => {
+  assert.match(mainProcess, /compositor: 'canvas_2d_scene_capture'/);
+  assert.match(mainProcess, /encoder: 'ffmpeg_rtmp_pipe'/);
+  assert.match(mainProcess, /local_four_bus_engine/);
   assert.match(mainProcess, /live_stream_verified: false/);
+  assert.match(mainProcess, /output_ready bestätigt nur initialisierten FLV-Encoder-Output/);
 });
 
 test('Studio package does not bundle an unofficial TikTok LIVE connector', () => {
