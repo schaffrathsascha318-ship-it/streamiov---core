@@ -491,6 +491,38 @@ dialog::backdrop{background:#000b}
    <div class="panel-title">KI-REGIE / AUTOMATION</div>
    <div class="pad"><div class="log">Bereit für lokale Regieaktionen.<br>Keine externe Aktion wird ohne Verbindung ausgeführt.</div></div>
   </div>
+
+  <div class="panel" id="voiceRoomPanel">
+   <div class="panel-title">STREAMIOV VOICE / SPRACHRÄUME</div>
+   <div class="pad">
+    <p style="font-size:12px;color:var(--muted);margin-top:0">Verschlüsselte Peer-to-Peer-Sprachverbindung. Keine Aufzeichnung. Anmeldung über den KI-Manager erforderlich. Für Echo-Schutz Kopfhörer verwenden.</p>
+    <label for="voiceRoomName">Neuer Raum</label>
+    <input id="voiceRoomName" maxlength="64" placeholder="z. B. Stream-Team" style="width:100%;margin:5px 0">
+    <button id="voiceCreateRoom" type="button" style="width:100%">SPRACHRAUM ERSTELLEN</button>
+    <label for="voiceInviteInput" style="display:block;margin-top:12px">Mit Einladung beitreten</label>
+    <input id="voiceInviteInput" maxlength="64" placeholder="Einladungscode" style="width:100%;margin:5px 0">
+    <button id="voiceJoinRoom" type="button" style="width:100%">BEITRETEN</button>
+    <div id="voiceRoomDetails" hidden style="margin-top:12px;padding:10px;background:#0b121a;border:1px solid var(--line);border-radius:8px">
+     <b id="voiceRoomTitle">Kein Raum</b>
+     <small id="voiceRoomId" style="display:block;color:var(--muted);overflow-wrap:anywhere"></small>
+     <label for="voiceInviteOutput" style="display:block;margin-top:8px">Einladungscode (nur einmal anzeigen)</label>
+     <input id="voiceInviteOutput" readonly style="width:100%;margin:5px 0">
+     <div class="controls"><button id="voiceCopyInvite" type="button">CODE KOPIEREN</button><button id="voiceNewInvite" type="button">NEUE EINLADUNG</button></div>
+    </div>
+    <div class="controls" style="margin-top:12px">
+     <button id="voiceConnect" type="button" disabled>VERBINDEN</button>
+     <button id="voiceDisconnect" type="button" disabled>TRENNEN</button>
+     <button id="voiceRoomClose" type="button" disabled>RAUM SCHLIESSEN</button>
+    </div>
+    <div class="controls" style="margin-top:8px">
+     <button id="voiceMute" type="button" aria-pressed="false" disabled>MIKROFON STUMM</button>
+     <button id="voiceDeafen" type="button" aria-pressed="false" disabled>TAUBSCHALTEN</button>
+     <button id="voicePushToTalk" type="button" disabled>SPRECHEN HALTEN</button>
+    </div>
+    <p id="voiceRoomStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Nicht verbunden. Für Voice zuerst im KI-Manager anmelden und das Mikrofon aktivieren.</p>
+    <div id="voiceParticipants" class="log" aria-live="polite">Noch keine Teilnehmer.</div>
+   </div>
+  </div>
  </section>
 
   <section class="bottom" id="creator-settings">
@@ -584,6 +616,7 @@ dialog::backdrop{background:#000b}
 
 <script src="engine/audio-mixer.js"></script>
 <script src="engine/audio-device-adapter.js"></script>
+<script src="engine/voice-client.js"></script>
 <script src="engine/privacy-shield.js"></script>
 <script>
 const $=id=>document.getElementById(id);
@@ -1418,6 +1451,8 @@ $("mediaTest").onclick=async()=>{
 };
 let broadcastRecorder=null;
 let streamChunkQueue=Promise.resolve();
+let streamChunkQueueBytes=0;
+const MAX_STREAM_CHUNK_QUEUE_BYTES=12*1024*1024;
 let broadcastCanvasStream=null;
 let broadcastAudioContext=null;
 let broadcastTrackGains=[];
@@ -1484,7 +1519,9 @@ function ensureBroadcastAudioGraph(){
   broadcastAudioContext=new AudioContextClass();
   broadcastMasterGain=broadcastAudioContext.createGain();
   broadcastMasterGain.gain.value=mixerValue("mixerMaster");
-  broadcastMasterGain.connect(broadcastAudioContext.destination);
+  // In the real mixer path, local playback is exclusively handled by the
+  // explicit Monitor/Headphones buses. Never mirror the Stream bus to speakers.
+  if(!studioAudioMixer)broadcastMasterGain.connect(broadcastAudioContext.destination);
  }
  if(!musicMediaSource){
   musicMediaSource=broadcastAudioContext.createMediaElementSource(musicPlayerAudio);
@@ -1796,10 +1833,10 @@ async function startBroadcast(){
   const streamBusTrack=streamBus.getAudioTracks().find(track=>track.readyState==="live");
   const streamHasSource=((audioMode==="mic"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("microphone"))&&effectiveAudioRoutes(selectedMicrophoneRoutes()).includes("stream"))
    ||((audioMode==="system"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("system"))&&effectiveAudioRoutes(selectedSystemRoutes()).includes("stream"))
-   ||(musicQueueIndex>=0&&musicPlayerAudio.paused===false&&studioAudioMixer.snapshot("music"))
-   ||(!ttsAudio.paused&&studioAudioMixer.snapshot("tts"))
-   ||(alertToneActive&&studioAudioMixer.snapshot("alert"))
-   ||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended&&pad.channelName&&studioAudioMixer.snapshot(pad.channelName));
+   ||(musicQueueIndex>=0&&musicPlayerAudio.paused===false&&studioAudioMixer.snapshot("music")&&effectiveAuxRoutes("music").includes("stream"))
+   ||(!ttsAudio.paused&&studioAudioMixer.snapshot("tts")&&effectiveAuxRoutes("tts").includes("stream"))
+   ||(alertToneActive&&studioAudioMixer.snapshot("alert")&&effectiveAuxRoutes("alert").includes("stream"))
+   ||(soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended&&pad.channelName&&studioAudioMixer.snapshot(pad.channelName))&&effectiveAuxRoutes("soundboard").includes("stream"));
   if(!streamBusTrack||!streamHasSource)throw new Error("Für den Stream-Bus ist keine aktive Audioquelle zum Stream geroutet.");
   broadcastAudioDestination=broadcastAudioContext.createMediaStreamDestination();
   broadcastMasterGain.connect(broadcastAudioDestination);
@@ -1824,15 +1861,26 @@ async function startBroadcast(){
   };
   [cameraTrack,screenTrack,...audioInputs].filter(Boolean).forEach(track=>track.addEventListener("ended",stopIfSourcesEnded,{once:true}));
   streamChunkQueue=Promise.resolve();
+  streamChunkQueueBytes=0;
   recorder.ondataavailable=event=>{
-   if(!event.data?.size)return;
+   const blob=event.data;
+   if(!blob?.size)return;
+   streamChunkQueueBytes+=blob.size;
+   if(streamChunkQueueBytes>MAX_STREAM_CHUNK_QUEUE_BYTES){
+    streamChunkQueueBytes=Math.max(0,streamChunkQueueBytes-blob.size);
+    setBroadcastStatus("error","Encoder-Backpressure: Medienwarteschlange überschreitet 12 MiB. Stream wird sicher beendet.");
+    void stopBroadcast(true);
+    return;
+   }
    streamChunkQueue=streamChunkQueue.then(async()=>{
-    const chunk=await event.data.arrayBuffer();
+    const chunk=await blob.arrayBuffer();
     const sent=await window.streamiovStudio.writeStreamChunk(chunk);
     if(!sent?.ok)throw new Error(sent?.error||"Medienübertragung fehlgeschlagen.");
    }).catch(async error=>{
     setBroadcastStatus("error",error.message);
     void stopBroadcast(true);
+   }).finally(()=>{
+    streamChunkQueueBytes=Math.max(0,streamChunkQueueBytes-blob.size);
    });
   };
   recorder.onerror=()=>{setBroadcastStatus("error","Medienaufnahme ist fehlgeschlagen.");stopBroadcast(true);};
@@ -2537,6 +2585,140 @@ $("closeGameLibrary").onclick=()=>{$("game-library-panel").hidden=true;};
 document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("input",()=>{
  r.closest(".channel").querySelector(".meter i").style.width=r.value+"%";
 }));
+let activeVoiceRoom=null;
+let voiceClient=null;
+const voiceChannelNames=new Map();
+let voiceMuted=false,voiceDeafened=false;
+function voiceStatus(message){const node=$("voiceRoomStatus");if(node)node.textContent=message;}
+function voiceRenderParticipants(items=[]){
+ const container=$("voiceParticipants");
+ if(!container)return;
+ const liveIds=new Set(items.map(item=>item.participantId));
+ for(const [id,channel] of [...voiceChannelNames]){
+  if(!liveIds.has(id)){studioAudioMixer?.disconnect(channel);voiceChannelNames.delete(id);}
+ }
+ container.replaceChildren();
+ if(!items.length){container.textContent="Noch keine weiteren Teilnehmer.";return;}
+ for(const item of items){
+  const row=document.createElement("div");
+  row.style.cssText="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #263543";
+  const name=document.createElement("span");
+  name.textContent="Teilnehmer "+String(item.userId||item.participantId||"").slice(0,8)+(item.speaking?" · spricht":"")+(item.mute?" · stumm":"")+(item.deafen?" · taub":"");
+  name.style.flex="1";
+  const volume=document.createElement("input");
+  volume.type="range";volume.min="0";volume.max="150";volume.value="100";volume.setAttribute("aria-label","Lautstärke Teilnehmer");
+  volume.style.width="90px";
+  volume.addEventListener("input",()=>{const channel=voiceChannelNames.get(item.participantId);if(channel)studioAudioMixer?.setGain(channel,Number(volume.value)/100);});
+  row.append(name,volume);container.append(row);
+ }
+}
+function voiceSetButtons(connected){
+ $("voiceConnect").disabled=!activeVoiceRoom||connected;
+ $("voiceDisconnect").disabled=!connected;
+ $("voiceMute").disabled=!connected;
+ $("voiceDeafen").disabled=!connected;
+ $("voicePushToTalk").disabled=!connected;
+}
+function voiceShowRoom(room){
+ activeVoiceRoom=room;
+ $("voiceRoomDetails").hidden=false;
+ $("voiceRoomTitle").textContent=room.name||"STREAMIOV Voice";
+ $("voiceRoomId").textContent="Raum-ID: "+room.room_id+" · Rolle: "+room.role;
+ $("voiceInviteOutput").value=room.invite_code||"";
+ $("voiceConnect").disabled=false;
+ $("voiceRoomClose").disabled=room.role!=="owner";
+ $("voiceNewInvite").disabled=room.role!=="owner";
+ voiceStatus("Raum bereit. Mikrofon aktivieren und anschließend verbinden. Keine Aufzeichnung.");
+}
+async function voiceRoomAction(payload){
+ if(!window.streamiovStudio?.voiceAction)throw new Error("Voice-Brücke ist nicht verfügbar.");
+ const result=await window.streamiovStudio.voiceAction(payload);
+ if(!result?.ok)throw new Error(result?.error||"Voice-Aktion fehlgeschlagen.");
+ return result;
+}
+$("voiceCreateRoom").addEventListener("click",async()=>{
+ const button=$("voiceCreateRoom");button.disabled=true;
+ try{const result=await voiceRoomAction({action:"create",name:$("voiceRoomName").value});voiceShowRoom(result.room);}
+ catch(error){voiceStatus(String(error.message||error));}
+ finally{button.disabled=false;}
+});
+$("voiceJoinRoom").addEventListener("click",async()=>{
+ const button=$("voiceJoinRoom");button.disabled=true;
+ try{const result=await voiceRoomAction({action:"join",invite_code:$("voiceInviteInput").value.trim()});voiceShowRoom(result.room);}
+ catch(error){voiceStatus(String(error.message||error));}
+ finally{button.disabled=false;}
+});
+$("voiceNewInvite").addEventListener("click",async()=>{
+ if(!activeVoiceRoom)return;
+ try{const result=await voiceRoomAction({action:"invite",room_id:activeVoiceRoom.room_id,role:"guest",ttl:3600,max_uses:1});$("voiceInviteOutput").value=result.invite.invite_code;voiceStatus("Neue Einladung erstellt (1 Stunde, einmal verwendbar).");}
+ catch(error){voiceStatus(String(error.message||error));}
+});
+$("voiceCopyInvite").addEventListener("click",async()=>{
+ const value=$("voiceInviteOutput").value;if(!value)return;
+ try{await navigator.clipboard.writeText(value);voiceStatus("Einladungscode kopiert.");}
+ catch{voiceStatus("Kopieren nicht verfügbar. Code manuell markieren.");}
+});
+$("voiceConnect").addEventListener("click",async()=>{
+ if(!activeVoiceRoom||voiceClient)return;
+ try{
+  if(!studioAudioMixer?.snapshot("microphone"))throw new Error("Bitte zuerst im Gerätebereich das Mikrofon aktivieren.");
+  const localStream=studioAudioMixer.getChannelStream("microphone");
+  if(!localStream.getAudioTracks().some(track=>track.readyState==="live"))throw new Error("Der verarbeitete Mikrofonstream ist nicht aktiv.");
+  $("voiceConnect").disabled=true;
+  voiceStatus("Sichere Verbindung wird vorbereitet …");
+  const ticket=await voiceRoomAction({action:"connect",room_id:activeVoiceRoom.room_id});
+  const client=new window.StreamiovVoiceClient({
+   websocketUrl:ticket.websocket_url,ticket:ticket.ticket,localStream,iceServers:ticket.ice_servers,
+   onState:event=>{
+    if(event.state==="connected"){voiceStatus("Verbunden · "+event.participantCount+" Teilnehmer · Peer-to-Peer · keine Aufzeichnung.");voiceSetButtons(true);}
+    else if(event.state==="disconnected"){voiceClient=null;for(const channel of voiceChannelNames.values())studioAudioMixer?.disconnect(channel);voiceChannelNames.clear();voiceRenderParticipants([]);voiceMuted=false;voiceDeafened=false;$("voiceMute").setAttribute("aria-pressed","false");$("voiceMute").textContent="MIKROFON STUMM";$("voiceDeafen").setAttribute("aria-pressed","false");$("voiceDeafen").textContent="TAUBSCHALTEN";voiceSetButtons(false);voiceStatus("Voice-Verbindung getrennt.");}
+    else if(event.state==="error"){voiceStatus("Voice-Fehler: "+(event.error||"Verbindung fehlgeschlagen."));voiceClient?.disconnect();voiceClient=null;voiceSetButtons(false);}
+    else if(event.state==="signalling_error")voiceStatus("Voice-Signalisierung: "+(event.code||"Nachricht abgelehnt."));
+    else if(event.state==="peer_state"&&event.connectionState==="failed")voiceStatus("Direktverbindung zu einem Teilnehmer fehlgeschlagen. TURN-Erreichbarkeit und Firewall prüfen.");
+   },
+   onParticipants:voiceRenderParticipants,
+   onRemoteStream:event=>{
+    const channel="voice_"+event.participantId.replace(/-/g,"").slice(0,16);
+    if(event.removed){studioAudioMixer?.disconnect(channel);voiceChannelNames.delete(event.participantId);return;}
+    try{
+     studioAudioMixer.connect(channel,event.stream,{gain:1,routes:["headphones"]});
+     voiceChannelNames.set(event.participantId,channel);
+    }catch(error){voiceStatus("Teilnehmer-Audio konnte nicht geroutet werden: "+String(error.message||error));}
+   }
+  });
+  voiceClient=client;client.setPushToTalk(true);client.connect();
+  $("voiceDisconnect").disabled=false;
+ }catch(error){voiceClient=null;voiceSetButtons(false);voiceStatus(String(error.message||error));}
+});
+$("voiceDisconnect").addEventListener("click",()=>{
+ voiceClient?.disconnect();voiceClient=null;
+ for(const channel of voiceChannelNames.values())studioAudioMixer?.disconnect(channel);
+ voiceChannelNames.clear();voiceRenderParticipants([]);voiceSetButtons(false);
+});
+$("voiceMute").addEventListener("click",()=>{
+ voiceMuted=!voiceMuted;voiceClient?.setMuted(voiceMuted);
+ $("voiceMute").setAttribute("aria-pressed",String(voiceMuted));
+ $("voiceMute").textContent=voiceMuted?"MIKROFON FREIGEBEN":"MIKROFON STUMM";
+});
+$("voiceDeafen").addEventListener("click",()=>{
+ voiceDeafened=!voiceDeafened;voiceClient?.setDeafened(voiceDeafened);
+ $("voiceDeafen").setAttribute("aria-pressed",String(voiceDeafened));
+ $("voiceDeafen").textContent=voiceDeafened?"TON AKTIVIEREN":"TAUBSCHALTEN";
+});
+$("voicePushToTalk").addEventListener("pointerdown",()=>voiceClient?.setPushToTalkPressed(true));
+for(const eventName of ["pointerup","pointerleave","pointercancel"])$("voicePushToTalk").addEventListener(eventName,()=>voiceClient?.setPushToTalkPressed(false));
+$("voicePushToTalk").addEventListener("contextmenu",event=>event.preventDefault());
+$("voicePushToTalk").addEventListener("keydown",event=>{if(event.code==="Space"){event.preventDefault();voiceClient?.setPushToTalkPressed(true);}});
+$("voicePushToTalk").addEventListener("keyup",event=>{if(event.code==="Space"){event.preventDefault();voiceClient?.setPushToTalkPressed(false);}});
+$("voiceRoomClose").addEventListener("click",async()=>{
+ if(!activeVoiceRoom||activeVoiceRoom.role!=="owner")return;
+ try{
+  const closed=await voiceRoomAction({action:"close",room_id:activeVoiceRoom.room_id});
+  $("voiceDisconnect").click();activeVoiceRoom=null;$("voiceRoomDetails").hidden=true;$("voiceConnect").disabled=true;$("voiceRoomClose").disabled=true;
+  voiceStatus(closed.signalling_revoked?"Voice-Raum geschlossen; Einladungen, Mitgliedschaften und aktive Verbindungen widerrufen.":"Raum lokal geschlossen; Einladungen und Mitgliedschaften widerrufen. Der Signalisierungsdienst war nicht erreichbar, bestehende Verbindungen können bis zum Abbruch aktiv bleiben.");
+ }catch(error){voiceStatus(String(error.message||error));}
+});
+
 </script>
 
 <script>
