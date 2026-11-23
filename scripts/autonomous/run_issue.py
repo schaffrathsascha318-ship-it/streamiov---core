@@ -14,6 +14,7 @@ import signal
 import sqlite3
 import sys
 import threading
+import time
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -56,7 +57,7 @@ class ObservedProvider:
         with self._lock:
             self._counter += 1
             request_id = self._counter
-        started = __import__("time").monotonic()
+        started = time.monotonic()
         print(json.dumps({
             "event": "model_request_started",
             "request_id": request_id,
@@ -69,7 +70,7 @@ class ObservedProvider:
             print(json.dumps({
                 "event": "model_request_failed",
                 "request_id": request_id,
-                "duration_seconds": round(__import__("time").monotonic() - started, 2),
+                "duration_seconds": round(time.monotonic() - started, 2),
                 "error_class": type(exc).__name__,
             }), flush=True)
             raise
