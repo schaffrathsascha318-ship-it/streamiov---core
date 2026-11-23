@@ -21,6 +21,27 @@ class VoiceRoomStoreTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
+    def test_owner_room_and_active_invite_quotas_are_enforced(self):
+        rooms = [self.store.create_room("owner-id", f"Room {index}") for index in range(5)]
+        with self.assertRaises(VoiceError):
+            self.store.create_room("owner-id", "Overflow")
+        room_id = rooms[0]["room_id"]
+        # Room creation creates one default invite, so 19 more reach the cap.
+        for _ in range(19):
+            self.store.create_invite("owner-id", room_id)
+        with self.assertRaises(VoiceError):
+            self.store.create_invite("owner-id", room_id)
+
+    def test_rejoining_an_active_member_does_not_consume_an_invite_use(self):
+        room = self.store.create_room("owner-id", "Team")
+        invite = self.store.create_invite("owner-id", room["room_id"], max_uses=2)
+        first = self.store.join("member-id", invite["invite_code"])
+        second = self.store.join("member-id", invite["invite_code"])
+        self.assertEqual(first["role"], second["role"])
+        # A second, different member can still consume the second use.
+        joined = self.store.join("another-member", invite["invite_code"])
+        self.assertEqual(joined["role"], "guest")
+
     def test_room_owner_invite_and_member_scoped_token(self):
         with patch.dict(os.environ, {"STREAMIOV_VOICE_SIGNING_KEY": "v" * 48}):
             room = self.store.create_room("owner-id", "Team Voice")
