@@ -1,25 +1,31 @@
 # STREAMIOV Studio – unabhängige Audio-Busse
 
-Die Regie enthält eine lokale Web-Audio-Engine mit vier voneinander getrennten logischen Ausgängen:
+Die Regie enthält eine lokale Web-Audio-Engine mit vier voneinander getrennten Ausgängen:
 
-- **Stream / Programm** – eigener MediaStreamDestination-Bus als vorgesehener Encoder-Feed. Der Encoder ist in diesem Arbeitspaket noch nicht angeschlossen.
+- **Stream / Programm** – eigener MediaStreamDestination-Bus, der in den lokalen MediaRecorder-/Encoder-Eingang eingespeist wird.
 - **Monitor** – separat aktivierbare lokale Wiedergabe mit optionaler Auswahl eines Audioausgabegeräts.
 - **Kopfhörer** – eigener Wiedergabestream und eigener Gain-/Mute-Regler.
 - **Kommunikation** – eigener Wiedergabestream und eigener Gain-/Mute-Regler, standardmäßig ohne Quellenrouting.
 
-## Aktuell angebundene echte Quellen
+## Angeschlossene Quellen
 
-- Mikrofon: lokaler MediaStream mit eigenem Gain, Mute und auswählbaren Bus-Routen.
-- Bildschirm-Systemton: wird nur dann als Quelle verbunden, wenn die ausgewählte Bildschirmfreigabe tatsächlich einen aktiven Audiotrack liefert.
+- **Mikrofon:** lokaler MediaStream mit eigenem Quellen-Gain, Routing und den zusätzlichen Mikrofon-Fadern.
+- **Bildschirm-Systemton:** wird nur verbunden, wenn die ausgewählte Bildschirmfreigabe tatsächlich einen aktiven Audiotrack liefert.
+- **Musik:** der lokale Musikplayer wird über eine MediaStream-Brücke in die Audio-Bus-Matrix eingespeist. Musik-Fader und Mute bleiben eigenständig; Stream- und Monitor-Routing laufen über die Busse.
 
-Quellen-Gain und Ausgangs-Gain sind getrennte Stufen. Das Ändern oder Stummschalten eines Ausgangsbusses verändert nicht die Einstellungen der anderen Busse. Das Routing kann während der lokalen Vorschau angepasst werden.
+Der Stream-Ausgang verwendet den Stream-Bus als Audioquelle und nicht mehr die bisherigen direkten Mikrofon-/Systemton-Eingänge. Der Stream-Audiomodus begrenzt, welche Live-Quellen in den Stream-Bus gelangen. Bus-Pegel und Bus-Mute wirken unabhängig von Quellen-Fadern.
 
-## Gerätegrenzen und ehrlicher Status
+## Noch nicht angebunden
 
-- Physische Wiedergabe erfordert die Aktivierung des jeweiligen Ausgangs und hängt von HTMLMediaElement.setSinkId, Betriebssystem, Browser/Electron und Berechtigungen ab.
-- „Systemstandard“ ist keine Bestätigung eines bestimmten physischen Geräts.
-- Der Stream-Bus ist ein lokaler Audio-Stream, aber noch nicht mit dem Produktionsencoder verbunden.
-- Musikplayer, Soundboard/Alerts, Spielton, TTS und Voice-Räume sind in diesem Arbeitspaket noch nicht an diese Bus-Matrix angeschlossen.
-- Die Engine behauptet weder eine native Windows-Audiotreiberintegration noch eine verifizierte LIVE-Ausgabe.
+- Spiel-/Desktop-Audio außerhalb des vom Bildschirmteilen gelieferten Systemtons
+- Soundboard, Alerts, TTS und Voice-Räume
+- Native Windows-Audiotreiber-/Loopback-Routing außerhalb der vom Capture bereitgestellten Tracks
 
-Die Engine wird lokal in der Electron-Regie geladen. Sie benötigt keinen externen Dienst, kein Abo und keine OBS-Komponente.
+## Gerätegrenzen und Status
+
+- Physische Wiedergabe erfordert die Aktivierung des jeweiligen Ausgangs und hängt von `HTMLMediaElement.setSinkId`, Betriebssystem, Browser/Electron und Berechtigungen ab.
+- „Systemstandard“ bestätigt kein bestimmtes physisches Gerät.
+- Ein lokaler Encoder-Feed bestätigt weder RTMP-Serverempfang noch eine veröffentlichte LIVE-Ausgabe.
+- Es wurden für diese Änderung keine manuellen Tests oder Hardware-/LIVE-Prüfungen gestartet; der PR bleibt deshalb Draft und unverifiziert.
+
+Die Engine läuft lokal in der Electron-Regie. Sie benötigt keinen externen Dienst, kein Abo und keine OBS-Komponente.
