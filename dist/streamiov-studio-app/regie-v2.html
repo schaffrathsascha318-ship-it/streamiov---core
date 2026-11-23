@@ -1496,7 +1496,7 @@ function ensureBroadcastAudioGraph(){
    musicChannelGain.connect(musicBridgeDestination);
    if(!studioAudioMixer.snapshot("music"))studioAudioMixer.connect("music",musicBridgeDestination.stream,{gain:1,routes:effectiveAuxRoutes("music")});
    studioAudioMixer.setPan("music",mixerPanState.music);
-   if(mixerSourceMuteState.music!==undefined)studioAudioMixer.setMuted("music",musicMuted);
+   studioAudioMixer.setMuted("music",musicMuted);
    refreshMixerSoloButtons();
   }else musicChannelGain.connect(broadcastMasterGain);
  }
@@ -2472,6 +2472,7 @@ if(musicMuteButton){
  musicMuteButton.textContent=musicMuted?"MUTED":"MUTE";
  musicMuteButton.addEventListener("click",()=>{
   musicMuted=!musicMuted;
+  if(studioAudioMixer?.snapshot("music"))studioAudioMixer.setMuted("music",musicMuted);
   musicMuteButton.setAttribute("aria-pressed",musicMuted?"true":"false");
   musicMuteButton.classList.toggle("active",musicMuted);
   musicMuteButton.textContent=musicMuted?"MUTED":"MUTE";
