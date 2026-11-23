@@ -973,13 +973,14 @@ document.querySelectorAll("[data-audio-bus-disconnect]").forEach(button=>button.
  const name=button.dataset.audioBusDisconnect;if(studioAudioMixer)studioAudioMixer.detachOutput(name,audioBusElements[name]);audioBusState[name].connected=false;renderAudioBus(name);
 }));
 function selectedMicrophoneRoutes(){return [...document.querySelectorAll("[data-audio-route]:checked")].map(item=>item.dataset.audioRoute);}
-function effectiveAudioRoutes(routes){
+function effectiveAudioRoutes(routes,source){
  const mode=$("streamAudio")?.value||"mic-system";
- return routes.filter(route=>route!=="stream"||(mode==="mic-system"||mode==="mic"&&Boolean(studioAudioMixer?.snapshot("microphone"))||mode==="system"&&Boolean(studioAudioMixer?.snapshot("system"))));
+ const streamAllowed=source==="microphone"?(mode==="mic"||mode==="mic-system"):source==="system"?(mode==="system"||mode==="mic-system"):true;
+ return routes.filter(route=>route!=="stream"||streamAllowed);
 }
 function applyMicrophoneRouting(){
  if(!studioAudioMixer||!studioAudioMixer.snapshot("microphone"))return;
- studioAudioMixer.setRoutes("microphone",effectiveAudioRoutes(selectedMicrophoneRoutes()));
+ studioAudioMixer.setRoutes("microphone",effectiveAudioRoutes(selectedMicrophoneRoutes(),"microphone"));
  studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100*mixerValue("mixerMic"));
  $("audioMixerStatus").textContent="Mikrofonquelle verbunden · Routing: "+(selectedMicrophoneRoutes().join(", ")||"kein Ausgang")+".";
 }
@@ -988,7 +989,7 @@ $("audioMicGain").addEventListener("input",applyMicrophoneRouting);
 function selectedSystemRoutes(){return [...document.querySelectorAll("[data-system-route]:checked")].map(item=>item.dataset.systemRoute);}
 function applySystemRouting(){
  if(!studioAudioMixer||!studioAudioMixer.snapshot("system"))return;
- studioAudioMixer.setRoutes("system",effectiveAudioRoutes(selectedSystemRoutes()));
+ studioAudioMixer.setRoutes("system",effectiveAudioRoutes(selectedSystemRoutes(),"system"));
  studioAudioMixer.setGain("system",Number($("audioSystemGain").value)/100*mixerValue("mixerSystem"));
  $("systemAudioMixerStatus").textContent="Systemton verbunden · Routing: "+(selectedSystemRoutes().join(", ")||"kein Ausgang")+".";
 }
@@ -1530,7 +1531,9 @@ async function startBroadcast(){
  const systemTrack=captureState.screen?.getAudioTracks().find(track=>track.readyState==="live");
  const audioMode=$("streamAudio").value;
  const audioInputs=(audioMode==="mic"?[microphoneTrack]:audioMode==="system"?[systemTrack]:[microphoneTrack,systemTrack]).filter(Boolean);
- if((!cameraTrack&&!screenTrack)||!audioInputs.length){setBroadcastStatus("error","Bitte eine Kamera oder einen Bildschirm sowie eine verfügbare Audioquelle für den gewählten Modus starten.");return;}
+ const auxiliaryAudioActive=(musicQueueIndex>=0&&!musicPlayerAudio.paused)||!ttsAudio.paused||alertToneActive||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended);
+ if(!cameraTrack&&!screenTrack){setBroadcastStatus("error","Bitte zuerst eine Kamera oder einen Bildschirm starten.");return;}
+ if(!audioInputs.length&&!auxiliaryAudioActive){setBroadcastStatus("error","Keine aktive Audioquelle im gewählten Stream-Modus und keine laufende Musik-, TTS-, Alert- oder Soundboard-Quelle.");return;}
  const twitchAccount=await window.streamiovStudio?.twitchStatus?.();
  if(twitchAccount?.status!=="connected"||!twitchAccount.streamKeyPermission){setBroadcastStatus("blocked","Bitte zuerst ein Twitch-Konto mit der Berechtigung zum automatischen Stream-Key-Abruf verbinden.");return;}
  if(!window.streamiovStudio?.startStream||!window.MediaRecorder){setBroadcastStatus("error","Streaming-Funktion ist in dieser Laufzeit nicht verfügbar.");return;}
