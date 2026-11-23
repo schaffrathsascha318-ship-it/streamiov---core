@@ -171,42 +171,56 @@ def main() -> int:
                 full_project_development=True,
             ),
         )
-        try:
-            snapshot = engine.get_mission(mission_id)
-        except MissionEngineError as exc:
-            if "Mission not found" not in str(exc):
-                raise
-            engine.create_mission(task, mission_id=mission_id)
-            print(json.dumps({
-                "event": "mission_created",
-                "mission_id": mission_id,
-                "database": str(database),
-            }), flush=True)
-        else:
-            print(json.dumps({
-                "event": "mission_resumed",
-                "mission_id": mission_id,
-                "status": snapshot.status,
-                "cycle": snapshot.cycle,
-            }), flush=True)
-
         stop_event = threading.Event()
 
-        def request_stop(_signum, _frame):
-            stop_event.set()
+        if number == 0:
+            # The default whole-platform mission spans many independently
+            # verified missions. The supervisor state is restored in the same
+            # encrypted SQLite artifact as the mission/task checkpoints.
+            supervisor = ProjectSupervisor(engine, database)
+            created = supervisor.configure_if_missing(task, active_mission_id=mission_id)
+            print(json.dumps({
+                "event": "project_supervisor_goal_created" if created else "project_supervisor_resumed",
+                "database": str(database),
+            }), flush=True)
+            run_callable = lambda: supervisor.run(
+                stop_event,
+                poll_seconds=5.0,
+                emit=lambda event: print(event, flush=True),
+            )
+        else:
+            try:
+                snapshot = engine.get_mission(mission_id)
+            except MissionEngineError as exc:
+                if "Mission not found" not in str(exc):
+                    raise
+                engine.create_mission(task, mission_id=mission_id)
+                print(json.dumps({
+                    "event": "mission_created",
+                    "mission_id": mission_id,
+                    "database": str(database),
+                }), flush=True)
+            else:
+                print(json.dumps({
+                    "event": "mission_resumed",
+                    "mission_id": mission_id,
+                    "status": snapshot.status,
+                    "cycle": snapshot.cycle,
+                }), flush=True)
 
-        run_id = os.environ.get("GITHUB_RUN_ID", "local")
-        attempt = os.environ.get("GITHUB_RUN_ATTEMPT", "1")
-        result = run_with_signal_handlers(
-            lambda: engine.run(
+            run_id = os.environ.get("GITHUB_RUN_ID", "local")
+            attempt = os.environ.get("GITHUB_RUN_ATTEMPT", "1")
+            run_callable = lambda: engine.run(
                 mission_id,
                 stop_event,
                 poll_seconds=5.0,
                 worker_id=f"github-actions-{run_id}-{attempt}",
                 emit=lambda event: print(event, flush=True),
-            ),
-            stop_event,
-        )
+            )
+
+        result = run_with_signal_handlers(run_callable, stop_event)
+        if result is None:
+            return fail("Mission runner stopped before producing a durable checkpoint.")
 
         print(json.dumps({
             "event": "mission_checkpoint",
@@ -232,7 +246,7 @@ def main() -> int:
                 output.write(f"failed_tasks={result.failed_tasks}\n")
                 output.write(f"attempts={result.attempts}\n")
         return 0
-    except (ProjectContextError, ProviderError, MissionEngineError, OSError, ValueError, sqlite3.Error) as exc:
+    except (ProjectContextError, ProviderError, MissionEngineError, ProjectSupervisorError, OSError, ValueError, sqlite3.Error) as exc:
         return fail(f"{type(exc).__name__}: {exc}")
     finally:
         try:

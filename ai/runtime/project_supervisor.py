@@ -104,6 +104,34 @@ class ProjectSupervisor:
             """, (self.supervisor_key, goal.strip(), now))
             db.commit()
 
+    def configure_if_missing(
+        self, goal: str, *, active_mission_id: str | None = None
+    ) -> bool:
+        """Create the durable goal once without overwriting restored state."""
+        if not isinstance(goal, str) or not goal.strip() or len(goal) > 8000:
+            raise ProjectSupervisorError("Project goal must contain 1–8000 characters.")
+        if active_mission_id is not None and (
+            not isinstance(active_mission_id, str) or not active_mission_id.strip()
+            or len(active_mission_id) > 96
+        ):
+            raise ProjectSupervisorError("Initial mission ID must contain 1–96 characters.")
+        now = time.time()
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT supervisor_key FROM development_supervisors WHERE supervisor_key=?",
+                (self.supervisor_key,),
+            ).fetchone()
+            if row is not None:
+                db.commit()
+                return False
+            db.execute(
+                "INSERT INTO development_supervisors(supervisor_key,goal,active_mission_id,updated_at) VALUES(?,?,?,?)",
+                (self.supervisor_key, goal.strip(), active_mission_id, now),
+            )
+            db.commit()
+            return True
+
     def _acquire_lease(self) -> None:
         now = time.time()
         with self._connect() as db:
