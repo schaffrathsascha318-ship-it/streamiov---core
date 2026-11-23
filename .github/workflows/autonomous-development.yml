@@ -189,7 +189,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout --preserve-status --signal=INT --kill-after=90s 18m python scripts/autonomous/run_issue.py
+          # SIGINT requests cooperative cancellation. Allow up to three minutes for an in-flight
+          # provider request (bounded to 120s) and the agent to persist its interrupted task
+          # before SIGKILL; the workflow then checkpoints and uploads the durable SQLite state.
+          timeout --preserve-status --signal=INT --kill-after=180s 5m python scripts/autonomous/run_issue.py
 
       - name: Checkpoint and encrypt durable AI Chief mission state
         id: encrypt_mission_state

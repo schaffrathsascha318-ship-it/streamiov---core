@@ -14,6 +14,7 @@ import signal
 import sqlite3
 import sys
 import threading
+import time
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -42,6 +43,67 @@ def fail(message: str) -> int:
 
 MAX_ISSUE_BODY_CHARS = 20000
 MAX_MISSION_GOAL_CHARS = 8000
+MODEL_PROGRESS_INTERVAL_SECONDS = 15
+
+
+class ObservedProvider:
+    """Emit bounded progress events around every real model request."""
+
+    def __init__(self, provider):
+        self._provider = provider
+        self._counter = 0
+        self._lock = threading.Lock()
+
+    def generate(self, *, system: str, messages: list[dict[str, str]]):
+        with self._lock:
+            self._counter += 1
+            request_id = self._counter
+        started = time.monotonic()
+        print(json.dumps({
+            "event": "model_request_started",
+            "request_id": request_id,
+            "message_count": len(messages),
+            "prompt_chars": sum(len(item.get("content", "")) for item in messages if isinstance(item, dict)),
+        }), flush=True)
+        heartbeat_stop = threading.Event()
+
+        def report_waiting():
+            while not heartbeat_stop.wait(MODEL_PROGRESS_INTERVAL_SECONDS):
+                print(json.dumps({
+                    "event": "model_request_still_running",
+                    "request_id": request_id,
+                    "elapsed_seconds": round(time.monotonic() - started, 2),
+                }), flush=True)
+
+        heartbeat = threading.Thread(
+            target=report_waiting,
+            name=f"streamiov-model-progress-{request_id}",
+            daemon=True,
+        )
+        heartbeat.start()
+        try:
+            reply = self._provider.generate(system=system, messages=messages)
+        except Exception as exc:
+            print(json.dumps({
+                "event": "model_request_failed",
+                "request_id": request_id,
+                "duration_seconds": round(time.monotonic() - started, 2),
+                "error_class": type(exc).__name__,
+            }), flush=True)
+            raise
+        else:
+            print(json.dumps({
+                "event": "model_request_completed",
+                "request_id": request_id,
+                "duration_seconds": round(time.monotonic() - started, 2),
+            }), flush=True)
+            return reply
+        finally:
+            heartbeat_stop.set()
+            heartbeat.join(timeout=1)
+
+    def __getattr__(self, name):
+        return getattr(self._provider, name)
 
 
 def fit_issue_body(body: str, max_chars: int) -> str:
@@ -160,7 +222,8 @@ def main() -> int:
 
     try:
         task = build_task(issue, REPOSITORY_ROOT)
-        provider = provider_from_env()
+        provider = ObservedProvider(provider_from_env())
+        print(json.dumps({"event": "mission_provider_ready", "provider": type(provider._provider).__name__}), flush=True)
         engine = ContinuousDevelopmentEngine(
             database,
             ModelMissionPlanner(provider),
@@ -171,6 +234,11 @@ def main() -> int:
                 checkpoint_db=database,
                 full_project_development=True,
             ),
+            # The engine checks the cooperative stop event every lease/3 while
+            # a specialist is running. A 30s lease bounds shutdown detection to
+            # roughly 10s instead of the 100s default, leaving ample time for
+            # task interruption to be persisted before the runner is terminated.
+            lease_seconds=30,
         )
         stop_event = threading.Event()
         if number == 0 or os.environ.get("STREAMIOV_PROJECT_SUPERVISOR") == "true":
