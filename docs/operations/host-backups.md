@@ -24,7 +24,7 @@ This backup path is intentionally independent from Cloudflare R2. It snapshots t
    sudo systemctl enable --now streamiov-backup.timer
    ```
 
-The timer creates one encrypted snapshot daily at approximately 03:17 and then attempts retention cleanup. The service reads only the allowlisted host DBs: accounts, forum, data catalog and (when present) Voice rooms. SQLite's backup API includes a consistent snapshot even while the host is running. It does not open legacy `data/db/*.sqlite3` files.
+The systemd service defaults to the same `/var/lib/streamiov-host` data directory used by `streamiov-host.service`; update both service configurations together if that path changes. The timer creates one encrypted snapshot daily at approximately 03:17 and then attempts retention cleanup. The service reads only the allowlisted host DBs: accounts, forum, data catalog and (when present) Voice rooms. SQLite's backup API includes a consistent snapshot even while the host is running. It does not open legacy `data/db/*.sqlite3` files.
 
 ## Verify and restore safely
 
