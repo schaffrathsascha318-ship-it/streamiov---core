@@ -38,3 +38,6 @@ jobs:
         env:
           NODE_PATH: /tmp/streamiov-playwright/node_modules
         run: node --test games/tests/browser-smoke.cjs
+
+      - name: Build and validate all cross-device game download bundles
+        run: python3 scripts/build-game-pwas.py
