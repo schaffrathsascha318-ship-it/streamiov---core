@@ -226,11 +226,11 @@ func _signal_new_level() -> void:
 	pipe_turns.clear()
 	for i in range(25):
 		pipe_turns.append(rng.randi_range(0, 3))
-	pipe_turns[10] = 0
-	pipe_turns[11] = 0
-	pipe_turns[12] = 0
-	pipe_turns[13] = 0
-	pipe_turns[14] = 0
+	pipe_turns[10] = rng.randi_range(1, 3)
+	pipe_turns[11] = rng.randi_range(0, 3)
+	pipe_turns[12] = rng.randi_range(0, 3)
+	pipe_turns[13] = rng.randi_range(0, 3)
+	pipe_turns[14] = rng.randi_range(0, 3)
 	message = "Drehe die Leitungen in Reihe 3 waagerecht."
 
 func _check_signal() -> void:
