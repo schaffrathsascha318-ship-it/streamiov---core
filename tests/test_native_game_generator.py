@@ -42,13 +42,13 @@ class NativeGameGeneratorSafetyTests(unittest.TestCase):
         self.assertEqual(important.read_text(encoding="utf-8"), "keep this work")
 
     def test_regenerates_only_directory_with_matching_ownership_marker(self) -> None:
-        self.generator["main"]()
+        self.generator.main()
         project = self.destination / "neon-relay"
         marker = project / ".streamiov-generated-native-game"
         self.assertEqual(marker.read_text(encoding="utf-8").strip(), "neon-relay")
 
         (project / "stale-generated-file.tmp").write_text("stale", encoding="utf-8")
-        self.generator["main"]()
+        self.generator.main()
 
         self.assertTrue((project / "game.json").is_file())
         self.assertFalse((project / "stale-generated-file.tmp").exists())
@@ -66,7 +66,7 @@ class NativeGameGeneratorSafetyTests(unittest.TestCase):
             self.skipTest("Directory symlinks are unavailable on this platform.")
 
         with self.assertRaisesRegex(SystemExit, "symlinked game directory"):
-            self.generator["main"]()
+            self.generator.main()
 
         self.assertEqual((outside / "keep.txt").read_text(encoding="utf-8"), "safe")
 
