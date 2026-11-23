@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import sqlite3
 import subprocess
 import sys
@@ -75,19 +76,41 @@ def _fsync_directory(path: Path) -> None:
         os.close(descriptor)
 
 
+def _reject_symlink_components(path: Path) -> None:
+    """Reject symlinks in every existing path component, not only the leaf."""
+    absolute = path.absolute()
+    current = Path(absolute.anchor)
+    for part in absolute.parts[1:]:
+        current = current / part
+        try:
+            info = current.lstat()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise BackupError("Configured data or backup path cannot be inspected safely.") from exc
+        if stat.S_ISLNK(info.st_mode):
+            raise BackupError("Data and backup paths must not contain symlink components.")
+
+
 def _directory_path(value: str | Path, *, create: bool = False, private: bool = False) -> Path:
     path = Path(value).expanduser()
-    if path.is_symlink():
-        raise BackupError("Data and backup directories must not be symlinks.")
+    _reject_symlink_components(path)
     if create:
-        path.mkdir(parents=True, exist_ok=True, mode=0o700 if private else 0o750)
-    if not path.exists() or not path.is_dir() or path.is_symlink():
+        try:
+            path.mkdir(parents=True, exist_ok=True, mode=0o700 if private else 0o750)
+        except OSError as exc:
+            raise BackupError("Configured data or backup directory could not be created.") from exc
+    _reject_symlink_components(path)
+    if not path.exists() or not path.is_dir():
         raise BackupError("Configured data or backup directory is unavailable or unsafe.")
-    if private:
+    if private and os.name != "nt":
         try:
             os.chmod(path, 0o700)
-        except OSError:
-            pass
+            mode = stat.S_IMODE(path.stat().st_mode)
+        except OSError as exc:
+            raise BackupError("Private backup directory permissions could not be enforced.") from exc
+        if mode & 0o077:
+            raise BackupError("Private backup directory must have mode 0700.")
     return path.resolve()
 
 
