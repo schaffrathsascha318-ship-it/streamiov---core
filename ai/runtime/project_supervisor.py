@@ -73,23 +73,11 @@ class ProjectSupervisor:
                     active_mission_id TEXT,
                     progress TEXT NOT NULL DEFAULT '',
                     completed_missions INTEGER NOT NULL DEFAULT 0,
-                    project_status TEXT NOT NULL DEFAULT 'active',
                     lease_owner TEXT NOT NULL DEFAULT '',
                     lease_until REAL,
                     updated_at REAL NOT NULL
                 )
             """)
-            columns = {
-                row["name"] for row in db.execute("PRAGMA table_info(development_supervisors)")
-            }
-            if "project_status" not in columns:
-                db.execute(
-                    "ALTER TABLE development_supervisors ADD COLUMN project_status TEXT NOT NULL DEFAULT 'active'"
-                )
-
-    @property
-    def project_complete(self) -> bool:
-        return self._state()["project_status"] == "completed"
 
     def configure(self, goal: str) -> None:
         if not isinstance(goal, str) or not goal.strip() or len(goal) > 8000:
@@ -233,10 +221,7 @@ class ProjectSupervisor:
                 "Continue the project from its verified state. Identify the next highest-priority "
                 "unfinished deliverable from the repository and the cumulative progress below. "
                 "Do not repeat completed work; repair blockers before starting unrelated work. "
-                "Completion requires the mission engine's independent testing-specialist verification. "
-                "If and only if the entire project-wide goal is fully implemented and independently verified, "
-                "return state=completed and make the summary begin exactly with "
-                "'PROJECT_GOAL_COMPLETE: true'. Otherwise continue with the next unfinished deliverable.\n\n"
+                "Completion requires the mission engine's independent testing-specialist verification.\n\n"
                 f"VERIFIED PROJECT PROGRESS:\n{progress or 'No project missions have been verified yet.'}"
             )
             return self.engine.create_mission(mission_goal, mission_id=mission_id)
@@ -261,16 +246,6 @@ class ProjectSupervisor:
         last_snapshot = None
         try:
             emit(json.dumps({"event": "supervisor_started", "supervisor_key": self.supervisor_key}))
-            initial_state = self._state()
-            if initial_state["project_status"] == "completed":
-                emit(json.dumps({
-                    "event": "supervisor_project_already_completed",
-                    "mission_id": initial_state["active_mission_id"],
-                }, ensure_ascii=False))
-                return (
-                    self.engine.get_mission(initial_state["active_mission_id"])
-                    if initial_state["active_mission_id"] else None
-                )
             while not stop_event.is_set() and not lost_lease.is_set():
                 row = self._state()
                 mission_id = self._next_mission(row)
@@ -300,7 +275,6 @@ class ProjectSupervisor:
                 if lost_lease.is_set():
                     raise ProjectSupervisorError("Supervisor lease was lost; stopping to prevent duplicate work.")
                 if last_snapshot.status == "completed":
-                    project_complete = (last_snapshot.summary or "").startswith("PROJECT_GOAL_COMPLETE: true")
                     with self._connect() as db:
                         db.execute("BEGIN IMMEDIATE")
                         previous_progress = row["progress"] or ""
@@ -314,26 +288,17 @@ class ProjectSupervisor:
                         )[-MAX_PROGRESS_CHARS:]
                         cursor = db.execute("""
                             UPDATE development_supervisors
-                            SET progress=?,active_mission_id=?,project_status=?,
+                            SET progress=?,active_mission_id=NULL,
                                 completed_missions=completed_missions+1,updated_at=?
                             WHERE supervisor_key=? AND lease_owner=? AND active_mission_id=?
                         """, (
                             cumulative_progress,
-                            mission_id if project_complete else None,
-                            "completed" if project_complete else "active",
                             time.time(), self.supervisor_key, self.owner_id, mission_id,
                         ))
                         if cursor.rowcount != 1:
                             db.rollback()
                             raise ProjectSupervisorError("Could not persist verified mission completion.")
                         db.commit()
-                    if project_complete:
-                        emit(json.dumps({
-                            "event": "supervisor_project_completed",
-                            "mission_id": mission_id,
-                            "summary": last_snapshot.summary,
-                        }, ensure_ascii=False))
-                        return last_snapshot
                     emit(json.dumps({
                         "event": "supervisor_mission_verified",
                         "mission_id": mission_id,
