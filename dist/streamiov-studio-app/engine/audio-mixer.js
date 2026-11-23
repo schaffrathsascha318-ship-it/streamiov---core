@@ -56,6 +56,10 @@ class StudioAudioMixer {
     highpass.type = "highpass";
     highpass.frequency.value = 20;
     const compressor = this.context.createDynamicsCompressor();
+    const gateAnalyser = this.context.createAnalyser();
+    gateAnalyser.fftSize = 256;
+    const gateGain = this.context.createGain();
+    gateGain.gain.value = 1;
     compressor.threshold.value = 0;
     compressor.knee.value = 0;
     compressor.ratio.value = 1;
@@ -66,12 +70,39 @@ class StudioAudioMixer {
     const analyser = this.context.createAnalyser();
     analyser.fftSize = 256;
     gainNode.gain.value = muted ? 0 : gain;
-    input.connect(highpass).connect(compressor).connect(gainNode).connect(panner).connect(analyser);
-    const channel = { input, highpass, compressor, gainNode, panner, analyser, stream, gain, muted, pan: 0, solo: false, routes: normalizedRoutes,
+    input.connect(highpass).connect(compressor).connect(gateAnalyser).connect(gateGain).connect(gainNode).connect(panner).connect(analyser);
+    const channel = { input, highpass, compressor, gateAnalyser, gateGain, gateOpen: true, gate: { enabled: false, thresholdDb: -50, attenuationDb: -60 }, gainNode, panner, analyser, stream, gain, muted, pan: 0, solo: false, routes: normalizedRoutes,
       processing: { highpassHz: 20, compressorEnabled: false } };
     this.channels.set(name, channel);
     this.#applyRoutes(channel);
     return this.snapshot(name);
+  }
+
+  setGate(name, { enabled = false, thresholdDb = -50, attenuationDb = -60 } = {}) {
+    this.#assertOpen();
+    const channel = this.channels.get(name);
+    if (!channel) throw new Error("Mixer channel not found.");
+    this.#validateBoolean(enabled, "noise gate");
+    if (!Number.isFinite(thresholdDb) || thresholdDb < -80 || thresholdDb > -20) throw new RangeError("Gate threshold must be between -80 and -20 dB.");
+    if (!Number.isFinite(attenuationDb) || attenuationDb < -80 || attenuationDb > 0) throw new RangeError("Gate attenuation must be between -80 and 0 dB.");
+    channel.gate = { enabled, thresholdDb, attenuationDb };
+    if (!enabled) { channel.gateOpen = true; channel.gateGain.gain.setTargetAtTime(1, this.context.currentTime, 0.02); }
+    return this.snapshot(name);
+  }
+
+  updateGate(name) {
+    const channel = this.channels.get(name);
+    if (!channel || !channel.gate.enabled) return null;
+    const level = this.#measure(channel.gateAnalyser).rms;
+    const db = level > 0 ? 20 * Math.log10(level) : -Infinity;
+    const threshold = channel.gate.thresholdDb;
+    const shouldOpen = channel.gateOpen ? db > threshold - 6 : db >= threshold;
+    if (shouldOpen !== channel.gateOpen) {
+      channel.gateOpen = shouldOpen;
+      const gain = shouldOpen ? 1 : Math.pow(10, channel.gate.attenuationDb / 20);
+      channel.gateGain.gain.setTargetAtTime(gain, this.context.currentTime, shouldOpen ? 0.012 : 0.09);
+    }
+    return { open: channel.gateOpen, levelDb: Number.isFinite(db) ? db : -100 };
   }
 
   setPan(name, pan) {
@@ -256,7 +287,7 @@ class StudioAudioMixer {
     const channel = this.channels.get(name);
     if (!channel) return null;
     return { name, gain: channel.gain, muted: channel.muted, routes: [...channel.routes], connected: true,
-      processing: { ...channel.processing }, pan: channel.pan, solo: channel.solo };
+      processing: { ...channel.processing }, gate: { ...channel.gate }, pan: channel.pan, solo: channel.solo };
   }
 
   #normalizeRoutes(routes) {
@@ -313,6 +344,8 @@ class StudioAudioMixer {
     try { channel.input.disconnect(); } catch {}
     try { channel.highpass.disconnect(); } catch {}
     try { channel.compressor.disconnect(); } catch {}
+    try { channel.gateAnalyser.disconnect(); } catch {}
+    try { channel.gateGain.disconnect(); } catch {}
     try { channel.gainNode.disconnect(); } catch {}
     try { channel.panner.disconnect(); } catch {}
     try { channel.analyser.disconnect(); } catch {}
