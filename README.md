@@ -106,7 +106,7 @@ Jason reads the mission database at `.streamiov/ai-missions.sqlite3` and the spe
 ## Projektbereiche
 
 - **Studio:** Electron-Desktop-Regie und Geräte-/Medienintegration.
-- **Mobile und Chromebook:** gemeinsame installierbare Web-Regie/PWA unter `/app/`.
+- **Chromebook:** herunterladbares Linux-Desktoppaket über Crostini; keine Browser-Regie. Android/iOS sind derzeit keine unterstützten Studio-Installationsziele.
 - **Core:** Plattformdienste, sichere Konten und Cloud-Anbindung.
 - **Geschenke:** STREAMIOV-native Geschenklogik und getrennte Ledger-Basis.
 - **Spiele:** eigenständige Spielebibliothek und kontrollierte Veröffentlichungen.
