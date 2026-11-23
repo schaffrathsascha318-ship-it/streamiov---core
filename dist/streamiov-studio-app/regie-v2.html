@@ -1602,7 +1602,7 @@ async function renderMusicTool(body){
   musicObjectUrl=URL.createObjectURL(chosen);
   musicPlayerAudio.src=musicObjectUrl;
   musicPlayerAudio.load();
-  try{ensureBroadcastAudioGraph();}catch(error){log("Musik-Mixer nicht verfügbar: "+String(error.message||error));}
+  try{ensureBroadcastAudioGraph().resume().catch(error=>log("AudioContext konnte nicht aktiviert werden: "+String(error.message||error)));}catch(error){log("Musik-Mixer nicht verfügbar: "+String(error.message||error));}
   musicPlayerAudio.play().then(()=>{
    log("Lokale Audiodatei geladen und im Musik-Kanal abgespielt: "+chosen.name+".");
   }).catch(error=>{
