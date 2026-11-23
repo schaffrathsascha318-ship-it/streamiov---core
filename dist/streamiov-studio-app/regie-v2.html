@@ -445,8 +445,13 @@ dialog::backdrop{background:#000b}
      </div>
      <div class="panel">
       <div class="panel-title">TWITCH LIVE · EIGENER AUSGANG</div>
-      <p id="twitchConnectionState" class="pill" role="status">Nicht verbunden · offizieller Twitch-Adapter fehlt</p>
-      <small>Eigene Twitch-Autorisierung, Ausgabe, Status und Fehlerbehandlung. Unabhängig vom TikTok-Ausgang. Noch nicht produktiv angebunden.</small>
+      <p id="twitchConnectionState" class="pill" role="status">Twitch-Verbindung wird geprüft …</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+       <button id="twitchConnect" type="button">Mit Twitch verbinden</button>
+       <button id="twitchDisconnect" type="button" hidden>Verbindung trennen</button>
+       <button id="twitchPrepare" type="button" hidden>LIVE-Ausgabe vorbereiten</button>
+      </div>
+      <small id="twitchHelp">Offizielle Twitch-Anmeldung. Streamiov fordert die Berechtigung zum Abruf des Stream-Keys an und bezieht ihn erst beim Vorbereiten der LIVE-Ausgabe. Der Key wird nicht im Studio angezeigt oder gespeichert.</small>
      </div>
      <p class="pill" style="grid-column:1/-1">Discord ist ein Community-/Chat-Kanal und kein LIVE-Ausgang.</p>
     </div>
@@ -2088,6 +2093,58 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
   });
  }
  refreshTikTokStatus();
+
+ const twitchState = byId('twitchConnectionState');
+ const twitchConnect = byId('twitchConnect');
+ const twitchDisconnect = byId('twitchDisconnect');
+ const twitchPrepare = byId('twitchPrepare');
+ const twitchHelp = byId('twitchHelp');
+ async function refreshTwitchStatus() {
+  if (!window.streamiovStudio?.twitchStatus) { twitchState.textContent = 'Twitch-Anmeldung benötigt die Desktop-App.'; return; }
+  try {
+   const result = await window.streamiovStudio.twitchStatus();
+   const connected = result?.status === 'connected' && result.streamKeyPermission;
+   twitchState.textContent = result?.status === 'configuration_required'
+    ? 'Twitch-App-Zugangsdaten fehlen · Entwickler-App registrieren und lokale Secrets konfigurieren'
+    : connected ? 'Twitch-Konto verbunden · Stream-Key-Berechtigung vorhanden'
+    : result?.status === 'token_expired' ? 'Twitch-Token abgelaufen · erneut verbinden'
+    : 'Nicht verbunden · Twitch-Login erforderlich';
+   twitchConnect.hidden = connected;
+   twitchDisconnect.hidden = !connected;
+   twitchPrepare.hidden = !connected;
+   twitchHelp.textContent = result?.status === 'configuration_required'
+    ? 'Benötigt STREAMIOV_TWITCH_CLIENT_ID, STREAMIOV_TWITCH_CLIENT_SECRET, STREAMIOV_TWITCH_REDIRECT_URI und STREAMIOV_TWITCH_TOKEN_ENCRYPTION_KEY. Der Redirect muss in der Twitch-Entwicklerkonsole exakt übereinstimmen.'
+    : 'Stream-Key wird ausschließlich über Twitch Helix mit channel:read:stream_key frisch abgerufen. Er wird nicht im Renderer angezeigt oder dauerhaft gespeichert.';
+  } catch (error) { twitchState.textContent = 'Twitch-Statusfehler: ' + error.message; }
+ }
+ twitchConnect.addEventListener('click', async () => {
+  twitchConnect.disabled = true; twitchState.textContent = 'Twitch-Anmeldung wird vorbereitet …';
+  try {
+   const result = await window.streamiovStudio.twitchConnect();
+   twitchState.textContent = result.ok ? 'Twitch-Login im Browser geöffnet. Berechtigung dort bestätigen …' : 'Anmeldung nicht gestartet: ' + result.error;
+  } catch (error) { twitchState.textContent = 'Twitch-Verbindung fehlgeschlagen: ' + error.message; }
+  finally { twitchConnect.disabled = false; }
+ });
+ twitchDisconnect.addEventListener('click', async () => {
+  twitchDisconnect.disabled = true;
+  try { const result = await window.streamiovStudio.twitchDisconnect(); twitchState.textContent = result.status === 'disconnected' ? 'Twitch-Verbindung getrennt.' : 'Trennen fehlgeschlagen: ' + result.error; await refreshTwitchStatus(); }
+  catch (error) { twitchState.textContent = 'Trennen fehlgeschlagen: ' + error.message; }
+  finally { twitchDisconnect.disabled = false; }
+ });
+ twitchPrepare.addEventListener('click', async () => {
+  twitchPrepare.disabled = true; twitchState.textContent = 'Stream-Key wird sicher bei Twitch abgerufen …';
+  try {
+   const result = await window.streamiovStudio.twitchPrepareOutput();
+   twitchState.textContent = result.ok ? 'Twitch-Ausgabe bereit · Zugangsdaten automatisch bezogen. LIVE-Transport und Remote-Bestätigung bleiben getrennte Schritte.' : 'Ausgabe blockiert: ' + result.error;
+   log(result.ok ? 'Twitch-Ausgabeparameter wurden automatisch und sicher bezogen.' : 'Twitch-Ausgabe blockiert: ' + result.error);
+  } catch (error) { twitchState.textContent = 'Ausgabevorbereitung fehlgeschlagen: ' + error.message; }
+  finally { twitchPrepare.disabled = false; }
+ });
+ if (window.streamiovStudio?.onTwitchAuthResult) window.streamiovStudio.onTwitchAuthResult(result => {
+  if (result.ok) { log('Twitch-Konto erfolgreich autorisiert.'); refreshTwitchStatus(); }
+  else { twitchState.textContent = 'Twitch-Anmeldung fehlgeschlagen: ' + result.error; log('Twitch-OAuth-Fehler: ' + result.error); }
+ });
+ refreshTwitchStatus();
 })();
 </script>
 
