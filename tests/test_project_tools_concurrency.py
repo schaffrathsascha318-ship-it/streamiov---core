@@ -87,9 +87,10 @@ class ProjectToolsConcurrencyTests(unittest.TestCase):
             if holder.is_alive():
                 holder.terminate()
             holder.join(5)
-            if contender.is_alive():
-                contender.terminate()
-            contender.join(5)
+            if contender.pid is not None:
+                if contender.is_alive():
+                    contender.terminate()
+                contender.join(5)
 
     def test_distinct_file_locks_allow_independent_workers_to_overlap(self):
         barrier = threading.Barrier(2, timeout=3)
