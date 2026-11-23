@@ -1033,6 +1033,7 @@ function applyMicrophoneRouting(){
  studioAudioMixer.setProcessing("microphone",{highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked});
  studioAudioMixer.setPan("microphone",Number($("micPan").value)/100);
  studioAudioMixer.setSolo("microphone",$("micSolo").checked);
+ refreshMixerSoloButtons();
  $("micPanValue").textContent=Number($("micPan").value)===0?"Mitte":Number($("micPan").value)<0?"L "+Math.abs($("micPan").value):"R "+$("micPan").value;
  saveAudioRoutingState();
  $("micHighpassValue").textContent=$("micHighpass").value+" Hz";
