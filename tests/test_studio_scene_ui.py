@@ -324,6 +324,18 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("Node.js 22.12", readme)
         self.assertIn("Electron loads `regie-v2.html` directly", readme)
 
+    def test_studio_exposes_separate_tiktok_twitch_outputs_without_manual_rtmp_keys(self):
+        self.assertIn('id="platformConnectionState"', self.ui)
+        self.assertIn('id="twitchConnectionState"', self.ui)
+        self.assertIn("TIKTOK LIVE · EIGENER AUSGANG", self.ui)
+        self.assertIn("TWITCH LIVE · EIGENER AUSGANG", self.ui)
+        self.assertIn("Discord ist ein Community-/Chat-Kanal und kein LIVE-Ausgang.", self.ui)
+        self.assertNotIn('id="platformSelect"', self.ui)
+        self.assertNotIn('id="rtmpDestination"', self.ui)
+        self.assertIn("LIVE-AUSGÄNGE NOCH NICHT VERFÜGBAR", self.ui)
+        self.assertIn("Kein manueller RTMP-Key", self.ui)
+        self.assertIn("OAuth und LIVE-Ausgang sind getrennte Integrationen.", self.ui)
+
     def test_studio_ships_no_unofficial_platform_client(self):
         """Only official, approved platform interfaces are allowed."""
         import json
