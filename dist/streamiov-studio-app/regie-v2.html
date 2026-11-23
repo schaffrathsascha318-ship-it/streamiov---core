@@ -324,7 +324,7 @@ dialog::backdrop{background:#000b}
        <article class="audio-bus" data-audio-bus="stream">
         <h4>STREAM / PROGRAMM</h4><div class="meter"><i data-mixer-meter="output:stream" style="width:0%"></i></div><label for="audioBusGainStream">Ausgangspegel</label><input id="audioBusGainStream" data-audio-bus-gain="stream" type="range" min="0" max="100" value="100">
         <div class="audio-bus-actions"><button type="button" data-audio-bus-mute="stream" aria-pressed="false">STUMM</button></div>
-        <small class="audio-bus-status" data-audio-bus-status="stream">Logischer Stream-Bus · Encoder-Anbindung noch offen.</small>
+        <small class="audio-bus-status" data-audio-bus-status="stream">Stream-Bus bereit · wird beim Streamstart an den lokalen Encoder übergeben.</small>
        </article>
        <article class="audio-bus" data-audio-bus="monitor">
         <h4>MONITOR</h4><label for="audioBusDeviceMonitor">Wiedergabegerät</label><select id="audioBusDeviceMonitor" data-audio-bus-device="monitor"><option value="">Systemstandard</option></select>
@@ -955,7 +955,7 @@ function renderAudioBus(name){
  const gain=document.querySelector("[data-audio-bus-gain='"+name+"']"),mute=document.querySelector("[data-audio-bus-mute='"+name+"']");
  if(gain)gain.value=String(state.gain);
  if(mute){mute.setAttribute("aria-pressed",String(state.muted));mute.textContent=state.muted?"TON AN":"STUMM";}
- if(name==="stream")audioBusStatus(name,"Stream-Bus "+(state.muted?"stumm":"aktiv")+" · Mikrofon, Systemton und Musik laufen über diese Bus-Matrix.");
+ if(name==="stream")audioBusStatus(name,"Stream-Bus vorbereitet"+(state.muted?" · stumm":"")+" · wird beim Streamstart an den lokalen Encoder übergeben.");
  else audioBusStatus(name,state.connected?"Audioausgang aktiv · "+(audioBusElements[name]?.sinkId||"Systemstandard"):"Audioausgang nicht verbunden.");
 }
 document.querySelectorAll("[data-audio-bus-gain]").forEach(control=>control.addEventListener("input",()=>{
