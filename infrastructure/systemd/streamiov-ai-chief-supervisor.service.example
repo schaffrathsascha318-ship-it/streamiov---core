@@ -3,6 +3,8 @@ Description=STREAMIOV persistent AI Chief project supervisor
 Documentation=https://github.com/schaffrathsascha318-ship-it/streamiov---core
 Wants=network-online.target
 After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -11,13 +13,12 @@ Group=streamiov
 WorkingDirectory=/opt/streamiov
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=/etc/streamiov/ai-chief.env
+ExecStartPre=/usr/bin/test -n "${STREAMIOV_PROJECT_GOAL}"
 StateDirectory=streamiov
 StateDirectoryMode=0700
 ExecStart=/opt/streamiov/.venv/bin/python -m ai --project-supervisor-run --task ${STREAMIOV_PROJECT_GOAL} --project-root /opt/streamiov --mission-db /var/lib/streamiov/ai-missions.sqlite3 --learning-db /var/lib/streamiov/verified-learning.sqlite3 --full-project-development --allow-self-modification --mission-poll-seconds 5
 Restart=always
 RestartSec=10
-StartLimitIntervalSec=300
-StartLimitBurst=5
 KillSignal=SIGTERM
 TimeoutStopSec=90
 UMask=0077
