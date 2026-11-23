@@ -1,10 +1,19 @@
-name: Deploy Cloudflare (manual, owner-approved)
+name: Deploy Cloudflare (verified homepage pushes; AI Worker manual)
 
-# Homepage updates deploy automatically from main after the verified public assets and PWA are built.
+# Verified changes to the public homepage are deployed from main.
 # The production environment protection remains active; AI Worker deployment stays manually owner-approved.
 # This workflow never creates accounts, provisions paid resources, or changes OAuth.
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "dist/streamiov-homepage-worker/**"
+      - "scripts/build-mobile-pwa.py"
+      - "scripts/verify-cloudflare-config.py"
+      - "scripts/test-mobile-pwa.py"
+      - ".github/workflows/cloudflare-deploy.yml"
   workflow_dispatch:
     inputs:
       target:
