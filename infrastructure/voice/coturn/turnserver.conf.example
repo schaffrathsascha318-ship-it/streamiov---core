@@ -28,4 +28,3 @@ total-quota=64
 max-bps=500000
 bps-capacity=1000000
 simple-log
-log-file=/var/log/turnserver/turn.log
