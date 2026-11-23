@@ -161,6 +161,7 @@ class StreamiovVoiceClient {
     if (!peer) return;
     this.peers.delete(peerId);
     try { peer.connection.close(); } catch {}
+    this.onRemoteStream({ participantId: peerId, stream: null, removed: true });
   }
 
   #closePeers() {
