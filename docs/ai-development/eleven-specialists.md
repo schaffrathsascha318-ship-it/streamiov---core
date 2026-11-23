@@ -45,7 +45,8 @@ Die elf Spezialisten sind derzeit elf getrennt konfigurierte Rollen und Arbeitsp
 
 - Chromebook ist Entwicklungsgerät, kein Produktionshost.
 - Streamiov Core und die langfristig eigene Infrastruktur werden serverseitig betrieben.
-- TikTok LIVE ist die vorgesehene externe Streamingplattform; keine OBS-, Twitch-, YouTube-, Kick- oder Facebook-Adapter.
+- TikTok LIVE und Twitch LIVE sind die beiden externen Streamingziele mit strikt getrennten Authentifizierungs- und Output-Adaptern. Discord ist ausschließlich Community-/Chat-Integration. Keine OBS-Abhängigkeit und kein kostenpflichtiger Multistream-Dienst.
+- Eigene Streamiov-Geschenke sind ausschließlich für TikToks offizielle LIVE-Geschenke-Galerie vorgesehen und stehen unter TikToks Freigabe. Streamiov Studio enthält keine eigene Geschenkegalerie, keinen Shop, Kauf-/Zahlungs-/Währungs- oder Auszahlungsfluss; es reagiert nur auf offizielle TikTok-Geschenkereignisse.
 - Keine kostenpflichtigen Nutzerstufen, Abos oder künstlichen Paywalls.
 - Open-Source-Bausteine sind nach Lizenz-, Sicherheits- und Wartbarkeitsprüfung zulässig.
 - Produktivdeployments, öffentliche Veröffentlichungen, externe Konten, bezahlte Ressourcen und irreversible Aktionen benötigen weiterhin die vorgesehenen Freigaben.
