@@ -1816,7 +1816,7 @@ async function renderTtsTool(body){
  const speedLabel=toolNote("Geschwindigkeit: 175 Wörter/Minute");
  speed.addEventListener("input",()=>{speedLabel.textContent="Geschwindigkeit: "+speed.value+" Wörter/Minute";});
  const amplitude=document.createElement("input");
- amplitude.type="range";amplitude.min="0";amplitude.max="200";amplitude.value="100";
+ amplitude.type="range";amplitude.min="0";amplitude.max="100";amplitude.value="100";
  const amplitudeLabel=toolNote("Sprachlautstärke: 100 %");
  amplitude.addEventListener("input",()=>{amplitudeLabel.textContent="Sprachlautstärke: "+amplitude.value+" %";});
  const speak=toolButton("Lokal sprechen",async()=>{
@@ -1845,7 +1845,7 @@ async function renderTtsTool(body){
   toolNote("Sprachausgabe läuft über das lokale Systemwerkzeug espeak-ng. Es wird kein Cloud-Dienst verwendet."),
   stateLine,toggle,toolField("Sprechtext",input),
   toolField("Sprechgeschwindigkeit (80–300 Wörter/Minute)",speed),speedLabel,
-  toolField("Sprachlautstärke (0–200 %)",amplitude),amplitudeLabel,speak
+  toolField("Sprachlautstärke (0–100 %)",amplitude),amplitudeLabel,speak
  );
  apply(await api({action:"status"}));
 }
