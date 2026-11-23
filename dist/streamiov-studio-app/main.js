@@ -202,7 +202,8 @@ ipcMain.handle('studio:chat-action', async (event, payload = {}) => {
   if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
   const action = payload.action;
   if (action === 'status') {
-    return { ok: true, chat: streamiovChatState.chat, tts: streamiovChatState.tts, ...streamiovChatHub.snapshot(), external_platform_connected: false, tts_audio_verified: false };
+    const snapshot = streamiovChatHub.snapshot();
+    return { ok: true, chat: streamiovChatState.chat, tts: streamiovChatState.tts, message_count: snapshot.messageCount, messages: snapshot.messages, connected_adapters: snapshot.connectedAdapters, external_platform_connected: snapshot.connectedAdapters.length > 0, tts_audio_verified: false };
   }
   if (action === 'toggle-chat') {
     streamiovChatState.chat = streamiovChatState.chat === 'online' ? 'offline' : 'online';
@@ -223,7 +224,8 @@ ipcMain.handle('studio:chat-action', async (event, payload = {}) => {
     try { await execFileAsync('espeak-ng', ['-v', 'de', text], { timeout: 60000, windowsHide: true }); }
     catch (error) { return { ok: false, error: error.code === 'ENOENT' ? 'espeak-ng ist auf diesem Gerät nicht verfügbar.' : 'Sprachausgabe fehlgeschlagen: ' + (error.message || 'unbekannter Fehler'), tts_audio_verified: false }; }
   } else { return { ok: false, error: 'Unbekannte Chat-Aktion.' }; }
-  return { ok: true, chat: streamiovChatState.chat, tts: streamiovChatState.tts, ...streamiovChatHub.snapshot(), external_platform_connected: false, tts_audio_verified: false };
+  const snapshot = streamiovChatHub.snapshot();
+  return { ok: true, chat: streamiovChatState.chat, tts: streamiovChatState.tts, message_count: snapshot.messageCount, messages: snapshot.messages, connected_adapters: snapshot.connectedAdapters, external_platform_connected: snapshot.connectedAdapters.length > 0, tts_audio_verified: false };
 });
 
 // Dauerhafte lokale Szenenverwaltung. Keine Videoausgabe oder Plattformaktion.
