@@ -348,12 +348,15 @@ class SpecialistWorker:
         self.agent_factory = agent_factory
         try:
             parameters = inspect.signature(agent_factory).parameters
+            task_parameter = parameters.get("task_id")
+            self._factory_task_id_keyword = bool(
+                task_parameter and task_parameter.kind != inspect.Parameter.POSITIONAL_ONLY
+            ) or any(item.kind == inspect.Parameter.VAR_KEYWORD for item in parameters.values())
             self._factory_accepts_task_id = (
-                "task_id" in parameters
+                self._factory_task_id_keyword
+                or bool(task_parameter)
                 or any(item.kind == inspect.Parameter.VAR_POSITIONAL for item in parameters.values())
-
             )
-            self._factory_task_id_keyword = "task_id" in parameters
         except (TypeError, ValueError):
             self._factory_accepts_task_id = False
             self._factory_task_id_keyword = False
