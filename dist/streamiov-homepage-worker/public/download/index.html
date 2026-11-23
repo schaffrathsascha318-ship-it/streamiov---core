@@ -67,12 +67,12 @@
       <div class="wrap">
         <span class="eyebrow"><i aria-hidden="true"></i> Alle Downloads an einem Ort</span>
         <h1>Herunterladen.<br><span>Prüfen. Ehrlich starten.</span></h1>
-        <p class="lead">Hier liegen die vorhandenen Studio-Installer, der aktuelle Quellcode-Snapshot, die installierbare Web-Regie und fünf checksumierte Spiel-Prototypen. Jede Karte nennt, was gebaut, was getestet und was noch nicht verifiziert ist.</p>
+        <p class="lead">Hier liegen die vorhandenen Studio-Installer, der aktuelle Quellcode-Snapshot, die installierbare Web-Regie und die nativen Spieleprojekte. Bisherige Prototyp-Downloads bleiben im Archiv erreichbar. Jede Karte nennt, was gebaut, was getestet und was noch nicht verifiziert ist.</p>
         <div class="quick" aria-label="Schnellzugriff">
           <a href="#installer">Studio-Installer</a>
           <a href="#quellcode">Quellcode-Snapshot</a>
           <a href="#pwa">Handy &amp; Chromebook</a>
-          <a href="#spiele">Spiel-Prototypen</a>
+          <a href="#spiele">Spiel-Downloads</a>
           <a href="#konto">Konto &amp; Forum</a>
           <a href="#pruefung">Prüfstatus</a>
         </div>
@@ -84,7 +84,7 @@
         <div class="section-head">
           <div class="kicker">StreamioV Studio · Version 1.0.2</div>
           <h2>Desktop-Installer</h2>
-          <p>Studio 1.0.2 enthält die Electron-Regie mit Szenen-/Quellenmodell, Vorschau, Programmausgabe, lokalem Audio-Mixer, RTMP-Ziel und der Schutzregie. Die Linux-x64-DEB wurde auf Inhalt und SHA-256 geprüft; ein vollständiger Erststart- und Funktionstest auf jedem Zielgerät steht weiterhin aus.</p>
+          <p>Studio 1.0.2 enthält die Electron-Regie mit Szenen-/Quellenmodell, Vorschau, Programmausgabe, lokalem Audio-Mixer, RTMP-Ziel und der Schutzregie. Die Linux-x64-DEB wurde auf Inhalt und SHA-256 geprüft; ein vollständiger Erststart- und Funktionstest auf jedem Zielgerät steht weiterhin aus. Regie-Oberfläche enthalten, Encoder noch extern. FFmpeg mit libx264, AAC und RTMP-Unterstützung ist noch extern bereitzustellen.</p>
         </div>
         <div class="grid">
           <article class="card">
@@ -195,57 +195,72 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
     <section id="spiele">
       <div class="wrap">
         <div class="section-head">
-          <div class="kicker">Spiele · Prototypen, kein Release</div>
-          <h2>Fünf eigenständige Spiel-Prototypen.</h2>
-          <p>Die ZIPs sind kleine, offline lauffähige Entwicklungsprototypen. Automatisierte Paket- und Quelltests sind vorhanden; menschliche Spielbarkeit, Barrierefreiheit, Rechteprüfung und Zielgerätetests stehen aus. Sie sind <strong>keine veröffentlichten Spiele</strong> und werden nicht als fertig bezeichnet.</p>
+          <div class="kicker">Spiele · eigene native Multi-Downloads</div>
+          <h2>Jedes Spiel bekommt eigene Pakete für dein Gerät.</h2>
+          <p>Die Spiele werden als eigenständige native Programme gebaut – getrennt von StreamioV Studio. Geplant sind Windows 11 x64 EXE-Pakete, Linux x86_64 und ARM64, Android-ARM64 für Handys/Tablets und ARM-Chromebooks, Android-x86_64 für Intel-Chromebooks sowie iOS/iPadOS-Xcode-Projekte. Es gibt keine Browser-only-Spielveröffentlichung.</p>
         </div>
+        <div class="notice ok"><strong>Plattform-Auswahl:</strong> Windows 11 → Windows x64 ZIP mit EXE · Linux → x86_64 oder ARM64 TAR.GZ · Android-Handy/Tablet → ARM64 APK · ChromeOS → ARM64- oder x86_64-APK passend zur CPU oder Linux-Paket über Crostini · iPhone/iPad → Xcode-Projekt, das vor Installation mit einem Apple-Entwicklerkonto signiert werden muss.</div>
         <div class="grid">
-          <article class="card">
-            <h3>Echo Grid</h3>
-            <span class="meta">0.1.0-prototype · Memory-/Sequenzspiel · Browser · 9.051 Bytes</span>
-            <p>Merke dir die wachsende Neon-Sequenz auf dem 3×3-Feld. Offline, ohne Drittanbieter-Pakete.</p>
-            <a class="download" href="/downloads/streamiov-echo-grid-0.1.0-prototype.zip">Prototyp herunterladen</a>
-            <code class="checksum">SHA-256: 5893f354fe47786e94c6b0f7349f7dc13f9497ce98bb972990a6d49d402b5fef</code>
-            <span class="tag tag-work">Prototyp · Spielbarkeit nicht verifiziert</span>
-          </article>
-          <article class="card">
-            <h3>Neon Relay</h3>
-            <span class="meta">0.1.0-prototype · Arcade-/Reflexspiel · Browser · 10.046 Bytes</span>
-            <p>Sammle Energie und weiche roten Störfeldern aus. Offline, ohne Drittanbieter-Pakete.</p>
-            <a class="download" href="/downloads/streamiov-neon-relay-0.1.0-prototype.zip">Prototyp herunterladen</a>
-            <code class="checksum">SHA-256: 48a625a42e6783ba7cecea40bd63120451c247960a012aad3d9ec2605bb7488c</code>
-            <span class="tag tag-work">Prototyp · Spielbarkeit nicht verifiziert</span>
-          </article>
-          <article class="card">
-            <h3>Pulse Defender</h3>
-            <span class="meta">0.1.0-prototype · Arcade-Wellenshooter · Browser · 9.868 Bytes</span>
-            <p>Verteidige den Energiekern gegen fallende Drohnenwellen. Offline, ohne Drittanbieter-Pakete.</p>
-            <a class="download" href="/downloads/streamiov-pulse-defender-0.1.0-prototype.zip">Prototyp herunterladen</a>
-            <code class="checksum">SHA-256: 072e69aac56193776bec589d065cbb442e3ea8b5cad314545d14dae86d071cb0</code>
-            <span class="tag tag-work">Prototyp · Spielbarkeit nicht verifiziert</span>
-          </article>
-          <article class="card">
-            <h3>Signal Weave</h3>
-            <span class="meta">0.1.0-prototype · Logik-/Raumrätsel · Browser · 14.260 Bytes</span>
-            <p>Drehe Rohrplättchen und leite den Puls durch drei handgebaute Level. Offline, ohne Drittanbieter-Pakete.</p>
-            <a class="download" href="/downloads/streamiov-signal-weave-0.1.0-prototype.zip">Prototyp herunterladen</a>
-            <code class="checksum">SHA-256: bd34424269507e2cd76abe0d736a1705a77161919d80784e5808ed69a20e59b0</code>
-            <span class="tag tag-work">Prototyp · Spielbarkeit nicht verifiziert</span>
-          </article>
-          <article class="card">
-            <h3>Star Defender</h3>
-            <span class="meta">0.2.0-prototype · Arcade-Weltraumshooter · Python/Tkinter · 7.591 Bytes</span>
-            <p>Ein offline laufender Python-Prototyp mit Engine, Pause, Neustart und Credits. Tkinter kann unter Linux ein optionales Systempaket sein.</p>
-            <a class="download" href="/downloads/streamiov-star-defender-0.2.0-prototype.zip">Prototyp herunterladen</a>
-            <code class="checksum">SHA-256: 37ce93121ec4f48eb79a775d3580e43b0dce2c41112565d028e31d62c5a6c35f</code>
-            <span class="tag tag-work">Prototyp · Spielbarkeit nicht verifiziert</span>
-          </article>
+          <article class="card"><h3>Echo Grid</h3><span class="meta">Eigenständiges natives Spielprojekt · Sequenz- und Gedächtnisrätsel</span><p>Eigene Windows-, Linux-, Android- und ChromeOS-Pakete. iOS/iPadOS als unsigniertes Xcode-Projekt.</p><span class="tag tag-work">Build- und Spieltests laufen</span></article>
+          <article class="card"><h3>Neon Relay</h3><span class="meta">Eigenständiges natives Spielprojekt · Arcade- und Reflexspiel</span><p>Eigene Windows-, Linux-, Android- und ChromeOS-Pakete. iOS/iPadOS als unsigniertes Xcode-Projekt.</p><span class="tag tag-work">Build- und Spieltests laufen</span></article>
+          <article class="card"><h3>Pulse Defender</h3><span class="meta">Eigenständiges natives Spielprojekt · Wellen-Shooter</span><p>Eigene Windows-, Linux-, Android- und ChromeOS-Pakete. iOS/iPadOS als unsigniertes Xcode-Projekt.</p><span class="tag tag-work">Build- und Spieltests laufen</span></article>
+          <article class="card"><h3>Signal Weave</h3><span class="meta">Eigenständiges natives Spielprojekt · Leitungs- und Logikrätsel</span><p>Eigene Windows-, Linux-, Android- und ChromeOS-Pakete. iOS/iPadOS als unsigniertes Xcode-Projekt.</p><span class="tag tag-work">Build- und Spieltests laufen</span></article>
+          <article class="card"><h3>Star Defender</h3><span class="meta">Eigenständiges natives Spielprojekt · Weltraum-Shooter</span><p>Eigene Windows-, Linux-, Android- und ChromeOS-Pakete. iOS/iPadOS als unsigniertes Xcode-Projekt.</p><span class="tag tag-work">Build- und Spieltests laufen</span></article>
         </div>
-        <p><small>Alle Prüfsummen: <a href="/downloads/SHA256SUMS-games.txt">SHA256SUMS-games.txt</a>. Die ZIPs enthalten Manifest, Quellen, Tests und die StreamioV-Kennung. Herkunft und Nutzungsrechte sind dokumentiert, aber nicht vollständig rechtlich geprüft. Eine Veröffentlichung als fertiges Spiel ist nicht erfolgt.</small></p>
+        <details id="legacy-spielprototypen">
+          <summary>Archiv: bisherige Spiel-Prototyp-Downloads und Prüfsummen</summary>
+          <div>
+            <p>Diese fünf bestehenden ZIP-Downloads bleiben aus Gründen der Link-Kompatibilität erreichbar. Sie sind historische Browser-/Python-Prototypen und ausdrücklich keine aktuellen nativen Releases oder fertig verifizierten Spiele.</p>
+            <div class="grid">
+              <article class="card">
+                <h3>Echo Grid</h3>
+                <span class="meta">0.1.0-prototype · Memory-/Sequenzspiel · Browser · 9.051 Bytes</span>
+                <p>Merke dir die wachsende Neon-Sequenz auf dem 3×3-Feld. Offline, ohne Drittanbieter-Pakete.</p>
+                <a class="download" href="/downloads/streamiov-echo-grid-0.1.0-prototype.zip">Bisherigen Prototyp herunterladen</a>
+                <code class="checksum">SHA-256: 5893f354fe47786e94c6b0f7349f7dc13f9497ce98bb972990a6d49d402b5fef</code>
+                <span class="tag tag-work">Archiv · Spielbarkeit nicht verifiziert</span>
+              </article>
+              <article class="card">
+                <h3>Neon Relay</h3>
+                <span class="meta">0.1.0-prototype · Arcade-/Reflexspiel · Browser · 10.046 Bytes</span>
+                <p>Sammle Energie und weiche roten Störfeldern aus. Offline, ohne Drittanbieter-Pakete.</p>
+                <a class="download" href="/downloads/streamiov-neon-relay-0.1.0-prototype.zip">Bisherigen Prototyp herunterladen</a>
+                <code class="checksum">SHA-256: 48a625a42e6783ba7cecea40bd63120451c247960a012aad3d9ec2605bb7488c</code>
+                <span class="tag tag-work">Archiv · Spielbarkeit nicht verifiziert</span>
+              </article>
+              <article class="card">
+                <h3>Pulse Defender</h3>
+                <span class="meta">0.1.0-prototype · Arcade-Wellenshooter · Browser · 9.868 Bytes</span>
+                <p>Verteidige den Energiekern gegen fallende Drohnenwellen. Offline, ohne Drittanbieter-Pakete.</p>
+                <a class="download" href="/downloads/streamiov-pulse-defender-0.1.0-prototype.zip">Bisherigen Prototyp herunterladen</a>
+                <code class="checksum">SHA-256: 072e69aac56193776bec589d065cbb442e3ea8b5cad314545d14dae86d071cb0</code>
+                <span class="tag tag-work">Archiv · Spielbarkeit nicht verifiziert</span>
+              </article>
+              <article class="card">
+                <h3>Signal Weave</h3>
+                <span class="meta">0.1.0-prototype · Logik-/Raumrätsel · Browser · 14.260 Bytes</span>
+                <p>Drehe Rohrplättchen und leite den Puls durch drei handgebaute Level. Offline, ohne Drittanbieter-Pakete.</p>
+                <a class="download" href="/downloads/streamiov-signal-weave-0.1.0-prototype.zip">Bisherigen Prototyp herunterladen</a>
+                <code class="checksum">SHA-256: bd34424269507e2cd76abe0d736a1705a77161919d80784e5808ed69a20e59b0</code>
+                <span class="tag tag-work">Archiv · Spielbarkeit nicht verifiziert</span>
+              </article>
+              <article class="card">
+                <h3>Star Defender</h3>
+                <span class="meta">0.2.0-prototype · Arcade-Weltraumshooter · Python/Tkinter · 7.591 Bytes</span>
+                <p>Ein offline laufender Python-Prototyp mit Engine, Pause, Neustart und Credits. Tkinter kann unter Linux ein optionales Systempaket sein.</p>
+                <a class="download" href="/downloads/streamiov-star-defender-0.2.0-prototype.zip">Bisherigen Prototyp herunterladen</a>
+                <code class="checksum">SHA-256: 37ce93121ec4f48eb79a775d3580e43b0dce2c41112565d028e31d62c5a6c35f</code>
+                <span class="tag tag-work">Archiv · Spielbarkeit nicht verifiziert</span>
+              </article>
+            </div>
+            <p><small>Historische Prüfsummenliste: <a href="/downloads/SHA256SUMS-games.txt">SHA256SUMS-games.txt</a>. Die Archivlinks ersetzen keine nativen Downloads.</small></p>
+          </div>
+        </details>
+        <p><small>Die Download-Buttons werden erst mit tatsächlich erzeugten Paketen und bestandenen Prüfungen freigeschaltet. Android-Pakete aus CI sind zunächst Debug-/Test-APKs. iOS benötigt eine echte Apple-Team-ID, Signierung und Provisioning. Keine dieser Build-Meldungen ersetzt Tests auf echten Geräten oder eine Freigabe als fertiges Spiel.</small></p>
       </div>
     </section>
 
-    <section id="konto">
+<section id="konto">
       <div class="wrap">
         <div class="section-head">
           <div class="kicker">Konto &amp; Gemeinschaft</div>
@@ -276,7 +291,7 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
           <h2>Regie-Oberfläche enthalten, Encoder noch extern.</h2>
           <p>Die Installer enthalten Kamera-, Bildschirm- und Mikrofonauswahl sowie ein RTMP-Ziel. Studio 1.0.2 enthält den Szenen-/Quellen-Editor mit gemeinsamem Vorschau-, Programm- und Stream-Renderer sowie der Schutzregie: Ein Hotkey schaltet das Programm auf PAUSE und den lokalen Mikrofon-Mix auf 0 %, beim Aufheben werden beide Werte wiederhergestellt. Für eine echte Live-Ausgabe muss FFmpeg mit libx264, AAC und RTMP-Unterstützung auf dem Computer installiert sein; der Encoder ist noch nicht Teil der Installer.</p>
         </div>
-        <div class="notice"><strong>Kein Live-Nachweis:</strong> Eine erfolgreiche RTMP-Verbindung ersetzt keine Anmeldung bei TikTok, YouTube, Twitch oder einem anderen Dienst. Ein Encoder-Start beweist nicht, dass ein Dienst den Stream empfangen oder veröffentlicht hat. Offizielle Plattform-Anmeldungen und TikTok-Geschenke bleiben von einer Freigabe durch TikTok abhängig.</div>
+        <div class="notice"><strong>Kein Live-Nachweis:</strong> Eine erfolgreiche RTMP-Verbindung ersetzt keine Anmeldung bei TikTok oder Twitch. Ein Encoder-Start beweist nicht, dass ein Dienst den Stream empfangen oder veröffentlicht hat. Offizielle Plattform-Anmeldungen und TikTok-Geschenke bleiben von einer Freigabe durch TikTok abhängig.</div>
         <div class="notice"><strong>Grenze der Schutzregie:</strong> Sie stoppt weder den Encoder noch eine laufende Aufnahme und garantiert keine Plattform-Privatsphäre. Sie schaltet nur die Programmszene und den lokalen Mikrofon-Mix; Plattform- und Aufnahme-Privatsphäre müssen separat geprüft werden.</div>
       </div>
     </section>

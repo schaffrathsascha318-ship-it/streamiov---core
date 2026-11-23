@@ -235,19 +235,26 @@ def verify() -> dict[str, Any]:
     workflow_text = DEPLOY_WORKFLOW.read_text(encoding="utf-8")
     for required in (
         "workflow_dispatch:",
+        "push:",
+        "branches:",
+        "- main",
         "environment: production",
-        "inputs.confirm",
+        "github.event_name == 'push'",
+        "github.event_name == 'workflow_dispatch'",
         "pages deploy",
         "--project-name streamiov",
         "wrangler@4 deploy --config infrastructure/cloudflare/streamiov-ai-worker/wrangler.jsonc",
     ):
         if required not in workflow_text:
             errors.append(f"cloudflare-deploy.yml is missing: {required}")
-    if re.search(r"^  (push|pull_request):", workflow_text, flags=re.M):
-        errors.append("cloudflare-deploy.yml must stay manual and must not run on push or pull_request")
+    if re.search(r"^  pull_request:", workflow_text, flags=re.M):
+        errors.append("cloudflare-deploy.yml must not deploy from pull_request events")
+    ai_job = re.search(r"(?ms)^  deploy-ai-worker:.*?^    if:.*github.event_name == 'workflow_dispatch'.*?(?=^  [a-zA-Z0-9_-]+:|\Z)", workflow_text)
+    if not ai_job:
+        errors.append("AI Worker deployment must remain restricted to manually dispatched, confirmed runs")
     if "Deploy homepage assets Worker" in workflow_text:
         errors.append("cloudflare-deploy.yml still deploys the homepage Worker instead of the Pages project")
-    checks.append("manual deploy workflow targets the streamiov Pages project and the AI Worker")
+    checks.append("verified main-branch homepage deploy and manually confirmed AI Worker deploy target the correct Cloudflare resources")
 
     checks_text = CHECKS_WORKFLOW.read_text(encoding="utf-8")
     if "python scripts/verify-cloudflare-config.py" not in checks_text:

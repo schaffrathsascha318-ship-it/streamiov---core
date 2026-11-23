@@ -1,0 +1,187 @@
+name: StreamioV Native Game Multi-Platform Builds
+
+on:
+  pull_request:
+    paths:
+      - "games/native-template/**"
+      - "scripts/generate-native-games.py"
+      - ".github/workflows/native-games.yml"
+  push:
+    branches: [main]
+    paths:
+      - "games/native-template/**"
+      - "scripts/generate-native-games.py"
+      - ".github/workflows/native-games.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: 4.7.2
+  GODOT_RELEASE: 4.7.2-stable
+
+jobs:
+  desktop-android:
+    name: Windows, Linux and Android / ChromeOS builds
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configure the runner-provided Android SDK
+        run: |
+          ANDROID_SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$ANDROID_SDK_ROOT/cmdline-tools" -name sdkmanager -type f | sort -V | tail -n 1)"
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "Android SDK command-line tools were not found on the runner." >&2
+            exit 1
+          fi
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_SDK_ROOT" --install "platform-tools" "platforms;android-35" "build-tools;35.0.1" "cmdline-tools;latest"
+
+      - name: Generate five independent native game projects
+        run: python3 scripts/generate-native-games.py
+
+      - name: Download Godot 4.7.2 and matching export templates
+        run: |
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.7.2.stable"
+          curl -fL "https://github.com/godotengine/godot/releases/download/$GODOT_RELEASE/Godot_v$GODOT_VERSION-stable_linux.x86_64.zip" -o /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          sudo install -m 0755 /tmp/godot/Godot_v$GODOT_VERSION-stable_linux.x86_64 /usr/local/bin/godot
+          curl -fL "https://github.com/godotengine/godot/releases/download/$GODOT_RELEASE/Godot_v$GODOT_VERSION-stable_export_templates.tpz" -o /tmp/templates.tpz
+          mkdir -p /tmp/godot-templates
+          unzip -q /tmp/templates.tpz -d /tmp/godot-templates
+          cp -a /tmp/godot-templates/templates/. "$HOME/.local/share/godot/export_templates/4.7.2.stable/"
+          printf '%s\n' "$ANDROID_HOME" "$JAVA_HOME"
+
+      - name: Configure Godot Android SDK paths
+        run: |
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          resource_name = "EditorSettings"
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$HOME/.android/debug.keystore" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+
+      - name: Validate and export each native game
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/packages
+          for project in games/native/*; do
+            [ -d "$project" ] || continue
+            game="$(basename "$project")"
+            mkdir -p "$project/build"
+            echo "Validating $game"
+            godot --headless --editor --path "$project" --quit
+            godot --headless --path "$project" --quit-after 3
+            godot --headless --path "$project" --export-release "Windows Desktop x64" "build/StreamioV-$game-windows-x64.exe"
+            godot --headless --path "$project" --export-release "Linux x64" "build/StreamioV-$game-linux-x86_64"
+            godot --headless --path "$project" --export-release "Linux ARM64" "build/StreamioV-$game-linux-arm64"
+            godot --headless --path "$project" --export-debug "Android ARM64" "build/StreamioV-$game-android-arm64.apk"
+            godot --headless --path "$project" --export-debug "Android x86_64" "build/StreamioV-$game-android-x86_64.apk"
+            chmod +x "$project/build/StreamioV-$game-linux-x86_64" "$project/build/StreamioV-$game-linux-arm64"
+
+            temp_dir="$(mktemp -d)"
+            mkdir -p "$temp_dir/windows" "$temp_dir/linux-x86_64" "$temp_dir/linux-arm64"
+            cat > "$temp_dir/windows/INSTALL.txt" <<EOF
+          $game - Windows 11 x64
+          Extract this package and double-click the EXE. Portable development build; no setup wizard.
+          EOF
+            cp "$project/build/StreamioV-$game-windows-x64.exe" "$temp_dir/windows/"
+            (cd "$temp_dir/windows" && zip -qr "$GITHUB_WORKSPACE/artifacts/packages/$game-windows-x64.zip" .)
+
+            cat > "$temp_dir/linux-x86_64/INSTALL.txt" <<EOF
+          $game - Linux x86_64
+          Extract this archive, then run: chmod +x StreamioV-$game-linux-x86_64 && ./StreamioV-$game-linux-x86_64
+          EOF
+            cp "$project/build/StreamioV-$game-linux-x86_64" "$temp_dir/linux-x86_64/"
+            tar -czf "artifacts/packages/$game-linux-x86_64.tar.gz" -C "$temp_dir/linux-x86_64" .
+
+            cat > "$temp_dir/linux-arm64/INSTALL.txt" <<EOF
+          $game - Linux ARM64
+          Extract this archive, then run: chmod +x StreamioV-$game-linux-arm64 && ./StreamioV-$game-linux-arm64
+          EOF
+            cp "$project/build/StreamioV-$game-linux-arm64" "$temp_dir/linux-arm64/"
+            tar -czf "artifacts/packages/$game-linux-arm64.tar.gz" -C "$temp_dir/linux-arm64" .
+
+            cp "$project/build/StreamioV-$game-android-arm64.apk" "artifacts/packages/$game-android-arm64-phone-tablet-and-arm-chromeos-debug.apk"
+            cp "$project/build/StreamioV-$game-android-x86_64.apk" "artifacts/packages/$game-android-x86_64-intel-chromeos-debug.apk"
+            rm -rf "$temp_dir"
+          done
+          (cd artifacts/packages && sha256sum *.zip *.tar.gz *.apk > SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: streamiov-native-games-platform-downloads
+          path: artifacts/packages/*
+          if-no-files-found: error
+          retention-days: 14
+
+  ios-xcode:
+    name: iOS / iPadOS Xcode project exports (unsigned)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate five independent native game projects
+        run: python3 scripts/generate-native-games.py
+
+      - name: Download Godot and matching iOS export templates
+        run: |
+          curl -fL "https://github.com/godotengine/godot/releases/download/$GODOT_RELEASE/Godot_v$GODOT_VERSION-stable_macos.universal.zip" -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          curl -fL "https://github.com/godotengine/godot/releases/download/$GODOT_RELEASE/Godot_v$GODOT_VERSION-stable_export_templates.tpz" -o /tmp/templates.tpz
+          mkdir -p "$HOME/Library/Application Support/Godot/export_templates/4.7.2.stable" /tmp/godot-templates
+          unzip -q /tmp/templates.tpz -d /tmp/godot-templates
+          cp -a /tmp/godot-templates/templates/. "$HOME/Library/Application Support/Godot/export_templates/4.7.2.stable/"
+          GODOT_APP="$(find /tmp/godot -maxdepth 3 -name Godot.app -print -quit)"
+          echo "GODOT_BIN=$GODOT_APP/Contents/MacOS/Godot" >> "$GITHUB_ENV"
+
+      - name: Export unsigned Xcode projects
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          for project in games/native/*; do
+            [ -d "$project" ] || continue
+            game="$(basename "$project")"
+            mkdir -p "$project/build"
+            "$GODOT_BIN" --headless --editor --path "$project" --quit
+            "$GODOT_BIN" --headless --path "$project" --export-debug "iOS Xcode Project" "build/StreamioV-$game-ios-xcode"
+            mkdir -p "artifacts/$game"
+            (cd "$project/build" && zip -qr "$GITHUB_WORKSPACE/artifacts/$game/StreamioV-$game-ios-xcode-unsigned.zip" .)
+            echo "Unsigned Xcode project with placeholder Team ID 0000000000. Replace with the real Apple Developer Team ID, signing, provisioning and physical-device validation before installation." > "artifacts/$game/IOS-SIGNING-REQUIRED.txt"
+            (cd "artifacts/$game" && shasum -a 256 * > SHA256SUMS.txt)
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: streamiov-native-games-ios-xcode-unsigned
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 14
