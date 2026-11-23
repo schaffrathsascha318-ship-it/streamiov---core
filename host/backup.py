@@ -445,10 +445,12 @@ def list_backups(backup_dir: str | Path) -> list[dict]:
         verified = False
         try:
             if metadata_path.is_file() and not metadata_path.is_symlink():
-                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                loaded_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                if isinstance(loaded_metadata, dict) and loaded_metadata.get("backup_file") == path.name:
+                    metadata = loaded_metadata
             if verified_path.is_file() and not verified_path.is_symlink():
                 proof = json.loads(verified_path.read_text(encoding="utf-8"))
-                verified = proof.get("status") == "verified" and proof.get("ciphertext_sha256") == _sha256_file(path)
+                verified = isinstance(proof, dict) and proof.get("status") == "verified" and proof.get("backup_file") == path.name and proof.get("ciphertext_sha256") == _sha256_file(path)
         except (OSError, json.JSONDecodeError):
             verified = False
         result.append({
