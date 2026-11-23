@@ -76,15 +76,24 @@ def _fsync_directory(path: Path) -> None:
         os.close(descriptor)
 
 
+def _directory_path(value: str | Path, *, create: bool = False, private: bool = False) -> Path:
+    path = Path(value).expanduser()
+    if path.exists() and path.is_symlink():
+        raise BackupError("Data and backup directories must not be symlinks.")
+    if create:
+        path.mkdir(parents=True, exist_ok=True, mode=0o700 if private else 0o750)
+    if not path.exists() or not path.is_dir() or path.is_symlink():
+        raise BackupError("Configured data or backup directory is unavailable or unsafe.")
+    if private:
+        try:
+            os.chmod(path, 0o700)
+        except OSError:
+            pass
+    return path.resolve()
+
+
 def _check_private_directory(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True, mode=0o700)
-    info = path.lstat()
-    if not path.is_dir() or path.is_symlink():
-        raise BackupError("Backup directory must be a real directory, not a symlink.")
-    try:
-        os.chmod(path, 0o700)
-    except OSError:
-        pass
+    _directory_path(path, create=True, private=True)
 
 
 def _check_paths(data_dir: Path, backup_dir: Path) -> None:
@@ -212,7 +221,7 @@ def create_backup(data_dir: str | Path, backup_dir: str | Path) -> dict:
         if not encrypted_path.is_file() or encrypted_path.stat().st_size < 64:
             raise BackupError("age produced an empty or incomplete encrypted backup.")
         with encrypted_path.open("rb") as handle:
-            if handle.read(20) != b"age-encryption.org/v1":
+            if handle.read(len(b"age-encryption.org/v1")) != b"age-encryption.org/v1":
                 raise BackupError("Encrypted backup does not have a valid age file header.")
             handle.flush()
             os.fsync(handle.fileno())
@@ -281,6 +290,8 @@ def _verify_archive(archive_path: Path, output_dir: Path) -> tuple[dict, str]:
                 raise BackupError("Archive manifest cannot be read.")
             manifest_bytes = manifest_stream.read(MAX_MANIFEST_BYTES + 1)
             manifest = json.loads(manifest_bytes.decode("utf-8"))
+            if not isinstance(manifest, dict):
+                raise BackupError("Backup manifest must be a JSON object.")
             if manifest.get("format") != "streamiov-host-backup" or manifest.get("version") != 1:
                 raise BackupError("Unsupported backup format.")
             entries = manifest.get("databases")
@@ -292,7 +303,7 @@ def _verify_archive(archive_path: Path, output_dir: Path) -> tuple[dict, str]:
                 if not isinstance(entry, dict):
                     raise BackupError("Invalid database entry in manifest.")
                 name, size, expected_hash = entry.get("name"), entry.get("size"), entry.get("sha256")
-                if name not in ALLOWED_DATABASES or name in entry_names:
+                if not isinstance(name, str) or name not in ALLOWED_DATABASES or name in entry_names:
                     raise BackupError("Unexpected or duplicate database in backup.")
                 if type(size) is not int or not 1 <= size <= MAX_DATABASE_BYTES:
                     raise BackupError("Invalid database size in backup manifest.")
