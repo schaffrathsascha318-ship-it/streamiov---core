@@ -69,6 +69,23 @@ class VoiceRoomStoreTests(unittest.TestCase):
         with self.assertRaises(VoiceError):
             self.store.create_invite("owner-id", room["room_id"], max_uses=True)
 
+    def test_owner_room_and_active_invite_quotas_are_enforced(self):
+        rooms = [self.store.create_room("owner-id", f"Room {index}") for index in range(5)]
+        with self.assertRaises(VoiceError):
+            self.store.create_room("owner-id", "Overflow")
+        room_id = rooms[0]["room_id"]
+        for _ in range(19):
+            self.store.create_invite("owner-id", room_id)
+        with self.assertRaises(VoiceError):
+            self.store.create_invite("owner-id", room_id)
+
+    def test_existing_member_does_not_consume_another_invite(self):
+        room = self.store.create_room("owner-id", "Team")
+        self.store.join("member-id", room["invite_code"])
+        invite = self.store.create_invite("owner-id", room["room_id"], max_uses=1)
+        self.assertEqual(self.store.join("member-id", invite["invite_code"])["role"], "guest")
+        self.assertEqual(self.store.join("new-member", invite["invite_code"])["role"], "guest")
+
     def test_turn_credentials_are_short_lived_and_derived_from_shared_secret(self):
         secret = "turn-secret-" * 4
         with patch.dict(os.environ, {
