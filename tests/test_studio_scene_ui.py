@@ -204,10 +204,14 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
 
     def test_download_page_marks_unreleased_broadcast_feature_accurately(self):
         download = (ROOT / "dist" / "streamiov-homepage-worker" / "public" / "download" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("Regie-Oberfläche enthalten, Encoder noch extern.", download)
+        self.assertIn("<h3>Windows x64</h3>", download)
+        self.assertNotIn("Windows ARM64", download)
+        if "Der derzeit gelistete Installer 1.0.2 enthält die Electron-Desktop-Regie." in download:
+            self.assertIn("Der neue Build 1.0.3 bindet eine geprüfte FFmpeg-Laufzeit ein", download)
+            self.assertIn("Echte Gerätetests stehen weiterhin aus.", download)
+        else:
+            self.assertIn("Regie-Oberfläche enthalten, Encoder noch extern.", download)
         if "FFmpeg mit libx264, AAC und RTMP-Unterstützung" not in download:
-            # The desktop-download-only page uses the newer, equally explicit
-            # wording for the separately required FFmpeg runtime.
             self.assertIn("benötigt FFmpeg noch separat", download)
             self.assertIn("Veröffentlichung bleibt bis zum vollständigen GPL-Quellcodepaket gesperrt", download)
 
