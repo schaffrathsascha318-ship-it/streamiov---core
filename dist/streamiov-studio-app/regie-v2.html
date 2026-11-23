@@ -1037,7 +1037,7 @@ function effectiveAudioRoutes(routes,source){
  return routes.filter(route=>route!=="stream"||streamAllowed);
 }
 function applyMicrophoneRouting(){
- if(!studioAudioMixer||!studioAudioMixer.snapshot("microphone")){saveAudioRoutingState();return;}
+ if(!studioAudioMixer||!studioAudioMixer.snapshot("microphone")){mixerPanState.microphone=Number($("micPan").value)/100;saveAudioRoutingState();saveMixerSettings();return;}
  studioAudioMixer.setRoutes("microphone",effectiveAudioRoutes(selectedMicrophoneRoutes(),"microphone"));
  studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100*mixerValue("mixerMic"));
  studioAudioMixer.setProcessing("microphone",{highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked});
@@ -1047,6 +1047,7 @@ function applyMicrophoneRouting(){
  refreshMixerSoloButtons();
  $("micPanValue").textContent=Number($("micPan").value)===0?"Mitte":Number($("micPan").value)<0?"L "+Math.abs($("micPan").value):"R "+$("micPan").value;
  saveAudioRoutingState();
+ saveMixerSettings();
  $("micHighpassValue").textContent=$("micHighpass").value+" Hz";
  $("audioMixerStatus").textContent="Mikrofonquelle verbunden · Routing: "+(selectedMicrophoneRoutes().join(", ")||"kein Ausgang")+".";
 }
