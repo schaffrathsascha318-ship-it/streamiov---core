@@ -102,15 +102,15 @@ class ProjectToolsConcurrencyTests(unittest.TestCase):
         import sys
 
         path = self.root / "process-shared.txt"
-        path.write_text("base\\n", encoding="utf-8")
+        path.write_text("base\n", encoding="utf-8")
         script = (
             "import sys; from pathlib import Path; "
             "from ai.runtime.project_tools import ProjectTools, ToolError; "
             "tools=ProjectTools(Path(sys.argv[1]), full_project_development=True); "
             "try_result=None; "
-            "\\ntry: try_result=tools.replace_text('process-shared.txt','base',sys.argv[2])"
-            "\\nexcept ToolError as exc: print('REJECTED:'+str(exc))"
-            "\\nelse: print('UPDATED:'+try_result)"
+            "\ntry: try_result=tools.replace_text('process-shared.txt','base',sys.argv[2])"
+            "\nexcept ToolError as exc: print('REJECTED:'+str(exc))"
+            "\nelse: print('UPDATED:'+try_result)"
         )
         processes = [
             subprocess.Popen(
@@ -125,7 +125,7 @@ class ProjectToolsConcurrencyTests(unittest.TestCase):
             self.assertEqual(process.returncode, 0, stderr)
             results.append(stdout.strip())
         final = path.read_text(encoding="utf-8")
-        self.assertIn(final, {"process-a\\n", "process-b\\n"})
+        self.assertIn(final, {"process-a\n", "process-b\n"})
         self.assertEqual(sum(item.startswith("UPDATED:") for item in results), 1)
         self.assertEqual(sum(item.startswith("REJECTED:") for item in results), 1)
 
