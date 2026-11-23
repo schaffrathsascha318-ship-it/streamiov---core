@@ -1831,10 +1831,10 @@ async function startBroadcast(){
   const streamBusTrack=streamBus.getAudioTracks().find(track=>track.readyState==="live");
   const streamHasSource=((audioMode==="mic"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("microphone"))&&effectiveAudioRoutes(selectedMicrophoneRoutes()).includes("stream"))
    ||((audioMode==="system"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("system"))&&effectiveAudioRoutes(selectedSystemRoutes()).includes("stream"))
-   ||(musicQueueIndex>=0&&musicPlayerAudio.paused===false&&studioAudioMixer.snapshot("music"))
-   ||(!ttsAudio.paused&&studioAudioMixer.snapshot("tts"))
-   ||(alertToneActive&&studioAudioMixer.snapshot("alert"))
-   ||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended&&pad.channelName&&studioAudioMixer.snapshot(pad.channelName));
+   ||(musicQueueIndex>=0&&musicPlayerAudio.paused===false&&studioAudioMixer.snapshot("music")&&effectiveAuxRoutes("music").includes("stream"))
+   ||(!ttsAudio.paused&&studioAudioMixer.snapshot("tts")&&effectiveAuxRoutes("tts").includes("stream"))
+   ||(alertToneActive&&studioAudioMixer.snapshot("alert")&&effectiveAuxRoutes("alert").includes("stream"))
+   ||(soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended&&pad.channelName&&studioAudioMixer.snapshot(pad.channelName))&&effectiveAuxRoutes("soundboard").includes("stream"));
   if(!streamBusTrack||!streamHasSource)throw new Error("Für den Stream-Bus ist keine aktive Audioquelle zum Stream geroutet.");
   broadcastAudioDestination=broadcastAudioContext.createMediaStreamDestination();
   broadcastMasterGain.connect(broadcastAudioDestination);
