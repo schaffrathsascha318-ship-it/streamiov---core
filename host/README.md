@@ -65,3 +65,6 @@ The Voice room API is implemented in `host/voice.py` and `host/server.py`. It us
 Configure `STREAMIOV_VOICE_SIGNING_KEY` (at least 32 random bytes) in the private Core host and the Voice signalling Worker. Configure `STREAMIOV_VOICE_SIGNALING_URL` to the deployed HTTPS Worker origin. Never place either secret in source code or the desktop app.
 
 See [docs/studio/voice-rooms.md](../docs/studio/voice-rooms.md) for the Worker contract, one-use WebSocket tickets, peer-to-peer media path, deployment and limitations. The feature branch is source-only until the Worker is deployed and two real clients pass an end-to-end call; no production Voice availability is claimed.
+
+
+For Voice deployment, `host/systemd/streamiov-host.service` reads the optional private `/etc/streamiov/voice.env` file. It may contain the Voice signing key, deployed signalling origin, TURN URLs and a separate coturn REST shared secret. Keep it out of version control and protect it with `root:streamiov` ownership and mode `0640`. See [docs/studio/voice-rooms.md](../docs/studio/voice-rooms.md) and the coturn example configuration.
