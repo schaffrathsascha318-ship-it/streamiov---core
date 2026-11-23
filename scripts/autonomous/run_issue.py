@@ -44,6 +44,46 @@ MAX_ISSUE_BODY_CHARS = 20000
 MAX_MISSION_GOAL_CHARS = 8000
 
 
+class ObservedProvider:
+    """Emit bounded progress events around every real model request."""
+
+    def __init__(self, provider):
+        self._provider = provider
+        self._counter = 0
+        self._lock = threading.Lock()
+
+    def generate(self, *, system: str, messages: list[dict[str, str]]):
+        with self._lock:
+            self._counter += 1
+            request_id = self._counter
+        started = __import__("time").monotonic()
+        print(json.dumps({
+            "event": "model_request_started",
+            "request_id": request_id,
+            "message_count": len(messages),
+            "prompt_chars": sum(len(item.get("content", "")) for item in messages if isinstance(item, dict)),
+        }), flush=True)
+        try:
+            reply = self._provider.generate(system=system, messages=messages)
+        except Exception as exc:
+            print(json.dumps({
+                "event": "model_request_failed",
+                "request_id": request_id,
+                "duration_seconds": round(__import__("time").monotonic() - started, 2),
+                "error_class": type(exc).__name__,
+            }), flush=True)
+            raise
+        print(json.dumps({
+            "event": "model_request_completed",
+            "request_id": request_id,
+            "duration_seconds": round(__import__("time").monotonic() - started, 2),
+        }), flush=True)
+        return reply
+
+    def __getattr__(self, name):
+        return getattr(self._provider, name)
+
+
 def fit_issue_body(body: str, max_chars: int) -> str:
     """Fit long issue text while retaining both its opening scope and final criteria."""
     if max_chars <= 0:
@@ -160,7 +200,8 @@ def main() -> int:
 
     try:
         task = build_task(issue, REPOSITORY_ROOT)
-        provider = provider_from_env()
+        provider = ObservedProvider(provider_from_env())
+        print(json.dumps({"event": "mission_provider_ready", "provider": type(provider._provider).__name__}), flush=True)
         engine = ContinuousDevelopmentEngine(
             database,
             ModelMissionPlanner(provider),
