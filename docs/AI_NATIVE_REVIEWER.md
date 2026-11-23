@@ -45,7 +45,7 @@ The autonomous agent cannot modify `ai/review/`, `ai/core/agent.py`, `ai/runtime
 
 ## Architecture and provider policy
 
-The reviewer also flags new imports, package references, and endpoints for unapproved third-party AI providers. It rejects adapter/integration paths for OBS, Twitch, YouTube, Kick, and Facebook; the supported external LIVE adapter remains TikTok. These are local static checks and do not call any of those providers or platforms.
+The reviewer also flags new imports, package references, and endpoints for unapproved third-party AI providers. It rejects adapter/integration paths for OBS, YouTube, Kick, and Facebook. TikTok LIVE and Twitch LIVE are the approved external streaming outputs, with independent authentication, events, status and delivery paths. These are local static checks and do not call any of those providers or platforms.
 
 ## Pull-request review
 
