@@ -1266,7 +1266,12 @@ async function playSoundboardPad(pad){
   pad.source=context.createMediaElementSource(pad.audio);
   pad.gain=context.createGain();
   pad.gain.gain.value=pad.muted?0:pad.volume;
-  pad.source.connect(pad.gain).connect(broadcastMasterGain);
+  if(studioAudioMixer){
+   pad.destination=context.createMediaStreamDestination();
+   pad.source.connect(pad.gain).connect(pad.destination);
+   pad.channelName="soundboard-"+soundboardPads.indexOf(pad);
+   studioAudioMixer.connect(pad.channelName,pad.destination.stream,{gain:1,routes:["stream","monitor"]});
+  }else pad.source.connect(pad.gain).connect(broadcastMasterGain);
  }
  pad.audio.currentTime=0;
  await pad.audio.play();
@@ -1546,7 +1551,8 @@ async function startBroadcast(){
   const streamBusTrack=streamBus.getAudioTracks().find(track=>track.readyState==="live");
   const streamHasSource=((audioMode==="mic"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("microphone"))&&effectiveAudioRoutes(selectedMicrophoneRoutes()).includes("stream"))
    ||((audioMode==="system"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("system"))&&effectiveAudioRoutes(selectedSystemRoutes()).includes("stream"))
-   ||(musicQueueIndex>=0&&musicPlayerAudio.paused===false&&studioAudioMixer.snapshot("music"));
+   ||(musicQueueIndex>=0&&musicPlayerAudio.paused===false&&studioAudioMixer.snapshot("music"))
+   ||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended&&pad.channelName&&studioAudioMixer.snapshot(pad.channelName));
   if(!streamBusTrack||!streamHasSource)throw new Error("Für den Stream-Bus ist keine aktive Audioquelle zum Stream geroutet.");
   broadcastAudioDestination=broadcastAudioContext.createMediaStreamDestination();
   broadcastMasterGain.connect(broadcastAudioDestination);
@@ -1563,7 +1569,7 @@ async function startBroadcast(){
   broadcastRecorder=recorder;
   const stopIfSourcesEnded=()=>{
    const videoAvailable=(cameraTrack?.readyState==="live")||(screenTrack?.readyState==="live");
-   const audioAvailable=audioInputs.some(track=>track.readyState==="live")||(musicQueueIndex>=0&&musicPlayerAudio.paused===false);
+   const audioAvailable=audioInputs.some(track=>track.readyState==="live")||(musicQueueIndex>=0&&musicPlayerAudio.paused===false)||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended);
    if(broadcastRecorder&&(!videoAvailable||!audioAvailable)){
     setBroadcastStatus("error","Eine benötigte Kamera-, Bildschirm- oder Mikrofonquelle wurde beendet.");
     void stopBroadcast(true);
@@ -1777,7 +1783,7 @@ async function renderSoundboardTool(body){
    });
    favorite.setAttribute("aria-pressed",pad.favorite?"true":"false");
    const remove=toolButton("Entfernen",()=>{
-    audio.pause();if(pad.source)pad.source.disconnect();if(pad.gain)pad.gain.disconnect();audio.removeAttribute("src");audio.load();URL.revokeObjectURL(objectUrl);
+    audio.pause();if(pad.source)pad.source.disconnect();if(pad.gain)pad.gain.disconnect();if(pad.channelName&&studioAudioMixer)studioAudioMixer.disconnect(pad.channelName);if(pad.destination)pad.destination.stream.getTracks().forEach(track=>track.stop());audio.removeAttribute("src");audio.load();URL.revokeObjectURL(objectUrl);
     const position=soundboardPads.indexOf(pad);if(position>=0)soundboardPads.splice(position,1);
     if(pad.favorite){soundboardFavorites.delete(favoriteId);try{localStorage.setItem(soundboardFavoritesKey,JSON.stringify([...soundboardFavorites]));}catch(_){}}
     card.remove();status.textContent="Pad entfernt: "+file.name;
