@@ -60,7 +60,7 @@ class ObservedProviderTests(unittest.TestCase):
     def test_passes_through_other_provider_attributes(self):
         provider = FakeProvider()
         observed = ObservedProvider(provider)
-        self.assertIs(observed.calls if hasattr(observed, "calls") else observed._provider.calls, provider.calls)
+        self.assertIs(observed.calls, provider.calls)
 
 
 if __name__ == "__main__":
