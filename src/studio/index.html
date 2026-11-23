@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>STREAMIOV Studio</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+    h1 { color: #333; }
+    #status { margin-top: 20px; padding: 10px; background: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <h1>STREAMIOV Studio</h1>
+  <div id="status">Initializing...</div>
+  <script>
+    fetch('/api/status')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('status').textContent = `Status: ${data.status}`;
+      })
+      .catch(err => {
+        document.getElementById('status').textContent = 'Error connecting to server';
+      });
+  </script>
+</body>
+</html>
