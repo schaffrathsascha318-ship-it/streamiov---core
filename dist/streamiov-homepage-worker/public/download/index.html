@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#080b12">
-<meta name="description" content="Alle StreamioV-Downloads an einem Ort: Studio-Installer, Quellcode-Snapshot, Web-Regie/PWA und checksumierte Spiel-Prototypen – mit ehrlichen Systemvoraussetzungen.">
+<meta name="description" content="Streamiov Studio Desktop-Installer und Downloads für Windows, Linux und ChromeOS über Crostini.">
 <title>StreamioV – Alle Downloads</title>
 <script src="/download/combine.js" defer></script>
 <style>
@@ -67,11 +67,9 @@
       <div class="wrap">
         <span class="eyebrow"><i aria-hidden="true"></i> Alle Downloads an einem Ort</span>
         <h1>Herunterladen.<br><span>Prüfen. Ehrlich starten.</span></h1>
-        <p class="lead">Hier findest du die öffentlich bereitgestellten Studio-Installationswege und die Web-Regie. Wähle das passende Paket für dein Gerät und beachte die jeweiligen Systemvoraussetzungen.</p>
+        <p class="lead">Hier findest du ausschließlich herunterladbare Studio-Installationspakete für Desktop-Systeme. Streamiov Studio ist eine installierbare Anwendung, keine Web-App.</p>
         <div class="quick" aria-label="Schnellzugriff">
           <a href="#installer">Studio-Installer</a>
-          
-          <a href="#pwa">Handy &amp; Chromebook</a>
           <a href="#spiele">Spiel-Downloads</a>
           <a href="#konto">Konto &amp; Forum</a>
           
@@ -113,7 +111,7 @@
         <div class="section-head">
           <div class="kicker">StreamioV Studio · Version 1.0.2</div>
           <h2>Desktop-Installer</h2>
-          <p>Studio 1.0.2 enthält die Electron-Regie mit Szenen-/Quellenmodell, Vorschau, Programmausgabe, lokalem Audio-Mixer, RTMP-Ziel und der Schutzregie. Die Linux-x64-DEB wurde auf Inhalt und SHA-256 geprüft; ein vollständiger Erststart- und Funktionstest auf jedem Zielgerät steht weiterhin aus. Regie-Oberfläche enthalten, Encoder noch extern. FFmpeg mit libx264, AAC und RTMP-Unterstützung ist noch extern bereitzustellen.</p>
+          <p>Der derzeit gelistete Installer 1.0.2 enthält die Electron-Desktop-Regie. Er benötigt FFmpeg noch separat. Der neue Build 1.0.3 bindet eine geprüfte FFmpeg-Laufzeit ein; die Veröffentlichung bleibt bis zum vollständigen GPL-Quellcodepaket gesperrt. Echte Gerätetests stehen weiterhin aus.</p>
         </div>
         <div class="grid">
           <article class="card">
@@ -121,13 +119,6 @@
             <span class="meta">Version 1.0.2 · .exe · ca. 120 MB</span>
             <p>NSIS-Installer für übliche 64-Bit-Windows-PCs.</p>
             <a class="download-main" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.2/Streamiov.Studio.Setup.1.0.2-x64.exe">Windows-Installer herunterladen</a>
-            <span class="tag tag-work">Gebaut · Gerätetest offen</span>
-          </article>
-          <article class="card">
-            <h3>Windows ARM64</h3>
-            <span class="meta">Version 1.0.2 · .exe · ca. 115 MB</span>
-            <p>NSIS-Installer für Windows-on-ARM-Geräte.</p>
-            <a class="download-main" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.2/Streamiov.Studio.Setup.1.0.2-arm64.exe">ARM64-Installer herunterladen</a>
             <span class="tag tag-work">Gebaut · Gerätetest offen</span>
           </article>
           <article class="card">
@@ -151,31 +142,6 @@
       </div>
     </section>
 
-    
-
-    <section id="pwa">
-      <div class="wrap">
-        <div class="section-head">
-          <div class="kicker">Handy, Tablet &amp; Chromebook</div>
-          <h2>Web-Regie als installierbare PWA.</h2>
-          <p>Die gemeinsame Web-Regie lässt sich in unterstützten Browsern zum Startbildschirm hinzufügen und passt sich an Touch-Bedienung und kleine Displays an. Es gibt keinen APK- oder App-Store-Installer.</p>
-        </div>
-        <div class="grid">
-          <article class="card">
-            <h3>Android / iPhone / iPad</h3>
-            <p>Im Browser öffnen und über das Browsermenü installieren. Die PWA kann lokale Kamera-/Mikrofonvorschau und – sofern der Browser es unterstützt – Bildschirmfreigabe nutzen. Ein verbundener Streamiov-Core, Streamstart/RTMP, TikTok-/Twitch-LIVE, Push und Hintergrundbetrieb sind in der PWA noch nicht als verfügbar verifiziert.</p>
-            <a class="download-main" href="/app/">STREAMIOV auf dem Handy öffnen</a>
-            <span class="tag tag-work">PWA vorbereitet · Gerätetest offen</span>
-          </article>
-          <article class="card">
-            <h3>Chromebook / ChromeOS</h3>
-            <p>Die PWA ist der empfohlene Einstieg im Chrome-Browser. Die Crostini-DEB-Pakete bleiben ein zusätzlicher, geräteabhängiger Desktop-Weg. Kamera-, Mikrofon-, GPU- und Encoding-Unterstützung sind auf realen ARM- und x64-Chromebooks nicht verifiziert.</p>
-            <a class="download-main" href="/app/">Web-Regie auf Chromebook öffnen</a>
-            <span class="tag tag-work">PWA vorbereitet · Gerätetest offen</span>
-          </article>
-        </div>
-      </div>
-    </section>
 
     <section id="spiele">
   <div class="wrap">
