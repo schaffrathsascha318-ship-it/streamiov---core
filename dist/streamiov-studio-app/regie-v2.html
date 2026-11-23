@@ -988,6 +988,26 @@ document.querySelectorAll("[data-audio-bus-connect]").forEach(button=>button.add
 document.querySelectorAll("[data-audio-bus-disconnect]").forEach(button=>button.addEventListener("click",()=>{
  const name=button.dataset.audioBusDisconnect;if(studioAudioMixer)studioAudioMixer.detachOutput(name,audioBusElements[name]);audioBusState[name].connected=false;renderAudioBus(name);
 }));
+const sourceRoutingStorageKey="streamiov.studio.audio-routing.v1";
+try{
+ const saved=JSON.parse(localStorage.getItem(sourceRoutingStorageKey)||"{}");
+ for(const [selector,values] of [["[data-audio-route]",saved.microphoneRoutes],["[data-system-route]",saved.systemRoutes]]){
+  if(!Array.isArray(values))continue;
+  document.querySelectorAll(selector).forEach(input=>{input.checked=values.includes(input.dataset.audioRoute||input.dataset.systemRoute);});
+ }
+ if(Number.isFinite(saved.microphoneGain))$("audioMicGain").value=String(Math.max(0,Math.min(200,Math.round(saved.microphoneGain))));
+ if(Number.isFinite(saved.systemGain))$("audioSystemGain").value=String(Math.max(0,Math.min(200,Math.round(saved.systemGain))));
+ if(Number.isFinite(saved.highpassHz))$("micHighpass").value=String(Math.max(20,Math.min(250,Math.round(saved.highpassHz/5)*5)));
+ if(typeof saved.compressorEnabled==="boolean")$("micCompressor").checked=saved.compressorEnabled;
+}catch(_){/* source routing preferences are optional */}
+function saveAudioRoutingState(){
+ try{localStorage.setItem(sourceRoutingStorageKey,JSON.stringify({
+  microphoneRoutes:[...document.querySelectorAll("[data-audio-route]:checked")].map(item=>item.dataset.audioRoute),
+  systemRoutes:[...document.querySelectorAll("[data-system-route]:checked")].map(item=>item.dataset.systemRoute),
+  microphoneGain:Number($("audioMicGain").value),systemGain:Number($("audioSystemGain").value),
+  highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked
+ }));}catch(_){/* source routing preferences are optional */}
+}
 function selectedMicrophoneRoutes(){return [...document.querySelectorAll("[data-audio-route]:checked")].map(item=>item.dataset.audioRoute);}
 function effectiveAudioRoutes(routes,source){
  const mode=$("streamAudio")?.value||"mic-system";
@@ -999,6 +1019,7 @@ function applyMicrophoneRouting(){
  studioAudioMixer.setRoutes("microphone",effectiveAudioRoutes(selectedMicrophoneRoutes(),"microphone"));
  studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100*mixerValue("mixerMic"));
  studioAudioMixer.setProcessing("microphone",{highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked});
+ saveAudioRoutingState();
  $("micHighpassValue").textContent=$("micHighpass").value+" Hz";
  $("audioMixerStatus").textContent="Mikrofonquelle verbunden · Routing: "+(selectedMicrophoneRoutes().join(", ")||"kein Ausgang")+".";
 }
@@ -1011,6 +1032,7 @@ function applySystemRouting(){
  if(!studioAudioMixer||!studioAudioMixer.snapshot("system"))return;
  studioAudioMixer.setRoutes("system",effectiveAudioRoutes(selectedSystemRoutes(),"system"));
  studioAudioMixer.setGain("system",Number($("audioSystemGain").value)/100*mixerValue("mixerSystem"));
+ saveAudioRoutingState();
  $("systemAudioMixerStatus").textContent="Systemton verbunden · Routing: "+(selectedSystemRoutes().join(", ")||"kein Ausgang")+".";
 }
 document.querySelectorAll("[data-system-route]").forEach(control=>control.addEventListener("change",applySystemRouting));
