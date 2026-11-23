@@ -92,9 +92,42 @@ def _contains_secret_like_key(value: Any) -> bool:
     return False
 
 
+R2_FORBIDDEN_PATTERNS = (
+    re.compile(r"\br2_buckets\b", re.IGNORECASE),
+    re.compile(r"\bwrangler(?:@[^\s]+)?\s+r2\b", re.IGNORECASE),
+    re.compile(r"\b(?:env|context)\.R2(?:_[A-Z0-9_]+)?\b"),
+    re.compile(r"\bR2_BUCKET\b", re.IGNORECASE),
+    re.compile(r"\bR2Bucket\b"),
+)
+
+
+def find_forbidden_r2_usage(text: str) -> list[str]:
+    """Return actual Cloudflare R2 configuration/API markers found in text."""
+    return sorted({match.group(0) for pattern in R2_FORBIDDEN_PATTERNS for match in pattern.finditer(text)})
+
+
 def verify() -> dict[str, Any]:
     errors: list[str] = []
     checks: list[str] = []
+
+    # R2 is explicitly prohibited: do not configure buckets, bindings, SDK
+    # access, or Wrangler R2 commands. Keep this guard scoped to executable
+    # infrastructure/configuration, not historical documentation.
+    r2_scan_roots = [ROOT / ".github" / "workflows", ROOT / "scripts", ROOT / "infrastructure" / "cloudflare"]
+    r2_scan_files = sorted({
+        path
+        for scan_root in r2_scan_roots
+        if scan_root.exists()
+        for path in scan_root.rglob("*")
+        if path.is_file()
+        and path.resolve() != Path(__file__).resolve()
+        and path.suffix.lower() in {".yml", ".yaml", ".sh", ".json", ".jsonc", ".toml", ".js", ".mjs", ".ts"}
+    })
+    for path in r2_scan_files:
+        markers = find_forbidden_r2_usage(path.read_text(encoding="utf-8"))
+        if markers:
+            errors.append(f"Cloudflare R2 is prohibited but configured/referenced in {path.relative_to(ROOT)}: {', '.join(markers)}")
+    checks.append("Cloudflare R2 buckets, bindings, SDK access, and Wrangler commands are prohibited")
 
     for path in (HOMEPAGE_CONFIG, AI_CONFIG, AI_SOURCE, LIBERTY_CONFIG, LIBERTY_SOURCE, LIBERTY_PUBLIC / "index.html", LIBERTY_PUBLIC / "site.css", DEPLOY_SCRIPT, DEPLOY_WORKFLOW, CHECKS_WORKFLOW):
         if not path.is_file():
