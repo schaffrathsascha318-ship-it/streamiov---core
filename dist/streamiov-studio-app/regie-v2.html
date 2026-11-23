@@ -356,6 +356,8 @@ dialog::backdrop{background:#000b}
       <label><input id="micSolo" type="checkbox"> Mikrofon SOLO (andere Kanäle stummschalten)</label>
       <label for="micHighpass">Mikrofon-Tiefenschnitt / Rumpelfilter <span id="micHighpassValue">80 Hz</span></label><input id="micHighpass" type="range" min="20" max="250" step="5" value="80" style="width:100%">
       <label><input id="micCompressor" type="checkbox" checked> Sprachkompressor aktivieren</label>
+      <label><input id="micGateEnabled" type="checkbox"> Noise Gate aktivieren</label>
+      <label for="micGateThreshold">Gate-Schwelle <span id="micGateThresholdValue">−50 dB</span></label><input id="micGateThreshold" type="range" min="-80" max="-20" step="1" value="-50" style="width:100%">
       <label><input id="micEchoCancellation" type="checkbox"> Echo-Unterdrückung (Geräteadapter)</label>
       <label><input id="micNoiseSuppression" type="checkbox"> Rauschunterdrückung (Geräteadapter)</label>
       <label><input id="micAutoGainControl" type="checkbox"> Automatische Mikrofonregelung (Geräteadapter)</label>
@@ -1019,6 +1021,9 @@ try{
  if(typeof saved.echoCancellation==="boolean")$("micEchoCancellation").checked=saved.echoCancellation;
  if(typeof saved.noiseSuppression==="boolean")$("micNoiseSuppression").checked=saved.noiseSuppression;
  if(typeof saved.autoGainControl==="boolean")$("micAutoGainControl").checked=saved.autoGainControl;
+ if(typeof saved.gateEnabled==="boolean")$("micGateEnabled").checked=saved.gateEnabled;
+ if(Number.isFinite(saved.gateThresholdDb))$("micGateThreshold").value=String(Math.max(-80,Math.min(-20,Math.round(saved.gateThresholdDb))));
+ $("micGateThresholdValue").textContent=$("micGateThreshold").value+" dB";
 }catch(_){/* source routing preferences are optional */}
 function saveAudioRoutingState(){
  try{localStorage.setItem(sourceRoutingStorageKey,JSON.stringify({
@@ -1027,7 +1032,8 @@ function saveAudioRoutingState(){
   microphoneGain:Number($("audioMicGain").value),systemGain:Number($("audioSystemGain").value),
   highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked,
   microphonePan:Number($("micPan").value),microphoneSolo:$("micSolo").checked,
-  echoCancellation:$("micEchoCancellation").checked,noiseSuppression:$("micNoiseSuppression").checked,autoGainControl:$("micAutoGainControl").checked
+  echoCancellation:$("micEchoCancellation").checked,noiseSuppression:$("micNoiseSuppression").checked,autoGainControl:$("micAutoGainControl").checked,
+  gateEnabled:$("micGateEnabled").checked,gateThresholdDb:Number($("micGateThreshold").value)
  }));}catch(_){/* source routing preferences are optional */}
 }
 function selectedMicrophoneRoutes(){return [...document.querySelectorAll("[data-audio-route]:checked")].map(item=>item.dataset.audioRoute);}
@@ -1041,6 +1047,8 @@ function applyMicrophoneRouting(){
  studioAudioMixer.setRoutes("microphone",effectiveAudioRoutes(selectedMicrophoneRoutes(),"microphone"));
  studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100*mixerValue("mixerMic"));
  studioAudioMixer.setProcessing("microphone",{highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked});
+ studioAudioMixer.setGate("microphone",{enabled:$("micGateEnabled").checked,thresholdDb:Number($("micGateThreshold").value),attenuationDb:-60});
+ $("micGateThresholdValue").textContent=$("micGateThreshold").value+" dB";
  studioAudioMixer.setPan("microphone",Number($("micPan").value)/100);
  mixerPanState.microphone=Number($("micPan").value)/100;
  studioAudioMixer.setSolo("microphone",$("micSolo").checked);
@@ -1055,6 +1063,8 @@ document.querySelectorAll("[data-audio-route]").forEach(control=>control.addEven
 $("audioMicGain").addEventListener("input",applyMicrophoneRouting);
 $("micHighpass").addEventListener("input",applyMicrophoneRouting);
 $("micCompressor").addEventListener("change",applyMicrophoneRouting);
+$("micGateEnabled").addEventListener("change",applyMicrophoneRouting);
+$("micGateThreshold").addEventListener("input",applyMicrophoneRouting);
 $("micPan").addEventListener("input",applyMicrophoneRouting);
 $("micSolo").addEventListener("change",applyMicrophoneRouting);
 ["micEchoCancellation","micNoiseSuppression","micAutoGainControl"].forEach(id=>$(id).addEventListener("change",()=>{saveAudioRoutingState();if(captureState.microphone){stopCapture("microphone");$("microphoneStart").click();}}));
@@ -1478,6 +1488,7 @@ function updateMixerLabels(){
 }
 function drawMixerMeters(){
  if(!studioAudioMixer)return;
+ studioAudioMixer.updateGate("microphone");
  document.querySelectorAll("[data-mixer-meter]").forEach(element=>{
   const key=element.dataset.mixerMeter;
   const level=key.startsWith("output:")?studioAudioMixer.getOutputMeter(key.slice(7)):studioAudioMixer.getChannelMeter(key);
