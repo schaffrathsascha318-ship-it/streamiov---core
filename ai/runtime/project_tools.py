@@ -6,6 +6,8 @@ import subprocess
 import sys
 import time
 import tempfile
+import threading
+from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
 class ToolError(RuntimeError):
@@ -38,6 +40,39 @@ TEST_COMMANDS = {
 }
 MAX_FILE_BYTES = 200_000
 MAX_LIST_ENTRIES = 100
+
+# All ProjectTools instances in one mission runner share these per-path locks.
+# Atomic replacement ensures readers see either the old or new complete file.
+_PATH_LOCKS_GUARD = threading.Lock()
+_PATH_LOCKS: dict[str, threading.RLock] = {}
+
+
+@contextmanager
+def _locked_path(path: Path):
+    key = str(path.resolve(strict=False))
+    with _PATH_LOCKS_GUARD:
+        lock = _PATH_LOCKS.setdefault(key, threading.RLock())
+    with lock:
+        yield
+
+
+def _atomic_replace_text(target: Path, content: str) -> None:
+    """Replace a file atomically in its own directory; never expose partial text."""
+    descriptor, temporary = tempfile.mkstemp(prefix=".streamiov-write-", dir=target.parent)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if target.exists():
+            os.chmod(temporary, target.stat().st_mode & 0o777)
+        os.replace(temporary, target)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+
 
 class ProjectTools:
     def __init__(
@@ -136,41 +171,62 @@ class ProjectTools:
 
     def read_file(self, path: str) -> str:
         target = self._resolve(path)
-        if not target.is_file():
-            raise ToolError("Requested file does not exist or is not a regular file.")
-        if target.stat().st_size > MAX_FILE_BYTES:
-            raise ToolError("File exceeds the 200 KB read limit.")
-        return target.read_text(encoding="utf-8")
+        with _locked_path(target):
+            target = self._resolve(path)
+            if not target.is_file():
+                raise ToolError("Requested file does not exist or is not a regular file.")
+            if target.stat().st_size > MAX_FILE_BYTES:
+                raise ToolError("File exceeds the 200 KB read limit.")
+            return target.read_text(encoding="utf-8")
 
     def write_file(self, path: str, content: str) -> str:
         target, normalized = self._writable_target(path)
         if not isinstance(content, str) or len(content.encode("utf-8")) > 100_000:
             raise ToolError("Content must be text no larger than 100 KB.")
-        if target.exists():
-            raise ToolError("Refusing to overwrite an existing file; use an exact-match edit or submit a focused patch through review.")
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
+        with _locked_path(target):
+            target, normalized = self._writable_target(path)
+            if target.exists():
+                raise ToolError("Refusing to overwrite an existing file; use an exact-match edit or submit a focused patch through review.")
+            descriptor, temporary = tempfile.mkstemp(prefix=".streamiov-create-", dir=target.parent)
+            try:
+                with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as stream:
+                    stream.write(content)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                # Hard-link creation is atomic and fails rather than replacing a
+                # file created by another task after the existence check.
+                os.link(temporary, target)
+            except FileExistsError:
+                raise ToolError("Another task created this path concurrently; no file was overwritten.")
+            finally:
+                try:
+                    os.unlink(temporary)
+                except FileNotFoundError:
+                    pass
         return f"Created {normalized} ({len(content)} characters)."
 
     def replace_text(self, path: str, old_text: str, new_text: str) -> str:
-        """Replace one exact, unique text range in an allowed existing file."""
+        """Apply one exact edit under a shared path lock and atomically publish it."""
         target, normalized = self._writable_target(path)
-        if not target.is_file():
-            raise ToolError("Exact-match edits require an existing regular file.")
         if not isinstance(old_text, str) or not old_text:
             raise ToolError("old_text must be a non-empty string.")
         if not isinstance(new_text, str) or old_text == new_text:
             raise ToolError("new_text must be text different from old_text.")
-        if target.stat().st_size > MAX_FILE_BYTES:
-            raise ToolError("File exceeds the 200 KB edit limit.")
-        original = target.read_text(encoding="utf-8")
-        matches = original.count(old_text)
-        if matches != 1:
-            raise ToolError(f"Exact-match edit requires one occurrence; found {matches}. No change made.")
-        updated = original.replace(old_text, new_text, 1)
-        if len(updated.encode("utf-8")) > MAX_FILE_BYTES:
-            raise ToolError("Edited file would exceed the 200 KB limit.")
-        target.write_text(updated, encoding="utf-8")
+        with _locked_path(target):
+            target, normalized = self._writable_target(path)
+            if not target.is_file():
+                raise ToolError("Exact-match edits require an existing regular file.")
+            if target.stat().st_size > MAX_FILE_BYTES:
+                raise ToolError("File exceeds the 200 KB edit limit.")
+            original = target.read_text(encoding="utf-8")
+            matches = original.count(old_text)
+            if matches != 1:
+                raise ToolError(f"Exact-match edit requires one occurrence; found {matches}. No change made.")
+            updated = original.replace(old_text, new_text, 1)
+            if len(updated.encode("utf-8")) > MAX_FILE_BYTES:
+                raise ToolError("Edited file would exceed the 200 KB limit.")
+            _atomic_replace_text(target, updated)
         return f"Updated {normalized}: one exact match replaced."
 
     def run_python(self, path: str) -> str:
