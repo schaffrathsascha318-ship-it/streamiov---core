@@ -121,6 +121,23 @@ export default {
       if (!response.ok) return json({ error: "ticket_issue_failed" }, 503);
       return json({ ticket, expires_in: 60, websocket_url: url.origin.replace(/^http/, "ws") + "/v1/voice/rooms/" + roomId });
     }
+    const closeMatch = url.pathname.match(/^\/v1\/voice\/rooms\/([a-f0-9]{32})\/close$/);
+    if (closeMatch) {
+      if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+      if (!allowedOrigin(request, env)) return json({ error: "origin_not_allowed" }, 403);
+      const auth = request.headers.get("authorization") || "";
+      if (!auth.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
+      const verified = await verifyVoiceToken(auth.slice(7), env, closeMatch[1]);
+      if (verified.error) return json({ error: verified.error }, verified.error === "not_configured" ? 503 : 401);
+      if (verified.claims.role !== "owner") return json({ error: "owner_required" }, 403);
+      let stub;
+      try { stub = roomStub(env, closeMatch[1]); } catch { return json({ error: "service_not_configured" }, 503); }
+      return stub.fetch("https://voice-room.internal/close", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ claims: verified.claims })
+      });
+    }
     const match = url.pathname.match(/^\/v1\/voice\/rooms\/([a-f0-9]{32})$/);
     if (match) {
       if (request.method !== "GET" || request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
@@ -150,10 +167,24 @@ export class VoiceRoom {
       if (!body || typeof body.hash !== "string" || !Number.isFinite(body.expiresAt) ||
           !body.claims || typeof body.claims.sub !== "string" || body.expiresAt <= Date.now() ||
           body.expiresAt > Date.now() + 60_000) return json({ error: "invalid_ticket" }, 400);
+      if (await this.state.storage.get("closed")) return json({ error: "room_closed" }, 410);
       await this.state.storage.put("ticket:" + body.hash, { expiresAt: body.expiresAt, claims: body.claims });
       return json({ ok: true }, 201);
     }
+    if (request.method === "POST" && url.pathname === "/close") {
+      let body;
+      try { body = await request.json(); } catch { return json({ error: "invalid_json" }, 400); }
+      if (body?.claims?.role !== "owner" || typeof body.claims.sub !== "string") return json({ error: "owner_required" }, 403);
+      await this.state.storage.put("closed", true);
+      const pending = await this.state.storage.list({ prefix: "ticket:" });
+      if (pending.size) await this.state.storage.delete([...pending.keys()]);
+      for (const socket of this.state.getWebSockets()) {
+        try { socket.close(4001, "room_closed"); } catch {}
+      }
+      return json({ ok: true, closed: true });
+    }
     if (request.method === "GET" && request.headers.get("upgrade")?.toLowerCase() === "websocket") {
+      if (await this.state.storage.get("closed")) return json({ error: "room_closed" }, 410);
       const ticket = url.searchParams.get("ticket") || "";
       const hash = await sha256(ticket);
       let record;
