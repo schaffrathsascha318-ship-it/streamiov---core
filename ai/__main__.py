@@ -16,7 +16,7 @@ from ai.runtime.task_queue import SpecialistTaskQueue, SpecialistWorker, TaskQue
 from ai.runtime.learning_store import VerifiedLearningStore
 from ai.runtime.worker_service import run_worker_loop
 from ai.runtime.continuous_engine import ContinuousDevelopmentEngine, ModelMissionPlanner
-from ai.runtime.project_supervisor import ProjectSupervisor
+from ai.runtime.project_supervisor import ProjectSupervisor, ProjectSupervisorError
 from ai.core.orchestrator import SpecialistTask
 from ai.core.planner import PlannerError, SpecialistPlanner
 from ai.specialists import specialist_names
@@ -85,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.jason_status:
         incompatible = (
             args.task or args.doctor or args.mission_create or args.mission_run
-            or args.mission_status or args.enqueue or args.plan_and_enqueue
+            or args.mission_status or args.project_supervisor_run or args.enqueue or args.plan_and_enqueue
             or args.worker_once or args.worker_loop or args.allow_self_modification
             or args.full_project_development
         )
@@ -280,7 +280,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(agent.run(args.task))
         return 0
-    except (AgentError, PlannerError, ProviderError, TaskQueueError, sqlite3.Error, OSError, ValueError) as exc:
+    except (AgentError, PlannerError, ProviderError, TaskQueueError, ProjectSupervisorError, sqlite3.Error, OSError, ValueError) as exc:
         print(f"streamiov-agent: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
 
