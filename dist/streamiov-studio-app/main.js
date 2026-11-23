@@ -1233,24 +1233,9 @@ ipcMain.handle('studio:voice-action', async (event, payload = {}) => {
     }
     if (action === 'close') {
       if (!/^[a-f0-9]{32}$/.test(roomId)) throw new Error('Ungültige Voice-Raum-ID.');
-      let roomToken = null, signallingUrl = '';
-      try {
-        const tokenData = await hostPost('/api/v1/voice/token', { room_id: roomId });
-        roomToken = tokenData.room?.token || null;
-        signallingUrl = String(tokenData.room?.signalling_url || '').replace(/\/+$/, '');
-      } catch {}
-      const data = await hostPost('/api/v1/voice/rooms/' + roomId + '/close', { confirm: true });
-      let signallingRevoked = false;
-      if (roomToken && /^https:\/\//i.test(signallingUrl)) {
-        try {
-          const response = await fetch(signallingUrl + '/v1/voice/rooms/' + roomId + '/close', {
-            method: 'POST', headers: { Authorization: 'Bearer ' + roomToken },
-            signal: AbortSignal.timeout(8000)
-          });
-          signallingRevoked = response.ok;
-        } catch {}
-      }
-      return { ...data, signalling_revoked: signallingRevoked };
+      // The authenticated Core closes the room and revokes the signalling DO.
+      // The reusable owner token never needs to leave the Core process.
+      return await hostPost('/api/v1/voice/rooms/' + roomId + '/close', { confirm: true });
     }
     if (action === 'connect') {
       if (!/^[a-f0-9]{32}$/.test(roomId)) throw new Error('Ungültige Voice-Raum-ID.');
