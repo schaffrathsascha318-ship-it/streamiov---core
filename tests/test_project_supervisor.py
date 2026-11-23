@@ -95,6 +95,23 @@ class ProjectSupervisorTests(unittest.TestCase):
             ).fetchone()
         self.assertEqual(row["goal"], "Original durable goal.")
 
+    def test_initialization_adopts_existing_platform_mission(self):
+        engine = FakeMissionEngine([("completed", True)])
+        mission_id = "streamiov-platform"
+        engine.missions[mission_id] = MissionSnapshot(
+            mission_id, "previous platform mission", "active", 4, "",
+            1, 0, 2, 0, 3,
+        )
+        supervisor = self.make_supervisor(engine)
+        self.assertTrue(supervisor.configure_if_missing(
+            "Complete the full Streamiov platform.", active_mission_id=mission_id
+        ))
+
+        supervisor.run(threading.Event(), poll_seconds=0.01, emit=lambda _message: None)
+
+        self.assertEqual(engine.runs, [mission_id])
+        self.assertEqual(engine.created, [])
+
     def test_second_supervisor_cannot_take_live_lease(self):
         engine = FakeMissionEngine([])
         first = self.make_supervisor(engine)
