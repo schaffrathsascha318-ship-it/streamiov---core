@@ -1501,20 +1501,20 @@ async function renderChatTool(body){
   }
   stateLine.textContent="Lokaler Chat: "+(result.chat==="online"?"an":"aus")+
    " · TTS: "+(result.tts==="online"?"an":"aus")+
-   " · "+result.message_count+" Nachricht(en) · keine externe Plattform verbunden.";
+   " · "+result.message_count+" Nachricht(en) · Adapter: "+((result.connected_adapters||[]).join(", ")||"keine verbunden")+".");
   toggle.textContent=result.chat==="online"?"Chat ausschalten":"Chat einschalten";
   send.disabled=result.chat!=="online";
   input.disabled=result.chat!=="online";
   logBox.replaceChildren();
   for(const message of result.messages||[]){
    const line=toolNode("div");
-   line.append(toolNode("b",null,new Date(message.time).toLocaleTimeString()+" "),document.createTextNode(message.text));
+   line.append(toolNode("b",null,"["+String(message.source||"unknown").toUpperCase()+"] "+new Date(message.createdAt||message.time).toLocaleTimeString()+" "+String(message.author||"")+": "),document.createTextNode(message.text));
    logBox.append(line);
   }
   logBox.scrollTop=logBox.scrollHeight;
  };
  body.append(
-  toolNote("Nur lokaler Testchat. Es besteht keine Verbindung zu TikTok, Twitch oder YouTube."),
+  toolNote("Gemeinsamer Chat-Kern vorbereitet: TikTok, Twitch und Discord werden mit Quellenkennzeichnung zusammengeführt. Plattform-Adapter sind derzeit noch nicht verbunden; hier kannst du den lokalen Nachrichtenfluss ansehen."),
   stateLine,toggle,logBox,toolField("Testnachricht",input),send
  );
  apply(await api({action:"status"}));
