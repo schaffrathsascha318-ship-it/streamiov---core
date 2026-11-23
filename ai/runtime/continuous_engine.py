@@ -150,11 +150,14 @@ class ContinuousDevelopmentEngine:
         self.agent_factory = agent_factory
         try:
             factory_parameters = inspect.signature(agent_factory).parameters
-            self._agent_factory_task_id_keyword = "task_id" in factory_parameters
+            task_parameter = factory_parameters.get("task_id")
+            self._agent_factory_task_id_keyword = bool(
+                task_parameter and task_parameter.kind != inspect.Parameter.POSITIONAL_ONLY
+            ) or any(item.kind == inspect.Parameter.VAR_KEYWORD for item in factory_parameters.values())
             self._agent_factory_accepts_task_id = (
                 self._agent_factory_task_id_keyword
+                or bool(task_parameter)
                 or any(item.kind == inspect.Parameter.VAR_POSITIONAL for item in factory_parameters.values())
-
             )
         except (TypeError, ValueError):
             self._agent_factory_task_id_keyword = False
