@@ -1,17 +1,27 @@
-# STREAMIOV-native gift catalogue
+# Streamiov-Geschenke – ausschließlich TikToks offizielle LIVE-Geschenke-Galerie
 
-The current catalogue is `data/game_actions/gift_catalog.json`. Its `streamiov_points` are STREAMIOV-native points, not TikTok coins and not a cash value. TikTok-native gift IDs must remain separate and are rejected by the native catalogue loader.
+## Verbindliche Eigentümerentscheidung (23.11.2026)
+- Eigene Streamiov-Geschenke sind ausschließlich als originale Einreichungs-Assets für TikToks offizielle LIVE-Geschenke-Galerie vorgesehen.
+- Ob TikTok eigene Drittanbieter-Geschenke unterstützt, welche Partner-/Creator-Bedingungen gelten und ob Streamiov zugelassen wird, muss über TikToks offiziellen Prozess bestätigt werden. Ohne ausdrückliche Freigabe gibt es keine Veröffentlichung und keine Verfügbarkeitsbehauptung.
+- Zuschauer entdecken, wählen und senden Geschenke ausschließlich innerhalb von TikTok.
+- Streamiov Studio ist keine zweite Geschenkebox: keine Geschenke-Galerie, kein Shop, Kaufbutton, eigene Währung/Punkte, Checkout, Zahlungsabwicklung, Geschenk-Ledger oder Auszahlungsfunktion.
+- Studio darf ausschließlich echte, offiziell empfangene TikTok-Geschenkereignisse verarbeiten und darauf mit Alerts, Sounds, Overlays oder Animationen reagieren.
+- Twitch Bits, Subs, Gift Subs und andere Twitch-Ereignisse bleiben native Twitch-Ereignisse und werden nicht in Streamiov-Geschenke umgewandelt.
+- Keine Behauptung über TikTok-Preise, Coins, Gebühren, Creator-Auszahlungen oder eine 0%-Auszahlungsgarantie. Diese Regeln liegen bei TikTok und den jeweils geltenden Bedingungen.
 
-`ai.runtime.gift_catalog.GiftCatalog` validates IDs, point ranges, asset paths, duplicate entries, release states and asset-root containment. When an asset root is supplied, a gift is considered released only when its status is explicitly `released` and the referenced local asset exists. Symlinked assets and path traversal are rejected.
+## Legacy-Code und Daten
+Die früheren STREAMIOV-internen Punkte-/GiftCatalog-/GiftLedger-Module und `data/game_actions/gift_catalog.json` sind historische Entwicklungsartefakte. Sie sind kein aktives Creator-Geschenkprodukt, dürfen nicht in der Studio-Regie als Geschenkebox angeboten und nicht mit TikTok-Geschenken oder TikTok-Coins gleichgesetzt werden. Sie bleiben bis zu einer gesonderten sicheren Daten-/Code-Migration unangetastet und gelten nicht als freigegebene Veröffentlichung.
 
-The loader is read-only. It does not send gifts, run game actions, create checkouts, charge money, record payouts or enable real-money transactions. The current repository catalogue is a mixture of legacy entries without explicit release state and custom entries marked `local_preview_only`; absent production assets are not treated as releases. The runtime snapshot keeps checkout and payout disabled.
+Der alte `GiftEventRouter` akzeptiert nur intern signierte `STREAMIOV_NATIVE`-Events und weist TikTok-native Events ab. Er ist kein TikTok-Adapter und darf nicht als Beleg für offiziellen TikTok-LIVE-Geschenkzugriff verwendet werden.
 
-## Validation
+## Technische Grenzen
+Die vorhandene TikTok-App-Konfiguration mit `user.info.basic` beweist weder einen API-Zugriff auf LIVE-Geschenkereignisse noch eine Möglichkeit, eigene Geschenke in TikToks Galerie einzureichen. Keine Änderung an bestehendem OAuth-Client, Scopes, Sandbox oder Secrets ohne separate Freigabe.
 
-Run the repository test suite:
-
-```bash
-python -m unittest tests.test_gift_catalog -v
-```
-
-Before any gift can be released, the project still needs a production-ready original asset bundle, real runtime preview/rendering, event-bus integration, security review and (for paid gifts) a verified independent payment and payout provider. The creator proceeds target remains 100% before separately itemized provider fees, refunds/chargebacks and legally required withholding; STREAMIOV and TikTok commission remain 0% for STREAMIOV-native gifts.
+## Abnahme
+- [ ] Offiziellen TikTok-Einreichungs-/Partnerweg und Anforderungen dokumentiert.
+- [ ] TikTok hat die Einreichung/Veröffentlichung für Streamiov tatsächlich freigegeben.
+- [ ] Original-Assets und Rechte/Lizenzen sind dokumentiert.
+- [ ] Studio enthält keine eigene Geschenkegalerie, Kauf-/Währungs-/Zahlungs-/Ledger-/Auszahlungsfunktion.
+- [ ] Nur echte autorisierte TikTok-Geschenkereignisse lösen Studio-Reaktionen aus.
+- [ ] Fehlende Freigabe/API wird als `BLOCKED / WAITING_FOR_TIKTOK_APPROVAL` angezeigt.
+- [ ] Keine Tests oder Demo-Buttons simulieren Käufe, Coins, Auszahlungen oder echte TikTok-Geschenke.

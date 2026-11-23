@@ -146,6 +146,13 @@ dialog::backdrop{background:#000b}
  font-size:12px;line-height:1.6;color:var(--muted)}
 .chat-log b{color:var(--text)}
 .gift-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.music-queue{display:grid;gap:6px;max-height:220px;overflow:auto}
+.music-queue-row{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#0c131b;border:1px solid var(--line);border-radius:7px;padding:8px}
+.music-queue-row span{min-width:0;overflow-wrap:anywhere}
+.soundboard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
+.soundboard-pad{background:#0c131b;border:1px solid var(--line);border-radius:8px;padding:10px;display:grid;gap:8px}
+.soundboard-pad small{color:var(--muted);font-size:11px}
+.soundboard-pad .tool-row button{flex:1;min-width:64px}
 .gift-card{background:#0c131b;border:1px solid var(--line);border-radius:8px;padding:9px;text-align:center}
 .gift-card button{width:100%;margin-top:6px}
 .gift-overlay{position:fixed;inset:0;pointer-events:none;z-index:60;display:none;overflow:hidden}
@@ -362,18 +369,17 @@ dialog::backdrop{background:#000b}
     <p id="runtimeDiagnostics" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Systemprüfung noch nicht ausgeführt.</p>
     <button id="mediaTest" type="button" style="width:100%;margin-top:8px">LOKALEN AUDIO-/VIDEO-TEST STARTEN</button>
     <p id="mediaTestResult" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Erzeugt einen kurzen lokalen Testclip aus Bild- und Tonsignalen.</p>
-    <label for="rtmpDestination" style="display:block;margin-top:12px">RTMP-Ziel + Stream-Key</label>
-    <input id="rtmpDestination" type="password" maxlength="2048" autocomplete="off" spellcheck="false" placeholder="rtmps://server/app/stream-key" style="width:100%;margin-top:6px">
-    <small style="display:block;color:var(--muted);margin-top:6px">Der Stream-Key wird nur für diese Sitzung verwendet. Zum Start müssen Kamera und Mikrofon aktiv sein. Das Ziel unterstützt RTMP/RTMPS.</small>
-    <button class="go-live" style="width:100%;margin-top:10px" id="live">● STREAM STARTEN</button>
-    <p id="liveStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Offline · Keine Plattform verbunden.</p>
+    <div class="panel-title" style="margin-top:12px">PLATTFORM-AUSGÄNGE</div>
+    <p style="font-size:12px;color:var(--muted)">Streamiov verwaltet die Zielverbindungen intern. Hier werden keine RTMP-Adressen oder Stream-Keys manuell eingegeben.</p>
+    <button class="go-live" style="width:100%;margin-top:10px" id="live" disabled>● LIVE-AUSGÄNGE NOCH NICHT VERFÜGBAR</button>
+    <p id="liveStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Blockiert · TikTok-Produktionsausgang und Twitch-Ausgang sind noch nicht integriert. Kein Stream wird gestartet.</p>
    </div>
   </section>
   <section class="panel">
    <div class="panel-title">CREATOR-WERKZEUGE</div>
    <div class="pad tool-grid">
     <button data-tool="Chat">▤ Chat</button>
-    <button data-tool="Geschenke">💜 Geschenke</button>
+    <button data-tool="Soundboard">▣ Soundboard</button>
     <button data-tool="Alerts">⚡ Alerts</button>
     <button data-tool="TTS">◖ TTS</button>
     <button data-tool="Spiele">♧ Spiele</button>
@@ -394,16 +400,10 @@ dialog::backdrop{background:#000b}
    <div class="pad"><div class="log">Noch keine Chat-Verbindung.<br>Chat wird nach Plattformverbindung verfügbar.</div></div>
   </div>
   <div class="panel">
-   <div class="panel-title">GESCHENKE / GALERIEBOX</div>
-   <div class="pad">
-    <div class="log" role="status" aria-live="polite">
-     <strong>TikTok-Geschenke</strong><br>
-     TikTok wickelt Kauf, Zuordnung und mögliche Auszahlung direkt ab. StreamioV zieht nichts ab und nimmt kein Geld entgegen. Auszahlungshöhe und Berechtigung bestimmt TikTok; eine 1:1-Umrechnung des Kaufpreises ist nicht zugesichert.<br><br>
-     <strong>StreamioV-Galerie</strong><br>
-     Eigene Galerieeffekte sind kostenlos und lösen keine Zahlung oder Auszahlung aus.<br><br>
-     Noch keine offizielle TikTok-Geschenkefreigabe oder Live-Ereignisverbindung eingerichtet.
-    </div>
-   </div>
+   <div class="panel-title">TIKTOK-LIVE-GESCHENKEREIGNISSE</div>
+   <div class="pad"><div class="log" role="status" aria-live="polite">
+    Hier erscheinen ausschließlich offizielle TikTok-Geschenkereignisse. Streamiov Studio bietet keine eigene Geschenke-Galerie, keinen Shop und keinen Kauf- oder Zahlungsfluss. Auf bestätigte TikTok-Ereignisse kann die Regie mit Alerts, Animationen und Sounds reagieren. Die offizielle TikTok-Galerie-Freigabe ist separat erforderlich.
+   </div></div>
   </div>
   <div class="panel">
    <div class="panel-title">KI-REGIE / AUTOMATION</div>
@@ -432,18 +432,23 @@ dialog::backdrop{background:#000b}
     </div>
    </div>
    <div class="panel">
-    <div class="panel-title">3 · PLATTFORM</div>
-    <div class="pad">
-     <label for="platformSelect">Einzige Streaming-Plattform</label>
-     <select id="platformSelect">
-      <option value="tiktok">TikTok LIVE</option>
-     </select>
-     <p id="platformConnectionState" class="pill" role="status">Nicht verbunden</p>
-     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button id="platformConnectInfo" type="button">TikTok-Konto verbinden</button>
-      <button id="platformDisconnect" type="button" hidden>Verbindung trennen</button>
+    <div class="panel-title">3 · PLATTFORM-AUSGÄNGE</div>
+    <div class="pad grid2">
+     <div class="panel">
+      <div class="panel-title">TIKTOK LIVE · EIGENER AUSGANG</div>
+      <p id="platformConnectionState" class="pill" role="status">Sandbox-Verbindung wird geprüft …</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+       <button id="platformConnectInfo" type="button">TikTok-Sandbox verbinden</button>
+       <button id="platformDisconnect" type="button" hidden>Verbindung trennen</button>
+      </div>
+      <small id="platformHelp">Die vorhandene TikTok-Sandbox-Anmeldung bestätigt keine Produktions-LIVE-Berechtigung. OAuth und LIVE-Ausgang sind getrennte Integrationen.</small>
      </div>
-     <small id="platformHelp">TikTok wird über den offiziellen Login sicher mit STREAMIOV Studio verbunden. Andere Plattformen bleiben getrennt, bis ihre eigenen Freigaben und Integrationen fertig sind.</small>
+     <div class="panel">
+      <div class="panel-title">TWITCH LIVE · EIGENER AUSGANG</div>
+      <p id="twitchConnectionState" class="pill" role="status">Nicht verbunden · offizieller Twitch-Adapter fehlt</p>
+      <small>Eigene Twitch-Autorisierung, Ausgabe, Status und Fehlerbehandlung. Unabhängig vom TikTok-Ausgang. Noch nicht produktiv angebunden.</small>
+     </div>
+     <p class="pill" style="grid-column:1/-1">Discord ist ein Community-/Chat-Kanal und kein LIVE-Ausgang.</p>
     </div>
    </div>
    <div class="panel">
@@ -1096,9 +1101,42 @@ let broadcastAudioDestination=null;
 let musicPlayerAudio=new Audio();
 let musicMediaSource=null;
 let musicChannelGain=null;
-let musicObjectUrl="";
+const musicQueue=[];
+let musicQueueIndex=-1;
+let musicCurrentTrackLabel=null;
+let musicShuffle=false;
+let musicRepeat=false;
 let musicMuted=false;
 let broadcastGainBase=1;
+const soundboardPads=[];
+const soundboardFavoritesKey="streamiov.studio.soundboard.favorites.v1";
+let soundboardFavorites=new Set();
+try{soundboardFavorites=new Set(JSON.parse(localStorage.getItem(soundboardFavoritesKey)||"[]"));}catch(_){soundboardFavorites=new Set();}
+let soundboardHotkeysInstalled=false;
+async function playSoundboardPad(pad){
+ const context=ensureBroadcastAudioGraph();
+ await context.resume();
+ if(!pad.source){
+  pad.source=context.createMediaElementSource(pad.audio);
+  pad.gain=context.createGain();
+  pad.gain.gain.value=pad.muted?0:pad.volume;
+  pad.source.connect(pad.gain).connect(broadcastMasterGain);
+ }
+ pad.audio.currentTime=0;
+ await pad.audio.play();
+}
+function installSoundboardHotkeys(){
+ if(soundboardHotkeysInstalled)return;
+ document.addEventListener("keydown",event=>{
+  if(event.repeat||event.ctrlKey||event.altKey||event.metaKey)return;
+  if(event.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName))return;
+  const pad=soundboardPads.find(item=>item.hotkey===event.key);
+  if(!pad)return;
+  event.preventDefault();
+  playSoundboardPad(pad).catch(error=>log("Soundboard-Wiedergabe fehlgeschlagen: "+String(error.message||error)));
+ });
+ soundboardHotkeysInstalled=true;
+}
 function ensureBroadcastAudioGraph(){
  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
  if(!AudioContextClass)throw new Error("AudioContext ist in dieser Laufzeit nicht verfügbar.");
@@ -1319,8 +1357,8 @@ async function startBroadcast(){
  const audioMode=$("streamAudio").value;
  const audioInputs=(audioMode==="mic"?[microphoneTrack]:audioMode==="system"?[systemTrack]:[microphoneTrack,systemTrack]).filter(Boolean);
  if((!cameraTrack&&!screenTrack)||!audioInputs.length){setBroadcastStatus("error","Bitte eine Kamera oder einen Bildschirm sowie eine verfügbare Audioquelle für den gewählten Modus starten.");return;}
- const destination=$("rtmpDestination").value.trim();
- if(!destination){setBroadcastStatus("error","Bitte RTMP-Ziel und Stream-Key eingeben.");$("rtmpDestination").focus();return;}
+ const destination=$("rtmpDestination")?.value?.trim()||"";
+ if(!destination){setBroadcastStatus("blocked","Kein manueller RTMP-Key: Der interne TikTok-Produktionsausgang und der separate Twitch-Ausgang sind noch nicht angebunden.");return;}
  if(!window.streamiovStudio?.startStream||!window.MediaRecorder){setBroadcastStatus("error","Streaming-Funktion ist in dieser Laufzeit nicht verfügbar.");return;}
  liveButton.disabled=true;
  setSourceControlsLocked(true);
@@ -1512,66 +1550,6 @@ async function renderTtsTool(body){
  );
  apply(await api({action:"status"}));
 }
-async function renderGiftsTool(body){
- const api=window.streamiovStudio?.dataQuery;
- if(!api){
-  body.append(toolNote("Der Geschenk-Katalog benötigt die installierte Desktop-App und den lokalen Host."));
-  return;
- }
- const stateLine=toolNote("Rohdaten-Katalog wird geladen …");
- const grid=toolNode("div","gift-grid");
- body.append(
-  toolNote("Kostenlose lokale Effekte aus dem Rohdaten-Katalog. Es werden keine Geschenke gekauft, "+
-   "keine Zahlungen ausgelöst und keine TikTok-Geschenke beansprucht."),
-  stateLine,grid
- );
- const result=await api({kind:"gifts"});
- if(!result?.ok){
-  stateLine.textContent="Geschenk-Katalog nicht erreichbar: "+(result?.error||"unbekannter Fehler");
-  return;
- }
- const catalog=result.data||{};
- const gifts=Array.isArray(catalog.gifts)?catalog.gifts:[];
- stateLine.textContent="Lokaler Katalog: "+gifts.length+" Geschenke · TikTok-Geschenk-IDs: "+
-  (catalog.tiktok_gift_ids_present?"vorhanden":"keine")+" · keine TikTok-Freigabe.";
- for(const gift of gifts){
-  const card=toolNode("div","gift-card");
-  if(gift.svg&&result.assetBase){
-   const image=document.createElement("img");
-   image.alt=gift.name||"Geschenk";
-   image.loading="lazy";
-   image.style.width="56px";
-   image.style.height="56px";
-   image.src=String(result.assetBase).replace(/\/$/,"")+gift.svg;
-   image.addEventListener("error",()=>{
-    image.remove();
-    card.prepend(toolNode("div",null,"💜"));
-   },{once:true});
-   card.append(image);
-  }else{
-   card.append(toolNode("div",null,"💜"));
-  }
-  card.append(
-   toolNode("div",null,(gift.name||"Geschenk")+" · "+Number(gift.streamiov_points||0)+" Punkte"),
-   toolNode("small",null,gift.streamiov_custom?"StreamioV · "+(gift.status||"lokal"):(gift.status||"Katalog"))
-  );
-  card.append(toolButton("Lokalen Effekt auslösen",()=>{
-   showGiftEffect("💜");
-   log("Lokaler Geschenk-Effekt ausgelöst: "+(gift.name||"Geschenk")+".");
-  }));
-  grid.append(card);
- }
- const milestones=Array.isArray(catalog.like_milestones)?catalog.like_milestones:[];
- if(milestones.length){
-  body.append(toolNote("Like-Meilensteine aus den Rohdaten: "+milestones.join(", ")+
-   " · geplant, nicht aktiv."));
- }
- const rules=Array.isArray(catalog.rules)?catalog.rules:[];
- if(rules.length){
-  body.append(toolNote("Regeln: "+rules.map(rule=>
-   (rule.name||rule.id||"Regel")+" ["+(rule.status||"unbekannt")+"]").join(" · ")));
- }
-}
 function renderAlertsTool(body){
  const input=document.createElement("input");
  input.maxLength=120;
@@ -1588,36 +1566,185 @@ function renderAlertsTool(body){
   toolField("Alert-Text",input),trigger
  );
 }
+async function renderSoundboardTool(body){
+ const picker=document.createElement("input");
+ picker.type="file";
+ picker.accept="audio/*";
+ picker.multiple=true;
+ const category=document.createElement("input");
+ category.maxLength=32;
+ category.placeholder="Kategorie für neu importierte Pads";
+ const status=toolNote("Noch keine Sounds geladen. Lokale Audiodateien werden ausschließlich in dieser Studio-Sitzung als Pads verwendet.");
+ const grid=toolNode("div","soundboard-grid");
+ const addFiles=files=>{
+  const remaining=Math.max(0,32-soundboardPads.length);
+  const selected=Array.from(files||[]).slice(0,remaining);
+  if(!selected.length){
+   status.textContent=remaining===0?"Maximal 32 Soundboard-Pads pro Sitzung.":"Bitte Audiodateien auswählen.";
+   return;
+  }
+  installSoundboardHotkeys();
+  for(const file of selected){
+   if(!file.type.startsWith("audio/"))continue;
+   const audio=new Audio();
+   const objectUrl=URL.createObjectURL(file);
+   audio.src=objectUrl;
+   audio.preload="auto";
+   const favoriteId=file.name+"::"+file.size+"::"+file.lastModified;
+   const pad={file,audio,objectUrl,source:null,gain:null,volume:0.8,muted:false,category:category.value.trim()||"Allgemein",hotkey:"",favorite:soundboardFavorites.has(favoriteId),favoriteId};
+   const index=soundboardPads.length;
+   soundboardPads.push(pad);
+   const card=toolNode("div","soundboard-pad");
+   const title=toolNode("b",null,file.name);
+   const meta=toolNode("small",null,pad.category+" · kein Hotkey");
+   const categoryField=document.createElement("input");
+   categoryField.maxLength=32;categoryField.value=pad.category;categoryField.setAttribute("aria-label","Kategorie "+file.name);
+   categoryField.addEventListener("change",()=>{pad.category=categoryField.value.trim()||"Allgemein";meta.textContent=pad.category+" · "+(pad.hotkey?"Hotkey "+pad.hotkey:"kein Hotkey");});
+   const hotkey=document.createElement("select");
+   hotkey.setAttribute("aria-label","Hotkey "+file.name);
+   hotkey.add(new Option("Kein Hotkey",""));
+   for(let key=1;key<=9;key++)hotkey.add(new Option("Taste "+key,String(key)));
+   hotkey.value=pad.hotkey;
+   hotkey.addEventListener("change",()=>{
+    if(hotkey.value){for(const other of soundboardPads){if(other!==pad&&other.hotkey===hotkey.value){other.hotkey="";if(other.hotkeySelect)other.hotkeySelect.value="";const otherMeta=other.card?.querySelector("small");if(otherMeta)otherMeta.textContent=other.category+" · kein Hotkey";}}}
+    pad.hotkey=hotkey.value;meta.textContent=pad.category+" · "+(pad.hotkey?"Hotkey "+pad.hotkey:"kein Hotkey");
+   });
+   const controls=toolNode("div","tool-row");
+   const play=toolButton("▶ Play",()=>{
+    playSoundboardPad(pad).then(()=>{status.textContent="Spielt: "+file.name;})
+     .catch(error=>{status.textContent="Wiedergabe fehlgeschlagen: "+String(error.message||error);});
+   });
+   const stop=toolButton("■ Stop",()=>{
+    audio.pause();audio.currentTime=0;status.textContent="Gestoppt: "+file.name;
+   });
+   const mute=toolButton("MUTE",()=>{
+    pad.muted=!pad.muted;
+    if(pad.gain)pad.gain.gain.setTargetAtTime(pad.muted?0:pad.volume,broadcastAudioContext.currentTime,0.02);
+    mute.textContent=pad.muted?"MUTED":"MUTE";
+    mute.setAttribute("aria-pressed",pad.muted?"true":"false");
+   });
+   const volume=document.createElement("input");
+   volume.type="range";volume.min="0";volume.max="100";volume.value="80";
+   volume.setAttribute("aria-label","Lautstärke "+file.name);
+   volume.addEventListener("input",()=>{
+    pad.volume=Number(volume.value)/100;
+    if(pad.gain&&!pad.muted)pad.gain.gain.setTargetAtTime(pad.volume,broadcastAudioContext.currentTime,0.02);
+   });
+   const favorite=toolButton(pad.favorite?"★ Favorit":"☆ Favorit",()=>{
+    pad.favorite=!pad.favorite;
+    if(pad.favorite)soundboardFavorites.add(favoriteId);else soundboardFavorites.delete(favoriteId);
+    try{localStorage.setItem(soundboardFavoritesKey,JSON.stringify([...soundboardFavorites]));}catch(_){status.textContent="Favorit konnte nicht gespeichert werden."}
+    favorite.textContent=pad.favorite?"★ Favorit":"☆ Favorit";favorite.setAttribute("aria-pressed",pad.favorite?"true":"false");
+   });
+   favorite.setAttribute("aria-pressed",pad.favorite?"true":"false");
+   const remove=toolButton("Entfernen",()=>{
+    audio.pause();if(pad.source)pad.source.disconnect();if(pad.gain)pad.gain.disconnect();audio.removeAttribute("src");audio.load();URL.revokeObjectURL(objectUrl);
+    const position=soundboardPads.indexOf(pad);if(position>=0)soundboardPads.splice(position,1);
+    if(pad.favorite){soundboardFavorites.delete(favoriteId);try{localStorage.setItem(soundboardFavoritesKey,JSON.stringify([...soundboardFavorites]));}catch(_){}}
+    card.remove();status.textContent="Pad entfernt: "+file.name;
+   });
+   controls.append(play,stop,mute,favorite,remove);
+   card.append(title,meta,toolField("Kategorie",categoryField),toolField("Hotkey",hotkey),toolField("Pad-Lautstärke",volume),controls);
+   pad.card=card;pad.hotkeySelect=hotkey;
+   grid.append(card);
+  }
+  status.textContent=soundboardPads.length+" Soundboard-Pad(s) geladen. Hotkeys 1–9 sind pro Pad frei zuweisbar.";
+ };
+ picker.addEventListener("change",()=>{addFiles(picker.files);picker.value="";});
+ body.append(
+  toolNote("Eigene lokale Soundboard-Dateien. Wiedergabe wird in den gemeinsamen Stream-/Monitor-Audiomix geroutet; keine Datei wird hochgeladen."),
+  toolField("Kategorie für neue Pads",category),
+  toolField("Audiodateien (max. 32 Pads)",picker),
+  status,grid
+ );
+}
 async function renderMusicTool(body){
  const file=document.createElement("input");
- file.type="file";
- file.accept="audio/*";
- musicPlayerAudio.controls=true;
- musicPlayerAudio.style.width="100%";
- musicPlayerAudio.preload="metadata";
- file.addEventListener("change",()=>{
-  const chosen=file.files?.[0];
-  if(!chosen)return;
-  if(musicObjectUrl)URL.revokeObjectURL(musicObjectUrl);
-  musicObjectUrl=URL.createObjectURL(chosen);
-  musicPlayerAudio.src=musicObjectUrl;
-  musicPlayerAudio.load();
-  try{ensureBroadcastAudioGraph().resume().catch(error=>log("AudioContext konnte nicht aktiviert werden: "+String(error.message||error)));}catch(error){log("Musik-Mixer nicht verfügbar: "+String(error.message||error));}
-  musicPlayerAudio.play().then(()=>{
-   log("Lokale Audiodatei geladen und im Musik-Kanal abgespielt: "+chosen.name+".");
-  }).catch(error=>{
-   log("Musik geladen; Wiedergabe bitte über die Player-Steuerung starten: "+String(error.message||error));
-  });
+ file.type="file";file.accept="audio/*";file.multiple=true;
+ musicPlayerAudio.controls=true;musicPlayerAudio.style.width="100%";musicPlayerAudio.preload="metadata";
+ const current=toolNote(musicQueueIndex>=0?"Aktuell: "+musicQueue[musicQueueIndex].file.name:"Kein Titel ausgewählt.");
+ musicCurrentTrackLabel=current;
+ const status=toolNote("Lokale Wiedergabe. Nur Audiodateien verwenden, für die du die nötigen Rechte besitzt.");
+ const queueBox=toolNode("div","music-queue");
+ const play=toolButton("▶ Play",async()=>{
+  try{
+   if(musicQueueIndex<0&&musicQueue.length)musicQueueIndex=0;
+   if(musicQueueIndex<0)throw new Error("Bitte zuerst lokale Audiodateien zur Queue hinzufügen.");
+   await ensureBroadcastAudioGraph().resume();await musicPlayerAudio.play();
+  }catch(error){status.textContent="Wiedergabe fehlgeschlagen: "+String(error.message||error);}
  });
+ const pause=toolButton("Ⅱ Pause",()=>musicPlayerAudio.pause());
+ const stop=toolButton("■ Stop",()=>{musicPlayerAudio.pause();musicPlayerAudio.currentTime=0;});
+ const previous=toolButton("|◀ Vorheriger",async()=>{
+  if(musicPlayerAudio.currentTime>3){musicPlayerAudio.currentTime=0;return;}
+  const target=musicQueueIndex>0?musicQueueIndex-1:(musicRepeat&&musicQueue.length?musicQueue.length-1:-1);
+  if(target>=0)try{await playMusicQueueItem(target);renderQueue();}catch(error){status.textContent=String(error.message||error);}
+ });
+ const next=toolButton("Nächster ▶|",async()=>{
+  const target=musicShuffle?Math.floor(Math.random()*musicQueue.length):(musicQueueIndex+1);
+  if(target>=0&&target<musicQueue.length)try{await playMusicQueueItem(target);renderQueue();}catch(error){status.textContent=String(error.message||error);}
+  else if(musicRepeat&&musicQueue.length)try{await playMusicQueueItem(0);renderQueue();}catch(error){status.textContent=String(error.message||error);}
+  else{musicPlayerAudio.pause();status.textContent="Queue beendet.";}
+ });
+ const shuffle=toolButton("Shuffle: AUS",()=>{
+  musicShuffle=!musicShuffle;shuffle.textContent="Shuffle: "+(musicShuffle?"AN":"AUS");
+  shuffle.setAttribute("aria-pressed",musicShuffle?"true":"false");
+ });
+ const repeat=toolButton("Repeat: AUS",()=>{
+  musicRepeat=!musicRepeat;repeat.textContent="Repeat: "+(musicRepeat?"AN":"AUS");
+  repeat.setAttribute("aria-pressed",musicRepeat?"true":"false");
+ });
+ const clear=toolButton("Queue leeren",()=>{
+  musicPlayerAudio.pause();
+  for(const track of musicQueue)URL.revokeObjectURL(track.url);
+  musicQueue.splice(0,musicQueue.length);musicQueueIndex=-1;
+  musicPlayerAudio.removeAttribute("src");musicPlayerAudio.load();
+  current.textContent="Kein Titel ausgewählt.";renderQueue();status.textContent="Queue geleert.";
+ });
+ function renderQueue(){
+  queueBox.replaceChildren();
+  if(!musicQueue.length){queueBox.append(toolNote("Queue ist leer."));return;}
+  musicQueue.forEach((track,index)=>{
+   const row=toolNode("div","music-queue-row");
+   const label=toolNode("span",null,(index===musicQueueIndex?"▶ ":"")+track.file.name);
+   const select=toolButton("Abspielen",async()=>{
+    try{await playMusicQueueItem(index);renderQueue();}catch(error){status.textContent="Wiedergabe fehlgeschlagen: "+String(error.message||error);}
+   });
+   row.append(label,select);queueBox.append(row);
+  });
+ }
+ file.addEventListener("change",()=>{
+  const selected=Array.from(file.files||[]).filter(item=>item.type.startsWith("audio/"));
+  for(const chosen of selected){
+   if(musicQueue.length>=100){status.textContent="Maximal 100 Titel pro Sitzung.";break;}
+   musicQueue.push({file:chosen,url:URL.createObjectURL(chosen)});
+  }
+  file.value="";
+  renderQueue();
+  status.textContent=selected.length+" Audiodatei(en) zur lokalen Queue hinzugefügt.";
+  if(musicQueueIndex<0&&musicQueue.length)playMusicQueueItem(0).then(renderQueue).catch(error=>{status.textContent="Titel geladen; Wiedergabe bitte starten: "+String(error.message||error);});
+ });
+ musicPlayerAudio.onended=async()=>{
+  let target=-1;
+  if(musicShuffle&&musicQueue.length>1){
+   do{target=Math.floor(Math.random()*musicQueue.length);}while(target===musicQueueIndex&&musicQueue.length>1);
+  }else if(musicQueueIndex+1<musicQueue.length)target=musicQueueIndex+1;
+  else if(musicRepeat&&musicQueue.length)target=0;
+  if(target>=0)try{await playMusicQueueItem(target);renderQueue();}catch(error){status.textContent="Nächster Titel fehlgeschlagen: "+String(error.message||error);}
+  else{current.textContent="Wiedergabe beendet.";status.textContent="Queue beendet.";}
+ };
  body.append(
-  toolNote("Lokale Audiodateien werden über den eigenen Musik-Kanal in den Stream-Mix geroutet. Der Musik-Fader und MUTE wirken unabhängig. Nur Dateien verwenden, für die du die nötigen Rechte besitzt."),
-  toolField("Audiodatei",file),musicPlayerAudio,
-  toolNote("Hinweis: Der Player verarbeitet lokale Dateien. Der Rechte-Katalog und die vorhandenen Playlist-Rohdaten sind noch nicht mit einer automatischen Wiedergabe-Warteschlange verbunden.")
+  toolNote("Integrierter lokaler Musikplayer mit Queue. Musik wird über den eigenen Musik-Kanal in den Stream-/Monitor-Mix geroutet; Musik-Fader und MUTE wirken unabhängig."),
+  toolField("Lokale Audiodateien hinzufügen",file),musicPlayerAudio
  );
+ const controls=toolNode("div","tool-row");
+ controls.append(previous,play,pause,stop,next,shuffle,repeat,clear);
+ body.append(current,controls,status,toolNote("Queue und lokale Dateiauswahl gelten für diese Studio-Sitzung. Nur rechtmäßig nutzbare Dateien verwenden."),queueBox);
+ renderQueue();
  const api=window.streamiovStudio?.dataQuery;
  const catalogLine=toolNote("Musik-Katalog wird geladen …");
  const catalogBox=toolNode("div");
- body.append(toolNote("Lokaler Musik-Katalog aus den Rohdaten:"),catalogLine,catalogBox);
+ body.append(toolNote("Lokaler Musik-Katalog / Rechtehinweise:"),catalogLine,catalogBox);
  if(!api){
   catalogLine.textContent="Der Musik-Katalog benötigt die installierte Desktop-App und den lokalen Host.";
   return;
@@ -1630,31 +1757,28 @@ async function renderMusicTool(body){
  const catalog=result.data||{};
  const playlists=Array.isArray(catalog.playlists)?catalog.playlists:[];
  const rights=Array.isArray(catalog.rights_tracks)?catalog.rights_tracks:[];
- catalogLine.textContent="Lokaler Katalog: "+playlists.length+" Playlist(s) · "+
-  Number(catalog.counts?.tracks||0)+" Titel · "+rights.length+" Rechte-Eintrag/Einträge.";
- if(!playlists.length)catalogBox.append(toolNote("Keine Playlist in den Rohdaten hinterlegt."));
+ catalogLine.textContent="Katalogdaten: "+playlists.length+" Playlist(s) · "+
+  Number(catalog.counts?.tracks||0)+" Titel · "+rights.length+" Rechte-Eintrag/Einträge. Rohdaten-Playlists werden noch nicht als abspielbare Dateien importiert.";
+ if(!playlists.length)catalogBox.append(toolNote("Keine Playlist-Metadaten hinterlegt."));
  for(const playlist of playlists){
-  const card=toolNode("div","gift-card");
-  card.append(
-   toolNode("b",null,playlist.name||"Playlist"),
-   toolNode("small",null,(playlist.active?"aktiv":"inaktiv")+" · Lautstärke "+
-    Number(playlist.volume??1).toFixed(2))
-  );
-  const tracks=Array.isArray(playlist.tracks)?playlist.tracks:[];
-  if(!tracks.length)card.append(toolNode("small",null,"Keine Titel"));
-  for(const track of tracks){
-   card.append(toolNode("small",null,(track.title||"Titel")+" · Rechte: "+
-    (track.rights_status||"unbekannt")));
-  }
+  const card=toolNode("div","music-queue-row");
+  card.append(toolNode("b",null,playlist.name||"Playlist"),
+   toolNode("small",null,(playlist.active?"aktiv":"inaktiv")+" · "+(Array.isArray(playlist.tracks)?playlist.tracks.length:0)+" Titel"));
   catalogBox.append(card);
  }
- if(rights.length){
-  catalogBox.append(toolNote("Rechte-Katalog: "+rights.map(track=>
-   (track.title||track.id||"Titel")+" ["+(track.status||"unbekannt")+"]").join(" · ")));
- }else{
-  catalogBox.append(toolNote("Der Rechte-Katalog enthält noch keine geprüften Titel."));
- }
+ if(rights.length)catalogBox.append(toolNote("Rechte-Katalog: "+rights.map(track=>(track.title||track.id||"Titel")+" ["+(track.status||"unbekannt")+"]").join(" · ")));
+ else catalogBox.append(toolNote("Der Rechte-Katalog enthält noch keine geprüften Titel."));
 }
+async function playMusicQueueItem(index){
+ if(!Number.isInteger(index)||index<0||index>=musicQueue.length)throw new Error("Queue-Position ist ungültig.");
+ musicQueueIndex=index;
+ const track=musicQueue[index];
+ if(musicCurrentTrackLabel)musicCurrentTrackLabel.textContent="Aktuell: "+track.file.name;
+ musicPlayerAudio.src=track.url;musicPlayerAudio.load();
+ await ensureBroadcastAudioGraph().resume();
+ await musicPlayerAudio.play();
+}
+
 async function renderGamesTool(body){
  const api=window.streamiovStudio?.dataQuery;
  if(!api){
@@ -1777,9 +1901,9 @@ async function openTool(name){
  try{
   if(name==="Chat")await renderChatTool(body);
   else if(name==="TTS")await renderTtsTool(body);
-  else if(name==="Geschenke")await renderGiftsTool(body);
   else if(name==="Alerts")renderAlertsTool(body);
   else if(name==="Musik")await renderMusicTool(body);
+  else if(name==="Soundboard")await renderSoundboardTool(body);
   else if(name==="Spiele")await renderGamesTool(body);
   else if(name==="KI-Regie")await renderAiTool(body);
   else if(name==="Geräte")await renderDevicesTool(body);
@@ -1942,17 +2066,6 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
   try { renderTikTokStatus(await window.streamiovStudio.tiktokStatus()); }
   catch (error) { connection.textContent = 'Status konnte nicht geladen werden: ' + error.message; }
  }
-
- byId('platformSelect').addEventListener('change', () => {
-  const platform = byId('platformSelect').value;
-  const isTikTok = platform === 'tiktok';
-  connectButton.disabled = !isTikTok;
-  disconnectButton.hidden = !isTikTok || !tiktokConnected;
-  connection.textContent = isTikTok
-   ? 'TikTok-Verbindungsstatus wird geladen …'
-   : byId('platformSelect').selectedOptions[0].textContent + ': Integration noch nicht aktiviert.';
-  if (isTikTok) refreshTikTokStatus();
- });
 
  connectButton.addEventListener('click', async () => {
   if (byId('platformSelect').value !== 'tiktok') return;

@@ -29,7 +29,7 @@ SPECIALISTS: dict[str, SpecialistDefinition] = {
     ),
     "studio": SpecialistDefinition(
         "studio", "Studio & Broadcast Direction",
-        "Own Streamiov Studio and Regie: Electron desktop application, scenes, preview/program/TAKE, sources, camera, media capture, multiview, overlays, and device-facing workflows. TikTok LIVE is the only external streaming platform; do not add OBS or other platform adapters. Keep the Studio app separate from the public homepage.",
+        "Own Streamiov Studio and Regie: Electron desktop application, scenes, preview/program/TAKE, sources, camera, media capture, multiview, overlays, and device-facing workflows. One shared production program feeds independently managed TikTok LIVE and Twitch LIVE outputs; authentication, status, reconnect, errors, and output adapters remain separate. Discord is a community/chat connector only, never a LIVE output. Do not add OBS or other studio runtimes. Keep the Studio app separate from the public homepage.",
         PROJECT_WRITE_SCOPE,
     ),
     "music": SpecialistDefinition(
@@ -44,7 +44,7 @@ SPECIALISTS: dict[str, SpecialistDefinition] = {
     ),
     "events": SpecialistDefinition(
         "events", "Events, Alerts & Automation",
-        "Own Streamiov's event system: event ingestion, internal event contracts, TikTok LIVE event mapping, alerts, triggers, routing, moderation-related event handling, and replayable event tests. Do not change TikTok OAuth/security configuration or perform public actions.",
+        "Own Streamiov's event system: event ingestion, internal event contracts, TikTok LIVE and Twitch event mapping, Discord community/chat events, alerts, triggers, routing, moderation-related event handling, and replayable event tests. Keep platform identities and permissions separate. Do not change TikTok OAuth/security configuration or perform public actions.",
         PROJECT_WRITE_SCOPE,
     ),
     "homepage": SpecialistDefinition(
@@ -54,7 +54,7 @@ SPECIALISTS: dict[str, SpecialistDefinition] = {
     ),
     "server": SpecialistDefinition(
         "server", "Backend, Core & Own Infrastructure",
-        "Own server-side Core APIs, databases, storage, networking, service discovery, observability, backups, and the staged Streamiov-owned cloud/network roadmap. The Chromebook is a development device, never the production host. Reduce mandatory third-party dependencies; TikTok is the intended external LIVE platform. Never access or change production secrets or deploy services without approval.",
+        "Own server-side Core APIs, databases, storage, networking, service discovery, observability, backups, and the staged Streamiov-owned cloud/network roadmap. The Chromebook is a development device, never the production host. Reduce mandatory third-party dependencies. Core supports the shared Studio production program with independently authenticated and monitored TikTok LIVE and Twitch LIVE outputs; Discord is chat/community only. Never access or change production secrets or deploy services without approval.",
         PROJECT_WRITE_SCOPE,
     ),
     "research": SpecialistDefinition(
@@ -69,7 +69,7 @@ SPECIALISTS: dict[str, SpecialistDefinition] = {
     ),
     "gifts": SpecialistDefinition(
         "gifts", "Gifts & Creator Economy",
-        "Own original Streamiov gifts and creator-facing gift systems: unique designs, 3D assets, animation/effects, gift definitions, presentation, and auditable event/accounting logic. Preserve the existing Stream-iov Rose. Never copy TikTok gifts or other artists' work; do not claim payouts or payment execution unless verified.",
+        "Own original Streamiov gift designs and submission assets intended exclusively for TikTok's official LIVE gift gallery, subject to TikTok approval and its supported partner process. Viewers send gifts only inside TikTok. Studio may receive official gift events and trigger visual/audio reactions, but must not contain a gift shop, gift gallery, purchase flow, currency, payment, ledger, or payout feature. Preserve the existing Stream-iov Rose. Never copy TikTok gifts or other artists' work; never claim gallery acceptance or payouts without proof.",
         PROJECT_WRITE_SCOPE,
     ),
     "testing": SpecialistDefinition(

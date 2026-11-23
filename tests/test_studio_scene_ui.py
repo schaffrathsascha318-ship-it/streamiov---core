@@ -49,19 +49,37 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("musicMediaSource.connect(musicChannelGain).connect(broadcastMasterGain)", self.ui)
         self.assertIn('musicChannelGain.gain.setTargetAtTime(musicMuted?0:mixerValue("mixerMusic")', self.ui)
         self.assertIn("broadcastMasterGain.connect(broadcastAudioDestination)", self.ui)
-        self.assertIn("musicPlayerAudio.src=musicObjectUrl", self.ui)
+        self.assertIn("musicPlayerAudio.src=track.url", self.ui)
         self.assertIn("Keep the AudioContext and the single MediaElementAudioSourceNode alive.", self.ui)
-        self.assertIn("Playlist-Rohdaten sind noch nicht mit einer automatischen Wiedergabe-Warteschlange verbunden.", self.ui)
+        self.assertIn("const musicQueue=[];", self.ui)
+        self.assertIn("async function playMusicQueueItem(index)", self.ui)
+        self.assertIn("Shuffle: AUS", self.ui)
+        self.assertIn("Repeat: AUS", self.ui)
+        self.assertIn("musicPlayerAudio.onended", self.ui)
+        self.assertIn("Queue ist leer.", self.ui)
 
-    def test_gift_gallery_keeps_tiktok_payouts_external_and_streamiov_gifts_free(self):
-        self.assertIn("TikTok wickelt Kauf, Zuordnung und mögliche Auszahlung direkt ab.", self.ui)
-        self.assertIn("StreamioV zieht nichts ab und nimmt kein Geld entgegen.", self.ui)
-        self.assertIn("eine 1:1-Umrechnung des Kaufpreises ist nicht zugesichert.", self.ui)
-        self.assertIn("Eigene Galerieeffekte sind kostenlos", self.ui)
-        self.assertIn("keine offizielle TikTok-Geschenkefreigabe", self.ui)
+    def test_soundboard_routes_local_pads_into_shared_stream_and_monitor_mix(self):
+        self.assertIn('data-tool="Soundboard"', self.ui)
+        self.assertIn("async function renderSoundboardTool(body)", self.ui)
+        self.assertIn("createMediaElementSource(pad.audio)", self.ui)
+        self.assertIn("pad.source.connect(pad.gain).connect(broadcastMasterGain)", self.ui)
+        self.assertIn("installSoundboardHotkeys()", self.ui)
+        self.assertIn("event.key", self.ui)
+        self.assertIn("Maximal 32 Soundboard-Pads", self.ui)
+        self.assertIn("soundboardFavoritesKey", self.ui)
+        self.assertIn("favorite.textContent", self.ui)
+        self.assertIn('hotkey.addEventListener("change"', self.ui)
 
-        self.assertIn('id="rtmpDestination"', self.ui)
-        self.assertIn("window.streamiovStudio.startStream({", self.ui)
+    def test_studio_only_reacts_to_official_tiktok_gift_events_and_has_no_gift_gallery(self):
+        self.assertNotIn('data-tool="Geschenke"', self.ui)
+        self.assertNotIn("renderGiftsTool", self.ui)
+        self.assertNotIn("GESCHENKE / GALERIEBOX", self.ui)
+        self.assertIn("TIKTOK-LIVE-GESCHENKEREIGNISSE", self.ui)
+        self.assertIn("keine eigene Geschenke-Galerie", self.ui)
+        self.assertIn("function showGiftEffect(symbol)", self.ui)
+
+        self.assertNotIn('id="rtmpDestination"', self.ui)
+        self.assertIn("LIVE-AUSGÄNGE NOCH NICHT VERFÜGBAR", self.ui)
         self.assertIn("window.streamiovStudio.stopStream()", self.ui)
 
     def test_rtmp_process_controls_are_sender_guarded_and_validate_destination(self):
@@ -305,6 +323,18 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("Node.js 22.12", readme)
         self.assertIn("Electron loads `regie-v2.html` directly", readme)
+
+    def test_studio_exposes_separate_tiktok_twitch_outputs_without_manual_rtmp_keys(self):
+        self.assertIn('id="platformConnectionState"', self.ui)
+        self.assertIn('id="twitchConnectionState"', self.ui)
+        self.assertIn("TIKTOK LIVE · EIGENER AUSGANG", self.ui)
+        self.assertIn("TWITCH LIVE · EIGENER AUSGANG", self.ui)
+        self.assertIn("Discord ist ein Community-/Chat-Kanal und kein LIVE-Ausgang.", self.ui)
+        self.assertNotIn('id="platformSelect"', self.ui)
+        self.assertNotIn('id="rtmpDestination"', self.ui)
+        self.assertIn("LIVE-AUSGÄNGE NOCH NICHT VERFÜGBAR", self.ui)
+        self.assertIn("Kein manueller RTMP-Key", self.ui)
+        self.assertIn("OAuth und LIVE-Ausgang sind getrennte Integrationen.", self.ui)
 
     def test_studio_ships_no_unofficial_platform_client(self):
         """Only official, approved platform interfaces are allowed."""
