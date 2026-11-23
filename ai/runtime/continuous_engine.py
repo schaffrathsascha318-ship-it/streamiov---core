@@ -106,7 +106,7 @@ class MissionPlanner(Protocol):
 
 
 class AgentFactory(Protocol):
-    def __call__(self, specialist: str): ...
+    def __call__(self, specialist: str, task_id: str | None = None): ...
 
 
 class ContinuousDevelopmentEngine:
@@ -148,6 +148,20 @@ class ContinuousDevelopmentEngine:
             raise MissionEngineError("Mission database must not be a symlink.")
         self.planner = planner
         self.agent_factory = agent_factory
+        try:
+            factory_parameters = inspect.signature(agent_factory).parameters
+            task_parameter = factory_parameters.get("task_id")
+            self._agent_factory_task_id_keyword = bool(
+                task_parameter and task_parameter.kind != inspect.Parameter.POSITIONAL_ONLY
+            ) or any(item.kind == inspect.Parameter.VAR_KEYWORD for item in factory_parameters.values())
+            self._agent_factory_accepts_task_id = (
+                self._agent_factory_task_id_keyword
+                or bool(task_parameter)
+                or any(item.kind == inspect.Parameter.VAR_POSITIONAL for item in factory_parameters.values())
+            )
+        except (TypeError, ValueError):
+            self._agent_factory_task_id_keyword = False
+            self._agent_factory_accepts_task_id = False
         self.retry_base_seconds = float(retry_base_seconds)
         self.lease_seconds = lease_seconds
         self.max_task_failures = max_task_failures  # legacy compatibility; not a mission stop limit
@@ -759,7 +773,13 @@ class ContinuousDevelopmentEngine:
                 "approach. Never weaken tests or bypass safety gates."
             )
         try:
-            agent = self.agent_factory(task.specialist)
+            if self._agent_factory_accepts_task_id:
+                if self._agent_factory_task_id_keyword:
+                    agent = self.agent_factory(task.specialist, task_id=task.task_id)
+                else:
+                    agent = self.agent_factory(task.specialist, task.task_id)
+            else:
+                agent = self.agent_factory(task.specialist)
             if mission_stop_event is not None and mission_stop_event.is_set():
                 cancel_event.set()
             run_parameters = inspect.signature(agent.run).parameters
