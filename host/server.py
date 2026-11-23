@@ -453,6 +453,10 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": str(exc)})
             return True
 
+        if path in {prefix + "rooms", prefix + "join", prefix + "token"} and len(os.environ.get("STREAMIOV_VOICE_SIGNING_KEY", "").encode("utf-8")) < 32:
+            self._json(503, {"error": "voice_signing_key_not_configured"})
+            return True
+
         if path == prefix + "rooms":
             if set(payload) != {"name"}:
                 self._json(400, {"error": "Request must contain only name."})
