@@ -2668,7 +2668,7 @@ $("voiceConnect").addEventListener("click",async()=>{
   voiceStatus("Sichere Verbindung wird vorbereitet …");
   const ticket=await voiceRoomAction({action:"connect",room_id:activeVoiceRoom.room_id});
   const client=new window.StreamiovVoiceClient({
-   websocketUrl:ticket.websocket_url,ticket:ticket.ticket,localStream,
+   websocketUrl:ticket.websocket_url,ticket:ticket.ticket,localStream,iceServers:ticket.ice_servers,
    onState:event=>{
     if(event.state==="connected"){voiceStatus("Verbunden · "+event.participantCount+" Teilnehmer · Peer-to-Peer · keine Aufzeichnung.");voiceSetButtons(true);}
     else if(event.state==="disconnected"){voiceClient=null;voiceSetButtons(false);voiceStatus("Voice-Verbindung getrennt.");}
