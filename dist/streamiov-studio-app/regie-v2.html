@@ -369,11 +369,10 @@ dialog::backdrop{background:#000b}
     <p id="runtimeDiagnostics" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Systemprüfung noch nicht ausgeführt.</p>
     <button id="mediaTest" type="button" style="width:100%;margin-top:8px">LOKALEN AUDIO-/VIDEO-TEST STARTEN</button>
     <p id="mediaTestResult" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Erzeugt einen kurzen lokalen Testclip aus Bild- und Tonsignalen.</p>
-    <label for="rtmpDestination" style="display:block;margin-top:12px">RTMP-Ziel + Stream-Key</label>
-    <input id="rtmpDestination" type="password" maxlength="2048" autocomplete="off" spellcheck="false" placeholder="rtmps://server/app/stream-key" style="width:100%;margin-top:6px">
-    <small style="display:block;color:var(--muted);margin-top:6px">Der Stream-Key wird nur für diese Sitzung verwendet. Zum Start müssen Kamera und Mikrofon aktiv sein. Das Ziel unterstützt RTMP/RTMPS.</small>
-    <button class="go-live" style="width:100%;margin-top:10px" id="live">● STREAM STARTEN</button>
-    <p id="liveStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Offline · Keine Plattform verbunden.</p>
+    <div class="panel-title" style="margin-top:12px">PLATTFORM-AUSGÄNGE</div>
+    <p style="font-size:12px;color:var(--muted)">Streamiov verwaltet die Zielverbindungen intern. Hier werden keine RTMP-Adressen oder Stream-Keys manuell eingegeben.</p>
+    <button class="go-live" style="width:100%;margin-top:10px" id="live" disabled>● LIVE-AUSGÄNGE NOCH NICHT VERFÜGBAR</button>
+    <p id="liveStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Blockiert · TikTok-Produktionsausgang und Twitch-Ausgang sind noch nicht integriert. Kein Stream wird gestartet.</p>
    </div>
   </section>
   <section class="panel">
@@ -433,18 +432,23 @@ dialog::backdrop{background:#000b}
     </div>
    </div>
    <div class="panel">
-    <div class="panel-title">3 · PLATTFORM</div>
-    <div class="pad">
-     <label for="platformSelect">Einzige Streaming-Plattform</label>
-     <select id="platformSelect">
-      <option value="tiktok">TikTok LIVE</option>
-     </select>
-     <p id="platformConnectionState" class="pill" role="status">Nicht verbunden</p>
-     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button id="platformConnectInfo" type="button">TikTok-Konto verbinden</button>
-      <button id="platformDisconnect" type="button" hidden>Verbindung trennen</button>
+    <div class="panel-title">3 · PLATTFORM-AUSGÄNGE</div>
+    <div class="pad grid2">
+     <div class="panel">
+      <div class="panel-title">TIKTOK LIVE · EIGENER AUSGANG</div>
+      <p id="platformConnectionState" class="pill" role="status">Sandbox-Verbindung wird geprüft …</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+       <button id="platformConnectInfo" type="button">TikTok-Sandbox verbinden</button>
+       <button id="platformDisconnect" type="button" hidden>Verbindung trennen</button>
+      </div>
+      <small id="platformHelp">Die vorhandene TikTok-Sandbox-Anmeldung bestätigt keine Produktions-LIVE-Berechtigung. OAuth und LIVE-Ausgang sind getrennte Integrationen.</small>
      </div>
-     <small id="platformHelp">TikTok wird über den offiziellen Login sicher mit STREAMIOV Studio verbunden. Andere Plattformen bleiben getrennt, bis ihre eigenen Freigaben und Integrationen fertig sind.</small>
+     <div class="panel">
+      <div class="panel-title">TWITCH LIVE · EIGENER AUSGANG</div>
+      <p id="twitchConnectionState" class="pill" role="status">Nicht verbunden · offizieller Twitch-Adapter fehlt</p>
+      <small>Eigene Twitch-Autorisierung, Ausgabe, Status und Fehlerbehandlung. Unabhängig vom TikTok-Ausgang. Noch nicht produktiv angebunden.</small>
+     </div>
+     <p class="pill" style="grid-column:1/-1">Discord ist ein Community-/Chat-Kanal und kein LIVE-Ausgang.</p>
     </div>
    </div>
    <div class="panel">
@@ -1353,8 +1357,8 @@ async function startBroadcast(){
  const audioMode=$("streamAudio").value;
  const audioInputs=(audioMode==="mic"?[microphoneTrack]:audioMode==="system"?[systemTrack]:[microphoneTrack,systemTrack]).filter(Boolean);
  if((!cameraTrack&&!screenTrack)||!audioInputs.length){setBroadcastStatus("error","Bitte eine Kamera oder einen Bildschirm sowie eine verfügbare Audioquelle für den gewählten Modus starten.");return;}
- const destination=$("rtmpDestination").value.trim();
- if(!destination){setBroadcastStatus("error","Bitte RTMP-Ziel und Stream-Key eingeben.");$("rtmpDestination").focus();return;}
+ const destination=$("rtmpDestination")?.value?.trim()||"";
+ if(!destination){setBroadcastStatus("blocked","Kein manueller RTMP-Key: Der interne TikTok-Produktionsausgang und der separate Twitch-Ausgang sind noch nicht angebunden.");return;}
  if(!window.streamiovStudio?.startStream||!window.MediaRecorder){setBroadcastStatus("error","Streaming-Funktion ist in dieser Laufzeit nicht verfügbar.");return;}
  liveButton.disabled=true;
  setSourceControlsLocked(true);
@@ -2062,17 +2066,6 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
   try { renderTikTokStatus(await window.streamiovStudio.tiktokStatus()); }
   catch (error) { connection.textContent = 'Status konnte nicht geladen werden: ' + error.message; }
  }
-
- byId('platformSelect').addEventListener('change', () => {
-  const platform = byId('platformSelect').value;
-  const isTikTok = platform === 'tiktok';
-  connectButton.disabled = !isTikTok;
-  disconnectButton.hidden = !isTikTok || !tiktokConnected;
-  connection.textContent = isTikTok
-   ? 'TikTok-Verbindungsstatus wird geladen …'
-   : byId('platformSelect').selectedOptions[0].textContent + ': Integration noch nicht aktiviert.';
-  if (isTikTok) refreshTikTokStatus();
- });
 
  connectButton.addEventListener('click', async () => {
   if (byId('platformSelect').value !== 'tiktok') return;
