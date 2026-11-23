@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
   getStatus: () => ipcRenderer.invoke('studio:get-status'),
+  getPlatformOutputStatus: () => ipcRenderer.invoke('studio:platform-output-status'),
   getDisplays: () => ipcRenderer.invoke('studio:get-displays'),
   openProgramOutput: () => ipcRenderer.invoke('studio:open-program-output'),
   moveRegieToDisplay: (displayId) => ipcRenderer.invoke('studio:move-regie-to-display', { displayId }),
