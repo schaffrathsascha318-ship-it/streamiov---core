@@ -1055,7 +1055,7 @@ $("micHighpass").addEventListener("input",applyMicrophoneRouting);
 $("micCompressor").addEventListener("change",applyMicrophoneRouting);
 $("micPan").addEventListener("input",applyMicrophoneRouting);
 $("micSolo").addEventListener("change",applyMicrophoneRouting);
-["micEchoCancellation","micNoiseSuppression","micAutoGainControl"].forEach(id=>$(id).addEventListener("change",()=>{saveAudioRoutingState();if(captureState.microphone){$("microphoneStart").click();$("microphoneStart").click();}}));
+["micEchoCancellation","micNoiseSuppression","micAutoGainControl"].forEach(id=>$(id).addEventListener("change",()=>{saveAudioRoutingState();if(captureState.microphone){stopCapture("microphone");$("microphoneStart").click();}}));
 function selectedSystemRoutes(){return [...document.querySelectorAll("[data-system-route]:checked")].map(item=>item.dataset.systemRoute);}
 function applySystemRouting(){
  if(!studioAudioMixer||!studioAudioMixer.snapshot("system")){saveAudioRoutingState();return;}
