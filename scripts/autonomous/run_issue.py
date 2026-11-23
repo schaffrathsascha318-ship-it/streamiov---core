@@ -39,6 +39,25 @@ def fail(message: str) -> int:
     return 1
 
 
+MAX_ISSUE_BODY_CHARS = 20000
+MAX_MISSION_GOAL_CHARS = 8000
+
+
+def fit_issue_body(body: str, max_chars: int) -> str:
+    """Fit long issue text while retaining both its opening scope and final criteria."""
+    if max_chars <= 0:
+        return ""
+    if len(body) <= max_chars:
+        return body
+    marker = "\n\n[Middle of the original issue body omitted to fit the model context; consult the complete GitHub issue for all details.]\n\n"
+    available = max(0, max_chars - len(marker))
+    head = (available * 2) // 3
+    tail = available - head
+    if tail == 0:
+        return body[:max_chars]
+    return body[:head] + marker + body[-tail:]
+
+
 def build_task(issue: dict, project_root: Path) -> str:
     """Build a mission goal with trusted policy before untrusted issue content."""
     context = format_project_context(project_root)
@@ -68,12 +87,13 @@ def build_task(issue: dict, project_root: Path) -> str:
     )
     payload = format_untrusted_issue_payload(number, title, body)
     task = f"{context}\n\nMISSION INSTRUCTIONS\n{prefix}{payload}"
-    if len(task) > 8000:
+    if len(task) > MAX_MISSION_GOAL_CHARS:
         fixed = len(task) - len(body)
-        body = body[: max(0, 7900 - fixed)]
+        body_budget = max(0, MAX_MISSION_GOAL_CHARS - 100 - fixed)
+        body = fit_issue_body(body, body_budget)
         payload = format_untrusted_issue_payload(number, title, body)
         task = f"{context}\n\nMISSION INSTRUCTIONS\n{prefix}{payload}"
-    if len(task) > 8000:
+    if len(task) > MAX_MISSION_GOAL_CHARS:
         raise ValueError("Canonical project context leaves insufficient room for the mission request.")
     return task
 
@@ -121,7 +141,7 @@ def main() -> int:
         or not isinstance(title, str) or not isinstance(body, str)
     ):
         return fail("Mission input has invalid fields.")
-    if len(title) > 200 or len(body) > 6000 or not title.strip() or not body.strip():
+    if len(title) > 200 or len(body) > MAX_ISSUE_BODY_CHARS or not title.strip() or not body.strip():
         return fail("Mission title/body is empty or exceeds the intake size limit.")
 
     mission_id = os.environ.get("STREAMIOV_MISSION_ID", "").strip()

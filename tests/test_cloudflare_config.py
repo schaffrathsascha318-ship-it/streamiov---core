@@ -20,6 +20,29 @@ class CloudflareConfigTests(unittest.TestCase):
         self.assertTrue(result["ok"], "\n".join(result["errors"]))
         self.assertGreaterEqual(len(result["checks"]), 5)
 
+    def test_download_page_accepts_direct_assets_from_streamiov_releases(self):
+        verifier = load_verifier()
+        markup = """
+          <a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.2/Streamiov.Studio.Setup.1.0.2-x64.exe">Windows</a>
+          <a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.2/streamiov-studio_1.0.2_arm64.deb">Linux ARM64</a>
+        """
+        self.assertEqual(len(verifier.find_release_download_targets(markup)), 2)
+        self.assertEqual(verifier.find_local_download_targets(markup), [])
+
+    def test_download_page_rejects_untrusted_release_hosts_and_tag_pages(self):
+        verifier = load_verifier()
+        markup = """
+          <a href="https://github.com/attacker/other/releases/download/v1/app.exe">bad repo</a>
+          <a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/tag/studio-v1.0.2">tag page</a>
+          <a href="https://example.test/releases/download/v1/app.exe">bad host</a>
+        """
+        self.assertEqual(verifier.find_release_download_targets(markup), [])
+
+    def test_download_page_finds_local_assets(self):
+        verifier = load_verifier()
+        markup = '<a href="/downloads/streamiov-windows.zip">Windows</a>'
+        self.assertEqual(verifier.find_local_download_targets(markup), ["/downloads/streamiov-windows.zip"])
+
     def test_jsonc_parser_preserves_urls_inside_strings(self):
         verifier = load_verifier()
         parsed = verifier.strip_jsonc_comments(

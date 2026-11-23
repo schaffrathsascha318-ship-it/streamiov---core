@@ -11,6 +11,25 @@ RUNNER = ROOT / "scripts" / "autonomous" / "run_issue.py"
 
 
 class AutonomousRunnerPolicyTests(unittest.TestCase):
+    def test_long_owner_issue_is_accepted_and_context_fit_preserves_final_criteria(self):
+        tree = ast.parse(RUNNER.read_text(encoding="utf-8"))
+        constants = {
+            node.targets[0].id: node.value.value
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and isinstance(node.value, ast.Constant)
+        }
+        self.assertEqual(constants["MAX_ISSUE_BODY_CHARS"], 20000)
+        self.assertEqual(constants["MAX_MISSION_GOAL_CHARS"], 8000)
+        helper = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "fit_issue_body")
+        helper_source = ast.unparse(helper)
+        self.assertIn("body[-tail:]", helper_source)
+        self.assertIn("body[:head]", helper_source)
+        main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
+        self.assertIn("MAX_ISSUE_BODY_CHARS", ast.unparse(main))
+
     def test_chief_must_discover_and_implement_worthwhile_improvements(self):
         tree = ast.parse(RUNNER.read_text(encoding="utf-8"))
         build_task = next(
