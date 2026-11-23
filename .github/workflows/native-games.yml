@@ -94,6 +94,7 @@ jobs:
             mkdir -p "$project/build"
             echo "Validating $game"
             godot --headless --editor --path "$project" --quit
+            godot --headless --path "$project" --quit-after 3
             godot --headless --path "$project" --export-release "Windows Desktop x64" "build/StreamioV-$game-windows-x64.exe"
             godot --headless --path "$project" --export-release "Linux x64" "build/StreamioV-$game-linux-x86_64"
             godot --headless --path "$project" --export-release "Linux ARM64" "build/StreamioV-$game-linux-arm64"
