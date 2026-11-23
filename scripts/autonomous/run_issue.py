@@ -32,6 +32,7 @@ from ai.runtime.continuous_engine import (  # noqa: E402
     MissionEngineError,
     ModelMissionPlanner,
 )
+from ai.runtime.project_supervisor import ProjectSupervisor, ProjectSupervisorError  # noqa: E402
 
 
 def fail(message: str) -> int:
