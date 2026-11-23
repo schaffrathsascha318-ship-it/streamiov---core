@@ -9,7 +9,7 @@
 - A Cloudflare Durable Object Worker validates those tokens, exchanges them for 60-second one-use WebSocket tickets, rate-limits signalling, caps each room at eight connected participants, and forwards only SDP/ICE and participant state.
 - Electron keeps reusable bearer tokens in the main process. The renderer receives only a one-use WebSocket ticket.
 - The Studio client establishes peer-to-peer WebRTC audio, sends processed microphone audio from the Studio mixer, supports mute/deafen and push-to-talk, and routes remote participants to the headphones bus.
-- Room closure revokes stored membership/invites and asks the signalling Worker to close active WebSockets and invalidate pending one-use tickets. The UI reports when the Worker could not be reached.
+- Room closure first obtains a short-lived owner token, revokes stored Core membership/invites, then the Core host makes a bounded HTTPS request to the signalling Worker to close active WebSockets and invalidate pending one-use tickets. Redirects are refused so the bearer token cannot be forwarded. The API reports `signalling_revoked=false` if the Worker cannot confirm closure; in that case existing connections may remain until they disconnect or their short-lived credentials expire.
 - No audio recording or server-side media relay is implemented.
 
 ## Runtime configuration
