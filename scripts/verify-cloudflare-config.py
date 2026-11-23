@@ -124,7 +124,7 @@ def find_release_download_targets(markup: str) -> list[str]:
     arbitrary hosts, tag pages, query strings, and non-asset paths.
     """
     pattern = (
-        r'href=["\']https://github\\.com/'
+        r'href=["\']https://github\.com/'
         + re.escape(RELEASE_REPOSITORY)
         + r'/releases/download/([A-Za-z0-9._-]+)/([A-Za-z0-9._+-]+)["\']'
     )
