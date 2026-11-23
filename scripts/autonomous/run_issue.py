@@ -178,7 +178,7 @@ def main() -> int:
             # verified missions. The supervisor state is restored in the same
             # encrypted SQLite artifact as the mission/task checkpoints.
             supervisor = ProjectSupervisor(engine, database)
-            created = supervisor.configure_if_missing(task)
+            created = supervisor.configure_if_missing(task, active_mission_id=mission_id)
             print(json.dumps({
                 "event": "project_supervisor_goal_created" if created else "project_supervisor_resumed",
                 "database": str(database),
