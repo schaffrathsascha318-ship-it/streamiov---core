@@ -1211,6 +1211,8 @@ ipcMain.handle('studio:voice-action', async (event, payload = {}) => {
       if (typeof token !== 'string') throw new Error('Core hat kein Voice-Token ausgegeben.');
       const safeRoom = { ...room };
       delete safeRoom.token;
+      delete safeRoom.ice_servers;
+      delete safeRoom.turn_available;
       return { ok: true, room: safeRoom };
     }
     if (action === 'join') {
@@ -1220,6 +1222,8 @@ ipcMain.handle('studio:voice-action', async (event, payload = {}) => {
       voiceSessionTokens.set(room.room_id, room.token);
       const safeRoom = { ...room };
       delete safeRoom.token;
+      delete safeRoom.ice_servers;
+      delete safeRoom.turn_available;
       return { ok: true, room: safeRoom };
     }
     if (action === 'invite') {
