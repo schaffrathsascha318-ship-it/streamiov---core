@@ -1477,46 +1477,27 @@ function showAlert(text){
 }
 async function renderChatTool(body){
  const api=window.streamiovStudio?.chatAction;
- if(!api){body.append(toolNote("Der lokale Chat benötigt die installierte Desktop-App."));return;}
+ if(!api){body.append(toolNote("Der Chat benötigt die installierte Desktop-App."));return;}
  const stateLine=toolNote("Chat-Status wird geladen …");
  const logBox=toolNode("div","chat-log","");
- const toggle=toolButton("Chat einschalten",async()=>{
-  const result=await api({action:"toggle-chat"});
-  apply(result);
- });
- const input=document.createElement("input");
- input.placeholder="Lokale Testnachricht";
- input.maxLength=2000;
- const send=toolButton("Testnachricht übernehmen",async()=>{
-  const text=input.value.trim();
-  if(!text){input.focus();return;}
-  const result=await api({action:"receive",text});
-  if(result?.ok)input.value="";
-  apply(result);
- });
- const apply=result=>{
-  if(!result?.ok){
-   stateLine.textContent="Chat-Aktion fehlgeschlagen: "+(result?.error||"unbekannter Fehler");
-   return;
-  }
-  stateLine.textContent="Lokaler Chat: "+(result.chat==="online"?"an":"aus")+
-   " · TTS: "+(result.tts==="online"?"an":"aus")+
-   " · "+result.message_count+" Nachricht(en) · Adapter: "+((result.connected_adapters||[]).join(", ")||"keine verbunden")+".");
-  toggle.textContent=result.chat==="online"?"Chat ausschalten":"Chat einschalten";
-  send.disabled=result.chat!=="online";
-  input.disabled=result.chat!=="online";
-  logBox.replaceChildren();
-  for(const message of result.messages||[]){
-   const line=toolNode("div");
-   line.append(toolNode("b",null,"["+String(message.source||"unknown").toUpperCase()+"] "+new Date(message.createdAt||message.time).toLocaleTimeString()+" "+String(message.author||"")+": "),document.createTextNode(message.text));
-   logBox.append(line);
-  }
-  logBox.scrollTop=logBox.scrollHeight;
- };
- body.append(
-  toolNote("Gemeinsamer Chat-Kern vorbereitet: TikTok, Twitch und Discord werden mit Quellenkennzeichnung zusammengeführt. Plattform-Adapter sind derzeit noch nicht verbunden; hier kannst du den lokalen Nachrichtenfluss ansehen."),
-  stateLine,toggle,logBox,toolField("Testnachricht",input),send
- );
+ const filter=document.createElement("select");
+ for(const [value,label] of [["all","Alle Plattformen"],["tiktok","TikTok"],["twitch","Twitch"],["discord","Discord"],["local_test","Lokaler Test"]]){const option=document.createElement("option");option.value=value;option.textContent=label;filter.append(option);}
+ const search=document.createElement("input");search.placeholder="Chat durchsuchen …";search.maxLength=120;
+ const toggle=toolButton("Chat einschalten",async()=>apply(await api({action:"toggle-chat"})));
+ const input=document.createElement("input");input.placeholder="Lokale Testnachricht";input.maxLength=2000;
+ const receive=toolButton("Lokale Testnachricht hinzufügen",async()=>{const text=input.value.trim();if(!text){input.focus();return;}const result=await api({action:"receive",text});if(result?.ok)input.value="";apply(result);});
+ const outbound=document.createElement("div");
+ const tiktok=document.createElement("input");tiktok.type="checkbox";tiktok.id="chat-target-tiktok";
+ const twitch=document.createElement("input");twitch.type="checkbox";twitch.id="chat-target-twitch";
+ const targetLabel=(checkbox,label)=>{const wrap=toolNode("label");wrap.append(checkbox,document.createTextNode(" "+label));outbound.append(wrap);};
+ targetLabel(tiktok,"TikTok LIVE");targetLabel(twitch,"Twitch LIVE");
+ const outgoing=document.createElement("input");outgoing.placeholder="Nachricht an ausgewählte LIVE-Chats";outgoing.maxLength=2000;
+ const send=toolButton("An ausgewählte Plattformen senden",async()=>{const targets=[];if(tiktok.checked)targets.push("tiktok");if(twitch.checked)targets.push("twitch");if(!targets.length){stateLine.textContent="Bitte TikTok LIVE und/oder Twitch LIVE ausdrücklich auswählen.";return;}const result=await window.streamiovStudio?.chatSend?.(outgoing.value,targets);if(result?.ok)outgoing.value="";stateLine.textContent=result?.ok?"Nachricht von allen ausgewählten Adaptern bestätigt.":"Nicht gesendet: "+(result?.results||[]).map(x=>x.platform+": "+x.error).join(" · ")+(result?.error||"");});
+ let latest=[];
+ const renderMessages=()=>{logBox.replaceChildren();const q=search.value.trim().toLocaleLowerCase();for(const message of latest.filter(item=>(filter.value==="all"||item.source===filter.value)&&(!q||[item.author,item.channel,item.text].some(v=>String(v||"").toLocaleLowerCase().includes(q))))){const line=toolNode("div");line.append(toolNode("b",null,"["+String(message.source||"unknown").toUpperCase()+"] "+new Date(message.createdAt||message.time).toLocaleTimeString()+" "+String(message.author||"")+": "),document.createTextNode(message.text));logBox.append(line);}logBox.scrollTop=logBox.scrollHeight;};
+ const apply=result=>{if(!result?.ok){stateLine.textContent="Chat-Aktion fehlgeschlagen: "+(result?.error||"unbekannter Fehler");return;}latest=result.messages||[];stateLine.textContent="Chat: "+(result.chat==="online"?"an":"aus")+" · "+(result.message_count||0)+" Nachrichten · verbundene Adapter: "+((result.connected_adapters||[]).join(", ")||"keine");toggle.textContent=result.chat==="online"?"Chat ausschalten":"Chat einschalten";input.disabled=result.chat!=="online";receive.disabled=result.chat!=="online";outgoing.disabled=result.chat!=="online";send.disabled=result.chat!=="online";renderMessages();};
+ filter.addEventListener("change",renderMessages);search.addEventListener("input",renderMessages);
+ body.append(toolNote("Ein gemeinsamer Nachrichtenstrom mit Plattformfilter und Suche. Discord ist nur eingehender Community-Chat. Ausgehende Nachrichten gehen ausschließlich an ausdrücklich ausgewählte TikTok-/Twitch-LIVE-Ziele; ohne offizielle Verbindung werden sie nicht gesendet."),stateLine,toggle,filter,search,logBox,toolField("Lokale Testnachricht",input),receive,toolNote("Ausgehende Nachricht"),outbound,toolField("Nachricht",outgoing),send);
  apply(await api({action:"status"}));
 }
 async function renderTtsTool(body){
