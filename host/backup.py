@@ -215,8 +215,12 @@ def create_backup(data_dir: str | Path, backup_dir: str | Path) -> dict:
             )
         except FileNotFoundError as exc:
             raise BackupError("age is not installed. Install the free age encryption tool before enabling backups.") from exc
+        except subprocess.TimeoutExpired as exc:
+            raise BackupError("age encryption timed out; the incomplete backup was not published.") from exc
         except subprocess.CalledProcessError as exc:
             raise BackupError("age encryption failed: " + (exc.stderr or "no diagnostic").strip()[:240]) from exc
+        except OSError as exc:
+            raise BackupError("age could not create the encrypted backup.") from exc
         if not encrypted_path.is_file() or encrypted_path.stat().st_size < 64:
             raise BackupError("age produced an empty or incomplete encrypted backup.")
         with encrypted_path.open("rb") as handle:
@@ -270,8 +274,12 @@ def _decrypt_backup(backup_path: Path, temp_root: Path, identity: Path) -> Path:
         )
     except FileNotFoundError as exc:
         raise BackupError("age is not installed.") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise BackupError("Backup decryption timed out.") from exc
     except subprocess.CalledProcessError as exc:
         raise BackupError("Backup could not be decrypted. Check the owner identity key.") from exc
+    except OSError as exc:
+        raise BackupError("age could not decrypt the backup.") from exc
     if not archive_path.is_file() or archive_path.stat().st_size < 128:
         raise BackupError("Decrypted archive is empty or incomplete.")
     return archive_path
@@ -527,6 +535,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     except BackupError as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
+        return 2
+    except (OSError, sqlite3.Error, subprocess.TimeoutExpired) as exc:
+        print(json.dumps({"ok": False, "error": "backup_operation_failed", "detail": str(exc)[:200]}, ensure_ascii=False), file=sys.stderr)
         return 2
 
 
