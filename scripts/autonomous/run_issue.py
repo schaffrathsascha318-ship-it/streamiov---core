@@ -49,7 +49,7 @@ def fit_issue_body(body: str, max_chars: int) -> str:
         return ""
     if len(body) <= max_chars:
         return body
-    marker = "\\n\\n[Middle of the original issue body omitted to fit the model context; consult the complete GitHub issue for all details.]\\n\\n"
+    marker = "\n\n[Middle of the original issue body omitted to fit the model context; consult the complete GitHub issue for all details.]\n\n"
     available = max(0, max_chars - len(marker))
     head = (available * 2) // 3
     tail = available - head
