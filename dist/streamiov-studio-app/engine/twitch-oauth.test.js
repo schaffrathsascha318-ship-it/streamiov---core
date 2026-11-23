@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { TwitchOAuth, TwitchTokenStore, REQUIRED_SCOPES, safeRedirect } = require('./twitch-oauth');
+const { TwitchOAuth, TwitchTokenStore, REQUIRED_SCOPES, safeRedirect } = require('../twitch-oauth');
 
 const key = Buffer.alloc(32, 7).toString('base64');
 function setup(fetch) {
