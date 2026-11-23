@@ -14,7 +14,7 @@
     .wrap{width:min(var(--max),calc(100% - 40px));margin-inline:auto}
     .topbar{position:sticky;top:0;z-index:20;border-bottom:1px solid #253044cc;background:#080b12eF;backdrop-filter:blur(16px)}
     .nav{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:28px}
-    .brand-cluster{display:flex;align-items:center;gap:12px;flex:none;min-width:0}.brand{display:flex;align-items:center;flex:none}.brand img{display:block;width:186px;height:auto}.brand-ad-slot{position:relative;width:5cm;height:5cm;max-width:5cm;max-height:5cm;flex:none;display:grid;place-items:center;overflow:hidden;border:1px dashed #42e8ff88;border-radius:10px;background:#0c1420;color:#aebbd0;text-align:center;font-size:11px;font-weight:750}.brand-ad-slot .ad-placeholder{padding:12px;color:#aebbd0;line-height:1.5}.brand-ad-slot .ad-label{position:absolute;top:0;left:0;padding:2px 5px;border-radius:0 0 5px 0;background:#080b12dd;color:#aebbd0;font-size:10px}
+    .brand-cluster{display:flex;align-items:center;gap:12px;flex:none;min-width:0}.brand{display:flex;align-items:center;flex:none}.brand img{display:block;width:186px;height:auto}.brand-ad-slot{display:none;width:5cm;height:5cm;max-width:5cm;max-height:5cm;flex:none;place-items:center;overflow:hidden;border:1px solid #35445b;border-radius:10px;background:#0c1420;color:#aebbd0;text-align:center;text-decoration:none;font-size:11px;font-weight:750}.brand-ad-slot[data-active="true"]{display:grid}.brand-ad-slot img{display:block;width:100%;height:100%;object-fit:contain}.brand-ad-slot .ad-label{position:absolute;align-self:start;justify-self:start;padding:2px 5px;border-radius:0 0 5px 0;background:#080b12dd;color:#aebbd0;font-size:10px}
     .links{display:flex;align-items:center;justify-content:flex-end;gap:22px;flex-wrap:wrap}.links a{text-decoration:none;color:#ced7e7;font-size:14px;font-weight:650}.links a:hover{color:var(--cyan)}
     .links .nav-cta{padding:9px 15px;border:1px solid #42e8ff77;border-radius:999px;color:var(--cyan)}
     .hero{position:relative;isolation:isolate;overflow:hidden;padding:92px 0 78px;background:radial-gradient(ellipse 48% 70% at 78% 15%,#442c812b,transparent 72%),radial-gradient(ellipse 50% 80% at 82% 92%,#20c4d11b,transparent 76%)}
@@ -44,9 +44,9 @@
 <body>
   <header class="topbar">
     <div class="wrap nav">
-      <div class="brand-cluster"><a class="brand" href="/" aria-label="StreamioV Startseite"><img src="/assets/streamiov-wordmark.svg" alt="StreamioV"></a><div class="brand-ad-slot" data-active="true" role="img" aria-label="Freie Werbefläche, maximal 5 mal 5 Zentimeter"><span class="ad-label">Anzeige</span><span class="ad-placeholder">Werbefläche<br>5 × 5 cm</span></div></div>
+      <div class="brand-cluster"><a class="brand" href="/" aria-label="StreamioV Startseite"><img src="/assets/streamiov-wordmark.svg" alt="StreamioV"></a><a class="brand-ad-slot" data-active="false" href="#" aria-label="Anzeige – Werbefläche maximal 5 mal 5 Zentimeter" rel="sponsored nofollow noopener" hidden><span class="ad-label">Anzeige</span><img src="" alt="Werbeanzeige"></a></div>
       <nav class="links" aria-label="Hauptnavigation">
-        <a href="#downloads">Studio-Downloads</a><a href="/promo/">Promo</a><a href="#studio">Studio</a><a href="#ki">KI</a><a href="#spiele">Spiele-Downloads</a><a href="#musik">Musik</a><a href="#tiktok">TikTok</a><a href="#status">Projektstand</a><a href="#entwickler">Entwickler</a><a href="/forum/">Forum</a><a href="/account/">Konto</a><a class="nav-cta" href="/download/">Download-Hub</a>
+        <a href="#downloads">Studio-Downloads</a><a href="/promo/">Promo</a><a href="#studio">Studio</a><a href="#ki">KI</a><a href="#spiele">Spiele-Downloads</a><a href="#musik">Musik</a><a href="#tiktok">TikTok</a><a href="/forum/">Forum</a><a href="/account/">Konto</a><a class="nav-cta" href="/download/">Download-Hub</a>
       </nav>
     </div>
   </header>
@@ -68,7 +68,7 @@
     <div class="wrap stats" aria-label="StreamioV in Kürze">
       <div class="stat"><b>Studio-Installer verfügbar</b><span>Version 1.0.2 · Windows und Linux · Gerätetests offen</span></div>
       <div class="stat"><b>5 Spiel-Prototypen</b><span>Checksumiert · kein Release</span></div>
-      <div class="stat"><b>11 KI-Spezialisten</b><span>Rollen und Queue getestet · Modell extern blockiert</span></div>
+      
     </div>
 
     <section id="downloads">
@@ -79,10 +79,10 @@
           <article class="card"><div class="icon" aria-hidden="true">▤</div><h3>Linux Desktop</h3><p><strong>Programm:</strong> StreamioV Studio · <strong>Paket:</strong> DEB / AppImage für Linux x64; ARM64-Pakete separat für kompatible Geräte. Kein Spiel-Download.</p><a class="tag tag-ready" href="/download/#installer">Linux-Installer öffnen</a></article>
           <article class="card"><div class="icon" aria-hidden="true">▢</div><h3>Handy und Tablet</h3><p><strong>Programm:</strong> StreamioV Web-Regie · <strong>Paket:</strong> installierbare PWA über den Browser. Kein APK und kein nativer App-Store-Installer.</p><a class="tag tag-work" href="/download/#pwa">PWA für Handy / Tablet öffnen</a></article>
           <article class="card"><div class="icon" aria-hidden="true">◇</div><h3>Chromebook / ChromeOS</h3><p><strong>Programm:</strong> StreamioV Web-Regie als PWA im Chrome-Browser. Optional Linux-Studio über Crostini nur bei kompatiblem Gerät. PWA und DEB sind unterschiedliche Installationswege.</p><a class="tag tag-work" href="/download/#pwa">ChromeOS-Downloadwege ansehen</a></article>
-          <article class="card"><div class="icon" aria-hidden="true">◎</div><h3>Quellcode für Entwickler</h3><p>Sieben Teile mit SHA-256 zum Zusammensetzen. Das ist ein Quellcode-Snapshot für Entwickler – ausdrücklich kein installierbares Studio-Programm.</p><a class="tag tag-ready" href="/download/#quellcode">Quellcode-Snapshot öffnen</a></article>
-          <article class="card"><div class="icon" aria-hidden="true">▣</div><h3>Version und Prüfnachweise</h3><p>Versionsnummern, SHA-256-Prüfsummen und bekannte Einschränkungen für die Studio-Pakete. Ein erfolgreicher Build ersetzt keinen Gerätetest.</p><a class="tag tag-work" href="/download/#pruefung">Studio-Prüfstatus ansehen</a></article>
+          
+          
         </div>
-        <div class="actions"><a class="btn btn-main" href="/download/">Zum vollständigen Download-Hub</a><a class="btn btn-secondary" href="/promo/">Promo mit echten Screenshots</a><a class="btn btn-secondary" href="/download/#pruefung">Was noch fehlt</a></div>
+        <div class="actions"><a class="btn btn-main" href="/download/">Zum vollständigen Download-Hub</a><a class="btn btn-secondary" href="/promo/">Promo mit echten Screenshots</a></div>
       </div>
     </section>
 
@@ -150,21 +150,6 @@
       </div>
     </section>
 
-    <section id="status">
-      <div class="wrap">
-        <div class="section-head"><div class="kicker">Offener Projektstand</div><h2>Was da ist und was noch entsteht.</h2><p>Wir unterscheiden zwischen vorhandenen Downloads, laufender Entwicklung, Planung und externen Freigaben. Ein Plan oder CI-Erfolg ist kein Beweis für einen getesteten Livestream.</p></div>
-        <div class="timeline">
-          <article class="status-card"><span class="status-label" style="color:var(--mint)">Gebaut</span><div><h3>Installer und Quell-Snapshot</h3><p>Windows- und Linux-Installer als Studio 1.0.1 vom 3.11.2026 sowie ein siebenteiliger Quellcode-Snapshot mit SHA-256. Der Snapshot ist kein Installer; Gerätetests stehen aus.</p></div></article>
-          <article class="status-card"><span class="status-label" style="color:var(--mint)">Lokal verifiziert</span><div><h3>Forum, Konto, Katalog, KI-Queue</h3><p>Automatisierte Tests decken Forum-Schreibregeln, lokale Konten, den Read-only-Katalog, die KI-Spezialisten, die Task-Queue und den Cloudflare-Worker-Vertrag ab.</p></div></article>
-          <article class="status-card"><span class="status-label">In Arbeit</span><div><h3>Regie und Medienpipeline</h3><p>Szenen, Geräte, Audio-/Video-Verarbeitung und bestätigte Live-Ausgabe werden schrittweise umgesetzt und getrennt geprüft. FFmpeg ist noch nicht gebündelt.</p></div></article>
-          <article class="status-card"><span class="status-label">Prototyp</span><div><h3>Fünf Spiele</h3><p>Checksumierte ZIPs mit automatisierten Quelltests, aber ohne abgeschlossene Spielbarkeits-, Barrierefreiheits-, Rechte- und Geräteprüfung.</p></div></article>
-          <article class="status-card"><span class="status-label" style="color:var(--mint)">Erreichbar</span><div><h3>Cloudflare-KI</h3><p>Der AI-Worker ist deployt, authentifiziert erreichbar und hat eine echte Mini-Inferenz beantwortet. Lokale Ollama-Inferenz bleibt auf dieser Maschine nicht möglich; der Worker nutzt ausschließlich das Workers-AI-Free-Tier.</p></div></article>
-          <article class="status-card"><span class="status-label">Extern blockiert</span><div><h3>TikTok und Live</h3><p>TikTok-Freigaben, genehmigte Scopes und ein real von einem Dienst empfangener Livestream fehlen weiterhin.</p></div></article>
-          <article class="status-card"><span class="status-label">Zielmatrix</span><div><h3>Windows, Linux, ChromeOS, Android, iOS</h3><p>Windows/Linux haben Installer; ChromeOS, Android und iOS nutzen die PWA. Unterstützt wird ein Ziel erst nach passendem Build und Gerätetest.</p></div></article>
-        </div>
-      </div>
-    </section>
-
     <section id="kosten">
       <div class="wrap split">
         <div><div class="kicker">Kostenversprechen</div><h2>StreamioV bleibt kostenlos.</h2><p class="copy">Keine Abos, Pro-Stufen, verpflichtenden Käufe oder bezahlten StreamioV-Geschenke. Erlaubt ist ausschließlich eine kleine, klar als „Anzeige“ gekennzeichnete Werbefläche neben dem Logo mit maximal 5 × 5 cm. Sie darf keine Pop-ups, Unterbrechungen oder Tracking-Zwang auslösen.</p></div>
@@ -175,23 +160,12 @@
     <section id="community">
       <div class="wrap"><div class="section-head"><div class="kicker">Gemeinschaft</div><h2>Unterschiedliche Menschen. Gemeinsamer Respekt.</h2><p>Unterschiedliche Meinungen dürfen sein. Regeln gegen Hass, Bedrohung und gezielte Erniedrigung gelten transparent und unabhängig von politischer Richtung.</p><p>Das Forum ist bereits eine echte Host-Funktion: Lesen ist öffentlich, Schreiben benötigt eine lokale Konto-Sitzung und dieselbe Origin. Die statische Cloudflare-Seite allein kann keine Beiträge speichern; dafür muss der StreamioV-Host laufen.</p><div class="actions"><a class="btn btn-main" href="/forum/">Forum öffnen</a><a class="btn btn-secondary" href="/account/">Konto &amp; Anmeldung</a></div></div></div>
     </section>
-    <section id="entwickler" aria-labelledby="entwickler-title">
-      <div class="wrap">
-        <div class="notice">
-          <strong id="entwickler-title">Ein besonderer Wunsch?</strong>
-          Du suchst etwas, das StreamioV bewusst nicht anbietet oder das nicht zu unserem Konzept passt?
-          Schreib dem Entwickler. Er prüft, ob eine separate individuelle Lösung sinnvoll ist.
-          Daraus entsteht kein neues StreamioV-Hauptprodukt und ausdrücklich keine eigene Video-Plattform.
-          <a href="mailto:schaffrathsascha318@gmail.com?subject=Individuelle%20Anfrage%20an%20den%20Streamiov-Entwickler">Entwickler kontaktieren</a>
-        </div>
-      </div>
-    </section>
   </main>
 
   <footer>
     <div class="wrap footer-row">
       <div class="footer-brand"><img src="/assets/streamiov-symbol.svg" alt=""><span>StreamioV · Von Streamern für Streamer</span></div>
-      <nav aria-label="Rechtliches und Informationen"><a href="/download/">Downloads</a><a href="/geschichte/">Unsere Geschichte</a><a href="/forum/">Community</a><a href="#entwickler">Entwickler</a><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="/nutzungsbedingungen/">Nutzungsbedingungen</a><a href="/compliance/">Compliance</a></nav>
+      <nav aria-label="Rechtliches und Informationen"><a href="/download/">Downloads</a><a href="/geschichte/">Unsere Geschichte</a><a href="/forum/">Community</a><a href="/impressum/">Impressum</a><a href="/datenschutz/">Datenschutz</a><a href="/nutzungsbedingungen/">Nutzungsbedingungen</a><a href="/compliance/">Compliance</a></nav>
       <p class="copyright">© 2026 StreamioV. Produkt- und Plattformstatus gemäß den jeweiligen Projekt- und Download-Hinweisen.</p>
     </div>
   </footer>
