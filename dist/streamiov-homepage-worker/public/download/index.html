@@ -211,6 +211,42 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
       </div>
     </section>
 
+<section id="konto">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Konto &amp; Gemeinschaft</div>
+          <h2>Forum und lokales Konto.</h2>
+          <p>Das Forum ist eine echte Funktion des selbst betriebenen StreamioV-Hosts: Lesen ist öffentlich, Schreiben benötigt eine lokale Konto-Sitzung, eine exakte Same-Origin-Anfrage, ein JSON-Body und hält die Rate-Limits ein. Die statische Cloudflare-Seite allein kann keine Foren-Schreibvorgänge verarbeiten.</p>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <h3>Community-Forum</h3>
+            <p>Threads und Antworten werden in einer separaten <code>forum.sqlite3</code> gespeichert. Moderation erfolgt über die Host-CLI; Soft-Deletes und gesperrte Threads sind vorhanden. Abuse-Reporting, Spam-Erkennung und eine dokumentierte Aufbewahrungsrichtlinie fehlen noch.</p>
+            <a class="download-main" href="/forum/">Forum öffnen</a>
+            <span class="tag tag-ready">Lokal verifiziert · kein öffentlicher Rollout</span>
+          </article>
+          <article class="card">
+            <h3>Lokales Konto</h3>
+            <p>Registrierung ist standardmäßig geschlossen. Der erste Account wird vom Betreiber auf dem Host angelegt. E-Mail-Passwort-Reset, Verifikation und Account-Löschung sind nicht implementiert.</p>
+            <a class="download-main" href="/account/">Konto-Seite öffnen</a>
+            <span class="tag tag-work">Lokal · kein E-Mail-/OAuth-Flow</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="streaming">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Streaming-Funktion</div>
+          <h2>Regie-Oberfläche enthalten, Encoder noch extern.</h2>
+          <p>Die Installer enthalten Kamera-, Bildschirm- und Mikrofonauswahl sowie ein RTMP-Ziel. Studio 1.0.2 enthält den Szenen-/Quellen-Editor mit gemeinsamem Vorschau-, Programm- und Stream-Renderer sowie der Schutzregie: Ein Hotkey schaltet das Programm auf PAUSE und den lokalen Mikrofon-Mix auf 0 %, beim Aufheben werden beide Werte wiederhergestellt. Für eine echte Live-Ausgabe muss FFmpeg mit libx264, AAC und RTMP-Unterstützung auf dem Computer installiert sein; der Encoder ist noch nicht Teil der Installer.</p>
+        </div>
+        <div class="notice"><strong>Kein Live-Nachweis:</strong> Eine erfolgreiche RTMP-Verbindung ersetzt keine Anmeldung bei TikTok, YouTube, Twitch oder einem anderen Dienst. Ein Encoder-Start beweist nicht, dass ein Dienst den Stream empfangen oder veröffentlicht hat. Offizielle Plattform-Anmeldungen und TikTok-Geschenke bleiben von einer Freigabe durch TikTok abhängig.</div>
+        <div class="notice"><strong>Grenze der Schutzregie:</strong> Sie stoppt weder den Encoder noch eine laufende Aufnahme und garantiert keine Plattform-Privatsphäre. Sie schaltet nur die Programmszene und den lokalen Mikrofon-Mix; Plattform- und Aufnahme-Privatsphäre müssen separat geprüft werden.</div>
+      </div>
+    </section>
+
     <section id="pruefung">
       <div class="wrap">
         <div class="section-head">
