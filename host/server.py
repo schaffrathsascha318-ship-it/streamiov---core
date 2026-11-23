@@ -44,7 +44,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from host.auth import AuthError, AuthStore, RequestRateLimiter
 from host.data_store import DataStore
 from host.forum import ForumError, ForumStore
-from host.voice import VoiceError, VoiceRoomStore
+from host.voice import VoiceError, VoiceRoomStore, voice_ice_configuration
 
 
 def local_ai_status() -> dict:
@@ -468,7 +468,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(503 if "Signaturschlüssel" in str(exc) else 400, {"error": str(exc)})
                 return True
             self._json(201, {"ok": True, "room": {
-                **room, **token,
+                **room, **token, **voice_ice_configuration(user.user_id),
                 "signalling_url": os.environ.get("STREAMIOV_VOICE_SIGNALING_URL", ""),
                 "media_recording": False,
             }})
@@ -485,7 +485,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(503 if "Signaturschlüssel" in str(exc) else 400, {"error": str(exc)})
                 return True
             self._json(200, {"ok": True, "room": {
-                **room, **token,
+                **room, **token, **voice_ice_configuration(user.user_id),
                 "signalling_url": os.environ.get("STREAMIOV_VOICE_SIGNALING_URL", ""),
                 "media_recording": False,
             }})
@@ -501,7 +501,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(503 if "Signaturschlüssel" in str(exc) else 403, {"error": str(exc)})
                 return True
             self._json(200, {"ok": True, "room": {
-                **token,
+                **token, **voice_ice_configuration(user.user_id),
                 "signalling_url": os.environ.get("STREAMIOV_VOICE_SIGNALING_URL", ""),
                 "media_recording": False,
             }})
@@ -661,6 +661,7 @@ class Handler(BaseHTTPRequestHandler):
                 "platform_integrations_ready": False,
                 "voice_token_issuer_ready": len(os.environ.get("STREAMIOV_VOICE_SIGNING_KEY", "").encode("utf-8")) >= 32,
                 "voice_signalling_url_configured": bool(os.environ.get("STREAMIOV_VOICE_SIGNALING_URL")),
+                "voice_turn_configured": bool(os.environ.get("STREAMIOV_TURN_URLS")) and len(os.environ.get("STREAMIOV_TURN_SHARED_SECRET", "").encode("utf-8")) >= 32,
             })
             return
         if path == "/api/v1/ai/status":
