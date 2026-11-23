@@ -405,6 +405,8 @@ dialog::backdrop{background:#000b}
     <div class="channel"><b>Musik</b><div class="meter"><i></i></div>
      <input id="mixerMusic" type="range" min="0" max="100" value="50" aria-label="Musiklautstärke"><small id="mixerMusicValue">MUSIK · 50 %</small>
      <button id="mixerMusicMute" type="button" aria-pressed="false" style="width:100%;margin-top:6px;padding:4px">MUTE</button></div>
+    <div class="channel"><b>TTS</b><div class="meter"><i></i></div>
+     <input id="mixerTts" type="range" min="0" max="100" value="100" aria-label="TTS-Lautstärke"><small id="mixerTtsValue">TTS · 100 %</small></div>
     <div class="channel"><b>Master</b><div class="meter"><i></i></div>
      <input id="mixerMaster" type="range" min="0" max="100" value="80" aria-label="Masterlautstärke"><small id="mixerMasterValue">MASTER · 80 %</small></div>
    </div>
@@ -1247,6 +1249,12 @@ let broadcastAudioDestination=null;
 let musicPlayerAudio=new Audio();
 let musicMediaSource=null;
 let musicChannelGain=null;
+const ttsAudio=new Audio();
+ttsAudio.preload="auto";
+let ttsMediaSource=null;
+let ttsChannelGain=null;
+let ttsBridgeDestination=null;
+let ttsObjectUrl=null;
 const musicQueue=[];
 let musicQueueIndex=-1;
 let musicCurrentTrackLabel=null;
@@ -1313,14 +1321,14 @@ function ensureBroadcastAudioGraph(){
 let broadcastFrame=0;
 const liveButton=$("live");
 const liveStatus=$("liveStatus");
-const mixerDefaults={mixerMic:75,mixerSystem:45,mixerMusic:50,mixerMaster:80};
+const mixerDefaults={mixerMic:75,mixerSystem:45,mixerMusic:50,mixerTts:100,mixerMaster:80};
 const mixerStorageKey="streamiov.studio.audio-mixer.v1";
 function mixerValue(id){
  const value=Number($(id)?.value);
  return Number.isFinite(value)?Math.max(0,Math.min(100,value))/100:0;
 }
 function mixerPercent(id){return Math.round(mixerValue(id)*100);}
-function mixerLabel(id){return ({mixerMic:"MIC 1",mixerSystem:"SYSTEM",mixerMusic:"MUSIK",mixerMaster:"MASTER"})[id]||id.toUpperCase();}
+function mixerLabel(id){return ({mixerMic:"MIC 1",mixerSystem:"SYSTEM",mixerMusic:"MUSIK",mixerTts:"TTS",mixerMaster:"MASTER"})[id]||id.toUpperCase();}
 function updateMixerLabels(){
  for(const id of Object.keys(mixerDefaults)){
   const label=$(id+"Value");
@@ -1341,6 +1349,7 @@ function applyMixerGains(){
   if(system)studioAudioMixer.setGain("system",Number($("audioSystemGain").value)/100*mixerValue("mixerSystem"));
  }
  if(musicChannelGain)musicChannelGain.gain.setTargetAtTime(musicMuted?0:mixerValue("mixerMusic"),now,0.02);
+ if(ttsChannelGain)ttsChannelGain.gain.setTargetAtTime(mixerValue("mixerTts"),now,0.02);
  if(broadcastMasterGain)broadcastMasterGain.gain.setTargetAtTime(mixerValue("mixerMaster"),now,0.02);
 }
 // Schutzregie / Privacy Shield: lokal, kostenlos und ehrlich begrenzt.
@@ -1552,6 +1561,7 @@ async function startBroadcast(){
   const streamHasSource=((audioMode==="mic"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("microphone"))&&effectiveAudioRoutes(selectedMicrophoneRoutes()).includes("stream"))
    ||((audioMode==="system"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("system"))&&effectiveAudioRoutes(selectedSystemRoutes()).includes("stream"))
    ||(musicQueueIndex>=0&&musicPlayerAudio.paused===false&&studioAudioMixer.snapshot("music"))
+   ||(!ttsAudio.paused&&studioAudioMixer.snapshot("tts"))
    ||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended&&pad.channelName&&studioAudioMixer.snapshot(pad.channelName));
   if(!streamBusTrack||!streamHasSource)throw new Error("Für den Stream-Bus ist keine aktive Audioquelle zum Stream geroutet.");
   broadcastAudioDestination=broadcastAudioContext.createMediaStreamDestination();
@@ -1569,7 +1579,7 @@ async function startBroadcast(){
   broadcastRecorder=recorder;
   const stopIfSourcesEnded=()=>{
    const videoAvailable=(cameraTrack?.readyState==="live")||(screenTrack?.readyState==="live");
-   const audioAvailable=audioInputs.some(track=>track.readyState==="live")||(musicQueueIndex>=0&&musicPlayerAudio.paused===false)||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended);
+   const audioAvailable=audioInputs.some(track=>track.readyState==="live")||(musicQueueIndex>=0&&musicPlayerAudio.paused===false)||!ttsAudio.paused||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended);
    if(broadcastRecorder&&(!videoAvailable||!audioAvailable)){
     setBroadcastStatus("error","Eine benötigte Kamera-, Bildschirm- oder Mikrofonquelle wurde beendet.");
     void stopBroadcast(true);
@@ -1664,6 +1674,30 @@ async function renderChatTool(body){
  body.append(toolNote("Ein gemeinsamer Nachrichtenstrom mit Plattformfilter und Suche. Discord ist nur eingehender Community-Chat. Ausgehende Nachrichten gehen ausschließlich an ausdrücklich ausgewählte TikTok-/Twitch-LIVE-Ziele; ohne offizielle Verbindung werden sie nicht gesendet."),stateLine,toggle,filter,search,logBox,toolField("Lokale Testnachricht",input),receive,toolNote("Ausgehende Nachricht"),outbound,toolField("Nachricht",outgoing),send);
  apply(await api({action:"status"}));
 }
+async function playTtsAudio(base64,mime="audio/wav"){
+ if(typeof base64!=="string"||!base64.length)throw new Error("TTS-Audiodaten fehlen.");
+ const binary=atob(base64);
+ const bytes=new Uint8Array(binary.length);
+ for(let index=0;index<binary.length;index++)bytes[index]=binary.charCodeAt(index);
+ const context=await ensureBroadcastAudioGraph();
+ await context.resume();
+ if(!ttsMediaSource){
+  ttsMediaSource=context.createMediaElementSource(ttsAudio);
+  ttsChannelGain=context.createGain();
+  ttsChannelGain.gain.value=mixerValue("mixerTts");
+  if(studioAudioMixer){
+   ttsBridgeDestination=context.createMediaStreamDestination();
+   ttsMediaSource.connect(ttsChannelGain).connect(ttsBridgeDestination);
+   studioAudioMixer.connect("tts",ttsBridgeDestination.stream,{gain:1,routes:["stream","monitor"]});
+  }else ttsMediaSource.connect(ttsChannelGain).connect(broadcastMasterGain);
+ }
+ if(ttsObjectUrl)URL.revokeObjectURL(ttsObjectUrl);
+ ttsObjectUrl=URL.createObjectURL(new Blob([bytes],{type:mime}));
+ ttsAudio.src=ttsObjectUrl;
+ ttsAudio.load();
+ await ttsAudio.play();
+}
+ttsAudio.addEventListener("ended",()=>{if(ttsObjectUrl){URL.revokeObjectURL(ttsObjectUrl);ttsObjectUrl=null;}});
 async function renderTtsTool(body){
  const api=window.streamiovStudio?.chatAction;
  if(!api){body.append(toolNote("TTS benötigt die installierte Desktop-App."));return;}
@@ -1676,7 +1710,12 @@ async function renderTtsTool(body){
   const text=input.value.trim();
   if(!text){input.focus();return;}
   stateLine.textContent="Sprachausgabe läuft …";
-  apply(await api({action:"speak",text}));
+  const result=await api({action:"speak",text});
+  apply(result);
+  if(result?.ok&&result.audio_base64){
+   try{await playTtsAudio(result.audio_base64,result.audio_mime||"audio/wav");stateLine.textContent="TTS läuft über Stream-/Monitor-Bus."}
+   catch(error){stateLine.textContent="TTS-Audio konnte nicht in die Busse geroutet werden: "+String(error.message||error);}
+  }
  });
  const apply=result=>{
   if(!result?.ok){
