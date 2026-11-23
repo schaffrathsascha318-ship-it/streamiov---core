@@ -1238,11 +1238,11 @@ ipcMain.handle('studio:voice-action', async (event, payload = {}) => {
       try {
         const tokenData = await hostPost('/api/v1/voice/token', { room_id: roomId });
         roomToken = tokenData.room?.token || null;
-        signallingUrl = String(tokenData.room?.signalling_url || '').replace(/\\/+$/, '');
+        signallingUrl = String(tokenData.room?.signalling_url || '').replace(/\/+$/, '');
       } catch {}
       const data = await hostPost('/api/v1/voice/rooms/' + roomId + '/close', { confirm: true });
       let signallingRevoked = false;
-      if (roomToken && /^https:\\/\\//i.test(signallingUrl)) {
+      if (roomToken && /^https:\/\//i.test(signallingUrl)) {
         try {
           const response = await fetch(signallingUrl + '/v1/voice/rooms/' + roomId + '/close', {
             method: 'POST', headers: { Authorization: 'Bearer ' + roomToken },
