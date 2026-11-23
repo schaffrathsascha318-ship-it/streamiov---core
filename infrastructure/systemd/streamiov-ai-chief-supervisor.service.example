@@ -14,6 +14,7 @@ WorkingDirectory=/opt/streamiov
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=/etc/streamiov/ai-chief.env
 ExecStartPre=/usr/bin/test -n "${STREAMIOV_PROJECT_GOAL}"
+ExecStartPre=/opt/streamiov/.venv/bin/python /opt/streamiov/scripts/ai/validate-chief-service-env.py
 StateDirectory=streamiov
 StateDirectoryMode=0700
 ExecStart=/opt/streamiov/.venv/bin/python -m ai --project-supervisor-run --task ${STREAMIOV_PROJECT_GOAL} --project-root /opt/streamiov --mission-db /var/lib/streamiov/ai-missions.sqlite3 --learning-db /var/lib/streamiov/verified-learning.sqlite3 --full-project-development --allow-self-modification --mission-poll-seconds 5
