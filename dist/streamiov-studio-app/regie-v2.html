@@ -946,6 +946,7 @@ const studioAudioMixer=window.StreamiovAudioMixer?new window.StreamiovAudioMixer
 let broadcastMixerSource=null;
 let musicBridgeDestination=null;
 const audioBusNames=["stream","monitor","headphones","communications"];
+const mixerMeterFrameState={frame:0};
 const audioBusElements={monitor:$("audioBusElementMonitor"),headphones:$("audioBusElementHeadphones"),communications:$("audioBusElementCommunications")};
 const audioBusState=Object.fromEntries(audioBusNames.map(name=>[name,{gain:100,muted:false,connected:false}]));
 function audioBusStatus(name,message){const target=document.querySelector("[data-audio-bus-status='"+name+"']");if(target)target.textContent=message;}
@@ -1350,7 +1351,6 @@ function updateMixerLabels(){
   if(label)label.textContent=mixerLabel(id)+" · "+mixerPercent(id)+" %";
  }
 }
-const mixerMeterFrameState={frame:0};
 function drawMixerMeters(){
  if(!studioAudioMixer)return;
  document.querySelectorAll("[data-mixer-meter]").forEach(element=>{
