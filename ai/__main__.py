@@ -151,7 +151,7 @@ def main(argv: list[str] | None = None) -> int:
             engine = ContinuousDevelopmentEngine(
                 args.mission_db,
                 ModelMissionPlanner(provider),
-                lambda role: DevelopmentAgent(
+                lambda role, task_id=None: DevelopmentAgent(
                     provider=provider,
                     project_root=Path(args.project_root),
                     max_steps=args.max_steps,
@@ -160,6 +160,7 @@ def main(argv: list[str] | None = None) -> int:
                     checkpoint_db=args.mission_db,
                     allow_self_modification=args.allow_self_modification,
                     full_project_development=args.full_project_development,
+                    task_id=task_id,
                 ),
             )
             if args.mission_create:
@@ -224,13 +225,14 @@ def main(argv: list[str] | None = None) -> int:
             worker = SpecialistWorker(
                 queue,
                 args.worker_id,
-                lambda role: DevelopmentAgent(
+                lambda role, task_id=None: DevelopmentAgent(
                     provider=provider_from_env(),
                     project_root=Path(args.project_root),
                     max_steps=args.max_steps,
                     specialist=role,
                     learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
                     checkpoint_db=args.queue_db,
+                    task_id=task_id,
                 ),
             )
             execution = worker.run_once()
@@ -249,12 +251,13 @@ def main(argv: list[str] | None = None) -> int:
             worker = SpecialistWorker(
                 queue,
                 args.worker_id,
-                lambda role: DevelopmentAgent(
+                lambda role, task_id=None: DevelopmentAgent(
                     provider=provider_from_env(),
                     project_root=Path(args.project_root),
                     max_steps=args.max_steps,
                     specialist=role,
                     checkpoint_db=args.queue_db,
+                    task_id=task_id,
                 ),
             )
             stop_event = threading.Event()
