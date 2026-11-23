@@ -313,6 +313,7 @@ class DevelopmentAgent:
         checkpoint_db: str | Path | None = None,
         allow_self_modification: bool = False,
         full_project_development: bool = False,
+        task_id: str | None = None,
     ) -> None:
         # max_steps is accepted only for backward compatibility. A mission task must
         # not be abandoned because it consumed an arbitrary number of model/tool turns.
@@ -328,6 +329,7 @@ class DevelopmentAgent:
             allow_game_checks=self.allow_game_checks,
             allow_self_modification=allow_self_modification,
             full_project_development=full_project_development,
+            task_id=task_id,
         )
         self.max_steps = None  # no per-task turn ceiling
         self.checkpoints = AgentCheckpointStore(checkpoint_db) if checkpoint_db else None

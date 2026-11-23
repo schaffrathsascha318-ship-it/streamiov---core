@@ -346,6 +346,20 @@ class SpecialistWorker:
         self.queue = queue
         self.worker_id = worker_id
         self.agent_factory = agent_factory
+        try:
+            parameters = inspect.signature(agent_factory).parameters
+            task_parameter = parameters.get("task_id")
+            self._factory_task_id_keyword = bool(
+                task_parameter and task_parameter.kind != inspect.Parameter.POSITIONAL_ONLY
+            ) or any(item.kind == inspect.Parameter.VAR_KEYWORD for item in parameters.values())
+            self._factory_accepts_task_id = (
+                self._factory_task_id_keyword
+                or bool(task_parameter)
+                or any(item.kind == inspect.Parameter.VAR_POSITIONAL for item in parameters.values())
+            )
+        except (TypeError, ValueError):
+            self._factory_accepts_task_id = False
+            self._factory_task_id_keyword = False
         self.lease_seconds = lease_seconds
 
     def run_once(self, stop_event: threading.Event | None = None) -> WorkerExecution | None:
@@ -380,7 +394,13 @@ class SpecialistWorker:
         heartbeat_thread.start()
         agent = None
         try:
-            agent = self.agent_factory(task.specialist)
+            if self._factory_accepts_task_id:
+                if self._factory_task_id_keyword:
+                    agent = self.agent_factory(task.specialist, task_id=task.task_id)
+                else:
+                    agent = self.agent_factory(task.specialist, task.task_id)
+            else:
+                agent = self.agent_factory(task.specialist)
             run_parameters = inspect.signature(agent.run).parameters
             run_kwargs = {}
             if "checkpoint_id" in run_parameters:
