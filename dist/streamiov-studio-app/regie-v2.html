@@ -567,6 +567,7 @@ dialog::backdrop{background:#000b}
  </main>
 
 <script src="engine/audio-mixer.js"></script>
+<script src="engine/audio-device-adapter.js"></script>
 <script src="engine/privacy-shield.js"></script>
 <script>
 const $=id=>document.getElementById(id);
@@ -946,6 +947,7 @@ $("sceneBackground").onchange=async event=>{
 const captureState={camera:null,screen:null,microphone:null,audioContext:null,analyser:null,meterFrame:0};
 
 const studioAudioMixer=window.StreamiovAudioMixer?new window.StreamiovAudioMixer():null;
+const studioAudioDeviceAdapter=window.StreamiovAudioDeviceAdapter?new window.StreamiovAudioDeviceAdapter({mixer:studioAudioMixer}):null;
 let broadcastMixerSource=null;
 let musicBridgeDestination=null;
 const audioBusNames=["stream","monitor","headphones","communications"];
@@ -991,12 +993,12 @@ document.querySelectorAll("[data-audio-bus-mute]").forEach(button=>button.addEve
 document.querySelectorAll("[data-audio-bus-connect]").forEach(button=>button.addEventListener("click",async()=>{
  const name=button.dataset.audioBusConnect,element=audioBusElements[name],select=document.querySelector("[data-audio-bus-device='"+name+"']");
  if(!studioAudioMixer||!element||!select)return;button.disabled=true;audioBusStatus(name,"Audioausgang wird aktiviert …");
- try{const result=await studioAudioMixer.attachOutput(name,element,{deviceId:select.value});audioBusState[name].connected=true;audioBusStatus(name,result.physicalTargetSelected?"Verbunden mit ausgewähltem Gerät.":"Verbunden · Systemstandard.");}
+ try{const result=studioAudioDeviceAdapter?await studioAudioDeviceAdapter.attachOutput(name,element,{deviceId:select.value}):await studioAudioMixer.attachOutput(name,element,{deviceId:select.value});audioBusState[name].connected=true;audioBusStatus(name,result.physicalTargetSelected?"Verbunden mit ausgewähltem Gerät.":"Verbunden · Systemstandard.");}
  catch(error){audioBusState[name].connected=false;audioBusStatus(name,"Ausgang nicht verfügbar: "+captureError(error));}
  finally{button.disabled=false;renderAudioBus(name);}
 }));
 document.querySelectorAll("[data-audio-bus-disconnect]").forEach(button=>button.addEventListener("click",()=>{
- const name=button.dataset.audioBusDisconnect;if(studioAudioMixer)studioAudioMixer.detachOutput(name,audioBusElements[name]);audioBusState[name].connected=false;renderAudioBus(name);
+ const name=button.dataset.audioBusDisconnect;if(studioAudioDeviceAdapter)studioAudioDeviceAdapter.detachOutput(name,audioBusElements[name]);else if(studioAudioMixer)studioAudioMixer.detachOutput(name,audioBusElements[name]);audioBusState[name].connected=false;renderAudioBus(name);
 }));
 const sourceRoutingStorageKey="streamiov.studio.audio-routing.v1";
 try{
@@ -1075,7 +1077,7 @@ async function reconcileAudioOutputDevices(){
    continue;
   }
   try{
-   await studioAudioMixer.attachOutput(name,element,{deviceId:requested});
+   if(studioAudioDeviceAdapter)await studioAudioDeviceAdapter.attachOutput(name,element,{deviceId:requested});else await studioAudioMixer.attachOutput(name,element,{deviceId:requested});
    audioBusState[name].connected=true;
    audioBusStatus(name,"Audioausgang nach Gerätewechsel wieder verbunden.");
   }catch(error){
@@ -1087,7 +1089,8 @@ async function reconcileAudioOutputDevices(){
 }
 async function refreshAudioBusDevices(){
  if(!navigator.mediaDevices?.enumerateDevices)return;
- const devices=await navigator.mediaDevices.enumerateDevices();
+ const inventory=studioAudioDeviceAdapter?await studioAudioDeviceAdapter.listDevices():{outputs:(await navigator.mediaDevices.enumerateDevices()).filter(device=>device.kind==="audiooutput")};
+ const devices=inventory.outputs||[];
  document.querySelectorAll("[data-audio-bus-device]").forEach(select=>{
   const selected=select.value||savedAudioBusDevices[select.dataset.audioBusDevice]||"";select.replaceChildren();const standard=document.createElement("option");standard.value="";standard.textContent="Systemstandard";select.append(standard);
   devices.filter(device=>device.kind==="audiooutput").forEach((device,index)=>{const option=document.createElement("option");option.value=device.deviceId;option.textContent=device.label||"Audioausgang "+(index+1);select.append(option);});
@@ -1269,7 +1272,7 @@ $("microphoneStart").onclick=async()=>{
  try{
   if(!navigator.mediaDevices?.getUserMedia)throw new Error("Mikrofon-API ist in dieser Laufzeit nicht verfügbar.");
   const deviceId=microphoneSelect.value;
-  const stream=await navigator.mediaDevices.getUserMedia({video:false,audio:deviceId?{deviceId:{exact:deviceId}}:true});
+  const stream=studioAudioDeviceAdapter?await studioAudioDeviceAdapter.openMicrophone({deviceId,echoCancellation:$("micEchoCancellation").checked,noiseSuppression:$("micNoiseSuppression").checked,autoGainControl:$("micAutoGainControl").checked}):await navigator.mediaDevices.getUserMedia({video:false,audio:deviceId?{deviceId:{exact:deviceId}}:true});
   captureState.microphone=stream;
   if(!studioAudioMixer)throw new Error("Audio-Mixer ist in dieser Laufzeit nicht verfügbar.");
   studioAudioMixer.connect("microphone",stream,{gain:Number($("audioMicGain").value)/100,routes:selectedMicrophoneRoutes()});
@@ -1304,8 +1307,8 @@ $("microphoneStart").onclick=async()=>{
  finally{button.disabled=false;}
 };
 if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener("devicechange",()=>refreshCaptureDevices().catch(()=>{}));
-if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener("devicechange",()=>reconcileAudioOutputDevices().catch(()=>{}));
-window.addEventListener("beforeunload",()=>{if(mixerMeterFrameState.frame)cancelAnimationFrame(mixerMeterFrameState.frame);stopBroadcast();stopCapture("camera");stopCapture("screen");stopCapture("microphone");if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
+const stopWatchingAudioDevices=studioAudioDeviceAdapter?.watchDevices(()=>reconcileAudioOutputDevices().catch(()=>{}));
+window.addEventListener("beforeunload",()=>{if(mixerMeterFrameState.frame)cancelAnimationFrame(mixerMeterFrameState.frame);stopWatchingAudioDevices?.();studioAudioDeviceAdapter?.close();stopBroadcast();stopCapture("camera");stopCapture("screen");stopCapture("microphone");if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
 $("refreshDevices").click();
 $("runtimeCheck").onclick=async()=>{
  const output=$("runtimeDiagnostics");
