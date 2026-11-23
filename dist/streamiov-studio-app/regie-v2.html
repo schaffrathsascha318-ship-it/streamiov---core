@@ -962,9 +962,20 @@ const audioBusElements={monitor:$("audioBusElementMonitor"),headphones:$("audioB
 const audioBusDeviceStorageKey="streamiov.studio.audio-output-devices.v1";
 let savedAudioBusDevices={};
 try{savedAudioBusDevices=JSON.parse(localStorage.getItem(audioBusDeviceStorageKey)||"{}")||{};}catch(_){savedAudioBusDevices={};}
-document.querySelectorAll("[data-audio-bus-device]").forEach(select=>select.addEventListener("change",()=>{
- savedAudioBusDevices[select.dataset.audioBusDevice]=select.value;
+document.querySelectorAll("[data-audio-bus-device]").forEach(select=>select.addEventListener("change",async()=>{
+ const name=select.dataset.audioBusDevice;
+ savedAudioBusDevices[name]=select.value;
  try{localStorage.setItem(audioBusDeviceStorageKey,JSON.stringify(savedAudioBusDevices));}catch(_){/* device preference is optional */}
+ if(!audioBusState[name]?.connected)return;
+ try{
+  if(studioAudioDeviceAdapter)await studioAudioDeviceAdapter.attachOutput(name,audioBusElements[name],{deviceId:select.value});
+  else await studioAudioMixer.attachOutput(name,audioBusElements[name],{deviceId:select.value});
+  audioBusStatus(name,"Ausgabegerät gewechselt · Ausgang wieder verbunden.");
+ }catch(error){
+  audioBusState[name].connected=false;
+  renderAudioBus(name);
+  audioBusStatus(name,"Gerätewechsel fehlgeschlagen: "+captureError(error));
+ }
 }));
 const audioBusStorageKey="streamiov.studio.audio-buses.v1";
 const audioBusState=Object.fromEntries(audioBusNames.map(name=>[name,{gain:100,muted:false,connected:false}]));
