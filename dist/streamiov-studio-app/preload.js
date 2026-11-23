@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
   aiLogin: (payload) => ipcRenderer.invoke('studio:ai-login', payload),
   aiLogout: () => ipcRenderer.invoke('studio:ai-logout'),
   aiSubmit: (payload) => ipcRenderer.invoke('studio:ai-submit', payload),
+  voiceAction: (payload) => ipcRenderer.invoke('studio:voice-action', payload),
   tiktokStatus: () => ipcRenderer.invoke('studio:tiktok-status'),
   tiktokConnect: () => ipcRenderer.invoke('studio:tiktok-connect'),
   tiktokDisconnect: () => ipcRenderer.invoke('studio:tiktok-disconnect'),
