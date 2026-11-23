@@ -997,7 +997,7 @@ try{
  }
 }catch(_){/* mixer preferences are optional */}
 function saveAudioBusState(){
- try{localStorage.setItem(audioBusStorageKey,JSON.stringify(Object.fromEntries(audioBusNames.map(name=>[name,{gain:audioBusState[name].gain,muted:audioBusState[name].muted}])));}
+ try{localStorage.setItem(audioBusStorageKey,JSON.stringify(Object.fromEntries(audioBusNames.map(name=>[name,{gain:audioBusState[name].gain,muted:audioBusState[name].muted}]))));}
  catch(_){/* mixer preferences are optional */}
 }
 function audioBusStatus(name,message){const target=document.querySelector("[data-audio-bus-status='"+name+"']");if(target)target.textContent=message;}
