@@ -154,9 +154,7 @@ class ContinuousDevelopmentEngine:
             self._agent_factory_accepts_task_id = (
                 self._agent_factory_task_id_keyword
                 or any(item.kind == inspect.Parameter.VAR_POSITIONAL for item in factory_parameters.values())
-                or len([item for item in factory_parameters.values() if item.kind in (
-                    inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD
-                )]) >= 2
+
             )
         except (TypeError, ValueError):
             self._agent_factory_task_id_keyword = False
