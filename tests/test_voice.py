@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from host.voice import VoiceError, VoiceRoomStore
+from host.voice import VoiceError, VoiceRoomStore, voice_ice_configuration
 
 
 class VoiceRoomStoreTests(unittest.TestCase):
@@ -68,6 +68,28 @@ class VoiceRoomStoreTests(unittest.TestCase):
             self.store.create_invite("owner-id", room["room_id"], ttl=True)
         with self.assertRaises(VoiceError):
             self.store.create_invite("owner-id", room["room_id"], max_uses=True)
+
+    def test_turn_credentials_are_short_lived_and_derived_from_shared_secret(self):
+        secret = "turn-secret-" * 4
+        with patch.dict(os.environ, {
+            "STREAMIOV_TURN_URLS": "turn:voice.example.test:3478?transport=udp,turns:voice.example.test:5349?transport=tcp",
+            "STREAMIOV_TURN_SHARED_SECRET": secret,
+        }):
+            result = voice_ice_configuration("user-123", now=1000)
+        self.assertTrue(result["turn_available"])
+        turn = result["ice_servers"][0]
+        self.assertEqual(turn["username"], "4600:user-123")
+        expected = base64.b64encode(hmac.new(secret.encode(), b"4600:user-123", hashlib.sha1).digest()).decode()
+        self.assertEqual(turn["credential"], expected)
+
+    def test_turn_falls_back_to_stun_without_long_lived_secret(self):
+        with patch.dict(os.environ, {
+            "STREAMIOV_TURN_URLS": "turn:voice.example.test:3478",
+            "STREAMIOV_TURN_SHARED_SECRET": "",
+        }):
+            result = voice_ice_configuration("user-123", now=1000)
+        self.assertFalse(result["turn_available"])
+        self.assertEqual(result["ice_servers"], [{"urls": "stun:stun.l.google.com:19302"}])
 
 
 if __name__ == "__main__":
