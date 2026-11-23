@@ -168,14 +168,27 @@ func _handle_tap(pos: Vector2) -> void:
 		return
 	var size := get_viewport_rect().size
 	if game_id == "echo-grid":
-		var cell := Vector2i(int(pos.x / (size.x / 3.0)), int((pos.y - size.y * 0.22) / (size.y * 0.58 / 3.0)))
-		if cell.x >= 0 and cell.x < 3 and cell.y >= 0 and cell.y < 3 and not sequence_showing:
-			_echo_choose(cell.y * 3 + cell.x)
+		var cell_size := minf(size.x * 0.24, size.y * 0.17)
+		var gap := 8.0
+		var origin := Vector2((size.x - (cell_size * 3.0 + gap * 2.0)) / 2.0, size.y * 0.25)
+		var local := pos - origin
+		var col := int(local.x / (cell_size + gap))
+		var row := int(local.y / (cell_size + gap))
+		var within_x := local.x - col * (cell_size + gap)
+		var within_y := local.y - row * (cell_size + gap)
+		if local.x >= 0.0 and local.y >= 0.0 and col < 3 and row < 3 and within_x <= cell_size and within_y <= cell_size and not sequence_showing:
+			_echo_choose(row * 3 + col)
 	elif game_id == "signal-weave":
-		var x := int((pos.x - size.x * 0.10) / (size.x * 0.80 / 5.0))
-		var y := int((pos.y - size.y * 0.18) / (size.y * 0.64 / 5.0))
-		if x >= 0 and x < 5 and y >= 0 and y < 5:
-			var index := y * 5 + x
+		var cell_size := minf(size.x * 0.145, size.y * 0.115)
+		var gap := 5.0
+		var origin := Vector2((size.x - (cell_size * 5.0 + gap * 4.0)) / 2.0, size.y * 0.22)
+		var local := pos - origin
+		var col := int(local.x / (cell_size + gap))
+		var row := int(local.y / (cell_size + gap))
+		var within_x := local.x - col * (cell_size + gap)
+		var within_y := local.y - row * (cell_size + gap)
+		if local.x >= 0.0 and local.y >= 0.0 and col < 5 and row < 5 and within_x <= cell_size and within_y <= cell_size:
+			var index := row * 5 + col
 			pipe_turns[index] = (pipe_turns[index] + 1) % 4
 			_check_signal()
 
