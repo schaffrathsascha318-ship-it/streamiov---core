@@ -12,7 +12,7 @@ class ToolError(RuntimeError):
     pass
 
 DENIED_PARTS = {".git", ".github", ".env", ".wrangler", "node_modules", "__pycache__", "secrets", "oauth", ".ssh"}
-DENIED_FILE_NAMES = {"auth.json", "oauth.json", "token.json", "tokens.json", "credentials.json", "client_secret.json", "tiktok-oauth.js"}
+DENIED_FILE_NAMES = {"auth.json", "oauth.json", "token.json", "tokens.json", "credentials.json", "client_secret.json", "tiktok-oauth.js", "twitch-oauth.js"}
 DENIED_PATH_PREFIXES = {"scripts/autonomous"}
 DENIED_SUFFIXES = {".pem", ".key", ".p12", ".pfx"}
 PROTECTED_WRITE_PREFIXES = (
