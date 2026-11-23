@@ -65,12 +65,6 @@ jobs:
             ffmpeg_target: win64
             ffmpeg_asset: ffmpeg-N-129219-g359c825152-win64-gpl.zip
             ffmpeg_sha256: af969e0dda60550d75a393a575bad7be6ca7be8e698baa1c80f4963250acc969
-          - name: Windows ARM64
-            runner: windows-latest
-            command: dist:win:arm64
-            ffmpeg_target: winarm64
-            ffmpeg_asset: ffmpeg-N-129219-g359c825152-winarm64-gpl.zip
-            ffmpeg_sha256: 94c08d75532f5b450f8562871452a863ffeaba66659b740eec85aadf4b6148c4
           - name: Linux x64
             runner: ubuntu-latest
             command: dist:linux
@@ -233,7 +227,6 @@ jobs:
             cp "$source" "release/$destination"
           }
           copy_one "artifacts/streamiov-studio-Windows x64" "*.exe" "Streamiov.Studio.Setup.${APP_VERSION}-x64.exe"
-          copy_one "artifacts/streamiov-studio-Windows ARM64" "*.exe" "Streamiov.Studio.Setup.${APP_VERSION}-arm64.exe"
           copy_one "artifacts/streamiov-studio-Linux x64" "*.AppImage" "Streamiov.Studio-${APP_VERSION}-x64.AppImage"
           copy_one "artifacts/streamiov-studio-Linux ARM64" "*.AppImage" "Streamiov.Studio-${APP_VERSION}-arm64.AppImage"
           copy_one "artifacts/streamiov-studio-Linux x64" "*.deb" "streamiov-studio_${APP_VERSION}_amd64.deb"
