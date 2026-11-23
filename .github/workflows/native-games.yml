@@ -174,7 +174,7 @@ jobs:
             "$GODOT_BIN" --headless --editor --path "$project" --quit
             "$GODOT_BIN" --headless --path "$project" --export-debug "iOS Xcode Project" "build/StreamioV-$game-ios-xcode"
             mkdir -p "artifacts/$game"
-            (cd "$project/build" && zip -qr "$GITHUB_WORKSPACE/artifacts/$game/StreamioV-$game-ios-xcode-unsigned.zip" "StreamioV-$game-ios-xcode" "StreamioV-$game-ios-xcode.xcodeproj" "StreamioV-$game-ios-xcode.xcframework" "MoltenVK.xcframework")
+            (cd "$project/build" && zip -qr "$GITHUB_WORKSPACE/artifacts/$game/StreamioV-$game-ios-xcode-unsigned.zip" .)
             echo "Unsigned Xcode project with placeholder Team ID 0000000000. Replace with the real Apple Developer Team ID, signing, provisioning and physical-device validation before installation." > "artifacts/$game/IOS-SIGNING-REQUIRED.txt"
             (cd "artifacts/$game" && shasum -a 256 * > SHA256SUMS.txt)
           done
