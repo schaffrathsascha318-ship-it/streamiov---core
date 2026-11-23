@@ -26,6 +26,7 @@ on:
       - "scripts/sync-studio-ui.py"
       - "scripts/sync-studio-games.py"
       - "scripts/test-studio-media-pipeline.cjs"
+      - "scripts/prepare-ffmpeg-runtime.py"
       - ".github/workflows/studio-build.yml"
   push:
     branches:
@@ -36,6 +37,7 @@ on:
       - "scripts/sync-studio-ui.py"
       - "scripts/sync-studio-games.py"
       - "scripts/test-studio-media-pipeline.cjs"
+      - "scripts/prepare-ffmpeg-runtime.py"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -43,6 +45,11 @@ concurrency:
 
 permissions:
   contents: write
+
+env:
+  FFMPEG_RELEASE_TAG: autobuild-2026-11-22-12-36
+  FFMPEG_SOURCE_COMMIT: 359c825152
+  FFMPEG_BUILD_SCRIPTS_COMMIT: 7f2a6b1050d302144de8366afa37a75e46f326aa
 
 jobs:
   build:
@@ -55,21 +62,39 @@ jobs:
           - name: Windows x64
             runner: windows-latest
             command: dist:win
+            ffmpeg_target: win64
+            ffmpeg_asset: ffmpeg-N-129219-g359c825152-win64-gpl.zip
+            ffmpeg_sha256: af969e0dda60550d75a393a575bad7be6ca7be8e698baa1c80f4963250acc969
           - name: Windows ARM64
             runner: windows-latest
             command: dist:win:arm64
+            ffmpeg_target: winarm64
+            ffmpeg_asset: ffmpeg-N-129219-g359c825152-winarm64-gpl.zip
+            ffmpeg_sha256: 94c08d75532f5b450f8562871452a863ffeaba66659b740eec85aadf4b6148c4
           - name: Linux x64
             runner: ubuntu-latest
             command: dist:linux
+            ffmpeg_target: linux64
+            ffmpeg_asset: ffmpeg-N-129219-g359c825152-linux64-gpl.tar.xz
+            ffmpeg_sha256: bcc1539edf917320fd3eb83bd5ab4d0a5ff686980d4717e802e346279beb1f30
           - name: Linux ARM64
             runner: ubuntu-24.04-arm
             command: dist:linux:arm64
+            ffmpeg_target: linuxarm64
+            ffmpeg_asset: ffmpeg-N-129219-g359c825152-linuxarm64-gpl.tar.xz
+            ffmpeg_sha256: 84ebc321674db39637175861ccfaf840b953bda2f115d7de77dddf155a2f11f6
           - name: ChromeOS ARM64 (Crostini)
             runner: ubuntu-24.04-arm
             command: dist:chromeos:arm64
+            ffmpeg_target: linuxarm64
+            ffmpeg_asset: ffmpeg-N-129219-g359c825152-linuxarm64-gpl.tar.xz
+            ffmpeg_sha256: 84ebc321674db39637175861ccfaf840b953bda2f115d7de77dddf155a2f11f6
           - name: ChromeOS x64 (Crostini)
             runner: ubuntu-latest
             command: dist:chromeos:x64
+            ffmpeg_target: linux64
+            ffmpeg_asset: ffmpeg-N-129219-g359c825152-linux64-gpl.tar.xz
+            ffmpeg_sha256: bcc1539edf917320fd3eb83bd5ab4d0a5ff686980d4717e802e346279beb1f30
 
     defaults:
       run:
@@ -93,6 +118,16 @@ jobs:
 
       - name: Abhängigkeiten installieren
         run: npm ci
+
+      - name: FFmpeg-Laufzeit laden und prüfen
+        run: >-
+          python ../../scripts/prepare-ffmpeg-runtime.py
+          --asset "${{ matrix.ffmpeg_asset }}"
+          --sha256 "${{ matrix.ffmpeg_sha256 }}"
+          --tag "${{ env.FFMPEG_RELEASE_TAG }}"
+          --source-commit "${{ env.FFMPEG_SOURCE_COMMIT }}"
+          --build-scripts-commit "${{ env.FFMPEG_BUILD_SCRIPTS_COMMIT }}"
+          --target "${{ matrix.ffmpeg_target }}"
 
       - name: Eigene Regie-Engine testen
         run: npm run test:engine
@@ -190,6 +225,18 @@ jobs:
             exit 1
           fi
           echo "version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: GPL-Quellcode-Nachweis für FFmpeg prüfen
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_DIR="artifacts/streamiov-ffmpeg-source-code"
+          test -s "$SOURCE_DIR/ffmpeg-source-bundle.tar.xz" || {
+            echo "::error::FFmpeg binaries are GPLv3. A complete corresponding-source bundle must be attached before redistribution."
+            exit 1
+          }
+          test -s "$SOURCE_DIR/SHA256SUMS.txt"
+          echo "Corresponding-source bundle present; continuing release validation."
 
       - name: Installer eindeutig benennen und prüfen
         shell: bash

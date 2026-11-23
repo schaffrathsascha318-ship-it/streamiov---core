@@ -54,7 +54,8 @@
       "!**/*.save.*",
       "!**/*.before-*",
       "!**/__pycache__/**",
-      "!**/*.pyc"
+      "!**/*.pyc",
+      "!ffmpeg/**"
     ],
     "win": {
       "target": [
@@ -68,6 +69,15 @@
         "AppImage",
         "deb"
       ]
-    }
+    },
+    "extraResources": [
+      {
+        "from": "ffmpeg",
+        "to": "ffmpeg",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
   }
 }
