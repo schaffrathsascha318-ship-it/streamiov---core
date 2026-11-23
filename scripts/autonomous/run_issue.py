@@ -238,7 +238,6 @@ def main() -> int:
         if output_path:
             with open(output_path, "a", encoding="utf-8") as output:
                 output.write(f"status={result.status}\n")
-                output.write(f"project_complete={str(project_complete).lower()}\n")
                 output.write(f"mission_id={result.mission_id}\n")
                 output.write(f"cycle={result.cycle}\n")
                 output.write(f"pending_tasks={result.pending_tasks}\n")
