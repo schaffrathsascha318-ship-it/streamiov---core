@@ -2692,9 +2692,9 @@ $("voicePushToTalk").addEventListener("contextmenu",event=>event.preventDefault(
 $("voiceRoomClose").addEventListener("click",async()=>{
  if(!activeVoiceRoom||activeVoiceRoom.role!=="owner")return;
  try{
-  await voiceRoomAction({action:"close",room_id:activeVoiceRoom.room_id});
+  const closed=await voiceRoomAction({action:"close",room_id:activeVoiceRoom.room_id});
   $("voiceDisconnect").click();activeVoiceRoom=null;$("voiceRoomDetails").hidden=true;$("voiceConnect").disabled=true;$("voiceRoomClose").disabled=true;
-  voiceStatus("Voice-Raum geschlossen; Einladungen und Mitgliedschaften widerrufen.");
+  voiceStatus(closed.signalling_revoked?"Voice-Raum geschlossen; Einladungen, Mitgliedschaften und aktive Verbindungen widerrufen.":"Raum lokal geschlossen; Einladungen und Mitgliedschaften widerrufen. Der Signalisierungsdienst war nicht erreichbar, bestehende Verbindungen können bis zum Abbruch aktiv bleiben.");
  }catch(error){voiceStatus(String(error.message||error));}
 });
 
