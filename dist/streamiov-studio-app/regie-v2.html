@@ -146,6 +146,10 @@ dialog::backdrop{background:#000b}
  font-size:12px;line-height:1.6;color:var(--muted)}
 .chat-log b{color:var(--text)}
 .gift-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.soundboard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
+.soundboard-pad{background:#0c131b;border:1px solid var(--line);border-radius:8px;padding:10px;display:grid;gap:8px}
+.soundboard-pad small{color:var(--muted);font-size:11px}
+.soundboard-pad .tool-row button{flex:1;min-width:64px}
 .gift-card{background:#0c131b;border:1px solid var(--line);border-radius:8px;padding:9px;text-align:center}
 .gift-card button{width:100%;margin-top:6px}
 .gift-overlay{position:fixed;inset:0;pointer-events:none;z-index:60;display:none;overflow:hidden}
@@ -373,6 +377,7 @@ dialog::backdrop{background:#000b}
    <div class="panel-title">CREATOR-WERKZEUGE</div>
    <div class="pad tool-grid">
     <button data-tool="Chat">▤ Chat</button>
+    <button data-tool="Soundboard">▣ Soundboard</button>
     <button data-tool="Alerts">⚡ Alerts</button>
     <button data-tool="TTS">◖ TTS</button>
     <button data-tool="Spiele">♧ Spiele</button>
@@ -1092,6 +1097,33 @@ let musicChannelGain=null;
 let musicObjectUrl="";
 let musicMuted=false;
 let broadcastGainBase=1;
+const soundboardPads=[];
+let soundboardHotkeysInstalled=false;
+async function playSoundboardPad(pad){
+ const context=ensureBroadcastAudioGraph();
+ await context.resume();
+ if(!pad.source){
+  pad.source=context.createMediaElementSource(pad.audio);
+  pad.gain=context.createGain();
+  pad.gain.gain.value=pad.muted?0:pad.volume;
+  pad.source.connect(pad.gain).connect(broadcastMasterGain);
+ }
+ pad.audio.currentTime=0;
+ await pad.audio.play();
+}
+function installSoundboardHotkeys(){
+ if(soundboardHotkeysInstalled)return;
+ document.addEventListener("keydown",event=>{
+  if(event.repeat||event.ctrlKey||event.altKey||event.metaKey)return;
+  if(event.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName))return;
+  const index=Number(event.key)-1;
+  const pad=soundboardPads[index];
+  if(!pad)return;
+  event.preventDefault();
+  playSoundboardPad(pad).catch(error=>log("Soundboard-Wiedergabe fehlgeschlagen: "+String(error.message||error)));
+ });
+ soundboardHotkeysInstalled=true;
+}
 function ensureBroadcastAudioGraph(){
  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
  if(!AudioContextClass)throw new Error("AudioContext ist in dieser Laufzeit nicht verfügbar.");
@@ -1521,6 +1553,76 @@ function renderAlertsTool(body){
   toolField("Alert-Text",input),trigger
  );
 }
+async function renderSoundboardTool(body){
+ const picker=document.createElement("input");
+ picker.type="file";
+ picker.accept="audio/*";
+ picker.multiple=true;
+ const category=document.createElement("input");
+ category.maxLength=32;
+ category.placeholder="Kategorie für neu importierte Pads";
+ const status=toolNote("Noch keine Sounds geladen. Lokale Audiodateien werden ausschließlich in dieser Studio-Sitzung als Pads verwendet.");
+ const grid=toolNode("div","soundboard-grid");
+ const addFiles=files=>{
+  const remaining=Math.max(0,32-soundboardPads.length);
+  const selected=Array.from(files||[]).slice(0,remaining);
+  if(!selected.length){
+   status.textContent=remaining===0?"Maximal 32 Soundboard-Pads pro Sitzung.":"Bitte Audiodateien auswählen.";
+   return;
+  }
+  installSoundboardHotkeys();
+  for(const file of selected){
+   if(!file.type.startsWith("audio/"))continue;
+   const audio=new Audio();
+   const objectUrl=URL.createObjectURL(file);
+   audio.src=objectUrl;
+   audio.preload="auto";
+   const pad={file,audio,objectUrl,source:null,gain:null,volume:0.8,muted:false,category:category.value.trim()||"Allgemein"};
+   const index=soundboardPads.length;
+   soundboardPads.push(pad);
+   const card=toolNode("div","soundboard-pad");
+   const title=toolNode("b",null,file.name);
+   const meta=toolNode("small",null,pad.category+" · "+(index<9?"Hotkey "+(index+1):"kein Hotkey"));
+   const controls=toolNode("div","tool-row");
+   const play=toolButton("▶ Play",()=>{
+    playSoundboardPad(pad).then(()=>{status.textContent="Spielt: "+file.name;})
+     .catch(error=>{status.textContent="Wiedergabe fehlgeschlagen: "+String(error.message||error);});
+   });
+   const stop=toolButton("■ Stop",()=>{
+    audio.pause();audio.currentTime=0;status.textContent="Gestoppt: "+file.name;
+   });
+   const mute=toolButton("MUTE",()=>{
+    pad.muted=!pad.muted;
+    if(pad.gain)pad.gain.gain.setTargetAtTime(pad.muted?0:pad.volume,broadcastAudioContext.currentTime,0.02);
+    mute.textContent=pad.muted?"MUTED":"MUTE";
+    mute.setAttribute("aria-pressed",pad.muted?"true":"false");
+   });
+   const volume=document.createElement("input");
+   volume.type="range";volume.min="0";volume.max="100";volume.value="80";
+   volume.setAttribute("aria-label","Lautstärke "+file.name);
+   volume.addEventListener("input",()=>{
+    pad.volume=Number(volume.value)/100;
+    if(pad.gain&&!pad.muted)pad.gain.gain.setTargetAtTime(pad.volume,broadcastAudioContext.currentTime,0.02);
+   });
+   const remove=toolButton("Entfernen",()=>{
+    audio.pause();audio.removeAttribute("src");audio.load();URL.revokeObjectURL(objectUrl);
+    const position=soundboardPads.indexOf(pad);if(position>=0)soundboardPads.splice(position,1);
+    card.remove();status.textContent="Pad entfernt: "+file.name;
+   });
+   controls.append(play,stop,mute,remove);
+   card.append(title,meta,toolField("Pad-Lautstärke",volume),controls);
+   grid.append(card);
+  }
+  status.textContent=soundboardPads.length+" Soundboard-Pad(s) geladen. Tasten 1–9 starten die ersten neun Pads, sofern kein Eingabefeld fokussiert ist.";
+ };
+ picker.addEventListener("change",()=>addFiles(picker.files));
+ body.append(
+  toolNote("Eigene lokale Soundboard-Dateien. Wiedergabe wird in den gemeinsamen Stream-/Monitor-Audiomix geroutet; keine Datei wird hochgeladen."),
+  toolField("Kategorie für neue Pads",category),
+  toolField("Audiodateien (max. 32 Pads)",picker),
+  status,grid
+ );
+}
 async function renderMusicTool(body){
  const file=document.createElement("input");
  file.type="file";
@@ -1712,6 +1814,7 @@ async function openTool(name){
   else if(name==="TTS")await renderTtsTool(body);
   else if(name==="Alerts")renderAlertsTool(body);
   else if(name==="Musik")await renderMusicTool(body);
+  else if(name==="Soundboard")await renderSoundboardTool(body);
   else if(name==="Spiele")await renderGamesTool(body);
   else if(name==="KI-Regie")await renderAiTool(body);
   else if(name==="Geräte")await renderDevicesTool(body);
