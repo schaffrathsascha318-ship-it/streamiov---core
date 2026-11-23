@@ -29,6 +29,16 @@ class CloudflareConfigTests(unittest.TestCase):
         self.assertNotIn("comment", parsed)
         self.assertNotIn("block", parsed)
 
+    def test_r2_policy_rejects_bucket_bindings_and_cli_commands(self):
+        verifier = load_verifier()
+        self.assertTrue(verifier.find_forbidden_r2_usage('"r2_buckets": [{"binding": "MEDIA"}]'))
+        self.assertTrue(verifier.find_forbidden_r2_usage("npx wrangler r2 bucket create media"))
+        self.assertTrue(verifier.find_forbidden_r2_usage("env.R2_BUCKET.put(key, value)"))
+
+    def test_r2_policy_allows_unrelated_configuration(self):
+        verifier = load_verifier()
+        self.assertEqual(verifier.find_forbidden_r2_usage('{"assets": {"directory": "./public"}}'), [])
+
     def test_verifier_rejects_secret_like_configuration(self):
         verifier = load_verifier()
         self.assertTrue(verifier._contains_secret_like_key({"vars": {"api_token": "x"}}))
