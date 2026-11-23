@@ -78,15 +78,24 @@ jobs:
 
           # Issue 172 is the repair/control ticket for the existing issue-145
           # mission. Reuse its durable checkpoint instead of creating issue-172.
+          # Issue 223 is the P0 whole-platform objective; reuse the platform
+          # checkpoint and route it through the persistent project supervisor.
           mission_key="$issue_number"
           if [[ "$issue_number" == "172" ]]; then
             mission_key="145"
+          elif [[ "$issue_number" == "223" ]]; then
+            mission_key="0"
           fi
 
           issue_b64="$(jq -r '.[0] | @base64' <<< "$issue_json")"
           {
             echo "issue_number=$issue_number"
             echo "mission_key=$mission_key"
+            if [[ "$mission_key" == "0" ]]; then
+              echo "project_supervisor=true"
+            else
+              echo "project_supervisor=false"
+            fi
             echo "issue_title=$issue_title"
             echo "issue_b64=$issue_b64"
           } >> "$GITHUB_OUTPUT"
@@ -164,6 +173,7 @@ jobs:
           STREAMIOV_AGENT_ISSUE_B64: ${{ steps.pick.outputs.issue_b64 }}
           STREAMIOV_MISSION_ID: ${{ steps.pick.outputs.mission_key == '0' && 'streamiov-platform' || format('streamiov-issue-{0}', steps.pick.outputs.mission_key) }}
           STREAMIOV_MISSION_DB: ${{ runner.temp }}/streamiov-ai-missions/missions.sqlite3
+          STREAMIOV_PROJECT_SUPERVISOR: ${{ steps.pick.outputs.project_supervisor }}
           STREAMIOV_AI_WORKER_TOKEN: ${{ secrets.STREAMIOV_AI_WORKER_TOKEN }}
           STREAMIOV_MODEL_URL: ${{ vars.STREAMIOV_MODEL_URL }}
           STREAMIOV_MODEL_PROVIDER: cloudflare-workers-ai
