@@ -89,10 +89,10 @@ class ProjectSupervisor:
                 "SELECT goal,active_mission_id,lease_owner,lease_until FROM development_supervisors WHERE supervisor_key=?",
                 (self.supervisor_key,),
             ).fetchone()
-            if row and row["active_mission_id"] and row["goal"] != goal.strip():
+            if row and row["goal"] != goal.strip():
                 db.rollback()
                 raise ProjectSupervisorError(
-                    "Cannot replace the project goal while a mission is active; resume it or stop it first."
+                    "The persistent project goal cannot be replaced in place; use the existing goal to resume."
                 )
             if row and row["lease_until"] and row["lease_until"] > now and row["lease_owner"] != self.owner_id:
                 db.rollback()
