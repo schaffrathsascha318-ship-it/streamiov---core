@@ -495,7 +495,7 @@ dialog::backdrop{background:#000b}
   <div class="panel" id="voiceRoomPanel">
    <div class="panel-title">STREAMIOV VOICE / SPRACHRÄUME</div>
    <div class="pad">
-    <p style="font-size:12px;color:var(--muted);margin-top:0">Verschlüsselte Peer-to-Peer-Sprachverbindung. Keine Aufzeichnung. Anmeldung über den KI-Manager erforderlich.</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:0">Verschlüsselte Peer-to-Peer-Sprachverbindung. Keine Aufzeichnung. Anmeldung über den KI-Manager erforderlich. Für Echo-Schutz Kopfhörer verwenden.</p>
     <label for="voiceRoomName">Neuer Raum</label>
     <input id="voiceRoomName" maxlength="64" placeholder="z. B. Stream-Team" style="width:100%;margin:5px 0">
     <button id="voiceCreateRoom" type="button" style="width:100%">SPRACHRAUM ERSTELLEN</button>
@@ -2662,12 +2662,12 @@ $("voiceConnect").addEventListener("click",async()=>{
    onRemoteStream:event=>{
     const channel="voice_"+event.participantId.replace(/-/g,"").slice(0,16);
     try{
-     studioAudioMixer.connect(channel,event.stream,{gain:1,routes:["monitor","headphones"]});
+     studioAudioMixer.connect(channel,event.stream,{gain:1,routes:["headphones"]});
      voiceChannelNames.set(event.participantId,channel);
     }catch(error){voiceStatus("Teilnehmer-Audio konnte nicht geroutet werden: "+String(error.message||error));}
    }
   });
-  voiceClient=client;client.connect();
+  voiceClient=client;client.setPushToTalk(true);client.connect();
   $("voiceDisconnect").disabled=false;
  }catch(error){voiceClient=null;voiceSetButtons(false);voiceStatus(String(error.message||error));}
 });
