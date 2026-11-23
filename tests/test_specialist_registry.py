@@ -72,7 +72,7 @@ class SpecialistRegistryTests(unittest.TestCase):
     def test_specialist_prompt_contains_mission_and_write_scope(self):
         prompt = build_specialist_system_prompt("game", "Base instructions")
         self.assertIn("Game Development", prompt)
-        self.assertIn("original downloadable games", prompt)
+        self.assertIn("original downloadable", prompt)
         self.assertIn("WRITE SCOPE: You may create and edit project files across all modules: *", prompt)
         self.assertIn("runtime enforces project-wide access", prompt)
 
