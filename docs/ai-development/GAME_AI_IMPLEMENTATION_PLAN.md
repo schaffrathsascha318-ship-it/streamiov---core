@@ -73,3 +73,16 @@ The first executable rights-register slice is now implemented in `ai/rights/regi
 - Machine-readable dossiers can be exported through the register's `dossier()` result.
 
 **Not yet delivered:** automated primary-source discovery, jurisdiction-aware copyright-term calculations, trademark-register lookups, autonomous evidence ingestion, and integration into the Game AI task runner. This slice must not be presented as autonomous legal research or legal clearance. The next phase implements the research adapters and agent workflow, with every uncertain result remaining blocked.
+
+
+## Runtime implementation status — 2026-11-23
+
+The first executable Game Studio foundation is implemented on branch
+`feat/streamiov-ai-game-builder-foundation`:
+
+- `ai/game_studio/builder.py` validates substantial clean-room game briefs, including distinctive mechanics, a multi-step core loop, level/challenge plan, controls, progression, art/audio direction, accessibility, tests, target platforms, and third-party provenance.
+- It creates a non-overwriting, audited design workspace under `games/ai_created/<id>/` and explicitly reports `DESIGN_BRIEF_VALIDATED`, never playable/released.
+- The Game specialist's registered mission now requires major-studio-level originality and player experience, rejects template reskins/placeholders, and requires real gameplay/device evidence before release.
+- Focused tests cover valid briefs, insufficient mechanics, non-original concepts, unsafe identifiers, workspace creation, and overwrite protection.
+
+This is a working foundation, not the finished autonomous game-generation system. Next implementation slices must connect the specialist to structured game production tasks, engine-backed project generation, asset/provenance workflows, automated play tests, device verification, and the release pipeline. No production game is claimed as generated or published by this foundation.
