@@ -61,6 +61,9 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("installSoundboardHotkeys()", self.ui)
         self.assertIn("event.key", self.ui)
         self.assertIn("Maximal 32 Soundboard-Pads", self.ui)
+        self.assertIn("soundboardFavoritesKey", self.ui)
+        self.assertIn("favorite.textContent", self.ui)
+        self.assertIn('hotkey.addEventListener("change"', self.ui)
 
     def test_studio_only_reacts_to_official_tiktok_gift_events_and_has_no_gift_gallery(self):
         self.assertNotIn('data-tool="Geschenke"', self.ui)
