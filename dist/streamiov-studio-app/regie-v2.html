@@ -373,6 +373,13 @@ dialog::backdrop{background:#000b}
       </div>
       <label for="audioSystemGain">Systemton-Pegel</label><input id="audioSystemGain" type="range" min="0" max="200" value="100" style="width:100%">
       <small id="systemAudioMixerStatus" class="audio-bus-status" role="status">Systemton wartet auf eine Bildschirmquelle mit Audiostream.</small>
+      <div class="panel-title" style="margin-top:10px">WEITERE QUELLEN-ROUTING</div>
+      <div class="audio-route-list">
+       <div><b>Musik</b> <label><input type="checkbox" data-audio-source-route="music" data-route="stream" checked> Stream</label> <label><input type="checkbox" data-audio-source-route="music" data-route="monitor" checked> Monitor</label> <label><input type="checkbox" data-audio-source-route="music" data-route="headphones" > Kopfhörer</label> <label><input type="checkbox" data-audio-source-route="music" data-route="communications" > Kommunikation</label></div>
+       <div><b>Soundboard</b> <label><input type="checkbox" data-audio-source-route="soundboard" data-route="stream" checked> Stream</label> <label><input type="checkbox" data-audio-source-route="soundboard" data-route="monitor" checked> Monitor</label> <label><input type="checkbox" data-audio-source-route="soundboard" data-route="headphones" > Kopfhörer</label> <label><input type="checkbox" data-audio-source-route="soundboard" data-route="communications" > Kommunikation</label></div>
+       <div><b>TTS</b> <label><input type="checkbox" data-audio-source-route="tts" data-route="stream" checked> Stream</label> <label><input type="checkbox" data-audio-source-route="tts" data-route="monitor" checked> Monitor</label> <label><input type="checkbox" data-audio-source-route="tts" data-route="headphones" > Kopfhörer</label> <label><input type="checkbox" data-audio-source-route="tts" data-route="communications" > Kommunikation</label></div>
+       <div><b>Alerts</b> <label><input type="checkbox" data-audio-source-route="alert" data-route="stream" checked> Stream</label> <label><input type="checkbox" data-audio-source-route="alert" data-route="monitor" checked> Monitor</label> <label><input type="checkbox" data-audio-source-route="alert" data-route="headphones" > Kopfhörer</label> <label><input type="checkbox" data-audio-source-route="alert" data-route="communications" > Kommunikation</label></div>
+      </div>
      </div>
     </div>
    </section>
@@ -1038,6 +1045,7 @@ try{
  if(typeof saved.autoGainControl==="boolean")$("micAutoGainControl").checked=saved.autoGainControl;
  allowMonitorDuringLoopback=saved.allowMonitorDuringLoopback===true;
  $("allowMonitorDuringLoopback").checked=allowMonitorDuringLoopback;
+ if(saved.auxiliaryRoutes&&typeof saved.auxiliaryRoutes==="object")document.querySelectorAll("[data-audio-source-route]").forEach(input=>{const routes=saved.auxiliaryRoutes[input.dataset.audioSourceRoute];if(Array.isArray(routes))input.checked=routes.includes(input.dataset.route);});
  if(typeof saved.gateEnabled==="boolean")$("micGateEnabled").checked=saved.gateEnabled;
  if(Number.isFinite(saved.gateThresholdDb))$("micGateThreshold").value=String(Math.max(-80,Math.min(-20,Math.round(saved.gateThresholdDb))));
  $("micGateThresholdValue").textContent=$("micGateThreshold").value+" dB";
@@ -1050,22 +1058,30 @@ function saveAudioRoutingState(){
   highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked,
   microphonePan:Number($("micPan").value),microphoneSolo:$("micSolo").checked,
   echoCancellation:$("micEchoCancellation").checked,noiseSuppression:$("micNoiseSuppression").checked,autoGainControl:$("micAutoGainControl").checked,
-  gateEnabled:$("micGateEnabled").checked,gateThresholdDb:Number($("micGateThreshold").value),allowMonitorDuringLoopback
+  gateEnabled:$("micGateEnabled").checked,gateThresholdDb:Number($("micGateThreshold").value),allowMonitorDuringLoopback,
+  auxiliaryRoutes:Object.fromEntries(["music","soundboard","tts","alert"].map(source=>[source,[...document.querySelectorAll(`[data-audio-source-route="${source}"]:checked`)].map(input=>input.dataset.route)]))
  }));}catch(_){/* source routing preferences are optional */}
 }
 function selectedMicrophoneRoutes(){return [...document.querySelectorAll("[data-audio-route]:checked")].map(item=>item.dataset.audioRoute);}
 function isLoopbackCaptureActive(){return Boolean(captureState.screen?.getAudioTracks().some(track=>track.readyState==="live"));}
-function monitorRoutes(){return !isLoopbackCaptureActive()||allowMonitorDuringLoopback?["stream","monitor"]:["stream"];}
+function selectedAuxRoutes(source){return [...document.querySelectorAll('[data-audio-source-route="'+source+'"]:checked')].map(input=>input.dataset.route);}
+function effectiveAuxRoutes(source){return selectedAuxRoutes(source).filter(route=>route!=="monitor"||!isLoopbackCaptureActive()||allowMonitorDuringLoopback);}
 function effectiveAudioRoutes(routes,source){
  const mode=$("streamAudio")?.value||"mic-system";
  const streamAllowed=source==="microphone"?(mode==="mic"||mode==="mic-system"):source==="system"?(mode==="system"||mode==="mic-system"):true;
  const monitorAllowed=!isLoopbackCaptureActive()||allowMonitorDuringLoopback;
  return routes.filter(route=>(route!=="stream"||streamAllowed)&&(route!=="monitor"||monitorAllowed));
 }
+function applyAuxSourceRouting(source){
+ if(source==="soundboard"){for(const pad of soundboardPads){if(pad.channelName&&studioAudioMixer?.snapshot(pad.channelName))studioAudioMixer.setRoutes(pad.channelName,effectiveAuxRoutes("soundboard"));}}
+ else if(studioAudioMixer?.snapshot(source))studioAudioMixer.setRoutes(source,effectiveAuxRoutes(source));
+ saveAudioRoutingState();
+}
+document.querySelectorAll("[data-audio-source-route]").forEach(input=>input.addEventListener("change",()=>applyAuxSourceRouting(input.dataset.audioSourceRoute)));
 function applyMonitorFeedbackGuard(){
  applyMicrophoneRouting();applySystemRouting();
- for(const name of ["music","tts","alert"]){if(studioAudioMixer?.snapshot(name))studioAudioMixer.setRoutes(name,monitorRoutes());}
- for(const pad of soundboardPads){if(pad.channelName&&studioAudioMixer?.snapshot(pad.channelName))studioAudioMixer.setRoutes(pad.channelName,monitorRoutes());}
+ for(const name of ["music","tts","alert"]){if(studioAudioMixer?.snapshot(name))studioAudioMixer.setRoutes(name,effectiveAuxRoutes(name));}
+ for(const pad of soundboardPads){if(pad.channelName&&studioAudioMixer?.snapshot(pad.channelName))studioAudioMixer.setRoutes(pad.channelName,effectiveAuxRoutes("soundboard"));}
  const status=$("loopbackGuardStatus");
  if(status)status.textContent=isLoopbackCaptureActive()&&!allowMonitorDuringLoopback?"Feedback-Schutz aktiv: Monitor-Routing bei aktivem Loopback blockiert.":"Monitor-Routing freigegeben; bei Loopback kann Rückkopplung entstehen.";
 }
@@ -1439,7 +1455,7 @@ async function playSoundboardPad(pad){
    pad.destination=context.createMediaStreamDestination();
    pad.source.connect(pad.gain).connect(pad.destination);
    pad.channelName="soundboard-"+soundboardPads.indexOf(pad);
-   studioAudioMixer.connect(pad.channelName,pad.destination.stream,{gain:1,routes:monitorRoutes()});
+   studioAudioMixer.connect(pad.channelName,pad.destination.stream,{gain:1,routes:effectiveAuxRoutes("soundboard")});
   }else pad.source.connect(pad.gain).connect(broadcastMasterGain);
  }
  pad.audio.currentTime=0;
@@ -1474,7 +1490,7 @@ function ensureBroadcastAudioGraph(){
   if(studioAudioMixer){
    if(!musicBridgeDestination)musicBridgeDestination=broadcastAudioContext.createMediaStreamDestination();
    musicChannelGain.connect(musicBridgeDestination);
-   if(!studioAudioMixer.snapshot("music"))studioAudioMixer.connect("music",musicBridgeDestination.stream,{gain:1,routes:monitorRoutes()});
+   if(!studioAudioMixer.snapshot("music"))studioAudioMixer.connect("music",musicBridgeDestination.stream,{gain:1,routes:effectiveAuxRoutes("music")});
    studioAudioMixer.setPan("music",mixerPanState.music);
    refreshMixerSoloButtons();
   }else musicChannelGain.connect(broadcastMasterGain);
@@ -1859,7 +1875,7 @@ async function playAlertTone(){
  alertToneGain=context.createGain();
  alertToneGain.gain.value=mixerValue("mixerAlert");
  alertToneGain.connect(alertToneDestination);
- studioAudioMixer.connect("alert",alertToneDestination.stream,{gain:1,routes:monitorRoutes()});
+ studioAudioMixer.connect("alert",alertToneDestination.stream,{gain:1,routes:effectiveAuxRoutes("alert")});
  studioAudioMixer.setPan("alert",mixerPanState.alert);
  refreshMixerSoloButtons();
  alertToneActive=true;
@@ -1924,7 +1940,7 @@ async function playTtsAudio(base64,mime="audio/wav"){
   if(studioAudioMixer){
    ttsBridgeDestination=context.createMediaStreamDestination();
    ttsMediaSource.connect(ttsChannelGain).connect(ttsBridgeDestination);
-   studioAudioMixer.connect("tts",ttsBridgeDestination.stream,{gain:1,routes:monitorRoutes()});
+   studioAudioMixer.connect("tts",ttsBridgeDestination.stream,{gain:1,routes:effectiveAuxRoutes("tts")});
    studioAudioMixer.setPan("tts",mixerPanState.tts);
    refreshMixerSoloButtons();
   }else ttsMediaSource.connect(ttsChannelGain).connect(broadcastMasterGain);
