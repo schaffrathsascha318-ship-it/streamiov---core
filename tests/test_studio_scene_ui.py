@@ -148,6 +148,8 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
                 self.assertNotIn("missingPythonModules", handler)
         self.assertIn("repository_capability_inventory", self.main)
         self.assertIn("foundation_only", self.main)
+        self.assertIn("partial_stream_mix", self.main)
+        self.assertIn("local_file_stream_mix", self.main)
         self.assertIn("not_implemented", self.main)
         self.assertNotIn("missingPythonModules", self.main)
         self.assertNotIn("notBundledResult", self.main)
