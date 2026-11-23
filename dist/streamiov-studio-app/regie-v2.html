@@ -346,6 +346,8 @@ dialog::backdrop{background:#000b}
         <small class="audio-bus-status" data-audio-bus-status="communications">Kommunikationsausgang nicht verbunden.</small><audio id="audioBusElementCommunications" autoplay playsinline></audio>
        </article>
       </div>
+      <label style="display:block;margin:8px 0"><input id="allowMonitorDuringLoopback" type="checkbox"> Monitor trotz aktivem Fenster-/System-Loopback erlauben</label>
+      <small id="loopbackGuardStatus" role="status">Feedback-Schutz: Monitor-Routing wird bei aktivem Loopback automatisch begrenzt.</small>
       <div class="panel-title" style="margin-top:12px">MIKROFON-ROUTING</div>
       <div class="audio-route-list">
        <label><input type="checkbox" data-audio-route="stream" checked> Stream</label><label><input type="checkbox" data-audio-route="monitor" checked> Monitor</label>
@@ -1018,6 +1020,7 @@ document.querySelectorAll("[data-audio-bus-disconnect]").forEach(button=>button.
  const name=button.dataset.audioBusDisconnect;if(studioAudioDeviceAdapter)studioAudioDeviceAdapter.detachOutput(name,audioBusElements[name]);else if(studioAudioMixer)studioAudioMixer.detachOutput(name,audioBusElements[name]);audioBusState[name].connected=false;renderAudioBus(name);
 }));
 const sourceRoutingStorageKey="streamiov.studio.audio-routing.v1";
+let allowMonitorDuringLoopback=false;
 try{
  const saved=JSON.parse(localStorage.getItem(sourceRoutingStorageKey)||"{}");
  for(const [selector,values] of [["[data-audio-route]",saved.microphoneRoutes],["[data-system-route]",saved.systemRoutes]]){
@@ -1033,6 +1036,8 @@ try{
  if(typeof saved.echoCancellation==="boolean")$("micEchoCancellation").checked=saved.echoCancellation;
  if(typeof saved.noiseSuppression==="boolean")$("micNoiseSuppression").checked=saved.noiseSuppression;
  if(typeof saved.autoGainControl==="boolean")$("micAutoGainControl").checked=saved.autoGainControl;
+ allowMonitorDuringLoopback=saved.allowMonitorDuringLoopback===true;
+ $("allowMonitorDuringLoopback").checked=allowMonitorDuringLoopback;
  if(typeof saved.gateEnabled==="boolean")$("micGateEnabled").checked=saved.gateEnabled;
  if(Number.isFinite(saved.gateThresholdDb))$("micGateThreshold").value=String(Math.max(-80,Math.min(-20,Math.round(saved.gateThresholdDb))));
  $("micGateThresholdValue").textContent=$("micGateThreshold").value+" dB";
@@ -1045,14 +1050,24 @@ function saveAudioRoutingState(){
   highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked,
   microphonePan:Number($("micPan").value),microphoneSolo:$("micSolo").checked,
   echoCancellation:$("micEchoCancellation").checked,noiseSuppression:$("micNoiseSuppression").checked,autoGainControl:$("micAutoGainControl").checked,
-  gateEnabled:$("micGateEnabled").checked,gateThresholdDb:Number($("micGateThreshold").value)
+  gateEnabled:$("micGateEnabled").checked,gateThresholdDb:Number($("micGateThreshold").value),allowMonitorDuringLoopback
  }));}catch(_){/* source routing preferences are optional */}
 }
 function selectedMicrophoneRoutes(){return [...document.querySelectorAll("[data-audio-route]:checked")].map(item=>item.dataset.audioRoute);}
+function isLoopbackCaptureActive(){return Boolean(captureState.screen?.getAudioTracks().some(track=>track.readyState==="live"));}
+function monitorRoutes(){return !isLoopbackCaptureActive()||allowMonitorDuringLoopback?["stream","monitor"]:["stream"];}
 function effectiveAudioRoutes(routes,source){
  const mode=$("streamAudio")?.value||"mic-system";
  const streamAllowed=source==="microphone"?(mode==="mic"||mode==="mic-system"):source==="system"?(mode==="system"||mode==="mic-system"):true;
- return routes.filter(route=>route!=="stream"||streamAllowed);
+ const monitorAllowed=!isLoopbackCaptureActive()||allowMonitorDuringLoopback;
+ return routes.filter(route=>(route!=="stream"||streamAllowed)&&(route!=="monitor"||monitorAllowed));
+}
+function applyMonitorFeedbackGuard(){
+ applyMicrophoneRouting();applySystemRouting();
+ for(const name of ["music","tts","alert"]){if(studioAudioMixer?.snapshot(name))studioAudioMixer.setRoutes(name,monitorRoutes());}
+ for(const pad of soundboardPads){if(pad.channelName&&studioAudioMixer?.snapshot(pad.channelName))studioAudioMixer.setRoutes(pad.channelName,monitorRoutes());}
+ const status=$("loopbackGuardStatus");
+ if(status)status.textContent=isLoopbackCaptureActive()&&!allowMonitorDuringLoopback?"Feedback-Schutz aktiv: Monitor-Routing bei aktivem Loopback blockiert.":"Monitor-Routing freigegeben; bei Loopback kann Rückkopplung entstehen.";
 }
 function applyMicrophoneRouting(){
  if(!studioAudioMixer||!studioAudioMixer.snapshot("microphone")){mixerPanState.microphone=Number($("micPan").value)/100;saveAudioRoutingState();saveMixerSettings();return;}
@@ -1092,6 +1107,7 @@ function applySystemRouting(){
 document.querySelectorAll("[data-system-route]").forEach(control=>control.addEventListener("change",applySystemRouting));
 $("audioSystemGain").addEventListener("input",applySystemRouting);
 $("streamAudio").addEventListener("change",()=>{applyMicrophoneRouting();applySystemRouting();});
+$("allowMonitorDuringLoopback").addEventListener("change",()=>{allowMonitorDuringLoopback=$("allowMonitorDuringLoopback").checked;saveAudioRoutingState();applyMonitorFeedbackGuard();});
 
 async function reconcileAudioOutputDevices(){
  const previous={...savedAudioBusDevices};
@@ -1151,6 +1167,7 @@ function stopCapture(kind){
  if(kind==="screen"){
   if(studioAudioMixer)studioAudioMixer.disconnect("system");
   $("systemAudioMixerStatus").textContent="Systemtonquelle getrennt.";
+  applyMonitorFeedbackGuard();
   screenVideo.pause();screenVideo.srcObject=null;screenVideo.style.display="none";
   $("screenStart").textContent="BILDSCHIRM TEILEN";
   $("screenCaptureStatus").textContent="Bildschirmfreigabe beendet.";
@@ -1287,6 +1304,7 @@ $("screenStart").onclick=async()=>{
     audioTrack.addEventListener("ended",()=>{if(studioAudioMixer)studioAudioMixer.disconnect("system");$("systemAudioMixerStatus").textContent="Systemtonquelle wurde beendet.";},{once:true});
     $("systemAudioMixerStatus").textContent="Systemton verbunden · Routing: "+(selectedSystemRoutes().join(", ")||"kein Ausgang")+".";
    }
+  applyMonitorFeedbackGuard();
   $("screenStart").textContent="BILDSCHIRM TEILEN STOPPEN";
   $("screenMetric").textContent="GETEILT LOKAL";
   status.textContent="Bildschirm lokal geteilt"+(hasAudio?" · Systemton verfügbar.":" · Kein Systemton von dieser Quelle.");
@@ -1419,7 +1437,7 @@ async function playSoundboardPad(pad){
    pad.destination=context.createMediaStreamDestination();
    pad.source.connect(pad.gain).connect(pad.destination);
    pad.channelName="soundboard-"+soundboardPads.indexOf(pad);
-   studioAudioMixer.connect(pad.channelName,pad.destination.stream,{gain:1,routes:["stream","monitor"]});
+   studioAudioMixer.connect(pad.channelName,pad.destination.stream,{gain:1,routes:monitorRoutes()});
   }else pad.source.connect(pad.gain).connect(broadcastMasterGain);
  }
  pad.audio.currentTime=0;
@@ -1454,7 +1472,7 @@ function ensureBroadcastAudioGraph(){
   if(studioAudioMixer){
    if(!musicBridgeDestination)musicBridgeDestination=broadcastAudioContext.createMediaStreamDestination();
    musicChannelGain.connect(musicBridgeDestination);
-   if(!studioAudioMixer.snapshot("music"))studioAudioMixer.connect("music",musicBridgeDestination.stream,{gain:1,routes:["stream","monitor"]});
+   if(!studioAudioMixer.snapshot("music"))studioAudioMixer.connect("music",musicBridgeDestination.stream,{gain:1,routes:monitorRoutes()});
    studioAudioMixer.setPan("music",mixerPanState.music);
    refreshMixerSoloButtons();
   }else musicChannelGain.connect(broadcastMasterGain);
@@ -1839,7 +1857,7 @@ async function playAlertTone(){
  alertToneGain=context.createGain();
  alertToneGain.gain.value=mixerValue("mixerAlert");
  alertToneGain.connect(alertToneDestination);
- studioAudioMixer.connect("alert",alertToneDestination.stream,{gain:1,routes:["stream","monitor"]});
+ studioAudioMixer.connect("alert",alertToneDestination.stream,{gain:1,routes:monitorRoutes()});
  studioAudioMixer.setPan("alert",mixerPanState.alert);
  refreshMixerSoloButtons();
  alertToneActive=true;
@@ -1904,7 +1922,7 @@ async function playTtsAudio(base64,mime="audio/wav"){
   if(studioAudioMixer){
    ttsBridgeDestination=context.createMediaStreamDestination();
    ttsMediaSource.connect(ttsChannelGain).connect(ttsBridgeDestination);
-   studioAudioMixer.connect("tts",ttsBridgeDestination.stream,{gain:1,routes:["stream","monitor"]});
+   studioAudioMixer.connect("tts",ttsBridgeDestination.stream,{gain:1,routes:monitorRoutes()});
    studioAudioMixer.setPan("tts",mixerPanState.tts);
    refreshMixerSoloButtons();
   }else ttsMediaSource.connect(ttsChannelGain).connect(broadcastMasterGain);
