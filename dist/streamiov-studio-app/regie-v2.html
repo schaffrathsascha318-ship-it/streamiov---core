@@ -1071,7 +1071,8 @@ function applyMonitorFeedbackGuard(){
 }
 function applyMicrophoneRouting(){
  if(!studioAudioMixer||!studioAudioMixer.snapshot("microphone")){mixerPanState.microphone=Number($("micPan").value)/100;saveAudioRoutingState();saveMixerSettings();return;}
- studioAudioMixer.setRoutes("microphone",effectiveAudioRoutes(selectedMicrophoneRoutes(),"microphone"));
+ const micRoutes=effectiveAudioRoutes(selectedMicrophoneRoutes(),"microphone");
+ studioAudioMixer.setRoutes("microphone",micRoutes);
  studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100*mixerValue("mixerMic"));
  studioAudioMixer.setProcessing("microphone",{highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked});
  studioAudioMixer.setGate("microphone",{enabled:$("micGateEnabled").checked,thresholdDb:Number($("micGateThreshold").value),attenuationDb:-60});
@@ -1084,7 +1085,7 @@ function applyMicrophoneRouting(){
  saveAudioRoutingState();
  saveMixerSettings();
  $("micHighpassValue").textContent=$("micHighpass").value+" Hz";
- $("audioMixerStatus").textContent="Mikrofonquelle verbunden · Routing: "+(selectedMicrophoneRoutes().join(", ")||"kein Ausgang")+".";
+ $("audioMixerStatus").textContent="Mikrofonquelle verbunden · Routing: "+(micRoutes.join(", ")||"kein Ausgang")+(selectedMicrophoneRoutes().includes("monitor")&&!micRoutes.includes("monitor")?" · Monitor wegen Loopback-Feedback gesperrt.":".");
 }
 document.querySelectorAll("[data-audio-route]").forEach(control=>control.addEventListener("change",applyMicrophoneRouting));
 $("audioMicGain").addEventListener("input",applyMicrophoneRouting);
@@ -1098,11 +1099,12 @@ $("micSolo").addEventListener("change",applyMicrophoneRouting);
 function selectedSystemRoutes(){return [...document.querySelectorAll("[data-system-route]:checked")].map(item=>item.dataset.systemRoute);}
 function applySystemRouting(){
  if(!studioAudioMixer||!studioAudioMixer.snapshot("system")){saveAudioRoutingState();return;}
- studioAudioMixer.setRoutes("system",effectiveAudioRoutes(selectedSystemRoutes(),"system"));
+ const systemRoutes=effectiveAudioRoutes(selectedSystemRoutes(),"system");
+ studioAudioMixer.setRoutes("system",systemRoutes);
  studioAudioMixer.setGain("system",Number($("audioSystemGain").value)/100*mixerValue("mixerSystem"));
  studioAudioMixer.setPan("system",mixerPanState.system);
  saveAudioRoutingState();
- $("systemAudioMixerStatus").textContent="Systemton verbunden · Routing: "+(selectedSystemRoutes().join(", ")||"kein Ausgang")+".";
+ $("systemAudioMixerStatus").textContent="Systemton verbunden · Routing: "+(systemRoutes.join(", ")||"kein Ausgang")+(selectedSystemRoutes().includes("monitor")&&!systemRoutes.includes("monitor")?" · Monitor wegen Loopback-Feedback gesperrt.":".");
 }
 document.querySelectorAll("[data-system-route]").forEach(control=>control.addEventListener("change",applySystemRouting));
 $("audioSystemGain").addEventListener("input",applySystemRouting);
