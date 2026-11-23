@@ -21,6 +21,8 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from http.cookies import SimpleCookie
 from urllib.parse import unquote, urlsplit
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 
 VERSION = "0.1.0"
@@ -45,6 +47,48 @@ from host.auth import AuthError, AuthStore, RequestRateLimiter
 from host.data_store import DataStore
 from host.forum import ForumError, ForumStore
 from host.voice import VoiceError, VoiceRoomStore, voice_ice_configuration
+
+
+class _NoVoiceRedirect(HTTPRedirectHandler):
+    def redirect_request(self, request, file_pointer, code, message, headers, new_url):
+        # Never forward the short-lived owner bearer token to a redirect target.
+        return None
+
+
+def close_voice_signalling_room(room_id: str, bearer_token: str) -> bool:
+    """Close a room's signalling Durable Object without following redirects."""
+    raw_origin = os.environ.get("STREAMIOV_VOICE_SIGNALING_URL", "").strip()
+    try:
+        parsed = urlsplit(raw_origin)
+        port = parsed.port
+    except ValueError:
+        return False
+    if (
+        parsed.scheme != "https" or not parsed.hostname
+        or parsed.username is not None or parsed.password is not None
+        or parsed.path not in ("", "/") or parsed.query or parsed.fragment
+        or port not in (None, 443)
+        or not isinstance(room_id, str) or not re.fullmatch(r"[a-f0-9]{32}", room_id)
+        or not isinstance(bearer_token, str) or not bearer_token
+    ):
+        return False
+    request = Request(
+        raw_origin.rstrip("/") + f"/v1/voice/rooms/{room_id}/close",
+        data=b"{}",
+        headers={"Authorization": "Bearer " + bearer_token, "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with build_opener(_NoVoiceRedirect()).open(request, timeout=5) as response:
+            if response.status != 200:
+                return False
+            payload = response.read(4097)
+        if len(payload) > 4096:
+            return False
+        result = json.loads(payload.decode("utf-8"))
+        return isinstance(result, dict) and result.get("ok") is True and result.get("closed") is True
+    except (HTTPError, URLError, TimeoutError, OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        return False
 
 
 def local_ai_status() -> dict:
@@ -530,10 +574,20 @@ class Handler(BaseHTTPRequestHandler):
                 if payload != {"confirm": True}:
                     self._json(400, {"error": "Room close requires confirm=true."})
                     return True
+                try:
+                    owner_token = self.server.voice_store.issue_member_token(user.user_id, room_id).get("token")
+                except VoiceError:
+                    owner_token = None
                 if not self.server.voice_store.close_room(user.user_id, room_id):
                     self._json(403, {"error": "room_not_found_or_owner_required"})
                     return True
-                self._json(200, {"ok": True, "closed": True, "room_id": room_id})
+                signalling_revoked = bool(
+                    owner_token and close_voice_signalling_room(room_id, owner_token)
+                )
+                self._json(200, {
+                    "ok": True, "closed": True, "room_id": room_id,
+                    "signalling_revoked": signalling_revoked,
+                })
                 return True
         self._json(404, {"error": "not_found"})
         return True
