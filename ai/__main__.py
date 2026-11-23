@@ -16,6 +16,7 @@ from ai.runtime.task_queue import SpecialistTaskQueue, SpecialistWorker, TaskQue
 from ai.runtime.learning_store import VerifiedLearningStore
 from ai.runtime.worker_service import run_worker_loop
 from ai.runtime.continuous_engine import ContinuousDevelopmentEngine, ModelMissionPlanner
+from ai.runtime.project_supervisor import ProjectSupervisor, ProjectSupervisorError
 from ai.core.orchestrator import SpecialistTask
 from ai.core.planner import PlannerError, SpecialistPlanner
 from ai.specialists import specialist_names
@@ -56,6 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     mission_mode.add_argument("--mission-create", action="store_true", help="Create a persistent development mission from --task.")
     mission_mode.add_argument("--mission-run", metavar="MISSION_ID", help="Run or resume a mission until completion or SIGINT/SIGTERM.")
     mission_mode.add_argument("--mission-status", metavar="MISSION_ID", help="Show persisted mission status.")
+    mission_mode.add_argument("--project-supervisor-run", action="store_true", help="Run the durable project-wide AI Chief supervisor; use --task once to set its persistent project goal.")
     parser.add_argument("--mission-db", default=".streamiov/ai-missions.sqlite3", help="Persistent mission SQLite database.")
     parser.add_argument("--allow-self-modification", action="store_true", help="Explicitly allow a persistent mission to edit the four Chief core files on this development worktree.")
     parser.add_argument("--full-project-development", action="store_true", help="Explicitly allow a persistent mission to edit project source across the repository, including the Chief and AI providers; secrets, GitHub workflows, autonomous runner controls, and deployment configuration remain protected.")
@@ -83,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.jason_status:
         incompatible = (
             args.task or args.doctor or args.mission_create or args.mission_run
-            or args.mission_status or args.enqueue or args.plan_and_enqueue
+            or args.mission_status or args.project_supervisor_run or args.enqueue or args.plan_and_enqueue
             or args.worker_once or args.worker_loop or args.allow_self_modification
             or args.full_project_development
         )
@@ -100,8 +102,8 @@ def main(argv: list[str] | None = None) -> int:
         except (JasonAdministrationError, OSError, ValueError, sqlite3.Error) as exc:
             print(f"streamiov-jason: {type(exc).__name__}: {exc}", file=sys.stderr)
             return 2
-    if (args.allow_self_modification or args.full_project_development) and not args.mission_run:
-        parser.error("--allow-self-modification and --full-project-development are valid only with --mission-run")
+    if (args.allow_self_modification or args.full_project_development) and not (args.mission_run or args.project_supervisor_run):
+        parser.error("--allow-self-modification and --full-project-development require --mission-run or --project-supervisor-run")
     if args.full_project_development:
         args.allow_self_modification = True
     if args.mission_create:
@@ -115,6 +117,9 @@ def main(argv: list[str] | None = None) -> int:
     elif args.mission_status:
         if args.task or args.doctor or args.enqueue or args.plan_and_enqueue or args.worker_once or args.worker_loop:
             parser.error("--mission-status cannot be combined with --task, --doctor or queue modes")
+    elif args.project_supervisor_run:
+        if args.doctor or args.enqueue or args.plan_and_enqueue or args.worker_once or args.worker_loop:
+            parser.error("--project-supervisor-run cannot be combined with --doctor or queue modes")
     elif args.enqueue:
         if not args.task or not args.queue_db or args.doctor:
             parser.error("--enqueue requires --task and --queue-db and cannot be combined with --doctor")
@@ -129,15 +134,15 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--poll-seconds must be between 1 and 60")
         if args.worker_loop and args.max_tasks < 0:
             parser.error("--max-tasks must be zero or greater")
-    elif not args.doctor and not args.task:
-        parser.error("provide --task, use --doctor, or select a queue mode")
+    elif not args.doctor and not args.task and not args.project_supervisor_run:
+        parser.error("provide --task, use --doctor, or select a queue/supervisor mode")
     if args.doctor and args.task:
         parser.error("--doctor and --task cannot be used together")
     try:
-        if args.mission_create or args.mission_run or args.mission_status:
-            # Creating a mission and inspecting its persisted status are local
-            # database operations; neither should require a live model endpoint.
-            provider = provider_from_env() if args.mission_run else None
+        if args.mission_create or args.mission_run or args.mission_status or args.project_supervisor_run:
+            # Creating a mission and inspecting persisted status are local database
+            # operations; execution modes require the configured model provider.
+            provider = provider_from_env() if (args.mission_run or args.project_supervisor_run) else None
             engine = ContinuousDevelopmentEngine(
                 args.mission_db,
                 ModelMissionPlanner(provider),
@@ -173,13 +178,23 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 for item in watched_signals:
                     signal.signal(item, request_mission_stop)
-                snapshot = engine.run(
-                    args.mission_run,
-                    stop_event,
-                    poll_seconds=args.mission_poll_seconds,
-                )
-                print(json.dumps(snapshot.__dict__, ensure_ascii=False, indent=2))
-                return 0 if snapshot.status == "completed" else 130
+                if args.project_supervisor_run:
+                    supervisor = ProjectSupervisor(engine, args.mission_db)
+                    if args.task:
+                        supervisor.configure(args.task)
+                    snapshot = supervisor.run(
+                        stop_event,
+                        poll_seconds=args.mission_poll_seconds,
+                    )
+                else:
+                    snapshot = engine.run(
+                        args.mission_run,
+                        stop_event,
+                        poll_seconds=args.mission_poll_seconds,
+                    )
+                if snapshot is not None:
+                    print(json.dumps(snapshot.__dict__, ensure_ascii=False, indent=2))
+                return 130 if stop_event.is_set() else (0 if snapshot and snapshot.status == "completed" else 2)
             finally:
                 for item, handler in previous_handlers.items():
                     signal.signal(item, handler)
@@ -265,7 +280,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(agent.run(args.task))
         return 0
-    except (AgentError, PlannerError, ProviderError, TaskQueueError, sqlite3.Error, OSError, ValueError) as exc:
+    except (AgentError, PlannerError, ProviderError, TaskQueueError, ProjectSupervisorError, sqlite3.Error, OSError, ValueError) as exc:
         print(f"streamiov-agent: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
 
