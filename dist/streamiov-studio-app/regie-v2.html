@@ -2603,7 +2603,7 @@ function voiceRenderParticipants(items=[]){
   const row=document.createElement("div");
   row.style.cssText="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #263543";
   const name=document.createElement("span");
-  name.textContent="Teilnehmer "+String(item.userId||item.participantId||"").slice(0,8)+(item.mute?" · stumm":"")+(item.deafen?" · taub":"");
+  name.textContent="Teilnehmer "+String(item.userId||item.participantId||"").slice(0,8)+(item.speaking?" · spricht":"")+(item.mute?" · stumm":"")+(item.deafen?" · taub":"");
   name.style.flex="1";
   const volume=document.createElement("input");
   volume.type="range";volume.min="0";volume.max="150";volume.value="100";volume.setAttribute("aria-label","Lautstärke Teilnehmer");
