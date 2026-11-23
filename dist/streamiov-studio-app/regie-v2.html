@@ -1705,12 +1705,20 @@ async function renderTtsTool(body){
  const toggle=toolButton("TTS einschalten",async()=>apply(await api({action:"toggle-tts"})));
  const input=document.createElement("textarea");
  input.maxLength=1000;
- input.placeholder="Text für die lokale Sprachausgabe";
+ input.placeholder="Text für die lokale deutsche Sprachausgabe";
+ const speed=document.createElement("input");
+ speed.type="range";speed.min="80";speed.max="300";speed.step="5";speed.value="175";
+ const speedLabel=toolNote("Geschwindigkeit: 175 Wörter/Minute");
+ speed.addEventListener("input",()=>{speedLabel.textContent="Geschwindigkeit: "+speed.value+" Wörter/Minute";});
+ const amplitude=document.createElement("input");
+ amplitude.type="range";amplitude.min="0";amplitude.max="200";amplitude.value="100";
+ const amplitudeLabel=toolNote("Sprachlautstärke: 100 %");
+ amplitude.addEventListener("input",()=>{amplitudeLabel.textContent="Sprachlautstärke: "+amplitude.value+" %";});
  const speak=toolButton("Lokal sprechen",async()=>{
   const text=input.value.trim();
   if(!text){input.focus();return;}
-  stateLine.textContent="Sprachausgabe läuft …";
-  const result=await api({action:"speak",text});
+  stateLine.textContent="Deutsche Sprachausgabe wird erzeugt …";
+  const result=await api({action:"speak",text,speed:Number(speed.value),amplitude:Number(amplitude.value)});
   apply(result);
   if(result?.ok&&result.audio_base64){
    try{await playTtsAudio(result.audio_base64,result.audio_mime||"audio/wav");stateLine.textContent="TTS läuft über Stream-/Monitor-Bus."}
@@ -1730,7 +1738,9 @@ async function renderTtsTool(body){
  };
  body.append(
   toolNote("Sprachausgabe läuft über das lokale Systemwerkzeug espeak-ng. Es wird kein Cloud-Dienst verwendet."),
-  stateLine,toggle,toolField("Sprechtext",input),speak
+  stateLine,toggle,toolField("Sprechtext",input),
+  toolField("Sprechgeschwindigkeit (80–300 Wörter/Minute)",speed),speedLabel,
+  toolField("Sprachlautstärke (0–200 %)",amplitude),amplitudeLabel,speak
  );
  apply(await api({action:"status"}));
 }
