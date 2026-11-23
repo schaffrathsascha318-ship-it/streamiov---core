@@ -58,14 +58,14 @@ class ProjectToolsConcurrencyTests(unittest.TestCase):
         acquired = self.root / "contender-acquired"
         helper = self.root / "lock_worker.py"
         helper.write_text(
-            "import sys, time\\n"
-            "from pathlib import Path\\n"
-            "from ai.runtime.project_tools import _locked_path\\n"
-            "mode, target, marker = sys.argv[1:]\\n"
-            "with _locked_path(Path(target), owner={\\"task_id\\": mode}):\\n"
-            "    Path(marker).write_text(\\"locked\\", encoding=\\"utf-8\\")\\n"
-            "    if mode == \\"process-holder\\":\\n"
-            "        while True: time.sleep(1)\\n",
+            "import sys, time\n"
+            "from pathlib import Path\n"
+            "from ai.runtime.project_tools import _locked_path\n"
+            "mode, target, marker = sys.argv[1:]\n"
+            "with _locked_path(Path(target), owner={'task_id': mode}):\n"
+            "    Path(marker).write_text('locked', encoding='utf-8')\n"
+            "    if mode == 'process-holder':\n"
+            "        while True: time.sleep(1)\n",
             encoding="utf-8",
         )
         env = os.environ.copy()
