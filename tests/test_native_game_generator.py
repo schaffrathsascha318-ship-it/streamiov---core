@@ -23,6 +23,7 @@ class NativeGameGeneratorSafetyTests(unittest.TestCase):
         self.generator = importlib.util.module_from_spec(spec)
         assert spec.loader is not None
         spec.loader.exec_module(self.generator)
+        self.generator.ROOT = self.root
         self.generator.TEMPLATE = self.template
         self.generator.DEST = self.destination
         self.generator.GAMES = [("neon-relay", "Neon Relay", "Arcade")]
