@@ -80,9 +80,24 @@ body.privacy-shield-active .monitor.program{border-color:var(--red);box-shadow:0
 .channel{padding:10px 7px;background:#0c131b;border:1px solid var(--line);
  border-radius:8px;text-align:center}
 .channel input{width:100%;accent-color:var(--cyan)}
+.meter.clipping{outline:1px solid var(--red);box-shadow:0 0 7px #ff496c55}.meter.clipping i{background:var(--red)}
 .meter{height:5px;background:#263543;border-radius:5px;margin:9px 0}
 .meter i{display:block;height:100%;width:65%;background:var(--green)}
 .channel small{display:block;color:var(--muted)}
+
+.audio-bus-panel{margin-top:12px;padding:12px;background:#101923;border:1px solid var(--line);border-radius:9px}
+.audio-bus-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px}
+.audio-bus{padding:10px;background:#0b121a;border:1px solid #293b4b;border-radius:8px;min-width:0}
+.audio-bus h4{margin:0 0 8px;font-size:12px;letter-spacing:1px}
+.audio-bus label,.audio-bus small{display:block;color:var(--muted);font-size:11px;margin:5px 0}
+.audio-bus select,.audio-bus input[type=range]{width:100%;min-width:0}
+.audio-bus audio{display:none}
+.audio-bus-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.audio-bus-actions button{flex:1;min-width:70px;padding:7px 8px;font-size:11px}
+.audio-route-list{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}
+.audio-route-list label{display:flex;align-items:center;gap:4px;color:var(--text);font-size:11px}
+.audio-bus-status{display:block;min-height:28px;margin-top:7px;color:var(--muted);font-size:11px}
+
 .right-stack{display:grid;gap:12px;align-content:start}
 .metric{display:flex;justify-content:space-between;padding:8px 0;
  border-bottom:1px solid #23313d}
@@ -304,6 +319,69 @@ dialog::backdrop{background:#000b}
      <p id="microphoneCaptureStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Mikrofon noch nicht geprüft.</p>
      <button id="refreshDevices" type="button" style="width:100%;margin-top:8px">GERÄTELISTE AKTUALISIEREN</button>
      <small style="display:block;color:var(--muted);margin-top:8px">Vorschautests bleiben lokal. Ein Stream wird erst nach Klick auf STREAM STARTEN übertragen. Systemton beim Bildschirmteilen hängt vom Betriebssystem und der ausgewählten Quelle ab.</small>
+     <div class="audio-bus-panel" id="audioBusPanel">
+      <div class="panel-title">GETRENNTE AUDIO-AUSGÄNGE</div>
+      <div class="audio-bus-grid">
+       <article class="audio-bus" data-audio-bus="stream">
+        <h4>STREAM / PROGRAMM</h4><div class="meter"><i data-mixer-meter="output:stream" style="width:0%"></i></div><label for="audioBusGainStream">Ausgangspegel</label><input id="audioBusGainStream" data-audio-bus-gain="stream" type="range" min="0" max="100" value="100">
+        <div class="audio-bus-actions"><button type="button" data-audio-bus-mute="stream" aria-pressed="false">STUMM</button></div>
+        <small class="audio-bus-status" data-audio-bus-status="stream">Stream-Bus bereit · wird beim Streamstart an den lokalen Encoder übergeben.</small>
+       </article>
+       <article class="audio-bus" data-audio-bus="monitor">
+        <h4>MONITOR</h4><label for="audioBusDeviceMonitor">Wiedergabegerät</label><select id="audioBusDeviceMonitor" data-audio-bus-device="monitor"><option value="">Systemstandard</option></select>
+        <label for="audioBusGainMonitor">Ausgangspegel</label><input id="audioBusGainMonitor" data-audio-bus-gain="monitor" type="range" min="0" max="100" value="100">
+        <div class="audio-bus-actions"><button type="button" data-audio-bus-connect="monitor">AKTIVIEREN</button><button type="button" data-audio-bus-disconnect="monitor">TRENNEN</button><button type="button" data-audio-bus-mute="monitor" aria-pressed="false">STUMM</button></div>
+        <small class="audio-bus-status" data-audio-bus-status="monitor">Monitor nicht verbunden.</small><audio id="audioBusElementMonitor" autoplay playsinline></audio>
+       </article>
+       <article class="audio-bus" data-audio-bus="headphones">
+        <h4>KOPFHÖRER</h4><label for="audioBusDeviceHeadphones">Wiedergabegerät</label><select id="audioBusDeviceHeadphones" data-audio-bus-device="headphones"><option value="">Systemstandard</option></select>
+        <label for="audioBusGainHeadphones">Ausgangspegel</label><input id="audioBusGainHeadphones" data-audio-bus-gain="headphones" type="range" min="0" max="100" value="100">
+        <div class="audio-bus-actions"><button type="button" data-audio-bus-connect="headphones">AKTIVIEREN</button><button type="button" data-audio-bus-disconnect="headphones">TRENNEN</button><button type="button" data-audio-bus-mute="headphones" aria-pressed="false">STUMM</button></div>
+        <small class="audio-bus-status" data-audio-bus-status="headphones">Kopfhörer nicht verbunden.</small><audio id="audioBusElementHeadphones" autoplay playsinline></audio>
+       </article>
+       <article class="audio-bus" data-audio-bus="communications">
+        <h4>KOMMUNIKATION</h4><label for="audioBusDeviceCommunications">Wiedergabegerät</label><select id="audioBusDeviceCommunications" data-audio-bus-device="communications"><option value="">Systemstandard</option></select>
+        <label for="audioBusGainCommunications">Ausgangspegel</label><input id="audioBusGainCommunications" data-audio-bus-gain="communications" type="range" min="0" max="100" value="100">
+        <div class="audio-bus-actions"><button type="button" data-audio-bus-connect="communications">AKTIVIEREN</button><button type="button" data-audio-bus-disconnect="communications">TRENNEN</button><button type="button" data-audio-bus-mute="communications" aria-pressed="false">STUMM</button></div>
+        <small class="audio-bus-status" data-audio-bus-status="communications">Kommunikationsausgang nicht verbunden.</small><audio id="audioBusElementCommunications" autoplay playsinline></audio>
+       </article>
+      </div>
+      <label style="display:block;margin:8px 0"><input id="allowMonitorDuringLoopback" type="checkbox"> Monitor trotz aktivem Fenster-/System-Loopback erlauben</label>
+      <small id="loopbackGuardStatus" role="status">Feedback-Schutz: Monitor-Routing wird bei aktivem Loopback automatisch begrenzt.</small>
+      <div class="panel-title" style="margin-top:12px">MIKROFON-ROUTING</div>
+      <div class="audio-route-list">
+       <label><input type="checkbox" data-audio-route="stream" checked> Stream</label><label><input type="checkbox" data-audio-route="monitor" checked> Monitor</label>
+       <label><input type="checkbox" data-audio-route="headphones"> Kopfhörer</label><label><input type="checkbox" data-audio-route="communications"> Kommunikation</label>
+      </div>
+      <label for="audioMicGain">Mikrofon-Pegel im Mixer</label><input id="audioMicGain" type="range" min="0" max="200" value="100" style="width:100%">
+      <label for="micPan">Mikrofon-Pan <span id="micPanValue">Mitte</span></label><input id="micPan" type="range" min="-100" max="100" value="0" style="width:100%">
+      <label><input id="micSolo" type="checkbox"> Mikrofon SOLO (andere Kanäle stummschalten)</label>
+      <button type="button" data-mixer-mute="microphone" aria-pressed="false">MIKROFON STUMM</button>
+      <label for="micHighpass">Mikrofon-Tiefenschnitt / Rumpelfilter <span id="micHighpassValue">80 Hz</span></label><input id="micHighpass" type="range" min="20" max="250" step="5" value="80" style="width:100%">
+      <label><input id="micCompressor" type="checkbox" checked> Sprachkompressor aktivieren</label>
+      <label><input id="micGateEnabled" type="checkbox"> Noise Gate aktivieren</label>
+      <label for="micGateThreshold">Gate-Schwelle <span id="micGateThresholdValue">−50 dB</span></label><input id="micGateThreshold" type="range" min="-80" max="-20" step="1" value="-50" style="width:100%">
+      <small id="micGateStatus" role="status">Gate inaktiv.</small>
+      <label><input id="micEchoCancellation" type="checkbox"> Echo-Unterdrückung (Geräteadapter)</label>
+      <label><input id="micNoiseSuppression" type="checkbox"> Rauschunterdrückung (Geräteadapter)</label>
+      <label><input id="micAutoGainControl" type="checkbox"> Automatische Mikrofonregelung (Geräteadapter)</label>
+      <small>Ein Limiter schützt jeden Ausgang zusätzlich vor digitalen Pegelspitzen.</small>
+      <small id="audioMixerStatus" class="audio-bus-status" role="status">Audio-Engine bereit, noch keine Mikrofonquelle verbunden.</small>
+      <div class="panel-title" style="margin-top:10px">SYSTEMTON-ROUTING</div>
+      <div class="audio-route-list">
+       <label><input type="checkbox" data-system-route="stream" checked> Stream</label><label><input type="checkbox" data-system-route="monitor" checked> Monitor</label>
+       <label><input type="checkbox" data-system-route="headphones"> Kopfhörer</label><label><input type="checkbox" data-system-route="communications"> Kommunikation</label>
+      </div>
+      <label for="audioSystemGain">Systemton-Pegel</label><input id="audioSystemGain" type="range" min="0" max="200" value="100" style="width:100%">
+      <small id="systemAudioMixerStatus" class="audio-bus-status" role="status">Systemton wartet auf eine Bildschirmquelle mit Audiostream.</small>
+      <div class="panel-title" style="margin-top:10px">WEITERE QUELLEN-ROUTING</div>
+      <div class="audio-route-list">
+       <div><b>Musik</b> <label><input type="checkbox" data-audio-source-route="music" data-route="stream" checked> Stream</label> <label><input type="checkbox" data-audio-source-route="music" data-route="monitor" checked> Monitor</label> <label><input type="checkbox" data-audio-source-route="music" data-route="headphones" > Kopfhörer</label> <label><input type="checkbox" data-audio-source-route="music" data-route="communications" > Kommunikation</label></div>
+       <div><b>Soundboard</b> <label><input type="checkbox" data-audio-source-route="soundboard" data-route="stream" checked> Stream</label> <label><input type="checkbox" data-audio-source-route="soundboard" data-route="monitor" checked> Monitor</label> <label><input type="checkbox" data-audio-source-route="soundboard" data-route="headphones" > Kopfhörer</label> <label><input type="checkbox" data-audio-source-route="soundboard" data-route="communications" > Kommunikation</label></div>
+       <div><b>TTS</b> <label><input type="checkbox" data-audio-source-route="tts" data-route="stream" checked> Stream</label> <label><input type="checkbox" data-audio-source-route="tts" data-route="monitor" checked> Monitor</label> <label><input type="checkbox" data-audio-source-route="tts" data-route="headphones" > Kopfhörer</label> <label><input type="checkbox" data-audio-source-route="tts" data-route="communications" > Kommunikation</label></div>
+       <div><b>Alerts</b> <label><input type="checkbox" data-audio-source-route="alert" data-route="stream" checked> Stream</label> <label><input type="checkbox" data-audio-source-route="alert" data-route="monitor" checked> Monitor</label> <label><input type="checkbox" data-audio-source-route="alert" data-route="headphones" > Kopfhörer</label> <label><input type="checkbox" data-audio-source-route="alert" data-route="communications" > Kommunikation</label></div>
+      </div>
+     </div>
     </div>
    </section>
   </div>
@@ -342,17 +420,21 @@ dialog::backdrop{background:#000b}
   <div class="panel section">
    <div class="panel-title">AUDIO-MIXER / LOKALE REGLER</div>
    <div class="pad mixer">
-    <div class="channel"><b>Mikrofon</b><div class="meter"><i></i></div>
+    <div class="channel"><b>Mikrofon</b><div class="meter"><i data-mixer-meter="microphone" style="width:0%"></i></div>
      <input id="mixerMic" type="range" min="0" max="100" value="75" aria-label="Mikrofonlautstärke"><small id="mixerMicValue">MIC 1 · 75 %</small></div>
-    <div class="channel"><b>System</b><div class="meter"><i></i></div>
-     <input id="mixerSystem" type="range" min="0" max="100" value="45" aria-label="Systemtonlautstärke"><small id="mixerSystemValue">SYSTEM · 45 %</small></div>
-    <div class="channel"><b>Musik</b><div class="meter"><i></i></div>
+    <div class="channel"><b>System</b><div class="meter"><i data-mixer-meter="system" style="width:0%"></i></div>
+     <input id="mixerSystem" type="range" min="0" max="100" value="45" aria-label="Systemtonlautstärke"><small id="mixerSystemValue">SYSTEM · 45 %</small><label>Pan <input data-mixer-pan="system" type="range" min="-100" max="100" value="0"></label><button type="button" data-mixer-mute="system" aria-pressed="false">STUMM</button><button type="button" data-mixer-solo="system" aria-pressed="false">SOLO</button></div>
+    <div class="channel"><b>Musik</b><div class="meter"><i data-mixer-meter="music" style="width:0%"></i></div>
      <input id="mixerMusic" type="range" min="0" max="100" value="50" aria-label="Musiklautstärke"><small id="mixerMusicValue">MUSIK · 50 %</small>
-     <button id="mixerMusicMute" type="button" aria-pressed="false" style="width:100%;margin-top:6px;padding:4px">MUTE</button></div>
-    <div class="channel"><b>Master</b><div class="meter"><i></i></div>
+     <button id="mixerMusicMute" type="button" aria-pressed="false" style="width:100%;margin-top:6px;padding:4px">MUTE</button><label>Pan <input data-mixer-pan="music" type="range" min="-100" max="100" value="0"></label><button type="button" data-mixer-solo="music" aria-pressed="false">SOLO</button><label><input id="musicDucking" type="checkbox" checked> TTS/Alerts senken Musik</label></div>
+    <div class="channel"><b>TTS</b><div class="meter"><i data-mixer-meter="tts" style="width:0%"></i></div>
+     <input id="mixerTts" type="range" min="0" max="100" value="100" aria-label="TTS-Lautstärke"><small id="mixerTtsValue">TTS · 100 %</small><label>Pan <input data-mixer-pan="tts" type="range" min="-100" max="100" value="0"></label><button type="button" data-mixer-mute="tts" aria-pressed="false">STUMM</button><button type="button" data-mixer-solo="tts" aria-pressed="false">SOLO</button></div>
+    <div class="channel"><b>Alerts</b><div class="meter"><i data-mixer-meter="alert" style="width:0%"></i></div>
+     <input id="mixerAlert" type="range" min="0" max="100" value="70" aria-label="Alert-Lautstärke"><small id="mixerAlertValue">ALERTS · 70 %</small><label>Pan <input data-mixer-pan="alert" type="range" min="-100" max="100" value="0"></label><button type="button" data-mixer-mute="alert" aria-pressed="false">STUMM</button><button type="button" data-mixer-solo="alert" aria-pressed="false">SOLO</button></div>
+    <div class="channel"><b>Master</b><div class="meter"><i data-mixer-meter="output:stream" style="width:0%"></i></div>
      <input id="mixerMaster" type="range" min="0" max="100" value="80" aria-label="Masterlautstärke"><small id="mixerMasterValue">MASTER · 80 %</small></div>
    </div>
-   <p id="mixerStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted);margin:0 12px 12px">Mikrofon, Systemton und lokale Musikdatei haben getrennte Fader. Musik wird nur übertragen, wenn sie im Player geladen und abgespielt wird. Spiel- und Alert-Kanäle sind noch nicht angebunden.</p>
+   <p id="mixerStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted);margin:0 12px 12px">Mikrofon, Systemton, Musik, Soundboard, TTS und Alerts haben getrennte Kanäle. Live-Pegelanzeigen zeigen RMS und Peak; die Ausgangsbusse besitzen Limiter.</p>
   </div>
  </section>
 
@@ -500,6 +582,8 @@ dialog::backdrop{background:#000b}
 
  </main>
 
+<script src="engine/audio-mixer.js"></script>
+<script src="engine/audio-device-adapter.js"></script>
 <script src="engine/privacy-shield.js"></script>
 <script>
 const $=id=>document.getElementById(id);
@@ -877,6 +961,223 @@ $("sceneBackground").onchange=async event=>{
 // Reale lokale Kamera- und Mikrofonaufnahme über Chromium/Electron MediaDevices.
 // Vorschautests bleiben lokal; die Tracks werden nur beim ausdrücklichen Streamstart übertragen.
 const captureState={camera:null,screen:null,microphone:null,audioContext:null,analyser:null,meterFrame:0};
+
+const studioAudioMixer=window.StreamiovAudioMixer?new window.StreamiovAudioMixer():null;
+const studioAudioDeviceAdapter=window.StreamiovAudioDeviceAdapter?new window.StreamiovAudioDeviceAdapter({mixer:studioAudioMixer}):null;
+let broadcastMixerSource=null;
+let musicBridgeDestination=null;
+const audioBusNames=["stream","monitor","headphones","communications"];
+const mixerMeterFrameState={frame:0};
+const audioBusElements={monitor:$("audioBusElementMonitor"),headphones:$("audioBusElementHeadphones"),communications:$("audioBusElementCommunications")};
+const audioBusDeviceStorageKey="streamiov.studio.audio-output-devices.v1";
+let savedAudioBusDevices={};
+try{savedAudioBusDevices=JSON.parse(localStorage.getItem(audioBusDeviceStorageKey)||"{}")||{};}catch(_){savedAudioBusDevices={};}
+document.querySelectorAll("[data-audio-bus-device]").forEach(select=>select.addEventListener("change",async()=>{
+ const name=select.dataset.audioBusDevice;
+ savedAudioBusDevices[name]=select.value;
+ try{localStorage.setItem(audioBusDeviceStorageKey,JSON.stringify(savedAudioBusDevices));}catch(_){/* device preference is optional */}
+ if(!audioBusState[name]?.connected)return;
+ try{
+  if(studioAudioDeviceAdapter)await studioAudioDeviceAdapter.attachOutput(name,audioBusElements[name],{deviceId:select.value});
+  else await studioAudioMixer.attachOutput(name,audioBusElements[name],{deviceId:select.value});
+  audioBusStatus(name,"Ausgabegerät gewechselt · Ausgang wieder verbunden.");
+ }catch(error){
+  audioBusState[name].connected=false;
+  renderAudioBus(name);
+  audioBusStatus(name,"Gerätewechsel fehlgeschlagen: "+captureError(error));
+ }
+}));
+const audioBusStorageKey="streamiov.studio.audio-buses.v1";
+const audioBusState=Object.fromEntries(audioBusNames.map(name=>[name,{gain:100,muted:false,connected:false}]));
+try{
+ const saved=JSON.parse(localStorage.getItem(audioBusStorageKey)||"{}");
+ for(const name of audioBusNames){const value=saved?.[name];if(!value||typeof value!=="object")continue;
+  if(Number.isFinite(value.gain))audioBusState[name].gain=Math.max(0,Math.min(100,Math.round(value.gain)));
+  audioBusState[name].muted=value.muted===true;
+ }
+}catch(_){/* mixer preferences are optional */}
+function saveAudioBusState(){
+ try{localStorage.setItem(audioBusStorageKey,JSON.stringify(Object.fromEntries(audioBusNames.map(name=>[name,{gain:audioBusState[name].gain,muted:audioBusState[name].muted}]))));}
+ catch(_){/* mixer preferences are optional */}
+}
+function audioBusStatus(name,message){const target=document.querySelector("[data-audio-bus-status='"+name+"']");if(target)target.textContent=message;}
+function renderAudioBus(name){
+ const state=audioBusState[name];if(!state)return;
+ const gain=document.querySelector("[data-audio-bus-gain='"+name+"']"),mute=document.querySelector("[data-audio-bus-mute='"+name+"']");
+ if(gain)gain.value=String(state.gain);
+ if(mute){mute.setAttribute("aria-pressed",String(state.muted));mute.textContent=state.muted?"TON AN":"STUMM";}
+ if(name==="stream")audioBusStatus(name,"Stream-Bus vorbereitet"+(state.muted?" · stumm":"")+" · wird beim Streamstart an den lokalen Encoder übergeben.");
+ else audioBusStatus(name,state.connected?"Audioausgang aktiv · "+(audioBusElements[name]?.sinkId||"Systemstandard"):"Audioausgang nicht verbunden.");
+}
+document.querySelectorAll("[data-audio-bus-gain]").forEach(control=>control.addEventListener("input",()=>{
+ const name=control.dataset.audioBusGain,state=audioBusState[name];if(!state||!studioAudioMixer)return;
+ state.gain=Number(control.value);studioAudioMixer.setOutputGain(name,state.gain/100);saveAudioBusState();renderAudioBus(name);
+}));
+document.querySelectorAll("[data-audio-bus-mute]").forEach(button=>button.addEventListener("click",()=>{
+ const name=button.dataset.audioBusMute,state=audioBusState[name];if(!state||!studioAudioMixer)return;
+ state.muted=!state.muted;studioAudioMixer.setOutputMuted(name,state.muted);saveAudioBusState();renderAudioBus(name);
+}));
+document.querySelectorAll("[data-audio-bus-connect]").forEach(button=>button.addEventListener("click",async()=>{
+ const name=button.dataset.audioBusConnect,element=audioBusElements[name],select=document.querySelector("[data-audio-bus-device='"+name+"']");
+ if(!studioAudioMixer||!element||!select)return;button.disabled=true;audioBusStatus(name,"Audioausgang wird aktiviert …");
+ try{const result=studioAudioDeviceAdapter?await studioAudioDeviceAdapter.attachOutput(name,element,{deviceId:select.value}):await studioAudioMixer.attachOutput(name,element,{deviceId:select.value});audioBusState[name].connected=true;audioBusStatus(name,result.physicalTargetSelected?"Verbunden mit ausgewähltem Gerät.":"Verbunden · Systemstandard.");}
+ catch(error){audioBusState[name].connected=false;audioBusStatus(name,"Ausgang nicht verfügbar: "+captureError(error));}
+ finally{button.disabled=false;renderAudioBus(name);}
+}));
+document.querySelectorAll("[data-audio-bus-disconnect]").forEach(button=>button.addEventListener("click",()=>{
+ const name=button.dataset.audioBusDisconnect;if(studioAudioDeviceAdapter)studioAudioDeviceAdapter.detachOutput(name,audioBusElements[name]);else if(studioAudioMixer)studioAudioMixer.detachOutput(name,audioBusElements[name]);audioBusState[name].connected=false;renderAudioBus(name);
+}));
+const sourceRoutingStorageKey="streamiov.studio.audio-routing.v1";
+let allowMonitorDuringLoopback=false;
+try{
+ const saved=JSON.parse(localStorage.getItem(sourceRoutingStorageKey)||"{}");
+ for(const [selector,values] of [["[data-audio-route]",saved.microphoneRoutes],["[data-system-route]",saved.systemRoutes]]){
+  if(!Array.isArray(values))continue;
+  document.querySelectorAll(selector).forEach(input=>{input.checked=values.includes(input.dataset.audioRoute||input.dataset.systemRoute);});
+ }
+ if(Number.isFinite(saved.microphoneGain))$("audioMicGain").value=String(Math.max(0,Math.min(200,Math.round(saved.microphoneGain))));
+ if(Number.isFinite(saved.systemGain))$("audioSystemGain").value=String(Math.max(0,Math.min(200,Math.round(saved.systemGain))));
+ if(Number.isFinite(saved.highpassHz))$("micHighpass").value=String(Math.max(20,Math.min(250,Math.round(saved.highpassHz/5)*5)));
+ if(typeof saved.compressorEnabled==="boolean")$("micCompressor").checked=saved.compressorEnabled;
+ if(Number.isFinite(saved.microphonePan))$("micPan").value=String(Math.max(-100,Math.min(100,Math.round(saved.microphonePan))));
+ if(typeof saved.microphoneSolo==="boolean")$("micSolo").checked=saved.microphoneSolo;
+ if(typeof saved.echoCancellation==="boolean")$("micEchoCancellation").checked=saved.echoCancellation;
+ if(typeof saved.noiseSuppression==="boolean")$("micNoiseSuppression").checked=saved.noiseSuppression;
+ if(typeof saved.autoGainControl==="boolean")$("micAutoGainControl").checked=saved.autoGainControl;
+ allowMonitorDuringLoopback=saved.allowMonitorDuringLoopback===true;
+ $("allowMonitorDuringLoopback").checked=allowMonitorDuringLoopback;
+ if(saved.auxiliaryRoutes&&typeof saved.auxiliaryRoutes==="object")document.querySelectorAll("[data-audio-source-route]").forEach(input=>{const routes=saved.auxiliaryRoutes[input.dataset.audioSourceRoute];if(Array.isArray(routes))input.checked=routes.includes(input.dataset.route);});
+ if(typeof saved.gateEnabled==="boolean")$("micGateEnabled").checked=saved.gateEnabled;
+ if(Number.isFinite(saved.gateThresholdDb))$("micGateThreshold").value=String(Math.max(-80,Math.min(-20,Math.round(saved.gateThresholdDb))));
+ $("micGateThresholdValue").textContent=$("micGateThreshold").value+" dB";
+}catch(_){/* source routing preferences are optional */}
+function saveAudioRoutingState(){
+ try{localStorage.setItem(sourceRoutingStorageKey,JSON.stringify({
+  microphoneRoutes:[...document.querySelectorAll("[data-audio-route]:checked")].map(item=>item.dataset.audioRoute),
+  systemRoutes:[...document.querySelectorAll("[data-system-route]:checked")].map(item=>item.dataset.systemRoute),
+  microphoneGain:Number($("audioMicGain").value),systemGain:Number($("audioSystemGain").value),
+  highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked,
+  microphonePan:Number($("micPan").value),microphoneSolo:$("micSolo").checked,
+  echoCancellation:$("micEchoCancellation").checked,noiseSuppression:$("micNoiseSuppression").checked,autoGainControl:$("micAutoGainControl").checked,
+  gateEnabled:$("micGateEnabled").checked,gateThresholdDb:Number($("micGateThreshold").value),allowMonitorDuringLoopback,
+  auxiliaryRoutes:Object.fromEntries(["music","soundboard","tts","alert"].map(source=>[source,[...document.querySelectorAll(`[data-audio-source-route="${source}"]:checked`)].map(input=>input.dataset.route)]))
+ }));}catch(_){/* source routing preferences are optional */}
+}
+function selectedMicrophoneRoutes(){return [...document.querySelectorAll("[data-audio-route]:checked")].map(item=>item.dataset.audioRoute);}
+function isLoopbackCaptureActive(){return Boolean(captureState.screen?.getAudioTracks().some(track=>track.readyState==="live"));}
+function selectedAuxRoutes(source){return [...document.querySelectorAll('[data-audio-source-route="'+source+'"]:checked')].map(input=>input.dataset.route);}
+function effectiveAuxRoutes(source){return selectedAuxRoutes(source).filter(route=>route!=="monitor"||!isLoopbackCaptureActive()||allowMonitorDuringLoopback);}
+function effectiveAudioRoutes(routes,source){
+ const mode=$("streamAudio")?.value||"mic-system";
+ const streamAllowed=source==="microphone"?(mode==="mic"||mode==="mic-system"):source==="system"?(mode==="system"||mode==="mic-system"):true;
+ const monitorAllowed=!isLoopbackCaptureActive()||allowMonitorDuringLoopback;
+ return routes.filter(route=>(route!=="stream"||streamAllowed)&&(route!=="monitor"||monitorAllowed));
+}
+function applyAuxSourceRouting(source){
+ if(source==="soundboard"){for(const pad of soundboardPads){if(pad.channelName&&studioAudioMixer?.snapshot(pad.channelName))studioAudioMixer.setRoutes(pad.channelName,effectiveAuxRoutes("soundboard"));}}
+ else if(studioAudioMixer?.snapshot(source))studioAudioMixer.setRoutes(source,effectiveAuxRoutes(source));
+ saveAudioRoutingState();
+}
+document.querySelectorAll("[data-audio-source-route]").forEach(input=>input.addEventListener("change",()=>applyAuxSourceRouting(input.dataset.audioSourceRoute)));
+function applyMonitorFeedbackGuard(){
+ applyMicrophoneRouting();applySystemRouting();
+ for(const name of ["music","tts","alert"]){if(studioAudioMixer?.snapshot(name))studioAudioMixer.setRoutes(name,effectiveAuxRoutes(name));}
+ for(const pad of soundboardPads){if(pad.channelName&&studioAudioMixer?.snapshot(pad.channelName))studioAudioMixer.setRoutes(pad.channelName,effectiveAuxRoutes("soundboard"));}
+ const status=$("loopbackGuardStatus");
+ if(status)status.textContent=isLoopbackCaptureActive()?allowMonitorDuringLoopback?"WARNUNG: Loopback aktiv, Monitor freigegeben; Rückkopplung möglich.":"Feedback-Schutz aktiv: Monitor-Routing bei aktivem Loopback blockiert.":"Kein Loopback aktiv; Monitor-Routing folgt der Quellenmatrix.";
+}
+function applyMicrophoneRouting(){
+ if(!studioAudioMixer||!studioAudioMixer.snapshot("microphone")){mixerPanState.microphone=Number($("micPan").value)/100;saveAudioRoutingState();saveMixerSettings();return;}
+ const micRoutes=effectiveAudioRoutes(selectedMicrophoneRoutes(),"microphone");
+ studioAudioMixer.setRoutes("microphone",micRoutes);
+ studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100*mixerValue("mixerMic"));
+ studioAudioMixer.setMuted("microphone",mixerSourceMuteState.microphone);
+ studioAudioMixer.setProcessing("microphone",{highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked});
+ studioAudioMixer.setGate("microphone",{enabled:$("micGateEnabled").checked,thresholdDb:Number($("micGateThreshold").value),attenuationDb:-60});
+ $("micGateThresholdValue").textContent=$("micGateThreshold").value+" dB";
+ studioAudioMixer.setPan("microphone",Number($("micPan").value)/100);
+ mixerPanState.microphone=Number($("micPan").value)/100;
+ studioAudioMixer.setSolo("microphone",$("micSolo").checked);
+ refreshMixerSoloButtons();
+ $("micPanValue").textContent=Number($("micPan").value)===0?"Mitte":Number($("micPan").value)<0?"L "+Math.abs($("micPan").value):"R "+$("micPan").value;
+ saveAudioRoutingState();
+ saveMixerSettings();
+ $("micHighpassValue").textContent=$("micHighpass").value+" Hz";
+ $("audioMixerStatus").textContent="Mikrofonquelle verbunden · Routing: "+(micRoutes.join(", ")||"kein Ausgang")+(selectedMicrophoneRoutes().includes("monitor")&&!micRoutes.includes("monitor")?" · Monitor wegen Loopback-Feedback gesperrt.":".");
+}
+document.querySelectorAll("[data-audio-route]").forEach(control=>control.addEventListener("change",applyMicrophoneRouting));
+$("audioMicGain").addEventListener("input",applyMicrophoneRouting);
+$("micHighpass").addEventListener("input",applyMicrophoneRouting);
+$("micCompressor").addEventListener("change",applyMicrophoneRouting);
+$("micGateEnabled").addEventListener("change",applyMicrophoneRouting);
+$("micGateThreshold").addEventListener("input",applyMicrophoneRouting);
+$("micPan").addEventListener("input",applyMicrophoneRouting);
+$("micSolo").addEventListener("change",applyMicrophoneRouting);
+["micEchoCancellation","micNoiseSuppression","micAutoGainControl"].forEach(id=>$(id).addEventListener("change",()=>{saveAudioRoutingState();if(captureState.microphone){stopCapture("microphone");$("microphoneStart").click();}}));
+function selectedSystemRoutes(){return [...document.querySelectorAll("[data-system-route]:checked")].map(item=>item.dataset.systemRoute);}
+function applySystemRouting(){
+ if(!studioAudioMixer||!studioAudioMixer.snapshot("system")){saveAudioRoutingState();return;}
+ const systemRoutes=effectiveAudioRoutes(selectedSystemRoutes(),"system");
+ studioAudioMixer.setRoutes("system",systemRoutes);
+ studioAudioMixer.setGain("system",Number($("audioSystemGain").value)/100*mixerValue("mixerSystem"));
+ studioAudioMixer.setMuted("system",mixerSourceMuteState.system);
+ studioAudioMixer.setPan("system",mixerPanState.system);
+ saveAudioRoutingState();
+ $("systemAudioMixerStatus").textContent="Systemton verbunden · Routing: "+(systemRoutes.join(", ")||"kein Ausgang")+(selectedSystemRoutes().includes("monitor")&&!systemRoutes.includes("monitor")?" · Monitor wegen Loopback-Feedback gesperrt.":".");
+}
+document.querySelectorAll("[data-system-route]").forEach(control=>control.addEventListener("change",applySystemRouting));
+$("audioSystemGain").addEventListener("input",applySystemRouting);
+$("streamAudio").addEventListener("change",()=>{applyMicrophoneRouting();applySystemRouting();});
+$("allowMonitorDuringLoopback").addEventListener("change",()=>{allowMonitorDuringLoopback=$("allowMonitorDuringLoopback").checked;saveAudioRoutingState();applyMonitorFeedbackGuard();});
+
+async function reconcileAudioOutputDevices(){
+ const previous={...savedAudioBusDevices};
+ await refreshAudioBusDevices();
+ for(const name of ["monitor","headphones","communications"]){
+  if(!audioBusState[name].connected)continue;
+  const element=audioBusElements[name];
+  const select=document.querySelector("[data-audio-bus-device='"+name+"']");
+  const requested=previous[name]||"";
+  const available=!requested||[...select.options].some(option=>option.value===requested);
+  if(!available){
+   if(studioAudioDeviceAdapter)studioAudioDeviceAdapter.detachOutput(name,element);else studioAudioMixer?.detachOutput(name,element);
+   audioBusState[name].connected=false;
+   renderAudioBus(name);
+   audioBusStatus(name,"Ausgabegerät wurde entfernt · bitte neues Gerät auswählen.");
+   continue;
+  }
+  let message="Audioausgang nach Gerätewechsel wieder verbunden.";
+  try{
+   if(studioAudioDeviceAdapter)await studioAudioDeviceAdapter.attachOutput(name,element,{deviceId:requested});else await studioAudioMixer.attachOutput(name,element,{deviceId:requested});
+   audioBusState[name].connected=true;
+  }catch(error){
+   audioBusState[name].connected=false;
+   message="Wiederverbindung fehlgeschlagen: "+captureError(error);
+  }
+  renderAudioBus(name);
+  audioBusStatus(name,message);
+ }
+}
+async function refreshAudioBusDevices(){
+ if(!navigator.mediaDevices?.enumerateDevices)return;
+ const inventory=studioAudioDeviceAdapter?await studioAudioDeviceAdapter.listDevices():{outputs:(await navigator.mediaDevices.enumerateDevices()).filter(device=>device.kind==="audiooutput")};
+ const devices=inventory.outputs||[];
+ document.querySelectorAll("[data-audio-bus-device]").forEach(select=>{
+  const selected=select.value||savedAudioBusDevices[select.dataset.audioBusDevice]||"";select.replaceChildren();const standard=document.createElement("option");standard.value="";standard.textContent="Systemstandard";select.append(standard);
+  devices.filter(device=>device.kind==="audiooutput").forEach((device,index)=>{const option=document.createElement("option");option.value=device.deviceId;option.textContent=device.label||"Audioausgang "+(index+1);select.append(option);});
+  if([...select.options].some(option=>option.value===selected))select.value=selected;
+ });
+}
+audioBusNames.forEach(name=>{
+ const state=audioBusState[name];
+ if(studioAudioMixer){studioAudioMixer.setOutputGain(name,state.gain/100);studioAudioMixer.setOutputMuted(name,state.muted);}
+ renderAudioBus(name);
+});
+refreshMixerSoloButtons();
+refreshMixerMuteButtons();
+if(!mixerMeterFrameState.frame)mixerMeterFrameState.frame=requestAnimationFrame(drawMixerMeters);
+refreshAudioBusDevices().catch(()=>audioBusNames.slice(1).forEach(name=>audioBusStatus(name,"Geräteliste nicht verfügbar.")));
+
 const cameraSelect=$("cameraDeviceSelect");
 const microphoneSelect=$("microphoneDeviceSelect");
 const cameraVideo=$("cameraPreview");
@@ -886,11 +1187,16 @@ function stopCapture(kind){
  if(stream){for(const track of stream.getTracks())track.stop();captureState[kind]=null;}
  if(kind==="camera"){cameraVideo.pause();cameraVideo.srcObject=null;cameraVideo.style.display="none";$("cameraStart").textContent="KAMERA TESTEN";}
  if(kind==="screen"){
+  if(studioAudioMixer)studioAudioMixer.disconnect("system");
+  $("systemAudioMixerStatus").textContent="Systemtonquelle getrennt.";
+  applyMonitorFeedbackGuard();
   screenVideo.pause();screenVideo.srcObject=null;screenVideo.style.display="none";
   $("screenStart").textContent="BILDSCHIRM TEILEN";
   $("screenCaptureStatus").textContent="Bildschirmfreigabe beendet.";
  }
  if(kind==="microphone"){
+  if(studioAudioMixer)studioAudioMixer.disconnect("microphone");
+  $("audioMixerStatus").textContent="Mikrofonquelle getrennt.";
   if(captureState.meterFrame)cancelAnimationFrame(captureState.meterFrame);
   captureState.meterFrame=0;
   if(captureState.audioContext){captureState.audioContext.close().catch(()=>{});captureState.audioContext=null;}
@@ -1013,6 +1319,14 @@ $("screenStart").onclick=async()=>{
   if(!track||track.readyState!=="live")throw new Error("Die ausgewählte Bildschirmquelle liefert kein Bild.");
   track.addEventListener("ended",()=>{if(captureState.screen===stream)stopCapture("screen");},{once:true});
   const hasAudio=stream.getAudioTracks().some(item=>item.readyState==="live");
+   if(hasAudio&&studioAudioMixer){
+    studioAudioMixer.connect("system",stream,{gain:Number($("audioSystemGain").value)/100,routes:selectedSystemRoutes()});
+    refreshMixerSoloButtons();
+    const audioTrack=stream.getAudioTracks()[0];
+    audioTrack.addEventListener("ended",()=>{if(studioAudioMixer)studioAudioMixer.disconnect("system");$("systemAudioMixerStatus").textContent="Systemtonquelle wurde beendet.";},{once:true});
+    $("systemAudioMixerStatus").textContent="Systemton verbunden · Routing: "+(selectedSystemRoutes().join(", ")||"kein Ausgang")+".";
+   }
+  applyMonitorFeedbackGuard();
   $("screenStart").textContent="BILDSCHIRM TEILEN STOPPEN";
   $("screenMetric").textContent="GETEILT LOKAL";
   status.textContent="Bildschirm lokal geteilt"+(hasAudio?" · Systemton verfügbar.":" · Kein Systemton von dieser Quelle.");
@@ -1032,8 +1346,12 @@ $("microphoneStart").onclick=async()=>{
  try{
   if(!navigator.mediaDevices?.getUserMedia)throw new Error("Mikrofon-API ist in dieser Laufzeit nicht verfügbar.");
   const deviceId=microphoneSelect.value;
-  const stream=await navigator.mediaDevices.getUserMedia({video:false,audio:deviceId?{deviceId:{exact:deviceId}}:true});
+  const stream=studioAudioDeviceAdapter?await studioAudioDeviceAdapter.openMicrophone({deviceId,echoCancellation:$("micEchoCancellation").checked,noiseSuppression:$("micNoiseSuppression").checked,autoGainControl:$("micAutoGainControl").checked}):await navigator.mediaDevices.getUserMedia({video:false,audio:deviceId?{deviceId:{exact:deviceId}}:true});
   captureState.microphone=stream;
+  if(!studioAudioMixer)throw new Error("Audio-Mixer ist in dieser Laufzeit nicht verfügbar.");
+  studioAudioMixer.connect("microphone",stream,{gain:Number($("audioMicGain").value)/100,routes:selectedMicrophoneRoutes()});
+  applyMicrophoneRouting();
+  $("audioMixerStatus").textContent="Mikrofonquelle verbunden · Routing: "+(selectedMicrophoneRoutes().join(", ")||"kein Ausgang")+".";
   const AudioContextClass=window.AudioContext||window.webkitAudioContext;
   if(!AudioContextClass)throw new Error("AudioContext ist in dieser Laufzeit nicht verfügbar.");
   const context=new AudioContextClass();
@@ -1057,12 +1375,14 @@ $("microphoneStart").onclick=async()=>{
   $("microphoneMetric").textContent="AKTIV LOKAL";
   button.textContent="MIKROFON STOPPEN";
   await refreshCaptureDevices();
+  await refreshAudioBusDevices().catch(()=>{});
   log("Echtes Mikrofon liefert einen lokalen Audiostream.");
  }catch(error){stopCapture("microphone");status.textContent=captureError(error);log(status.textContent);}
  finally{button.disabled=false;}
 };
 if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener("devicechange",()=>refreshCaptureDevices().catch(()=>{}));
-window.addEventListener("beforeunload",()=>{stopBroadcast();stopCapture("camera");stopCapture("screen");stopCapture("microphone");});
+const stopWatchingAudioDevices=studioAudioDeviceAdapter?.watchDevices(()=>reconcileAudioOutputDevices().catch(()=>{}));
+window.addEventListener("beforeunload",()=>{if(mixerMeterFrameState.frame)cancelAnimationFrame(mixerMeterFrameState.frame);stopWatchingAudioDevices?.();studioAudioDeviceAdapter?.close();stopBroadcast();stopCapture("camera");stopCapture("screen");stopCapture("microphone");if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
 $("refreshDevices").click();
 $("runtimeCheck").onclick=async()=>{
  const output=$("runtimeDiagnostics");
@@ -1106,12 +1426,22 @@ let broadcastAudioDestination=null;
 let musicPlayerAudio=new Audio();
 let musicMediaSource=null;
 let musicChannelGain=null;
+const ttsAudio=new Audio();
+ttsAudio.preload="auto";
+let ttsMediaSource=null;
+let ttsChannelGain=null;
+let ttsBridgeDestination=null;
+let ttsObjectUrl=null;
+let alertToneGain=null;
+let alertToneDestination=null;
+let alertToneActive=false;
 const musicQueue=[];
 let musicQueueIndex=-1;
 let musicCurrentTrackLabel=null;
 let musicShuffle=false;
 let musicRepeat=false;
 let musicMuted=false;
+let musicDuckingEnabled=true;
 let broadcastGainBase=1;
 const soundboardPads=[];
 const soundboardFavoritesKey="streamiov.studio.soundboard.favorites.v1";
@@ -1125,7 +1455,12 @@ async function playSoundboardPad(pad){
   pad.source=context.createMediaElementSource(pad.audio);
   pad.gain=context.createGain();
   pad.gain.gain.value=pad.muted?0:pad.volume;
-  pad.source.connect(pad.gain).connect(broadcastMasterGain);
+  if(studioAudioMixer){
+   pad.destination=context.createMediaStreamDestination();
+   pad.source.connect(pad.gain).connect(pad.destination);
+   pad.channelName="soundboard-"+soundboardPads.indexOf(pad);
+   studioAudioMixer.connect(pad.channelName,pad.destination.stream,{gain:1,routes:effectiveAuxRoutes("soundboard")});
+  }else pad.source.connect(pad.gain).connect(broadcastMasterGain);
  }
  pad.audio.currentTime=0;
  await pad.audio.play();
@@ -1155,39 +1490,100 @@ function ensureBroadcastAudioGraph(){
   musicMediaSource=broadcastAudioContext.createMediaElementSource(musicPlayerAudio);
   musicChannelGain=broadcastAudioContext.createGain();
   musicChannelGain.gain.value=musicMuted?0:mixerValue("mixerMusic");
-  musicMediaSource.connect(musicChannelGain).connect(broadcastMasterGain);
+  musicMediaSource.connect(musicChannelGain);
+  if(studioAudioMixer){
+   if(!musicBridgeDestination)musicBridgeDestination=broadcastAudioContext.createMediaStreamDestination();
+   musicChannelGain.connect(musicBridgeDestination);
+   if(!studioAudioMixer.snapshot("music"))studioAudioMixer.connect("music",musicBridgeDestination.stream,{gain:1,routes:effectiveAuxRoutes("music")});
+   studioAudioMixer.setPan("music",mixerPanState.music);
+   studioAudioMixer.setMuted("music",musicMuted);
+   refreshMixerSoloButtons();
+  }else musicChannelGain.connect(broadcastMasterGain);
  }
  return broadcastAudioContext;
 }
 let broadcastFrame=0;
 const liveButton=$("live");
 const liveStatus=$("liveStatus");
-const mixerDefaults={mixerMic:75,mixerSystem:45,mixerMusic:50,mixerMaster:80};
+const mixerDefaults={mixerMic:75,mixerSystem:45,mixerMusic:50,mixerTts:100,mixerAlert:70,mixerMaster:80};
+const mixerPanState={microphone:0,system:0,music:0,tts:0,alert:0};
+const mixerSourceMuteState={microphone:false,system:false,tts:false,alert:false};
 const mixerStorageKey="streamiov.studio.audio-mixer.v1";
 function mixerValue(id){
  const value=Number($(id)?.value);
  return Number.isFinite(value)?Math.max(0,Math.min(100,value))/100:0;
 }
 function mixerPercent(id){return Math.round(mixerValue(id)*100);}
-function mixerLabel(id){return ({mixerMic:"MIC 1",mixerSystem:"SYSTEM",mixerMusic:"MUSIK",mixerMaster:"MASTER"})[id]||id.toUpperCase();}
+function mixerLabel(id){return ({mixerMic:"MIC 1",mixerSystem:"SYSTEM",mixerMusic:"MUSIK",mixerTts:"TTS",mixerAlert:"ALERTS",mixerMaster:"MASTER"})[id]||id.toUpperCase();}
+function refreshMixerMuteButtons(){
+ document.querySelectorAll("[data-mixer-mute]").forEach(button=>{
+  const name=button.dataset.mixerMute,muted=name==="music"?musicMuted:mixerSourceMuteState[name]===true;
+  button.setAttribute("aria-pressed",String(muted));button.textContent=muted?"STUMM AUS":"STUMM";
+ });
+}
+document.querySelectorAll("[data-mixer-mute]").forEach(button=>button.addEventListener("click",()=>{
+ const name=button.dataset.mixerMute;
+ if(name==="music"){musicMuted=!musicMuted;const musicButton=$("mixerMusicMute");if(musicButton){musicButton.setAttribute("aria-pressed",String(musicMuted));musicButton.classList.toggle("active",musicMuted);musicButton.textContent=musicMuted?"MUTED":"MUTE";}}
+ else{mixerSourceMuteState[name]=!mixerSourceMuteState[name];if(studioAudioMixer?.snapshot(name))studioAudioMixer.setMuted(name,mixerSourceMuteState[name]);}
+ saveMixerSettings();applyMixerGains();refreshMixerMuteButtons();
+}));
+function refreshMixerSoloButtons(){
+ document.querySelectorAll("[data-mixer-solo]").forEach(button=>{
+  const snapshot=studioAudioMixer?.snapshot(button.dataset.mixerSolo);
+  const active=Boolean(snapshot?.solo);
+  button.setAttribute("aria-pressed",String(active));button.textContent=active?"SOLO AN":"SOLO";
+ });
+}
+document.querySelectorAll("[data-mixer-pan]").forEach(control=>control.addEventListener("input",()=>{
+ const name=control.dataset.mixerPan,value=Number(control.value)/100;
+ mixerPanState[name]=value;
+ if(studioAudioMixer?.snapshot(name))studioAudioMixer.setPan(name,value);
+ saveMixerSettings();
+}));
+document.querySelectorAll("[data-mixer-solo]").forEach(button=>button.addEventListener("click",()=>{
+ const name=button.dataset.mixerSolo,snapshot=studioAudioMixer?.snapshot(name);
+ if(!snapshot){$("mixerStatus").textContent="Quelle ist noch nicht aktiv: "+name;return;}
+ studioAudioMixer.setSolo(name,!snapshot.solo);refreshMixerSoloButtons();
+ $("mixerStatus").textContent=snapshot.solo?"SOLO aufgehoben: "+name:"SOLO aktiv: "+name+" · andere Quellen stummgeschaltet.";
+}));
 function updateMixerLabels(){
  for(const id of Object.keys(mixerDefaults)){
   const label=$(id+"Value");
   if(label)label.textContent=mixerLabel(id)+" · "+mixerPercent(id)+" %";
  }
 }
+function drawMixerMeters(){
+ if(!studioAudioMixer)return;
+ const gateState=studioAudioMixer.updateGate("microphone");
+ const gateStatus=$("micGateStatus");
+ if(gateStatus)gateStatus.textContent=!studioAudioMixer.snapshot("microphone")?"Kein Mikrofon verbunden.":!$("micGateEnabled").checked?"Gate inaktiv.":gateState?.open?"Gate offen.":"Gate geschlossen.";
+ document.querySelectorAll("[data-mixer-meter]").forEach(element=>{
+  const key=element.dataset.mixerMeter;
+  const level=key.startsWith("output:")?studioAudioMixer.getOutputMeter(key.slice(7)):studioAudioMixer.getChannelMeter(key);
+  const percent=Math.min(100,Math.round(level.rms*220));
+  element.style.width=percent+"%";
+  element.title="RMS "+Math.round(level.rms*100)+" % · Peak "+Math.round(level.peak*100)+" %"+(level.clipping?" · CLIPPING":"");
+  element.closest(".meter")?.classList.toggle("clipping",level.clipping);
+ });
+ mixerMeterFrameState.frame=requestAnimationFrame(drawMixerMeters);
+}
 function saveMixerSettings(){
- try{localStorage.setItem(mixerStorageKey,JSON.stringify({...Object.fromEntries(Object.keys(mixerDefaults).map(id=>[id,mixerPercent(id)])),musicMuted}));}
+ try{localStorage.setItem(mixerStorageKey,JSON.stringify({...Object.fromEntries(Object.keys(mixerDefaults).map(id=>[id,mixerPercent(id)])),musicMuted,musicDuckingEnabled,pan:mixerPanState,mutes:mixerSourceMuteState}));}
  catch(_){/* local storage is optional */}
 }
 function applyMixerGains(){
  if(!broadcastAudioContext)return;
  const now=broadcastAudioContext.currentTime;
- for(const entry of broadcastTrackGains){
-  const target=broadcastGainBase*mixerValue(entry.kind==="system"?"mixerSystem":"mixerMic");
-  entry.gain.gain.setTargetAtTime(target,now,0.02);
+ if(studioAudioMixer){
+  const mic=studioAudioMixer.snapshot("microphone");
+  if(mic)studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100*mixerValue("mixerMic"));
+  const system=studioAudioMixer.snapshot("system");
+  if(system)studioAudioMixer.setGain("system",Number($("audioSystemGain").value)/100*mixerValue("mixerSystem"));
  }
- if(musicChannelGain)musicChannelGain.gain.setTargetAtTime(musicMuted?0:mixerValue("mixerMusic"),now,0.02);
+ const duckingActive=musicDuckingEnabled&&(!ttsAudio.paused||alertToneActive);
+ if(musicChannelGain)musicChannelGain.gain.setTargetAtTime(musicMuted?0:mixerValue("mixerMusic")*(duckingActive?0.25:1),now,0.02);
+ if(ttsChannelGain)ttsChannelGain.gain.setTargetAtTime(mixerValue("mixerTts"),now,0.02);
+ if(alertToneGain)alertToneGain.gain.setTargetAtTime(mixerValue("mixerAlert"),now,0.02);
  if(broadcastMasterGain)broadcastMasterGain.gain.setTargetAtTime(mixerValue("mixerMaster"),now,0.02);
 }
 // Schutzregie / Privacy Shield: lokal, kostenlos und ehrlich begrenzt.
@@ -1312,6 +1708,7 @@ async function releaseBroadcastMedia(){
   try{entry.gain.disconnect();}catch(_){}
  }
  broadcastTrackGains=[];
+ if(broadcastMixerSource){try{broadcastMixerSource.disconnect();}catch(_){}broadcastMixerSource=null;}
  if(broadcastAudioDestination){
   try{broadcastMasterGain?.disconnect(broadcastAudioDestination);}catch(_){}
   broadcastAudioDestination.stream.getTracks().forEach(track=>track.stop());
@@ -1361,7 +1758,9 @@ async function startBroadcast(){
  const systemTrack=captureState.screen?.getAudioTracks().find(track=>track.readyState==="live");
  const audioMode=$("streamAudio").value;
  const audioInputs=(audioMode==="mic"?[microphoneTrack]:audioMode==="system"?[systemTrack]:[microphoneTrack,systemTrack]).filter(Boolean);
- if((!cameraTrack&&!screenTrack)||!audioInputs.length){setBroadcastStatus("error","Bitte eine Kamera oder einen Bildschirm sowie eine verfügbare Audioquelle für den gewählten Modus starten.");return;}
+ const auxiliaryAudioActive=(musicQueueIndex>=0&&!musicPlayerAudio.paused)||!ttsAudio.paused||alertToneActive||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended);
+ if(!cameraTrack&&!screenTrack){setBroadcastStatus("error","Bitte zuerst eine Kamera oder einen Bildschirm starten.");return;}
+ if(!audioInputs.length&&!auxiliaryAudioActive){setBroadcastStatus("error","Keine aktive Audioquelle im gewählten Stream-Modus und keine laufende Musik-, TTS-, Alert- oder Soundboard-Quelle.");return;}
  const twitchAccount=await window.streamiovStudio?.twitchStatus?.();
  if(twitchAccount?.status!=="connected"||!twitchAccount.streamKeyPermission){setBroadcastStatus("blocked","Bitte zuerst ein Twitch-Konto mit der Berechtigung zum automatischen Stream-Key-Abruf verbinden.");return;}
  if(!window.streamiovStudio?.startStream||!window.MediaRecorder){setBroadcastStatus("error","Streaming-Funktion ist in dieser Laufzeit nicht verfügbar.");return;}
@@ -1389,18 +1788,25 @@ async function startBroadcast(){
   drawFrame();
   broadcastCanvasStream=canvas.captureStream(Number($("streamFps").value));
   await ensureBroadcastAudioGraph().resume();
+  if(!studioAudioMixer)throw new Error("Die zentrale Audio-Bus-Engine ist nicht verfügbar.");
+  await studioAudioMixer.resume();
+  applyMicrophoneRouting();
+  applySystemRouting();
+  const streamBus=studioAudioMixer.getOutputStream("stream");
+  const streamBusTrack=streamBus.getAudioTracks().find(track=>track.readyState==="live");
+  const streamHasSource=((audioMode==="mic"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("microphone"))&&effectiveAudioRoutes(selectedMicrophoneRoutes()).includes("stream"))
+   ||((audioMode==="system"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("system"))&&effectiveAudioRoutes(selectedSystemRoutes()).includes("stream"))
+   ||(musicQueueIndex>=0&&musicPlayerAudio.paused===false&&studioAudioMixer.snapshot("music"))
+   ||(!ttsAudio.paused&&studioAudioMixer.snapshot("tts"))
+   ||(alertToneActive&&studioAudioMixer.snapshot("alert"))
+   ||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended&&pad.channelName&&studioAudioMixer.snapshot(pad.channelName));
+  if(!streamBusTrack||!streamHasSource)throw new Error("Für den Stream-Bus ist keine aktive Audioquelle zum Stream geroutet.");
   broadcastAudioDestination=broadcastAudioContext.createMediaStreamDestination();
   broadcastMasterGain.connect(broadcastAudioDestination);
-  broadcastGainBase=1/Math.sqrt(audioInputs.length);
+  broadcastMixerSource=broadcastAudioContext.createMediaStreamSource(new MediaStream([streamBusTrack]));
+  broadcastMixerSource.connect(broadcastMasterGain);
+  broadcastGainBase=1;
   broadcastTrackGains=[];
-  for(const track of audioInputs){
-   const kind=track===systemTrack?"system":"mic";
-   const source=broadcastAudioContext.createMediaStreamSource(new MediaStream([track]));
-   const volume=broadcastAudioContext.createGain();
-   volume.gain.value=broadcastGainBase*mixerValue(kind==="system"?"mixerSystem":"mixerMic");
-   source.connect(volume).connect(broadcastMasterGain);
-   broadcastTrackGains.push({kind,source,gain:volume});
-  }
   applyMixerGains();
   const outputTracks=[...broadcastCanvasStream.getVideoTracks(),...broadcastAudioDestination.stream.getAudioTracks()];
   const stream=new MediaStream(outputTracks);
@@ -1410,7 +1816,7 @@ async function startBroadcast(){
   broadcastRecorder=recorder;
   const stopIfSourcesEnded=()=>{
    const videoAvailable=(cameraTrack?.readyState==="live")||(screenTrack?.readyState==="live");
-   const audioAvailable=audioInputs.some(track=>track.readyState==="live");
+   const audioAvailable=audioInputs.some(track=>track.readyState==="live")||(musicQueueIndex>=0&&musicPlayerAudio.paused===false)||!ttsAudio.paused||alertToneActive||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended);
    if(broadcastRecorder&&(!videoAvailable||!audioAvailable)){
     setBroadcastStatus("error","Eine benötigte Kamera-, Bildschirm- oder Mikrofonquelle wurde beendet.");
     void stopBroadcast(true);
@@ -1477,8 +1883,41 @@ function showGiftEffect(symbol){
  }
  window.setTimeout(()=>{overlay.style.display="none";overlay.replaceChildren();},3400);
 }
+async function playAlertTone(){
+ const context=await ensureBroadcastAudioGraph();
+ await context.resume();
+ if(!studioAudioMixer)return;
+ if(alertToneGain){try{alertToneGain.disconnect();}catch(_){}if(alertToneDestination)alertToneDestination.stream.getTracks().forEach(track=>track.stop());studioAudioMixer.disconnect("alert");}
+ alertToneDestination=context.createMediaStreamDestination();
+ const thisDestination=alertToneDestination;
+ alertToneGain=context.createGain();
+ alertToneGain.gain.value=mixerValue("mixerAlert");
+ alertToneGain.connect(alertToneDestination);
+ studioAudioMixer.connect("alert",alertToneDestination.stream,{gain:1,routes:effectiveAuxRoutes("alert")});
+ studioAudioMixer.setPan("alert",mixerPanState.alert);
+ studioAudioMixer.setMuted("alert",mixerSourceMuteState.alert);
+ refreshMixerSoloButtons();
+ alertToneActive=true;
+ applyMixerGains();
+ const first=context.createOscillator(),second=context.createOscillator();
+ first.type="sine";second.type="sine";
+ first.frequency.value=880;second.frequency.value=1174.66;
+ const start=context.currentTime;
+ first.connect(alertToneGain);second.connect(alertToneGain);
+ first.start(start);first.stop(start+0.11);
+ second.start(start+0.12);second.stop(start+0.30);
+ second.addEventListener("ended",()=>{
+  if(alertToneDestination!==thisDestination)return;
+  if(studioAudioMixer)studioAudioMixer.disconnect("alert");
+  alertToneActive=false;
+  applyMixerGains();
+  thisDestination.stream.getTracks().forEach(track=>track.stop());
+  alertToneDestination=null;alertToneGain=null;
+ },{once:true});
+}
 function showAlert(text){
  programAlert={text:String(text).slice(0,120),startedAt:performance.now()};
+ playAlertTone().catch(error=>log("Alert-Ton nicht verfügbar: "+String(error.message||error)));
 }
 async function renderChatTool(body){
  const api=window.streamiovStudio?.chatAction;
@@ -1505,20 +1944,68 @@ async function renderChatTool(body){
  body.append(toolNote("Ein gemeinsamer Nachrichtenstrom mit Plattformfilter und Suche. Discord ist nur eingehender Community-Chat. Ausgehende Nachrichten gehen ausschließlich an ausdrücklich ausgewählte TikTok-/Twitch-LIVE-Ziele; ohne offizielle Verbindung werden sie nicht gesendet."),stateLine,toggle,filter,search,logBox,toolField("Lokale Testnachricht",input),receive,toolNote("Ausgehende Nachricht"),outbound,toolField("Nachricht",outgoing),send);
  apply(await api({action:"status"}));
 }
+let ttsPlaybackFinish=null;
+async function playTtsAudio(base64,mime="audio/wav"){
+ if(typeof base64!=="string"||!base64.length)throw new Error("TTS-Audiodaten fehlen.");
+ const binary=atob(base64);
+ const bytes=new Uint8Array(binary.length);
+ for(let index=0;index<binary.length;index++)bytes[index]=binary.charCodeAt(index);
+ const context=await ensureBroadcastAudioGraph();
+ await context.resume();
+ if(!ttsMediaSource){
+  ttsMediaSource=context.createMediaElementSource(ttsAudio);
+  ttsChannelGain=context.createGain();
+  ttsChannelGain.gain.value=mixerValue("mixerTts");
+  if(studioAudioMixer){
+   ttsBridgeDestination=context.createMediaStreamDestination();
+   ttsMediaSource.connect(ttsChannelGain).connect(ttsBridgeDestination);
+   studioAudioMixer.connect("tts",ttsBridgeDestination.stream,{gain:1,routes:effectiveAuxRoutes("tts")});
+   studioAudioMixer.setPan("tts",mixerPanState.tts);
+   studioAudioMixer.setMuted("tts",mixerSourceMuteState.tts);
+   refreshMixerSoloButtons();
+  }else ttsMediaSource.connect(ttsChannelGain).connect(broadcastMasterGain);
+ }
+ if(ttsObjectUrl)URL.revokeObjectURL(ttsObjectUrl);
+ ttsObjectUrl=URL.createObjectURL(new Blob([bytes],{type:mime}));
+ ttsAudio.src=ttsObjectUrl;
+ ttsAudio.load();
+ await new Promise((resolve,reject)=>{
+  const finish=error=>{
+   if(ttsPlaybackFinish===finish)ttsPlaybackFinish=null;
+   ttsAudio.removeEventListener("ended",onEnded);
+   ttsAudio.removeEventListener("error",onError);
+   applyMixerGains();
+   if(error)reject(error);else resolve();
+  };
+  const onEnded=()=>finish();
+  const onError=()=>finish(new Error("TTS-Audiowiedergabe fehlgeschlagen."));
+  ttsPlaybackFinish=finish;
+  ttsAudio.addEventListener("ended",onEnded,{once:true});
+  ttsAudio.addEventListener("error",onError,{once:true});
+  ttsAudio.play().catch(finish);
+  applyMixerGains();
+ });
+}
+ttsAudio.addEventListener("ended",()=>{if(ttsObjectUrl){URL.revokeObjectURL(ttsObjectUrl);ttsObjectUrl=null;}applyMixerGains();});
 async function renderTtsTool(body){
  const api=window.streamiovStudio?.chatAction;
  if(!api){body.append(toolNote("TTS benötigt die installierte Desktop-App."));return;}
  const stateLine=toolNote("TTS-Status wird geladen …");
- const toggle=toolButton("TTS einschalten",async()=>apply(await api({action:"toggle-tts"})));
- const input=document.createElement("textarea");
- input.maxLength=1000;
- input.placeholder="Text für die lokale Sprachausgabe";
- const speak=toolButton("Lokal sprechen",async()=>{
-  const text=input.value.trim();
-  if(!text){input.focus();return;}
-  stateLine.textContent="Sprachausgabe läuft …";
-  apply(await api({action:"speak",text}));
- });
+ const queueLabel=toolNote("Warteschlange: 0 / 20");
+ const queue=[];
+ let queueRunning=false;
+ let cancelRequested=false;
+ const updateQueueLabel=()=>{queueLabel.textContent="Warteschlange: "+queue.length+" / 20"+(queueRunning?" · Wiedergabe aktiv":"");};
+ const cancelQueue=()=>{
+  cancelRequested=true;
+  queue.length=0;
+  if(ttsPlaybackFinish)ttsPlaybackFinish(new Error("TTS wurde abgebrochen."));
+  ttsAudio.pause();ttsAudio.currentTime=0;
+  applyMixerGains();
+  if(ttsObjectUrl){URL.revokeObjectURL(ttsObjectUrl);ttsObjectUrl=null;}
+  stateLine.textContent="TTS-Warteschlange abgebrochen.";
+  updateQueueLabel();
+ };
  const apply=result=>{
   if(!result?.ok){
    stateLine.textContent="TTS fehlgeschlagen: "+(result?.error||"unbekannter Fehler");
@@ -1529,10 +2016,61 @@ async function renderTtsTool(body){
   toggle.textContent=result.tts==="online"?"TTS ausschalten":"TTS einschalten";
   speak.disabled=result.tts!=="online";
   input.disabled=result.tts!=="online";
+  cancel.disabled=result.tts!=="online";
  };
+ const toggle=toolButton("TTS einschalten",async()=>{
+  const result=await api({action:"toggle-tts"});
+  if(result?.tts!=="online")cancelQueue();
+  apply(result);
+ });
+ const input=document.createElement("textarea");
+ input.maxLength=1000;
+ input.placeholder="Text für die lokale deutsche Sprachausgabe";
+ const speed=document.createElement("input");
+ speed.type="range";speed.min="80";speed.max="300";speed.step="5";speed.value="175";
+ const speedLabel=toolNote("Geschwindigkeit: 175 Wörter/Minute");
+ speed.addEventListener("input",()=>{speedLabel.textContent="Geschwindigkeit: "+speed.value+" Wörter/Minute";});
+ const amplitude=document.createElement("input");
+ amplitude.type="range";amplitude.min="0";amplitude.max="100";amplitude.value="100";
+ const amplitudeLabel=toolNote("Sprachlautstärke: 100 %");
+ amplitude.addEventListener("input",()=>{amplitudeLabel.textContent="Sprachlautstärke: "+amplitude.value+" %";});
+ const speak=toolButton("In TTS-Warteschlange",()=>{
+  const text=input.value.trim();
+  if(!text){input.focus();return;}
+  if(queue.length>=20){stateLine.textContent="TTS-Warteschlange ist voll (maximal 20 Texte).";return;}
+  queue.push({text,speed:Number(speed.value),amplitude:Number(amplitude.value)});
+  input.value="";
+  updateQueueLabel();
+  void runQueue();
+ });
+ const cancel=toolButton("Warteschlange abbrechen",cancelQueue);
+ async function runQueue(){
+  if(queueRunning)return;
+  queueRunning=true;cancelRequested=false;updateQueueLabel();
+  while(queue.length&&!cancelRequested){
+   const item=queue.shift();updateQueueLabel();
+   stateLine.textContent="Deutsche Sprachausgabe wird erzeugt …";
+   let result;
+   try{result=await api({action:"speak",...item});}
+   catch(error){stateLine.textContent="TTS-Aufruf fehlgeschlagen: "+String(error.message||error);break;}
+   if(cancelRequested)break;
+   apply(result);
+   if(!result?.ok)break;
+   if(!result.audio_base64){stateLine.textContent="TTS lieferte keine Audiodaten.";break;}
+   stateLine.textContent="TTS-Wiedergabe über Stream-/Monitor-Bus …";
+   try{await playTtsAudio(result.audio_base64,result.audio_mime||"audio/wav");}
+   catch(error){if(!cancelRequested)stateLine.textContent="TTS-Wiedergabe fehlgeschlagen: "+String(error.message||error);break;}
+  }
+  queueRunning=false;updateQueueLabel();
+  if(cancelRequested)stateLine.textContent="TTS-Warteschlange abgebrochen.";
+  else if(queue.length===0)stateLine.textContent="TTS-Warteschlange abgeschlossen.";
+ }
  body.append(
-  toolNote("Sprachausgabe läuft über das lokale Systemwerkzeug espeak-ng. Es wird kein Cloud-Dienst verwendet."),
-  stateLine,toggle,toolField("Sprechtext",input),speak
+  toolNote("Lokale deutsche Stimme: espeak-ng oder unter Windows die native System.Speech-Stimme. Kein Cloud-Dienst."),
+  stateLine,toggle,toolField("Sprechtext",input),
+  toolField("Sprechgeschwindigkeit (80–300 Wörter/Minute)",speed),speedLabel,
+  toolField("Sprachlautstärke (0–100 %)",amplitude),amplitudeLabel,
+  speak,cancel,queueLabel
  );
  apply(await api({action:"status"}));
 }
@@ -1624,7 +2162,7 @@ async function renderSoundboardTool(body){
    });
    favorite.setAttribute("aria-pressed",pad.favorite?"true":"false");
    const remove=toolButton("Entfernen",()=>{
-    audio.pause();if(pad.source)pad.source.disconnect();if(pad.gain)pad.gain.disconnect();audio.removeAttribute("src");audio.load();URL.revokeObjectURL(objectUrl);
+    audio.pause();if(pad.source)pad.source.disconnect();if(pad.gain)pad.gain.disconnect();if(pad.channelName&&studioAudioMixer)studioAudioMixer.disconnect(pad.channelName);if(pad.destination)pad.destination.stream.getTracks().forEach(track=>track.stop());audio.removeAttribute("src");audio.load();URL.revokeObjectURL(objectUrl);
     const position=soundboardPads.indexOf(pad);if(position>=0)soundboardPads.splice(position,1);
     if(pad.favorite){soundboardFavorites.delete(favoriteId);try{localStorage.setItem(soundboardFavoritesKey,JSON.stringify([...soundboardFavorites]));}catch(_){}}
     card.remove();status.textContent="Pad entfernt: "+file.name;
@@ -1919,8 +2457,14 @@ try{
   if(Number.isFinite(value))$(id).value=String(Math.max(0,Math.min(100,value)));
  }
  musicMuted=saved.musicMuted===true;
+ musicDuckingEnabled=saved.musicDuckingEnabled!==false;
+ $("musicDucking").checked=musicDuckingEnabled;
+ if(saved.pan&&typeof saved.pan==="object")for(const name of Object.keys(mixerPanState)){const value=Number(saved.pan[name]);if(Number.isFinite(value))mixerPanState[name]=Math.max(-1,Math.min(1,value));}
+ if(saved.mutes&&typeof saved.mutes==="object")for(const name of Object.keys(mixerSourceMuteState))mixerSourceMuteState[name]=saved.mutes[name]===true;
+ document.querySelectorAll("[data-mixer-pan]").forEach(control=>{control.value=String(Math.round((mixerPanState[control.dataset.mixerPan]||0)*100));});
 }catch(_){/* markup defaults stay active */}
 updateMixerLabels();
+$("musicDucking").addEventListener("change",()=>{musicDuckingEnabled=$("musicDucking").checked;saveMixerSettings();applyMixerGains();});
 const musicMuteButton=$("mixerMusicMute");
 if(musicMuteButton){
  musicMuteButton.setAttribute("aria-pressed",musicMuted?"true":"false");
@@ -1928,6 +2472,7 @@ if(musicMuteButton){
  musicMuteButton.textContent=musicMuted?"MUTED":"MUTE";
  musicMuteButton.addEventListener("click",()=>{
   musicMuted=!musicMuted;
+  if(studioAudioMixer?.snapshot("music"))studioAudioMixer.setMuted("music",musicMuted);
   musicMuteButton.setAttribute("aria-pressed",musicMuted?"true":"false");
   musicMuteButton.classList.toggle("active",musicMuted);
   musicMuteButton.textContent=musicMuted?"MUTED":"MUTE";
@@ -1940,6 +2485,8 @@ for(const id of Object.keys(mixerDefaults)){
   updateMixerLabels();
   saveMixerSettings();
   applyMixerGains();
+  applyMicrophoneRouting();
+  applySystemRouting();
   const status=$("mixerStatus");
   if(status)status.textContent="Lokaler Mix: Mikrofon "+mixerPercent("mixerMic")+" %, System "+mixerPercent("mixerSystem")+" %, Musik "+mixerPercent("mixerMusic")+" %"+(musicMuted?" (stumm)":"")+", Master "+mixerPercent("mixerMaster")+" %.";
  });
