@@ -36,6 +36,7 @@ custom_template/debug=""
 custom_template/release=""
 debug/export_console_wrapper=1
 binary_format/architecture="x86_64"
+binary_format/embed_pck=true
 
 [preset.1]
 name="Linux x64"
