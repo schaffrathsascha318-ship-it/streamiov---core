@@ -69,9 +69,10 @@ class StudioAudioMixer {
     const panner = this.context.createStereoPanner ? this.context.createStereoPanner() : this.context.createPanner();
     const analyser = this.context.createAnalyser();
     analyser.fftSize = 256;
+    const voiceDestination = this.context.createMediaStreamDestination();
     gainNode.gain.value = muted ? 0 : gain;
     input.connect(highpass).connect(compressor).connect(gateAnalyser).connect(gateGain).connect(gainNode).connect(panner).connect(analyser);
-    const channel = { input, highpass, compressor, gateAnalyser, gateGain, gateOpen: true, gate: { enabled: false, thresholdDb: -50, attenuationDb: -60 }, gainNode, panner, analyser, stream, gain, muted, pan: 0, solo: false, routes: normalizedRoutes,
+    const channel = { input, highpass, compressor, gateAnalyser, gateGain, gateOpen: true, gate: { enabled: false, thresholdDb: -50, attenuationDb: -60 }, gainNode, panner, analyser, voiceDestination, stream, gain, muted, pan: 0, solo: false, routes: normalizedRoutes,
       processing: { highpassHz: 20, compressorEnabled: false } };
     this.channels.set(name, channel);
     this.#applyRoutes(channel);
@@ -205,6 +206,13 @@ class StudioAudioMixer {
     return channel ? this.#measure(channel.analyser) : { rms: 0, peak: 0 };
   }
 
+  getChannelStream(name) {
+    this.#assertOpen();
+    const channel = this.channels.get(name);
+    if (!channel) throw new Error('Mixer channel not found.');
+    return channel.voiceDestination.stream;
+  }
+
   getOutputMeter(name) {
     const bus = this.buses.get(name);
     return bus ? this.#measure(bus.analyser) : { rms: 0, peak: 0 };
@@ -303,6 +311,7 @@ class StudioAudioMixer {
   #applyRoutes(channel) {
     try { channel.analyser.disconnect(); } catch {}
     for (const name of channel.routes) channel.analyser.connect(this.buses.get(name).gainNode);
+    if (channel.voiceDestination) channel.analyser.connect(channel.voiceDestination);
   }
 
   #validateName(name, kind) {
@@ -349,6 +358,7 @@ class StudioAudioMixer {
     try { channel.gainNode.disconnect(); } catch {}
     try { channel.panner.disconnect(); } catch {}
     try { channel.analyser.disconnect(); } catch {}
+    for (const track of channel.voiceDestination?.stream?.getTracks?.() || []) track.stop();
     this.soloChannels.delete(name);
     this.channels.delete(name);
     this.#applySoloState();
