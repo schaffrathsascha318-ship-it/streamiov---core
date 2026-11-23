@@ -10,7 +10,7 @@ Die Regie enthält eine lokale Web-Audio-Engine mit vier voneinander getrennten 
 ## Angeschlossene Quellen
 
 - **Mikrofon:** lokaler MediaStream mit eigenem Quellen-Gain und Routing, einstellbarem Hochpass (20–250 Hz), optionalem Sprachkompressor und live RMS-/Peak-Anzeige.
-- **Bildschirm-Systemton:** wird nur verbunden, wenn die ausgewählte Bildschirmfreigabe tatsächlich einen aktiven Audiotrack liefert.
+- **Bildschirm-/Spielton:** wird nur verbunden, wenn die ausgewählte Fenster-/Bildschirmfreigabe tatsächlich einen aktiven Audiotrack liefert. Unter Windows fordert Electron für die ausgewählte Capture-Quelle Loopback-Audio an; ob ein Spiel-/Fenster-Audiotrack geliefert wird, entscheidet die Laufzeit und wird zur Laufzeit geprüft.
 - **Musik:** der lokale Musikplayer wird über eine MediaStream-Brücke in die Audio-Bus-Matrix eingespeist. Musik-Fader und Mute bleiben eigenständig; Stream- und Monitor-Routing laufen über die Busse.
 - **Soundboard:** jedes geladene Pad erhält einen eigenen Kanal und wird über eine MediaStream-Brücke in Stream und Monitor geroutet. Pad-Lautstärke und Mute bleiben pro Datei unabhängig.
 - **TTS:** die lokale deutsche espeak-ng-Ausgabe wird als WAV erzeugt und anschließend über einen eigenen TTS-Kanal in Stream und Monitor geroutet. Ein separater TTS-Fader sowie einstellbare Sprechgeschwindigkeit (80–300 Wörter/Minute) und Sprachlautstärke (0–200) sind vorhanden; Audioausgabe wird nicht allein durch den IPC-Erfolg als verifiziert markiert.
@@ -20,9 +20,9 @@ Der Stream-Ausgang verwendet den Stream-Bus als Audioquelle und nicht mehr die b
 
 ## Noch nicht angebunden
 
-- Separater Spiel-/Anwendungs-Audiocapture außerhalb des vom Bildschirmteilen gelieferten Systemtons
+- Separater Anwendungs-Audiocapture unabhängig von der ausgewählten Fenster-/Bildschirmfreigabe
 - Voice-Räume und die automatische Zuordnung externer Plattformereignisse zu Alert-Aktionen
-- Native Windows-Audiotreiber-/Loopback-Routing außerhalb der vom Capture bereitgestellten Tracks
+- Native Geräteauswahl und separate Loopback-Kanäle pro Anwendung außerhalb des Capture-Tracks
 
 ## Gerätegrenzen und Status
 
