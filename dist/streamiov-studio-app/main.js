@@ -809,7 +809,7 @@ ipcMain.handle('studio:get-module-status', async (event) => {
       { id: 'tiktok-live-output', status: 'oauth_and_live_verification_pending' },
       { id: 'chat-events', status: 'not_connected' },
       { id: 'gift-events', status: 'not_connected' },
-      { id: 'music-mixing', status: 'local_file_stream_mix', note: 'Lokale Musikdatei ist eine eigenständige Web-Audio-Quelle mit Fader und Mute im Stream-Mix; automatische Playlist-Warteschlange und Gerätebus-Routing fehlen.' }
+      { id: 'music-mixing', status: 'local_file_stream_mix', note: 'Lokale Musikdatei und Sitzung-Queue werden über eine eigene Web-Audio-Quelle in Stream- und Monitor-Bus geroutet; Fader und Mute bleiben unabhängig. Ein rechtlich freigegebener Musik-Katalog und automatische Playlist-Synchronisierung sind noch nicht vollständig umgesetzt.' }
     ]
   };
 
