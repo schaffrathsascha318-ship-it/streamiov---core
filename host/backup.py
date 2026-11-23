@@ -176,8 +176,8 @@ def _database_sources(data_dir: Path) -> list[Path]:
 
 
 def create_backup(data_dir: str | Path, backup_dir: str | Path) -> dict:
-    source_root = Path(data_dir).expanduser().resolve()
-    destination_root = Path(backup_dir).expanduser().resolve()
+    source_root = _directory_path(data_dir)
+    destination_root = _directory_path(backup_dir, create=True, private=True)
     _check_paths(source_root, destination_root)
     _check_private_directory(destination_root)
     recipient = _age_recipient()
@@ -354,7 +354,7 @@ def _verify_archive(archive_path: Path, output_dir: Path) -> tuple[dict, str]:
 
 
 def verify_backup(backup_dir: str | Path, name: str, identity_file: str | None = None) -> dict:
-    root = Path(backup_dir).expanduser().resolve()
+    root = _directory_path(backup_dir)
     backup_path = _safe_backup_file(root, name)
     metadata_path = root / (name + ".meta.json")
     if metadata_path.is_symlink() or not metadata_path.is_file():
@@ -382,7 +382,7 @@ def verify_backup(backup_dir: str | Path, name: str, identity_file: str | None =
 
 
 def restore_to_staging(backup_dir: str | Path, name: str, identity_file: str | None = None) -> dict:
-    root = Path(backup_dir).expanduser().resolve()
+    root = _directory_path(backup_dir)
     backup_path = _safe_backup_file(root, name)
     metadata_path = root / (name + ".meta.json")
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -416,9 +416,10 @@ def restore_to_staging(backup_dir: str | Path, name: str, identity_file: str | N
 
 
 def list_backups(backup_dir: str | Path) -> list[dict]:
-    root = Path(backup_dir).expanduser().resolve()
-    if not root.exists():
+    raw_root = Path(backup_dir).expanduser()
+    if not raw_root.exists():
         return []
+    root = _directory_path(raw_root)
     result = []
     for path in sorted(root.glob("streamiov-host-*.tar.gz.age"), key=lambda item: item.name):
         if path.is_symlink() or not path.is_file() or not BACKUP_PATTERN.fullmatch(path.name):
@@ -447,7 +448,7 @@ def list_backups(backup_dir: str | Path) -> list[dict]:
 def prune_backups(backup_dir: str | Path, keep_days: int = 30, *, now: float | None = None) -> dict:
     if type(keep_days) is not int or not 1 <= keep_days <= 3650:
         raise BackupError("Retention must be between 1 and 3650 days.")
-    root = Path(backup_dir).expanduser().resolve()
+    root = _directory_path(backup_dir)
     backups = list_backups(root)
     verified = [item for item in backups if item["status"] == "verified"]
     if len(verified) <= 1:
