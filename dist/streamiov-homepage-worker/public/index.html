@@ -14,7 +14,7 @@
     .wrap{width:min(var(--max),calc(100% - 40px));margin-inline:auto}
     .topbar{position:sticky;top:0;z-index:20;border-bottom:1px solid #253044cc;background:#080b12eF;backdrop-filter:blur(16px)}
     .nav{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:28px}
-    .brand{display:flex;align-items:center;flex:none}.brand img{display:block;width:186px;height:auto}
+    .brand-cluster{display:flex;align-items:center;gap:12px;flex:none;min-width:0}.brand{display:flex;align-items:center;flex:none}.brand img{display:block;width:186px;height:auto}.brand-ad-slot{display:none;width:5cm;height:5cm;max-width:5cm;max-height:5cm;flex:none;place-items:center;overflow:hidden;border:1px solid #35445b;border-radius:10px;background:#0c1420;color:#aebbd0;text-align:center;text-decoration:none;font-size:11px;font-weight:750}.brand-ad-slot[data-active="true"]{display:grid}.brand-ad-slot img{display:block;width:100%;height:100%;object-fit:contain}.brand-ad-slot .ad-label{position:absolute;align-self:start;justify-self:start;padding:2px 5px;border-radius:0 0 5px 0;background:#080b12dd;color:#aebbd0;font-size:10px}
     .links{display:flex;align-items:center;justify-content:flex-end;gap:22px;flex-wrap:wrap}.links a{text-decoration:none;color:#ced7e7;font-size:14px;font-weight:650}.links a:hover{color:var(--cyan)}
     .links .nav-cta{padding:9px 15px;border:1px solid #42e8ff77;border-radius:999px;color:var(--cyan)}
     .hero{position:relative;isolation:isolate;overflow:hidden;padding:92px 0 78px;background:radial-gradient(ellipse 48% 70% at 78% 15%,#442c812b,transparent 72%),radial-gradient(ellipse 50% 80% at 82% 92%,#20c4d11b,transparent 76%)}
@@ -37,14 +37,14 @@
     .notice{padding:23px 25px;border-left:3px solid var(--cyan);border-radius:0 14px 14px 0;background:#0d1522;color:#bfccdd}.notice strong{color:#f2f7ff}.notice a{white-space:nowrap}
     footer{padding:36px 0 48px;background:#06080e}.footer-row{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}.footer-brand{display:flex;align-items:center;gap:12px;color:#94a2b7;font-size:13px}.footer-brand img{width:34px;height:34px}footer nav{display:flex;gap:16px;flex-wrap:wrap}footer nav a{color:#aab7ca;text-decoration:none;font-size:13px}footer nav a:hover{color:var(--cyan)}.copyright{width:100%;margin:0;color:#748198;font-size:12px}
     @media(max-width:850px){.nav{align-items:flex-start;padding:16px 0;flex-direction:column;gap:14px}.links{justify-content:flex-start;gap:12px 18px}.hero-grid{grid-template-columns:1fr;gap:16px}.hero{padding:65px 0 55px}.hero-art{position:absolute;right:-80px;top:70px;width:310px;min-height:310px;opacity:.26;pointer-events:none}.hero-art img{width:120px}.hero-grid>div:first-child{position:relative;z-index:1}.split{grid-template-columns:1fr;gap:24px}.stats{grid-template-columns:1fr}.stat{padding:15px 20px}}
-    @media(max-width:620px){.wrap{width:min(var(--max),calc(100% - 30px))}.brand img{width:164px}.links{gap:9px 14px}.links a{font-size:13px}.links .nav-cta{padding:7px 11px}.hero{padding:50px 0 42px}h1{font-size:clamp(44px,13vw,68px)}.hero-art{right:-145px;top:30px;opacity:.19}.cards,.timeline{grid-template-columns:1fr}.card{min-height:0;padding:21px}.status-card{grid-template-columns:90px 1fr;padding:15px;gap:10px}section{padding:62px 0}.footer-row{align-items:flex-start;flex-direction:column}}
+    @media(max-width:620px){.wrap{width:min(var(--max),calc(100% - 30px))}.brand img{width:164px}.brand-cluster{gap:8px}.brand-ad-slot{width:5cm;height:5cm;max-width:5cm;max-height:5cm}.links{gap:9px 14px}.links a{font-size:13px}.links .nav-cta{padding:7px 11px}.hero{padding:50px 0 42px}h1{font-size:clamp(44px,13vw,68px)}.hero-art{right:-145px;top:30px;opacity:.19}.cards,.timeline{grid-template-columns:1fr}.card{min-height:0;padding:21px}.status-card{grid-template-columns:90px 1fr;padding:15px;gap:10px}section{padding:62px 0}.footer-row{align-items:flex-start;flex-direction:column}}
     @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
   </style>
 </head>
 <body>
   <header class="topbar">
     <div class="wrap nav">
-      <a class="brand" href="/" aria-label="StreamioV Startseite"><img src="/assets/streamiov-wordmark.svg" alt="StreamioV"></a>
+      <div class="brand-cluster"><a class="brand" href="/" aria-label="StreamioV Startseite"><img src="/assets/streamiov-wordmark.svg" alt="StreamioV"></a><a class="brand-ad-slot" data-active="false" href="#" aria-label="Anzeige – Werbefläche maximal 5 mal 5 Zentimeter" rel="sponsored nofollow noopener" hidden><span class="ad-label">Anzeige</span><img src="" alt="Werbeanzeige"></a></div>
       <nav class="links" aria-label="Hauptnavigation">
         <a href="#downloads">Studio-Downloads</a><a href="/promo/">Promo</a><a href="#studio">Studio</a><a href="#ki">KI</a><a href="#spiele">Spiele-Downloads</a><a href="#musik">Musik</a><a href="#tiktok">TikTok</a><a href="#status">Projektstand</a><a href="#entwickler">Entwickler</a><a href="/forum/">Forum</a><a href="/account/">Konto</a><a class="nav-cta" href="/download/">Download-Hub</a>
       </nav>
@@ -59,7 +59,7 @@
           <h1>Dein Stream.<br><span>Deine Bühne.</span></h1>
           <p class="lead">StreamioV entwickelt eine eigene Regie, kreative Spiele und smarte Werkzeuge für Creator – ohne Abo und ohne verpflichtende externe KI- oder Streamingdienste.</p>
           <div class="actions"><a class="btn btn-main" href="/download/">Alle Downloads öffnen <span aria-hidden="true">&nbsp;↗</span></a><a class="btn btn-secondary" href="/promo/">Promo &amp; Demo ansehen</a><a class="btn btn-secondary" href="#downloads">Was ist verfügbar?</a></div>
-          <p class="micro">Kostenlos – ohne Werbung, Verkäufe, Abos oder Einnahmen für StreamioV. Installer, Quellcode-Snapshot, PWA und Spiel-Prototypen sind gebündelt und, wo vorhanden, mit SHA-256-Prüfsumme ausgewiesen.</p>
+          <p class="micro">Kostenlos – ohne Abos oder verpflichtende Käufe. Eine freiwillige, klar gekennzeichnete Werbefläche direkt neben dem StreamioV-Logo ist auf maximal 5 × 5 cm begrenzt; keine Pop-ups oder Werbeunterbrechungen. Installer, Quellcode-Snapshot, PWA und Spiel-Prototypen sind gebündelt und, wo vorhanden, mit SHA-256-Prüfsumme ausgewiesen.</p>
         </div>
         <div class="hero-art" aria-hidden="true"><div class="halo"></div><img src="/assets/streamiov-symbol.svg" alt=""></div>
       </div>
@@ -167,8 +167,8 @@
 
     <section id="kosten">
       <div class="wrap split">
-        <div><div class="kicker">Kostenversprechen</div><h2>StreamioV nimmt kein Geld ein.</h2><p class="copy">Keine Werbung, Abos, Pro-Stufen, Verkäufe, bezahlten StreamioV-Geschenke, Spenden an StreamioV oder Zahlungsabwicklung durch StreamioV.</p></div>
-        <aside class="panel"><h3>Keine versteckten Käufe</h3><p>Wir planen mit vorhandener Hardware und ohne automatische Käufe, Upgrades oder bezahlte Rückfall-Dienste. Internet, Strom, Geräte und externe Plattformen haben eigene Bedingungen und können außerhalb StreamioVs Kosten verursachen. StreamioV erhebt dafür keine Gebühr.</p></aside>
+        <div><div class="kicker">Kostenversprechen</div><h2>StreamioV bleibt kostenlos.</h2><p class="copy">Keine Abos, Pro-Stufen, verpflichtenden Käufe oder bezahlten StreamioV-Geschenke. Erlaubt ist ausschließlich eine kleine, klar als „Anzeige“ gekennzeichnete Werbefläche neben dem Logo mit maximal 5 × 5 cm. Sie darf keine Pop-ups, Unterbrechungen oder Tracking-Zwang auslösen.</p></div>
+        <aside class="panel"><h3>Keine versteckten Käufe</h3><p>Wir planen mit vorhandener Hardware und ohne automatische Käufe, Upgrades oder bezahlte Rückfall-Dienste. Die einzige vorgesehene Werbeform ist der begrenzte 5 × 5-cm-Platz neben dem Logo. Internet, Strom, Geräte und externe Plattformen haben eigene Bedingungen und können außerhalb StreamioVs Kosten verursachen. StreamioV erhebt dafür keine Gebühr.</p></aside>
       </div>
     </section>
 
