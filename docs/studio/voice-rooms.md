@@ -26,6 +26,17 @@ Core configuration:
 - `STREAMIOV_TURN_URLS` — optional comma-separated `turn:`/`turns:` URLs.
 - `STREAMIOV_TURN_SHARED_SECRET` — optional coturn REST shared secret, same value as `static-auth-secret`; at least 32 bytes.
 
+The host systemd unit reads the optional private file `/etc/streamiov/voice.env`. Create it with the real values (do not commit it):
+
+```ini
+STREAMIOV_VOICE_SIGNING_KEY=REPLACE_WITH_RANDOM_VOICE_SIGNING_SECRET
+STREAMIOV_VOICE_SIGNALING_URL=https://REPLACE_WITH_DEPLOYED_WORKER_ORIGIN
+STREAMIOV_TURN_URLS=turn:REPLACE_WITH_VOICE_DOMAIN:3478?transport=udp,turns:REPLACE_WITH_VOICE_DOMAIN:5349?transport=tcp
+STREAMIOV_TURN_SHARED_SECRET=REPLACE_WITH_DIFFERENT_RANDOM_TURN_SECRET
+```
+
+Protect the file with `root:streamiov` ownership and mode `0640`, then reload/restart the host service. Use a different random secret for Voice JWT signing and coturn REST credentials. The same TURN secret belongs in coturn's protected `static-auth-secret` setting; the Voice signing key belongs in the Worker secret store.
+
 Worker configuration:
 
 - `STREAMIOV_VOICE_SIGNING_KEY` — same value as the Core secret.
