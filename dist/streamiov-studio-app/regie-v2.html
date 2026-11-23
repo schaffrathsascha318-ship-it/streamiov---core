@@ -1259,6 +1259,7 @@ let ttsBridgeDestination=null;
 let ttsObjectUrl=null;
 let alertToneGain=null;
 let alertToneDestination=null;
+let alertToneActive=false;
 const musicQueue=[];
 let musicQueueIndex=-1;
 let musicCurrentTrackLabel=null;
@@ -1567,6 +1568,7 @@ async function startBroadcast(){
    ||((audioMode==="system"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("system"))&&effectiveAudioRoutes(selectedSystemRoutes()).includes("stream"))
    ||(musicQueueIndex>=0&&musicPlayerAudio.paused===false&&studioAudioMixer.snapshot("music"))
    ||(!ttsAudio.paused&&studioAudioMixer.snapshot("tts"))
+   ||(alertToneActive&&studioAudioMixer.snapshot("alert"))
    ||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended&&pad.channelName&&studioAudioMixer.snapshot(pad.channelName));
   if(!streamBusTrack||!streamHasSource)throw new Error("Für den Stream-Bus ist keine aktive Audioquelle zum Stream geroutet.");
   broadcastAudioDestination=broadcastAudioContext.createMediaStreamDestination();
@@ -1584,7 +1586,7 @@ async function startBroadcast(){
   broadcastRecorder=recorder;
   const stopIfSourcesEnded=()=>{
    const videoAvailable=(cameraTrack?.readyState==="live")||(screenTrack?.readyState==="live");
-   const audioAvailable=audioInputs.some(track=>track.readyState==="live")||(musicQueueIndex>=0&&musicPlayerAudio.paused===false)||!ttsAudio.paused||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended);
+   const audioAvailable=audioInputs.some(track=>track.readyState==="live")||(musicQueueIndex>=0&&musicPlayerAudio.paused===false)||!ttsAudio.paused||alertToneActive||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended);
    if(broadcastRecorder&&(!videoAvailable||!audioAvailable)){
     setBroadcastStatus("error","Eine benötigte Kamera-, Bildschirm- oder Mikrofonquelle wurde beendet.");
     void stopBroadcast(true);
@@ -1661,6 +1663,7 @@ async function playAlertTone(){
  alertToneGain.gain.value=mixerValue("mixerAlert");
  alertToneGain.connect(alertToneDestination);
  studioAudioMixer.connect("alert",alertToneDestination.stream,{gain:1,routes:["stream","monitor"]});
+ alertToneActive=true;
  const first=context.createOscillator(),second=context.createOscillator();
  first.type="sine";second.type="sine";
  first.frequency.value=880;second.frequency.value=1174.66;
@@ -1670,6 +1673,7 @@ async function playAlertTone(){
  second.start(start+0.12);second.stop(start+0.30);
  second.addEventListener("ended",()=>{
   if(studioAudioMixer)studioAudioMixer.disconnect("alert");
+  alertToneActive=false;
   if(alertToneDestination)alertToneDestination.stream.getTracks().forEach(track=>track.stop());
   alertToneDestination=null;alertToneGain=null;
  },{once:true});
