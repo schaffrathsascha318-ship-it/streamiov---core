@@ -27,8 +27,14 @@ class StudioAudioMixer {
     if (this.buses.has(name)) return this.buses.get(name).destination.stream;
     const destination = this.context.createMediaStreamDestination();
     const gainNode = this.context.createGain();
-    gainNode.connect(destination);
-    this.buses.set(name, { destination, gainNode, gain: 1, muted: false });
+    const limiter = this.context.createDynamicsCompressor();
+    limiter.threshold.value = -1;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.003;
+    limiter.release.value = 0.12;
+    gainNode.connect(limiter).connect(destination);
+    this.buses.set(name, { destination, gainNode, limiter, gain: 1, muted: false });
     return destination.stream;
   }
 
@@ -43,12 +49,38 @@ class StudioAudioMixer {
     const normalizedRoutes = this.#normalizeRoutes(routes);
     this.disconnect(name);
     const input = this.context.createMediaStreamSource(stream);
+    const highpass = this.context.createBiquadFilter();
+    highpass.type = "highpass";
+    highpass.frequency.value = 20;
+    const compressor = this.context.createDynamicsCompressor();
+    compressor.threshold.value = 0;
+    compressor.knee.value = 0;
+    compressor.ratio.value = 1;
+    compressor.attack.value = 0.003;
+    compressor.release.value = 0.15;
     const gainNode = this.context.createGain();
     gainNode.gain.value = muted ? 0 : gain;
-    input.connect(gainNode);
-    const channel = { input, gainNode, stream, gain, muted, routes: normalizedRoutes };
+    input.connect(highpass).connect(compressor).connect(gainNode);
+    const channel = { input, highpass, compressor, gainNode, stream, gain, muted, routes: normalizedRoutes,
+      processing: { highpassHz: 20, compressorEnabled: false } };
     this.channels.set(name, channel);
     this.#applyRoutes(channel);
+    return this.snapshot(name);
+  }
+
+  setProcessing(name, { highpassHz = 20, compressorEnabled = false } = {}) {
+    this.#assertOpen();
+    const channel = this.channels.get(name);
+    if (!channel) throw new Error("Mixer channel not found.");
+    if (!Number.isFinite(highpassHz) || highpassHz < 20 || highpassHz > 500) throw new RangeError("High-pass frequency must be between 20 and 500 Hz.");
+    this.#validateBoolean(compressorEnabled, "compressor");
+    channel.highpass.frequency.setTargetAtTime(highpassHz, this.context.currentTime, 0.02);
+    channel.compressor.threshold.setTargetAtTime(compressorEnabled ? -18 : 0, this.context.currentTime, 0.02);
+    channel.compressor.knee.setTargetAtTime(compressorEnabled ? 12 : 0, this.context.currentTime, 0.02);
+    channel.compressor.ratio.setTargetAtTime(compressorEnabled ? 3 : 1, this.context.currentTime, 0.02);
+    channel.compressor.attack.setTargetAtTime(0.006, this.context.currentTime, 0.02);
+    channel.compressor.release.setTargetAtTime(0.18, this.context.currentTime, 0.02);
+    channel.processing = { highpassHz, compressorEnabled };
     return this.snapshot(name);
   }
 
@@ -163,7 +195,8 @@ class StudioAudioMixer {
   snapshot(name) {
     const channel = this.channels.get(name);
     if (!channel) return null;
-    return { name, gain: channel.gain, muted: channel.muted, routes: [...channel.routes], connected: true };
+    return { name, gain: channel.gain, muted: channel.muted, routes: [...channel.routes], connected: true,
+      processing: { ...channel.processing } };
   }
 
   #normalizeRoutes(routes) {
@@ -205,6 +238,7 @@ class StudioAudioMixer {
     for (const [name, element] of this.outputElements) this.detachOutput(name, element);
     for (const bus of this.buses.values()) {
       try { bus.gainNode.disconnect(); } catch {}
+      try { bus.limiter.disconnect(); } catch {}
       for (const track of bus.destination.stream.getTracks()) track.stop();
     }
     this.buses.clear();
@@ -216,6 +250,8 @@ class StudioAudioMixer {
     const channel = this.channels.get(name);
     if (!channel) return false;
     try { channel.input.disconnect(); } catch {}
+    try { channel.highpass.disconnect(); } catch {}
+    try { channel.compressor.disconnect(); } catch {}
     try { channel.gainNode.disconnect(); } catch {}
     this.channels.delete(name);
     return true;
