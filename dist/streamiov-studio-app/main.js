@@ -10,6 +10,8 @@ const { buildSyntheticAvPipelineArgs } = require('./media-pipeline');
 const { StudioSourceModel } = require('./engine/source-model');
 const { StudioSceneEngine } = require('./engine/scene-engine');
 const { resolveFfmpegExecutable } = require('./engine/ffmpeg-runtime');
+const { PlatformOutputRegistry } = require('./engine/platform-output-registry');
+const platformOutputRegistry = new PlatformOutputRegistry();
 
 const { execFile, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
@@ -17,6 +19,11 @@ const execFileAsync = promisify(execFile);
 const studioUrl = pathToFileURL(path.join(__dirname, 'regie-v2.html')).href;
 let liveStreamProcess = null;
 let liveStreamState = 'offline';
+
+ipcMain.handle('studio:platform-output-status', (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  return platformOutputRegistry.snapshot();
+});
 let selectedDisplaySourceId = null;
 
 ipcMain.handle('studio:list-display-sources', async (event) => {
