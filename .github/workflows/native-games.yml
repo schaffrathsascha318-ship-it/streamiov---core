@@ -87,7 +87,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p artifacts
+          mkdir -p artifacts/packages
           for project in games/native/*; do
             [ -d "$project" ] || continue
             game="$(basename "$project")"
@@ -100,25 +100,40 @@ jobs:
             godot --headless --path "$project" --export-debug "Android ARM64" "build/StreamioV-$game-android-arm64.apk"
             godot --headless --path "$project" --export-debug "Android x86_64" "build/StreamioV-$game-android-x86_64.apk"
             chmod +x "build/StreamioV-$game-linux-x86_64" "build/StreamioV-$game-linux-arm64"
-            mkdir -p "artifacts/$game"
-            cp "$project/build/"* "artifacts/$game/"
-            cat > "artifacts/$game/DEVICE-READ-ME.txt" <<EOF
-          $game
-          Windows: Windows x64 executable (.exe)
-          Linux: Linux x86_64 executable
-          Linux ARM64: native ARM64 executable for compatible Linux devices
-          Android phone/tablet: ARM64 debug APK for sideload testing
-          ChromeOS: ARM64 APK for ARM Chromebooks or x86_64 APK for Intel Chromebooks with Android support; Linux x86_64/ARM64 via Crostini
-          These are development builds. Gameplay and physical-device verification are not implied.
+
+            temp_dir="$(mktemp -d)"
+            mkdir -p "$temp_dir/windows" "$temp_dir/linux-x86_64" "$temp_dir/linux-arm64"
+            cat > "$temp_dir/windows/INSTALL.txt" <<EOF
+          $game - Windows 11 x64
+          Extract this package and double-click the EXE. Portable development build; no setup wizard.
           EOF
-            (cd "artifacts/$game" && sha256sum * > SHA256SUMS.txt)
-            (cd artifacts && zip -qr "$game-native-multi-platform.zip" "$game")
+            cp "build/StreamioV-$game-windows-x64.exe" "$temp_dir/windows/"
+            (cd "$temp_dir/windows" && zip -qr "$GITHUB_WORKSPACE/artifacts/packages/$game-windows-x64.zip" .)
+
+            cat > "$temp_dir/linux-x86_64/INSTALL.txt" <<EOF
+          $game - Linux x86_64
+          Extract this archive, then run: chmod +x StreamioV-$game-linux-x86_64 && ./StreamioV-$game-linux-x86_64
+          EOF
+            cp "build/StreamioV-$game-linux-x86_64" "$temp_dir/linux-x86_64/"
+            tar -czf "artifacts/packages/$game-linux-x86_64.tar.gz" -C "$temp_dir/linux-x86_64" .
+
+            cat > "$temp_dir/linux-arm64/INSTALL.txt" <<EOF
+          $game - Linux ARM64
+          Extract this archive, then run: chmod +x StreamioV-$game-linux-arm64 && ./StreamioV-$game-linux-arm64
+          EOF
+            cp "build/StreamioV-$game-linux-arm64" "$temp_dir/linux-arm64/"
+            tar -czf "artifacts/packages/$game-linux-arm64.tar.gz" -C "$temp_dir/linux-arm64" .
+
+            cp "build/StreamioV-$game-android-arm64.apk" "artifacts/packages/$game-android-arm64-phone-tablet-and-arm-chromeos-debug.apk"
+            cp "build/StreamioV-$game-android-x86_64.apk" "artifacts/packages/$game-android-x86_64-intel-chromeos-debug.apk"
+            rm -rf "$temp_dir"
           done
+          (cd artifacts/packages && sha256sum *.zip *.tar.gz *.apk > SHA256SUMS.txt)
 
       - uses: actions/upload-artifact@v4
         with:
-          name: streamiov-native-games-windows-linux-android-chromeos
-          path: artifacts/*-native-multi-platform.zip
+          name: streamiov-native-games-platform-downloads
+          path: artifacts/packages/*
           if-no-files-found: error
           retention-days: 14
 
