@@ -229,8 +229,21 @@ ipcMain.handle('studio:chat-action', async (event, payload = {}) => {
     const text = typeof payload.text === 'string' ? payload.text.trim() : '';
     if (!text || text.length > 1000) return { ok: false, error: 'TTS-Text muss 1–1000 Zeichen lang sein.' };
     if (streamiovChatState.tts !== 'online') return { ok: false, error: 'TTS ist ausgeschaltet.' };
-    try { await execFileAsync('espeak-ng', ['-v', 'de', text], { timeout: 60000, windowsHide: true }); }
-    catch (error) { return { ok: false, error: error.code === 'ENOENT' ? 'espeak-ng ist auf diesem Gerät nicht verfügbar.' : 'Sprachausgabe fehlgeschlagen: ' + (error.message || 'unbekannter Fehler'), tts_audio_verified: false }; }
+    const outputFile = path.join(os.tmpdir(), 'streamiov-tts-' + randomUUID() + '.wav');
+    try {
+      await execFileAsync('espeak-ng', ['-v', 'de', '-w', outputFile, text], { timeout: 60000, windowsHide: true });
+      const audio = await fs.readFile(outputFile);
+      if (!audio.length || audio.length > 8 * 1024 * 1024) return { ok: false, error: 'TTS-Audiodatei ist leer oder überschreitet das lokale Größenlimit.' };
+      return {
+        ok: true, chat: streamiovChatState.chat, tts: streamiovChatState.tts,
+        audio_base64: audio.toString('base64'), audio_mime: 'audio/wav',
+        tts_audio_verified: false
+      };
+    } catch (error) {
+      return { ok: false, error: error.code === 'ENOENT' ? 'espeak-ng ist auf diesem Gerät nicht verfügbar.' : 'Sprachausgabe fehlgeschlagen: ' + (error.message || 'unbekannter Fehler'), tts_audio_verified: false };
+    } finally {
+      await fs.unlink(outputFile).catch(() => {});
+    }
   } else { return { ok: false, error: 'Unbekannte Chat-Aktion.' }; }
   const snapshot = streamiovChatHub.snapshot();
   return { ok: true, chat: streamiovChatState.chat, tts: streamiovChatState.tts, message_count: snapshot.messageCount, messages: snapshot.messages, connected_adapters: snapshot.connectedAdapters, external_platform_connected: snapshot.connectedAdapters.length > 0, tts_audio_verified: false };
