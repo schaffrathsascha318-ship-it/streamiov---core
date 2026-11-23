@@ -17,11 +17,11 @@ test("sandbox and production redirect validation",()=>{
  assert.throws(()=>validateRedirectUri("http://127.0.0.1:3455/callback","production"));
  assert.equal(validateRedirectUri("https://streamiov.pages.dev/callback","production"),"https://streamiov.pages.dev/callback");
 });
-test("authorization uses basic scope and PKCE S256",()=>{
+test("authorization uses basic scope and TikTok desktop PKCE S256 hex encoding",()=>{
  const {oauth}=fixture(), a=oauth.createAuthorizationUrl(), u=new URL(a.url);
  assert.equal(u.searchParams.get("scope"),"user.info.basic"); assert.equal(u.searchParams.get("code_challenge_method"),"S256");
  const verifier=oauth.pending.get(a.state).verifier;
- assert.match(u.searchParams.get("code_challenge"),/^[0-9a-f]{64}$/);
+ assert.match(u.searchParams.get("code_challenge"),/^[a-f0-9]{64}$/);
  assert.equal(u.searchParams.get("code_challenge"),require("node:crypto").createHash("sha256").update(verifier).digest("hex"));
  assert.equal(u.searchParams.get("redirect_uri"),"http://127.0.0.1:3455/callback");
 });
@@ -53,7 +53,6 @@ test("refresh, revoke and disconnect",async()=>{
  await oauth.refresh(); assert.equal(store.load().access_token,"a2");
  assert.equal((await oauth.disconnect()).status,"disconnected"); assert.equal(store.load(),null);
 });
-
 test("successful refresh never reuses a rotated-away refresh token",async()=>{
  let calls=0;
  const {oauth,store}=fixture({fetch:async(url,options)=>{
@@ -77,38 +76,28 @@ test("concurrent refresh calls share one token-rotation request",async()=>{
   return await new Promise(resolve=>{release=()=>resolve({ok:true,json:async()=>({access_token:"a2",refresh_token:"r2",expires_in:3600,scope:"user.info.basic"})});});
  }});
  const a=oauth.createAuthorizationUrl(); await oauth.callback({code:"c",state:a.state});
- const first=oauth.refresh();
- const second=oauth.refresh();
- await new Promise(resolve=>setImmediate(resolve));
- assert.equal(calls,2);
- release();
- await Promise.all([first,second]);
- assert.equal(calls,2);
+ const first=oauth.refresh(); const second=oauth.refresh();
+ await new Promise(resolve=>setImmediate(resolve)); assert.equal(calls,2);
+ release(); await Promise.all([first,second]); assert.equal(calls,2);
 });
 test("environment-bound encryption prevents sandbox/production token crossover",()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"st-isolation-")),p=path.join(dir,"same.json");
  const s=new EncryptedTokenStore({filePath:p,encryptionKey:key,environment:"sandbox"}),prod=new EncryptedTokenStore({filePath:p,encryptionKey:key,environment:"production"});
  s.save({access_token:"sandbox"}); assert.throws(()=>prod.load(),/token_environment_mismatch/);
 });
-
-
 test("callback validates returned scopes and token grants",async()=>{
- const {oauth,store}=fixture();
- const missing=oauth.createAuthorizationUrl();
+ const {oauth,store}=fixture(); const missing=oauth.createAuthorizationUrl();
  await assert.rejects(()=>oauth.callback({code:"c",state:missing.state,scopes:"user.info.profile"}),/oauth_scope_missing/);
  assert.equal(store.load(),null);
  const tokenMissing=fixture({fetch:async()=>({ok:true,json:async()=>({access_token:"a",refresh_token:"r",expires_in:3600,scope:"user.info.profile"})})});
  const a=tokenMissing.oauth.createAuthorizationUrl();
  await assert.rejects(()=>tokenMissing.oauth.callback({code:"c",state:a.state,scopes:"user.info.basic"}),/oauth_scope_missing/);
  assert.equal(tokenMissing.store.load(),null);
- const valid=oauth.createAuthorizationUrl();
- const result=await oauth.callback({code:"c",state:valid.state,scopes:"user.info.basic"});
+ const valid=oauth.createAuthorizationUrl(); const result=await oauth.callback({code:"c",state:valid.state,scopes:"user.info.basic"});
  assert.equal(result.status,"connected");
 });
-
 test("callback rejects malformed provider fields without reflecting provider text",async()=>{
  const {oauth}=fixture();
  await assert.rejects(()=>oauth.callback({error:"access_denied",error_description:"User denied access"}),err=>err.message==="provider_authorization_error" && !err.message.includes("User denied"));
- const a=oauth.createAuthorizationUrl();
- await assert.rejects(()=>oauth.callback({code:"c",state:a.state,scopes:["user.info.basic"]}),/oauth_scopes_invalid/);
+ const a=oauth.createAuthorizationUrl(); await assert.rejects(()=>oauth.callback({code:"c",state:a.state,scopes:["user.info.basic"]}),/oauth_scopes_invalid/);
 });

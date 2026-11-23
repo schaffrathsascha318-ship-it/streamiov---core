@@ -5,6 +5,17 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
   getStatus: () => ipcRenderer.invoke('studio:get-status'),
+  getPlatformOutputStatus: () => ipcRenderer.invoke('studio:platform-output-status'),
+  twitchStatus: () => ipcRenderer.invoke('studio:twitch-status'),
+  twitchConnect: () => ipcRenderer.invoke('studio:twitch-connect'),
+  twitchDisconnect: () => ipcRenderer.invoke('studio:twitch-disconnect'),
+  twitchPrepareOutput: () => ipcRenderer.invoke('studio:twitch-prepare-output'),
+  onTwitchAuthResult: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, result) => callback(result);
+    ipcRenderer.on('studio:twitch-auth-result', listener);
+    return () => ipcRenderer.removeListener('studio:twitch-auth-result', listener);
+  },
   getDisplays: () => ipcRenderer.invoke('studio:get-displays'),
   openProgramOutput: () => ipcRenderer.invoke('studio:open-program-output'),
   moveRegieToDisplay: (displayId) => ipcRenderer.invoke('studio:move-regie-to-display', { displayId }),
@@ -15,6 +26,8 @@ contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
   getNetworkStatus: () => ipcRenderer.invoke('studio:get-network-status'),
   getModuleStatus: () => ipcRenderer.invoke('studio:get-module-status'),
   chatAction: (payload) => ipcRenderer.invoke('studio:chat-action', payload),
+  chatStatus: () => ipcRenderer.invoke('studio:chat-action', { action: 'status' }),
+  chatSend: (text, targets) => ipcRenderer.invoke('studio:chat-action', { action: 'send', text, targets }),
   sceneAction: (payload) => ipcRenderer.invoke('studio:scene-action', payload),
   startStream: (payload) => ipcRenderer.invoke('studio:start-stream', payload),
   writeStreamChunk: (chunk) => ipcRenderer.invoke('studio:write-stream-chunk', chunk),

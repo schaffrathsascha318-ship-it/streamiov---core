@@ -1,0 +1,21 @@
+{
+  "platform": "twitch",
+  "provider": "twitch",
+  "protocol": "oauth2",
+  "enabled": true,
+  "authorization_endpoint": "https://id.twitch.tv/oauth2/authorize",
+  "token_endpoint": "https://id.twitch.tv/oauth2/token",
+  "revoke_endpoint": "https://id.twitch.tv/oauth2/revoke",
+  "helix_api": "https://api.twitch.tv/helix",
+  "required_scopes": [
+    "channel:read:stream_key"
+  ],
+  "redirect_uri_env": "STREAMIOV_TWITCH_REDIRECT_URI",
+  "client_id_env": "STREAMIOV_TWITCH_CLIENT_ID",
+  "client_secret_env": "STREAMIOV_TWITCH_CLIENT_SECRET",
+  "token_encryption_key_env": "STREAMIOV_TWITCH_TOKEN_ENCRYPTION_KEY",
+  "token_file": "userData/oauth/twitch.json",
+  "stream_key": "fetched_on_demand_via_helix_never_persisted",
+  "ingest_url": "rtmps://live.twitch.tv:443/app",
+  "status": "requires_twitch_developer_application_credentials"
+}

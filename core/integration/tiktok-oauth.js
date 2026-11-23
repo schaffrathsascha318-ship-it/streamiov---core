@@ -15,7 +15,6 @@ function assertRequiredScopes(value, required) {
   if (required.some(scope => !granted.includes(scope))) throw new Error("oauth_scope_missing");
   return granted;
 }
-
 function need(v, n) { if (typeof v !== "string" || !v.trim()) throw new Error(n + "_required"); return v.trim(); }
 function keyBytes(v) { const b = Buffer.from(need(v, "token_encryption_key"), "base64"); if (b.length !== 32) throw new Error("token_encryption_key_must_be_32_bytes"); return b; }
 function validateRedirectUri(uri, environment) {
@@ -63,6 +62,7 @@ class TikTokOAuth {
   }
   createAuthorizationUrl() {
     const state=crypto.randomBytes(32).toString("base64url"), verifier=crypto.randomBytes(48).toString("base64url");
+    // TikTok Desktop Login Kit specifies a hex-encoded SHA-256 challenge for S256.
     const challenge=crypto.createHash("sha256").update(verifier).digest("hex");
     this.pending.set(state,{verifier,created:this.clock()});
     const u=new URL(AUTH); u.search=new URLSearchParams({client_key:this.clientKey,response_type:"code",scope:this.scopes.join(","),redirect_uri:this.redirectUri,state,code_challenge:challenge,code_challenge_method:"S256"}).toString();
@@ -80,7 +80,6 @@ class TikTokOAuth {
     return {access_token:t.access_token,refresh_token:typeof t.refresh_token==="string"?t.refresh_token:null,token_type:t.token_type||"Bearer",scope:t.scope||BASIC_SCOPE,expires_at:this.clock()+(Number.isFinite(expires)?expires:0)*1000,refresh_expires_at:Number.isFinite(refreshExpires)&&refreshExpires>0?this.clock()+refreshExpires*1000:null,open_id:t.open_id||null};
   }
   async callback({code,state,error,error_description,scopes}={}) {
-    // Provider text is untrusted. Bound it and never reflect it into logs or UI.
     if (error !== undefined && (typeof error !== "string" || error.length > 256)) throw new Error("provider_authorization_error");
     if (error_description !== undefined && (typeof error_description !== "string" || error_description.length > 2048)) throw new Error("provider_authorization_error");
     if (error) throw new Error("provider_authorization_error");
@@ -91,7 +90,6 @@ class TikTokOAuth {
     if (typeof code!=="string" || !code || code.length>2048) throw new Error("authorization_code_invalid");
     if (scopes !== undefined) assertRequiredScopes(scopes, this.scopes);
     const tokens=await this.tokenRequest({client_key:this.clientKey,client_secret:this.clientSecret,code,grant_type:"authorization_code",redirect_uri:this.redirectUri,code_verifier:p.verifier});
-    // Require the token response to confirm every requested permission; never infer grants.
     assertRequiredScopes(tokens && tokens.scope, this.scopes);
     this.store.save(this.normalize(tokens));
     return {ok:true,status:"connected",environment:this.environment};
@@ -101,18 +99,12 @@ class TikTokOAuth {
     const operation = (async () => {
       const old=this.store.load(); if (!old || !old.refresh_token) throw new Error("refresh_token_unavailable");
       const next=await this.tokenRequest({client_key:this.clientKey,client_secret:this.clientSecret,grant_type:"refresh_token",refresh_token:old.refresh_token});
-      // TikTok invalidates the previous refresh token after a successful rotation.
-      // Never fall back to it when the response omits a replacement.
       const rotatedRefreshToken = typeof next.refresh_token === "string" && next.refresh_token ? next.refresh_token : null;
       this.store.save(this.normalize({...next,refresh_token:rotatedRefreshToken}));
       return this.status();
     })();
     this.refreshInFlight = operation;
-    try {
-      return await operation;
-    } finally {
-      if (this.refreshInFlight === operation) this.refreshInFlight = null;
-    }
+    try { return await operation; } finally { if (this.refreshInFlight === operation) this.refreshInFlight = null; }
   }
   async disconnect() {
     const t=this.store.load();
