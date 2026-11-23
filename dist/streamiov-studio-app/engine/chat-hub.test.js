@@ -46,6 +46,6 @@ test('outbound sending requires explicit target and permission, then uses only r
 test('rejects invalid sources, malformed timestamps and oversized text', () => {
   const hub = new StreamiovChatHub();
   assert.throws(() => hub.receive({ source: 'youtube', text: 'x' }), /Nachrichtenquelle/);
-  assert.throws(() => hub.receive({ source: 'tiktok', text: 'x', createdAt: 'invalid' }), /Zeitpunkt/);
+  assert.throws(() => hub.receive({ source: 'tiktok', text: 'x', createdAt: 'invalid' }), /Nachrichtenzeitpunkt/i);
   assert.throws(() => hub.receive({ source: 'tiktok', text: 'x'.repeat(2001) }), /1–2000/);
 });
