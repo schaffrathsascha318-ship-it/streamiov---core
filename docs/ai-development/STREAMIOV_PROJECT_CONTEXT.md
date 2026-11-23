@@ -60,3 +60,8 @@ Status: Current agreed product and engineering constraints
 - Do not claim native TikTok gift injection, guaranteed payout behavior, or a 100% creator payout as implemented or platform-approved without current authoritative integration and payment evidence.
 - Do not describe planned, mocked, sandbox-only, or unverified functionality as production-ready.
 - A passing unit-test suite is evidence for those tests only; it is not proof of end-to-end production readiness.
+
+
+## Cloudflare resource inventory (2026-11-23)
+
+The current evidence-labelled resource register is maintained at [docs/architecture/cloudflare/resource-inventory-2026-11-23.md](../architecture/cloudflare/resource-inventory-2026-11-23.md). It separates owner-reported resource names, repository evidence and inventory items blocked by missing Cloudflare read scopes. Unknown resources are not treated as absent. R2 remains excluded.
