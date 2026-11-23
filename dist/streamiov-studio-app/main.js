@@ -229,9 +229,13 @@ ipcMain.handle('studio:chat-action', async (event, payload = {}) => {
     const text = typeof payload.text === 'string' ? payload.text.trim() : '';
     if (!text || text.length > 1000) return { ok: false, error: 'TTS-Text muss 1–1000 Zeichen lang sein.' };
     if (streamiovChatState.tts !== 'online') return { ok: false, error: 'TTS ist ausgeschaltet.' };
+    const speed = Number(payload.speed ?? 175);
+    const amplitude = Number(payload.amplitude ?? 100);
+    if (!Number.isInteger(speed) || speed < 80 || speed > 300) return { ok: false, error: 'TTS-Geschwindigkeit muss zwischen 80 und 300 Wörtern pro Minute liegen.' };
+    if (!Number.isInteger(amplitude) || amplitude < 0 || amplitude > 200) return { ok: false, error: 'TTS-Lautstärke muss zwischen 0 und 200 liegen.' };
     const outputFile = path.join(os.tmpdir(), 'streamiov-tts-' + randomUUID() + '.wav');
     try {
-      await execFileAsync('espeak-ng', ['-v', 'de', '-w', outputFile, text], { timeout: 60000, windowsHide: true });
+      await execFileAsync('espeak-ng', ['-v', 'de', '-s', String(speed), '-a', String(amplitude), '-w', outputFile, text], { timeout: 60000, windowsHide: true });
       const audio = await fs.readFile(outputFile);
       if (!audio.length || audio.length > 8 * 1024 * 1024) return { ok: false, error: 'TTS-Audiodatei ist leer oder überschreitet das lokale Größenlimit.' };
       return {
