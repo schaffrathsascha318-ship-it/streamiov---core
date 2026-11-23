@@ -351,9 +351,7 @@ class SpecialistWorker:
             self._factory_accepts_task_id = (
                 "task_id" in parameters
                 or any(item.kind == inspect.Parameter.VAR_POSITIONAL for item in parameters.values())
-                or len([item for item in parameters.values() if item.kind in (
-                    inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD
-                )]) >= 2
+
             )
             self._factory_task_id_keyword = "task_id" in parameters
         except (TypeError, ValueError):
