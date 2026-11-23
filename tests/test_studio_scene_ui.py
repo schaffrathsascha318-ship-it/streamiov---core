@@ -42,6 +42,17 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertNotIn("win.loadFile(path.join(__dirname, 'index.html'))", self.main)
         self.assertTrue((ROOT / "dist" / "streamiov-studio-app" / "regie-v2.html").is_file())
 
+    def test_music_player_routes_local_audio_through_independent_stream_mixer_channel(self):
+        self.assertIn('id="mixerMusic"', self.ui)
+        self.assertIn('id="mixerMusicMute"', self.ui)
+        self.assertIn("musicMediaSource=broadcastAudioContext.createMediaElementSource(musicPlayerAudio)", self.ui)
+        self.assertIn("musicMediaSource.connect(musicChannelGain).connect(broadcastMasterGain)", self.ui)
+        self.assertIn('musicChannelGain.gain.setTargetAtTime(musicMuted?0:mixerValue("mixerMusic")', self.ui)
+        self.assertIn("broadcastMasterGain.connect(broadcastAudioDestination)", self.ui)
+        self.assertIn("musicPlayerAudio.src=musicObjectUrl", self.ui)
+        self.assertIn("Keep the AudioContext and the single MediaElementAudioSourceNode alive.", self.ui)
+        self.assertIn("Playlist-Rohdaten sind noch nicht mit einer automatischen Wiedergabe-Warteschlange verbunden.", self.ui)
+
     def test_gift_gallery_keeps_tiktok_payouts_external_and_streamiov_gifts_free(self):
         self.assertIn("TikTok wickelt Kauf, Zuordnung und mögliche Auszahlung direkt ab.", self.ui)
         self.assertIn("StreamioV zieht nichts ab und nimmt kein Geld entgegen.", self.ui)
@@ -137,6 +148,8 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
                 self.assertNotIn("missingPythonModules", handler)
         self.assertIn("repository_capability_inventory", self.main)
         self.assertIn("foundation_only", self.main)
+        self.assertIn("partial_stream_mix", self.main)
+        self.assertIn("local_file_stream_mix", self.main)
         self.assertIn("not_implemented", self.main)
         self.assertNotIn("missingPythonModules", self.main)
         self.assertNotIn("notBundledResult", self.main)
@@ -213,17 +226,17 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("assert.ok(stat.size > 1024", ci_script)
 
     def test_audio_mixer_controls_real_microphone_and_system_sources(self):
-        for element_id in ("mixerMic", "mixerSystem", "mixerMaster",
-                           "mixerMicValue", "mixerSystemValue", "mixerMasterValue",
-                           "mixerStatus"):
+        for element_id in ("mixerMic", "mixerSystem", "mixerMusic", "mixerMaster",
+                           "mixerMicValue", "mixerSystemValue", "mixerMusicValue",
+                           "mixerMasterValue", "mixerMusicMute", "mixerStatus"):
             self.assertIn(f'id="{element_id}"', self.ui)
-        self.assertNotIn("<b>Musik</b><div class=\"meter\">", self.ui)
+        self.assertIn("<b>Musik</b><div class=\"meter\">", self.ui)
         self.assertNotIn("<b>Spiel</b><div class=\"meter\">", self.ui)
         self.assertNotIn("<b>Alerts</b><div class=\"meter\">", self.ui)
 
     def test_audio_mixer_gains_are_applied_to_the_stream_mix(self):
-        self.assertIn("broadcastTrackGains.push({kind,gain:volume})", self.ui)
-        self.assertIn("broadcastMasterGain.connect(audioOutput)", self.ui)
+        self.assertIn("broadcastTrackGains.push({kind,source,gain:volume})", self.ui)
+        self.assertIn("broadcastMasterGain.connect(broadcastAudioDestination)", self.ui)
         self.assertIn("source.connect(volume).connect(broadcastMasterGain)", self.ui)
         self.assertIn("entry.gain.gain.setTargetAtTime(target,now,0.02)", self.ui)
         self.assertIn("broadcastMasterGain.gain.setTargetAtTime(mixerValue(\"mixerMaster\"),now,0.02)", self.ui)

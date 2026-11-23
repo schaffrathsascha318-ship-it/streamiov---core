@@ -756,11 +756,11 @@ ipcMain.handle('studio:get-module-status', async (event) => {
       { id: 'synthetic-av-test', status: 'dependency_gated', note: 'Lokaler Test mit installierten GStreamer-Komponenten.' },
       { id: 'compositor', status: 'not_implemented' },
       { id: 'production-encoder', status: 'not_implemented' },
-      { id: 'audio-mixer-routing', status: 'ui_only' },
+      { id: 'audio-mixer-routing', status: 'partial_stream_mix', note: 'Mikrofon, Systemton und lokale Musikdateien werden über Web Audio in einen gemeinsamen Stream-Master gemischt; getrennte physische Ausgabebusse und weitere Quellen fehlen.' },
       { id: 'tiktok-live-output', status: 'oauth_and_live_verification_pending' },
       { id: 'chat-events', status: 'not_connected' },
       { id: 'gift-events', status: 'not_connected' },
-      { id: 'music-mixing', status: 'not_implemented' }
+      { id: 'music-mixing', status: 'local_file_stream_mix', note: 'Lokale Musikdatei ist eine eigenständige Web-Audio-Quelle mit Fader und Mute im Stream-Mix; automatische Playlist-Warteschlange und Gerätebus-Routing fehlen.' }
     ]
   };
 
