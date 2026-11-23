@@ -49,7 +49,7 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("musicMediaSource.connect(musicChannelGain).connect(broadcastMasterGain)", self.ui)
         self.assertIn('musicChannelGain.gain.setTargetAtTime(musicMuted?0:mixerValue("mixerMusic")', self.ui)
         self.assertIn("broadcastMasterGain.connect(broadcastAudioDestination)", self.ui)
-        self.assertIn("musicPlayerAudio.src=musicObjectUrl", self.ui)
+        self.assertIn("musicPlayerAudio.src=track.url", self.ui)
         self.assertIn("Keep the AudioContext and the single MediaElementAudioSourceNode alive.", self.ui)
         self.assertIn("const musicQueue=[];", self.ui)
         self.assertIn("async function playMusicQueueItem(index)", self.ui)
