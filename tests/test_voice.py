@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 from host.voice import VoiceError, VoiceRoomStore, voice_ice_configuration
@@ -31,6 +32,32 @@ class VoiceRoomStoreTests(unittest.TestCase):
             self.store.create_invite("owner-id", room_id)
         with self.assertRaises(VoiceError):
             self.store.create_invite("owner-id", room_id)
+
+    def test_concurrent_room_creation_cannot_exceed_owner_quota(self):
+        def create(index):
+            try:
+                self.store.create_room("owner-id", f"Concurrent {index}")
+                return True
+            except VoiceError:
+                return False
+
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            results = list(pool.map(create, range(12)))
+        self.assertEqual(sum(results), 5)
+
+    def test_concurrent_invite_creation_cannot_exceed_room_quota(self):
+        room = self.store.create_room("owner-id", "Team")
+        def create(_):
+            try:
+                self.store.create_invite("owner-id", room["room_id"])
+                return True
+            except VoiceError:
+                return False
+
+        # One default invite already exists, leaving exactly nineteen slots.
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            results = list(pool.map(create, range(30)))
+        self.assertEqual(sum(results), 19)
 
     def test_rejoining_an_active_member_does_not_consume_an_invite_use(self):
         room = self.store.create_room("owner-id", "Team")
