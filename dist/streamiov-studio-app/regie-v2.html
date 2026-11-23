@@ -1058,6 +1058,33 @@ document.querySelectorAll("[data-system-route]").forEach(control=>control.addEve
 $("audioSystemGain").addEventListener("input",applySystemRouting);
 $("streamAudio").addEventListener("change",()=>{applyMicrophoneRouting();applySystemRouting();});
 
+async function reconcileAudioOutputDevices(){
+ const previous={...savedAudioBusDevices};
+ await refreshAudioBusDevices();
+ for(const name of ["monitor","headphones","communications"]){
+  if(!audioBusState[name].connected)continue;
+  const element=audioBusElements[name];
+  const select=document.querySelector("[data-audio-bus-device='"+name+"']");
+  const requested=previous[name]||"";
+  const available=!requested||[...select.options].some(option=>option.value===requested);
+  if(!available){
+   studioAudioMixer?.detachOutput(name,element);
+   audioBusState[name].connected=false;
+   audioBusStatus(name,"Ausgabegerät wurde entfernt · bitte neues Gerät auswählen.");
+   renderAudioBus(name);
+   continue;
+  }
+  try{
+   await studioAudioMixer.attachOutput(name,element,{deviceId:requested});
+   audioBusState[name].connected=true;
+   audioBusStatus(name,"Audioausgang nach Gerätewechsel wieder verbunden.");
+  }catch(error){
+   audioBusState[name].connected=false;
+   audioBusStatus(name,"Wiederverbindung fehlgeschlagen: "+captureError(error));
+  }
+  renderAudioBus(name);
+ }
+}
 async function refreshAudioBusDevices(){
  if(!navigator.mediaDevices?.enumerateDevices)return;
  const devices=await navigator.mediaDevices.enumerateDevices();
@@ -1277,7 +1304,7 @@ $("microphoneStart").onclick=async()=>{
  finally{button.disabled=false;}
 };
 if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener("devicechange",()=>refreshCaptureDevices().catch(()=>{}));
-if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener("devicechange",()=>refreshAudioBusDevices().catch(()=>{}));
+if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener("devicechange",()=>reconcileAudioOutputDevices().catch(()=>{}));
 window.addEventListener("beforeunload",()=>{if(mixerMeterFrameState.frame)cancelAnimationFrame(mixerMeterFrameState.frame);stopBroadcast();stopCapture("camera");stopCapture("screen");stopCapture("microphone");if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
 $("refreshDevices").click();
 $("runtimeCheck").onclick=async()=>{
