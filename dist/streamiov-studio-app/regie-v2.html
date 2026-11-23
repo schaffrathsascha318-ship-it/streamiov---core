@@ -1015,7 +1015,7 @@ function effectiveAudioRoutes(routes,source){
  return routes.filter(route=>route!=="stream"||streamAllowed);
 }
 function applyMicrophoneRouting(){
- if(!studioAudioMixer||!studioAudioMixer.snapshot("microphone"))return;
+ if(!studioAudioMixer||!studioAudioMixer.snapshot("microphone")){saveAudioRoutingState();return;}
  studioAudioMixer.setRoutes("microphone",effectiveAudioRoutes(selectedMicrophoneRoutes(),"microphone"));
  studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100*mixerValue("mixerMic"));
  studioAudioMixer.setProcessing("microphone",{highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked});
@@ -1029,7 +1029,7 @@ $("micHighpass").addEventListener("input",applyMicrophoneRouting);
 $("micCompressor").addEventListener("change",applyMicrophoneRouting);
 function selectedSystemRoutes(){return [...document.querySelectorAll("[data-system-route]:checked")].map(item=>item.dataset.systemRoute);}
 function applySystemRouting(){
- if(!studioAudioMixer||!studioAudioMixer.snapshot("system"))return;
+ if(!studioAudioMixer||!studioAudioMixer.snapshot("system")){saveAudioRoutingState();return;}
  studioAudioMixer.setRoutes("system",effectiveAudioRoutes(selectedSystemRoutes(),"system"));
  studioAudioMixer.setGain("system",Number($("audioSystemGain").value)/100*mixerValue("mixerSystem"));
  saveAudioRoutingState();
