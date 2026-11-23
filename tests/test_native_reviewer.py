@@ -43,13 +43,17 @@ class NativeReviewerPolicyTests(unittest.TestCase):
         })
         self.assertTrue(all(item.severity == "high" for item in findings))
 
-    def test_only_tiktok_live_adapter_paths_are_allowed(self):
-        for path in ("integrations/twitch/adapter.py", "platforms/youtube/client.ts", "adapters/obs/bridge.js"):
+    def test_only_tiktok_and_twitch_live_adapter_paths_are_allowed(self):
+        for path in (
+            "platforms/youtube/client.ts", "adapters/obs/bridge.js",
+            "integrations/kick/adapter.py", "integrations/facebook/adapter.py",
+        ):
             with self.subTest(path=path):
                 finding = classify_changed_path(path)
                 self.assertIsNotNone(finding)
                 self.assertEqual(finding.code, "unsupported-platform-adapter")
         self.assertIsNone(classify_changed_path("integrations/tiktok/live_adapter.py"))
+        self.assertIsNone(classify_changed_path("integrations/twitch/live_adapter.py"))
     def test_private_credentials_and_environment_files_are_critical(self):
         for path in ("keys/signing.pem", "config/client.key", ".env.production", ".env"):
             with self.subTest(path=path):
