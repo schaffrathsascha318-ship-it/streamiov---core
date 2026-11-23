@@ -23,6 +23,9 @@ TOKEN_TTL_SECONDS = 300
 MAX_ROOM_NAME = 64
 MAX_INVITE_TTL = 24 * 60 * 60
 MAX_INVITE_USES = 20
+MAX_OPEN_ROOMS_PER_OWNER = 5
+MAX_ACTIVE_INVITES_PER_ROOM = 20
+MAX_ROOM_MEMBERS = 32
 
 
 class VoiceError(ValueError):
@@ -161,6 +164,12 @@ class VoiceRoomStore:
         current = int(time.time()) if now is None else int(now)
         room_id = uuid.uuid4().hex
         with self._db() as db:
+            open_rooms = db.execute(
+                "SELECT COUNT(*) FROM voice_rooms WHERE owner_id=? AND closed_at IS NULL",
+                (owner_id,),
+            ).fetchone()[0]
+            if open_rooms >= MAX_OPEN_ROOMS_PER_OWNER:
+                raise VoiceError("Ein Eigentümer darf höchstens fünf offene Voice-Räume haben.")
             db.execute("INSERT INTO voice_rooms(room_id,name,owner_id,created_at) VALUES(?,?,?,?)",
                        (room_id, clean, owner_id, current))
             db.execute("INSERT INTO voice_members(room_id,user_id,role,joined_at) VALUES(?,?,?,?)",
@@ -186,6 +195,12 @@ class VoiceRoomStore:
                                 (room_id, owner_id)).fetchone()
             if room["owner_id"] != owner_id or member is None or member["revoked_at"] is not None:
                 raise VoiceError("Nur der Raumeigentümer darf Einladungen erstellen.")
+            active_invites = db.execute(
+                "SELECT COUNT(*) FROM voice_invites WHERE room_id=? AND revoked_at IS NULL AND expires_at>? AND uses<max_uses",
+                (room_id, current),
+            ).fetchone()[0]
+            if active_invites >= MAX_ACTIVE_INVITES_PER_ROOM:
+                raise VoiceError("Für diesen Raum sind bereits 20 aktive Einladungen vorhanden.")
             code = self._new_invite(db, room_id, owner_id, role, ttl, max_uses, current)
         return {"invite_code": code, "role": role, "expires_in": ttl, "max_uses": max_uses}
 
@@ -209,6 +224,18 @@ class VoiceRoomStore:
                 raise VoiceError("Einladung ist ungültig, abgelaufen oder bereits verwendet.")
             if user_id == invite["owner_id"]:
                 return {"room_id": invite["room_id"], "name": invite["name"], "role": "owner"}
+            existing = db.execute(
+                "SELECT role FROM voice_members WHERE room_id=? AND user_id=? AND revoked_at IS NULL",
+                (invite["room_id"], user_id),
+            ).fetchone()
+            if existing:
+                return {"room_id": invite["room_id"], "name": invite["name"], "role": existing["role"]}
+            member_count = db.execute(
+                "SELECT COUNT(*) FROM voice_members WHERE room_id=? AND revoked_at IS NULL",
+                (invite["room_id"],),
+            ).fetchone()[0]
+            if member_count >= MAX_ROOM_MEMBERS:
+                raise VoiceError("Voice-Raum hat die maximale Mitgliederzahl erreicht.")
             db.execute("UPDATE voice_invites SET uses=uses+1 WHERE invite_hash=? AND uses<max_uses",
                        (invite_hash,))
             db.execute("""
