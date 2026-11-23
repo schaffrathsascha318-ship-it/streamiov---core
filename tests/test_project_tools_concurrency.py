@@ -1,22 +1,14 @@
 import json
-import multiprocessing
+import os
+import subprocess
+import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 
 from ai.runtime.project_tools import ProjectTools, ToolError, _locked_path, _process_lock_path
-
-
-def _hold_process_lock(path: str, ready, release) -> None:
-    with _locked_path(Path(path), owner={"task_id": "process-holder"}):
-        ready.set()
-        release.wait(20)
-
-
-def _wait_for_process_lock(path: str, acquired) -> None:
-    with _locked_path(Path(path), owner={"task_id": "process-contender"}):
-        acquired.set()
 
 
 class ProjectToolsConcurrencyTests(unittest.TestCase):
@@ -61,40 +53,64 @@ class ProjectToolsConcurrencyTests(unittest.TestCase):
         self.assertEqual(sum(item.startswith("rejected:") for item in outcomes), 1)
 
     def test_os_file_lock_serializes_separate_processes_and_recovers_after_crash(self):
-        # CI's Phase 1 runner executes the suite from stdin on POSIX, which
-        # cannot be re-imported by multiprocessing's spawn bootstrap. Use fork
-        # where available; retain spawn as the Windows-compatible fallback.
-        method = "fork" if "fork" in multiprocessing.get_all_start_methods() else "spawn"
-        context = multiprocessing.get_context(method)
-        path = str(self.root / "process-shared.txt")
-        ready = context.Event()
-        release = context.Event()
-        acquired = context.Event()
-        holder = context.Process(target=_hold_process_lock, args=(path, ready, release))
-        contender = context.Process(target=_wait_for_process_lock, args=(path, acquired))
-        holder.start()
+        path = self.root / "process-shared.txt"
+        ready = self.root / "holder-ready"
+        acquired = self.root / "contender-acquired"
+        helper = self.root / "lock_worker.py"
+        helper.write_text(
+            "import sys, time\\n"
+            "from pathlib import Path\\n"
+            "from ai.runtime.project_tools import _locked_path\\n"
+            "mode, target, marker = sys.argv[1:]\\n"
+            "with _locked_path(Path(target), owner={\\"task_id\\": mode}):\\n"
+            "    Path(marker).write_text(\\"locked\\", encoding=\\"utf-8\\")\\n"
+            "    if mode == \\"process-holder\\":\\n"
+            "        while True: time.sleep(1)\\n",
+            encoding="utf-8",
+        )
+        env = os.environ.copy()
+        repo_root = str(Path(__file__).resolve().parents[1])
+        env["PYTHONPATH"] = repo_root + os.pathsep + env.get("PYTHONPATH", "")
+        holder = subprocess.Popen(
+            [sys.executable, str(helper), "process-holder", str(path), str(ready)],
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, env=env,
+        )
+        contender = None
+
+        def wait_for_marker(marker: Path, process: subprocess.Popen, timeout: float, message: str):
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                if marker.exists():
+                    return
+                if process.poll() is not None:
+                    _, error = process.communicate()
+                    self.fail(f"{message}; worker exited {process.returncode}: {error}")
+                time.sleep(0.05)
+            self.fail(message)
+
         try:
-            self.assertTrue(ready.wait(8), "first process did not acquire the OS lock")
-            contender.start()
-            self.assertFalse(acquired.wait(0.3), "second process entered while the first lock was held")
+            wait_for_marker(ready, holder, 8, "first process did not acquire the OS lock")
+            contender = subprocess.Popen(
+                [sys.executable, str(helper), "process-contender", str(path), str(acquired)],
+                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, env=env,
+            )
+            time.sleep(0.3)
+            self.assertFalse(acquired.exists(), "second process entered while the first lock was held")
             holder.terminate()
-            holder.join(5)
-            self.assertFalse(holder.is_alive())
-            self.assertTrue(acquired.wait(8), "OS lock was not released when the holder process died")
-            contender.join(5)
-            self.assertFalse(contender.is_alive())
-            lock_path = _process_lock_path(str(Path(path).resolve()))
+            holder.wait(timeout=5)
+            wait_for_marker(acquired, contender, 8, "OS lock was not released when the holder process died")
+            contender.wait(timeout=5)
+            lock_path = _process_lock_path(str(path.resolve()))
             metadata = json.loads(lock_path.read_text(encoding="utf-8"))
             self.assertEqual(metadata["task_id"], "process-contender")
         finally:
-            release.set()
-            if holder.is_alive():
+            if holder.poll() is None:
                 holder.terminate()
-            holder.join(5)
-            if contender.pid is not None:
-                if contender.is_alive():
+            holder.wait(timeout=5)
+            if contender is not None:
+                if contender.poll() is None:
                     contender.terminate()
-                contender.join(5)
+                contender.wait(timeout=5)
 
     def test_distinct_file_locks_allow_independent_workers_to_overlap(self):
         barrier = threading.Barrier(2, timeout=3)
