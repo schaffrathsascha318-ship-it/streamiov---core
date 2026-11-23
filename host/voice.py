@@ -164,6 +164,8 @@ class VoiceRoomStore:
         current = int(time.time()) if now is None else int(now)
         room_id = uuid.uuid4().hex
         with self._db() as db:
+            # Serialize quota check + insert across concurrent Core request threads.
+            db.execute("BEGIN IMMEDIATE")
             open_rooms = db.execute(
                 "SELECT COUNT(*) FROM voice_rooms WHERE owner_id=? AND closed_at IS NULL",
                 (owner_id,),
@@ -188,6 +190,8 @@ class VoiceRoomStore:
             raise VoiceError("Einladung darf 1–20 Verwendungen haben.")
         current = int(time.time()) if now is None else int(now)
         with self._db() as db:
+            # Prevent concurrent invite requests from exceeding the active-invite cap.
+            db.execute("BEGIN IMMEDIATE")
             room = db.execute("SELECT owner_id,closed_at FROM voice_rooms WHERE room_id=?", (room_id,)).fetchone()
             if room is None or room["closed_at"] is not None:
                 raise VoiceError("Voice-Raum nicht gefunden oder geschlossen.")
