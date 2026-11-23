@@ -7,6 +7,7 @@ it is never stored in SQLite or returned to clients.
 from __future__ import annotations
 
 import base64
+from contextlib import closing, contextmanager
 import hashlib
 import hmac
 import json
@@ -77,8 +78,14 @@ class VoiceRoomStore:
         db.execute("PRAGMA busy_timeout=10000")
         return db
 
+    @contextmanager
+    def _db(self):
+        with closing(self._connect()) as db:
+            with db:
+                yield db
+
     def _initialize(self) -> None:
-        with self._connect() as db:
+        with self._db() as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS voice_rooms(
@@ -135,7 +142,7 @@ class VoiceRoomStore:
             raise VoiceError("Raumname muss 1–64 Zeichen lang sein.")
         current = int(time.time()) if now is None else int(now)
         room_id = uuid.uuid4().hex
-        with self._connect() as db:
+        with self._db() as db:
             db.execute("INSERT INTO voice_rooms(room_id,name,owner_id,created_at) VALUES(?,?,?,?)",
                        (room_id, clean, owner_id, current))
             db.execute("INSERT INTO voice_members(room_id,user_id,role,joined_at) VALUES(?,?,?,?)",
@@ -153,7 +160,7 @@ class VoiceRoomStore:
         if not isinstance(max_uses, int) or not 1 <= max_uses <= MAX_INVITE_USES:
             raise VoiceError("Einladung darf 1–20 Verwendungen haben.")
         current = int(time.time()) if now is None else int(now)
-        with self._connect() as db:
+        with self._db() as db:
             room = db.execute("SELECT owner_id,closed_at FROM voice_rooms WHERE room_id=?", (room_id,)).fetchone()
             if room is None or room["closed_at"] is not None:
                 raise VoiceError("Voice-Raum nicht gefunden oder geschlossen.")
@@ -172,7 +179,7 @@ class VoiceRoomStore:
         except UnicodeEncodeError as exc:
             raise VoiceError("Einladung ist ungültig oder abgelaufen.") from exc
         current = int(time.time()) if now is None else int(now)
-        with self._connect() as db:
+        with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
             invite = db.execute("""
                 SELECT i.room_id,i.role,i.expires_at,i.max_uses,i.uses,r.name,r.closed_at
@@ -192,7 +199,7 @@ class VoiceRoomStore:
             return {"room_id": invite["room_id"], "name": invite["name"], "role": invite["role"]}
 
     def role_for(self, user_id: str, room_id: str) -> str | None:
-        with self._connect() as db:
+        with self._db() as db:
             row = db.execute("""
                 SELECT m.role FROM voice_members m JOIN voice_rooms r USING(room_id)
                 WHERE m.user_id=? AND m.room_id=? AND m.revoked_at IS NULL AND r.closed_at IS NULL
@@ -201,7 +208,7 @@ class VoiceRoomStore:
 
     def close_room(self, owner_id: str, room_id: str, *, now: int | None = None) -> bool:
         current = int(time.time()) if now is None else int(now)
-        with self._connect() as db:
+        with self._db() as db:
             result = db.execute("UPDATE voice_rooms SET closed_at=? WHERE room_id=? AND owner_id=? AND closed_at IS NULL",
                                 (current, room_id, owner_id))
             if result.rowcount:
