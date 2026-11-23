@@ -100,7 +100,7 @@ jobs:
             godot --headless --path "$project" --export-release "Linux ARM64" "build/StreamioV-$game-linux-arm64"
             godot --headless --path "$project" --export-debug "Android ARM64" "build/StreamioV-$game-android-arm64.apk"
             godot --headless --path "$project" --export-debug "Android x86_64" "build/StreamioV-$game-android-x86_64.apk"
-            chmod +x "build/StreamioV-$game-linux-x86_64" "build/StreamioV-$game-linux-arm64"
+            chmod +x "$project/build/StreamioV-$game-linux-x86_64" "$project/build/StreamioV-$game-linux-arm64"
 
             temp_dir="$(mktemp -d)"
             mkdir -p "$temp_dir/windows" "$temp_dir/linux-x86_64" "$temp_dir/linux-arm64"
