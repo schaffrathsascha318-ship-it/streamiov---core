@@ -1491,7 +1491,7 @@ function drawMixerMeters(){
  if(!studioAudioMixer)return;
  const gateState=studioAudioMixer.updateGate("microphone");
  const gateStatus=$("micGateStatus");
- if(gateStatus)gateStatus.textContent=!$("micGateEnabled").checked?"Gate inaktiv.":gateState?.open?"Gate offen.":"Gate geschlossen.";
+ if(gateStatus)gateStatus.textContent=!studioAudioMixer.snapshot("microphone")?"Kein Mikrofon verbunden.":!$("micGateEnabled").checked?"Gate inaktiv.":gateState?.open?"Gate offen.":"Gate geschlossen.";
  document.querySelectorAll("[data-mixer-meter]").forEach(element=>{
   const key=element.dataset.mixerMeter;
   const level=key.startsWith("output:")?studioAudioMixer.getOutputMeter(key.slice(7)):studioAudioMixer.getChannelMeter(key);
