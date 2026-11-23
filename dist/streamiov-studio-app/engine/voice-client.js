@@ -33,6 +33,7 @@ class StreamiovVoiceClient {
     this.pushToTalk = false;
     this.pushToTalkPressed = false;
     this.closed = false;
+    this.heartbeat = null;
   }
 
   connect() {
@@ -40,11 +41,16 @@ class StreamiovVoiceClient {
     const url = new URL(this.websocketUrl);
     url.searchParams.set('ticket', this.ticket);
     this.socket = new WebSocket(url.toString());
-    this.socket.addEventListener('open', () => this.onState({ state: 'signalling_connected' }));
+    this.socket.addEventListener('open', () => {
+      this.onState({ state: 'signalling_connected' });
+      this.heartbeat = setInterval(() => this.ping(), 25_000);
+    });
     this.socket.addEventListener('message', event => {
       this.#handleMessage(event.data).catch(error => this.onState({ state: 'error', error: String(error.message || error) }));
     });
     this.socket.addEventListener('close', event => {
+      if (this.heartbeat) clearInterval(this.heartbeat);
+      this.heartbeat = null;
       this.#closePeers();
       this.onState({ state: 'disconnected', code: event.code, reason: event.reason });
     });
@@ -205,6 +211,8 @@ class StreamiovVoiceClient {
   disconnect() {
     if (this.closed) return;
     this.closed = true;
+    if (this.heartbeat) clearInterval(this.heartbeat);
+    this.heartbeat = null;
     this.#send({ type: 'leave' });
     try { this.socket?.close(1000, 'client_disconnect'); } catch {}
     this.#closePeers();
