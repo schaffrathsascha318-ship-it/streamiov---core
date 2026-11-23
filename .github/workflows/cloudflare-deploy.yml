@@ -40,7 +40,7 @@ permissions:
 
 jobs:
   verify:
-    if: inputs.confirm
+    if: github.event_name == 'push' || inputs.confirm == true
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -62,7 +62,7 @@ jobs:
 
   deploy-homepage:
     needs: verify
-    if: needs.verify.result == 'success' && inputs.confirm && (inputs.target == 'homepage' || inputs.target == 'both')
+    if: needs.verify.result == 'success' && (github.event_name == 'push' || (inputs.confirm == true && (inputs.target == 'homepage' || inputs.target == 'both')))
     runs-on: ubuntu-24.04
     environment: production
     env:
@@ -105,7 +105,7 @@ jobs:
 
   deploy-ai-worker:
     needs: verify
-    if: needs.verify.result == 'success' && inputs.confirm && (inputs.target == 'ai-worker' || inputs.target == 'both')
+    if: needs.verify.result == 'success' && github.event_name == 'workflow_dispatch' && inputs.confirm == true && (inputs.target == 'ai-worker' || inputs.target == 'both')
     runs-on: ubuntu-24.04
     environment: production
     env:
