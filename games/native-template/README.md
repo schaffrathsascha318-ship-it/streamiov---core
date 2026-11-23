@@ -8,7 +8,7 @@ This template is the source for five independent Godot 4.7.2 game projects. The 
 - Linux x86_64 and ARM64: standalone native executables with embedded game data.
 - Android phones and tablets: ARM64 APK for sideload testing.
 - ChromeOS: ARM64 APK for ARM Chromebooks or x86_64 APK for Intel Chromebooks with Android support; Linux x86_64/ARM64 executable inside compatible Crostini environments.
-- iPhone/iPad: unsigned Xcode project ZIP. A valid Apple Developer signing identity and provisioning profile are required before installation; CI does not claim a signed IPA.
+- iPhone/iPad: unsigned Xcode project ZIP. The Xcode project uses a clearly marked placeholder Team ID (0000000000); replace it with the real Apple Developer Team ID, signing identity and provisioning profile before installation. CI does not claim a signed IPA.
 
 The Android APK generated in CI is a debug/test build, not a signed public release. Desktop builds are not code-signed. No paid SDK, service, API, or external runtime provider is required.
 
