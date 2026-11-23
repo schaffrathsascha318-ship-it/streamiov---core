@@ -1,8 +1,10 @@
-"""Eleven distinct STREAMIOV specialist agents coordinated by the AI Chief.
+"""Eleven STREAMIOV specialist role definitions coordinated by the AI Chief.
 
-Each specialist has a separate product responsibility and system prompt. They
-share the configured model runtime today; this registry does not claim eleven
-separately trained models or eleven permanently running services.
+Each role has a separate product responsibility and system prompt. The scheduler
+may run multiple independently tasked worker instances for the same role, up to
+its configured concurrency limit. Workers share the configured model runtime
+today; this registry does not claim separately trained models or permanently
+running services for every worker.
 """
 from __future__ import annotations
 
