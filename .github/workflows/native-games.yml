@@ -81,12 +81,12 @@ jobs:
             mkdir -p "$project/build"
             echo "Validating $game"
             godot --headless --editor --path "$project" --quit
-            godot --headless --path "$project" --export-release "Windows Desktop x64" "$project/build/StreamioV-$game-windows-x64.exe"
-            godot --headless --path "$project" --export-release "Linux x64" "$project/build/StreamioV-$game-linux-x86_64"
-            godot --headless --path "$project" --export-release "Linux ARM64" "$project/build/StreamioV-$game-linux-arm64"
-            godot --headless --path "$project" --export-debug "Android ARM64" "$project/build/StreamioV-$game-android-arm64.apk"
-            godot --headless --path "$project" --export-debug "Android x86_64" "$project/build/StreamioV-$game-android-x86_64.apk"
-            chmod +x "$project/build/StreamioV-$game-linux-x86_64" "$project/build/StreamioV-$game-linux-arm64"
+            godot --headless --path "$project" --export-release "Windows Desktop x64" "build/StreamioV-$game-windows-x64.exe"
+            godot --headless --path "$project" --export-release "Linux x64" "build/StreamioV-$game-linux-x86_64"
+            godot --headless --path "$project" --export-release "Linux ARM64" "build/StreamioV-$game-linux-arm64"
+            godot --headless --path "$project" --export-debug "Android ARM64" "build/StreamioV-$game-android-arm64.apk"
+            godot --headless --path "$project" --export-debug "Android x86_64" "build/StreamioV-$game-android-x86_64.apk"
+            chmod +x "build/StreamioV-$game-linux-x86_64" "build/StreamioV-$game-linux-arm64"
             mkdir -p "artifacts/$game"
             cp "$project/build/"* "artifacts/$game/"
             cat > "artifacts/$game/DEVICE-READ-ME.txt" <<EOF
@@ -143,7 +143,7 @@ jobs:
             game="$(basename "$project")"
             mkdir -p "$project/build"
             "$GODOT_BIN" --headless --editor --path "$project" --quit
-            "$GODOT_BIN" --headless --path "$project" --export-debug "iOS Xcode Project" "$project/build/StreamioV-$game-ios-xcode.zip"
+            "$GODOT_BIN" --headless --path "$project" --export-debug "iOS Xcode Project" "build/StreamioV-$game-ios-xcode.zip"
             mkdir -p "artifacts/$game"
             cp "$project/build/"*ios-xcode.zip "artifacts/$game/"
             echo "Unsigned Xcode project. Apple Developer signing, provisioning and physical-device validation are required before installation." > "artifacts/$game/IOS-SIGNING-REQUIRED.txt"
