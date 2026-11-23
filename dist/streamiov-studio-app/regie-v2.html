@@ -936,6 +936,8 @@ $("sceneBackground").onchange=async event=>{
 const captureState={camera:null,screen:null,microphone:null,audioContext:null,analyser:null,meterFrame:0};
 
 const studioAudioMixer=window.StreamiovAudioMixer?new window.StreamiovAudioMixer():null;
+let broadcastMixerSource=null;
+let musicBridgeDestination=null;
 const audioBusNames=["stream","monitor","headphones","communications"];
 const audioBusElements={monitor:$("audioBusElementMonitor"),headphones:$("audioBusElementHeadphones"),communications:$("audioBusElementCommunications")};
 const audioBusState=Object.fromEntries(audioBusNames.map(name=>[name,{gain:100,muted:false,connected:false}]));
@@ -945,7 +947,7 @@ function renderAudioBus(name){
  const gain=document.querySelector("[data-audio-bus-gain='"+name+"']"),mute=document.querySelector("[data-audio-bus-mute='"+name+"']");
  if(gain)gain.value=String(state.gain);
  if(mute){mute.setAttribute("aria-pressed",String(state.muted));mute.textContent=state.muted?"TON AN":"STUMM";}
- if(name==="stream")audioBusStatus(name,"Logischer Stream-Bus · "+(state.muted?"stumm":"aktiv")+" · Encoder-Anbindung noch offen.");
+ if(name==="stream")audioBusStatus(name,"Stream-Bus "+(state.muted?"stumm":"aktiv")+" · Mikrofon, Systemton und Musik laufen über diese Bus-Matrix.");
  else audioBusStatus(name,state.connected?"Audioausgang aktiv · "+(audioBusElements[name]?.sinkId||"Systemstandard"):"Audioausgang nicht verbunden.");
 }
 document.querySelectorAll("[data-audio-bus-gain]").forEach(control=>control.addEventListener("input",()=>{
@@ -967,10 +969,14 @@ document.querySelectorAll("[data-audio-bus-disconnect]").forEach(button=>button.
  const name=button.dataset.audioBusDisconnect;if(studioAudioMixer)studioAudioMixer.detachOutput(name,audioBusElements[name]);audioBusState[name].connected=false;renderAudioBus(name);
 }));
 function selectedMicrophoneRoutes(){return [...document.querySelectorAll("[data-audio-route]:checked")].map(item=>item.dataset.audioRoute);}
+function effectiveAudioRoutes(routes){
+ const mode=$("streamAudio")?.value||"mic-system";
+ return routes.filter(route=>route!=="stream"||(mode==="mic-system"||mode==="mic"&&Boolean(studioAudioMixer?.snapshot("microphone"))||mode==="system"&&Boolean(studioAudioMixer?.snapshot("system"))));
+}
 function applyMicrophoneRouting(){
  if(!studioAudioMixer||!studioAudioMixer.snapshot("microphone"))return;
- studioAudioMixer.setRoutes("microphone",selectedMicrophoneRoutes());
- studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100);
+ studioAudioMixer.setRoutes("microphone",effectiveAudioRoutes(selectedMicrophoneRoutes()));
+ studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100*mixerValue("mixerMic"));
  $("audioMixerStatus").textContent="Mikrofonquelle verbunden · Routing: "+(selectedMicrophoneRoutes().join(", ")||"kein Ausgang")+".";
 }
 document.querySelectorAll("[data-audio-route]").forEach(control=>control.addEventListener("change",applyMicrophoneRouting));
@@ -978,12 +984,13 @@ $("audioMicGain").addEventListener("input",applyMicrophoneRouting);
 function selectedSystemRoutes(){return [...document.querySelectorAll("[data-system-route]:checked")].map(item=>item.dataset.systemRoute);}
 function applySystemRouting(){
  if(!studioAudioMixer||!studioAudioMixer.snapshot("system"))return;
- studioAudioMixer.setRoutes("system",selectedSystemRoutes());
- studioAudioMixer.setGain("system",Number($("audioSystemGain").value)/100);
+ studioAudioMixer.setRoutes("system",effectiveAudioRoutes(selectedSystemRoutes()));
+ studioAudioMixer.setGain("system",Number($("audioSystemGain").value)/100*mixerValue("mixerSystem"));
  $("systemAudioMixerStatus").textContent="Systemton verbunden · Routing: "+(selectedSystemRoutes().join(", ")||"kein Ausgang")+".";
 }
 document.querySelectorAll("[data-system-route]").forEach(control=>control.addEventListener("change",applySystemRouting));
 $("audioSystemGain").addEventListener("input",applySystemRouting);
+$("streamAudio").addEventListener("change",()=>{applyMicrophoneRouting();applySystemRouting();});
 
 async function refreshAudioBusDevices(){
  if(!navigator.mediaDevices?.enumerateDevices)return;
@@ -1289,7 +1296,12 @@ function ensureBroadcastAudioGraph(){
   musicMediaSource=broadcastAudioContext.createMediaElementSource(musicPlayerAudio);
   musicChannelGain=broadcastAudioContext.createGain();
   musicChannelGain.gain.value=musicMuted?0:mixerValue("mixerMusic");
-  musicMediaSource.connect(musicChannelGain).connect(broadcastMasterGain);
+  musicMediaSource.connect(musicChannelGain);
+  if(studioAudioMixer){
+   if(!musicBridgeDestination)musicBridgeDestination=broadcastAudioContext.createMediaStreamDestination();
+   musicChannelGain.connect(musicBridgeDestination);
+   if(!studioAudioMixer.snapshot("music"))studioAudioMixer.connect("music",musicBridgeDestination.stream,{gain:1,routes:["stream","monitor"]});
+  }else musicChannelGain.connect(broadcastMasterGain);
  }
  return broadcastAudioContext;
 }
@@ -1317,9 +1329,11 @@ function saveMixerSettings(){
 function applyMixerGains(){
  if(!broadcastAudioContext)return;
  const now=broadcastAudioContext.currentTime;
- for(const entry of broadcastTrackGains){
-  const target=broadcastGainBase*mixerValue(entry.kind==="system"?"mixerSystem":"mixerMic");
-  entry.gain.gain.setTargetAtTime(target,now,0.02);
+ if(studioAudioMixer){
+  const mic=studioAudioMixer.snapshot("microphone");
+  if(mic)studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100*mixerValue("mixerMic"));
+  const system=studioAudioMixer.snapshot("system");
+  if(system)studioAudioMixer.setGain("system",Number($("audioSystemGain").value)/100*mixerValue("mixerSystem"));
  }
  if(musicChannelGain)musicChannelGain.gain.setTargetAtTime(musicMuted?0:mixerValue("mixerMusic"),now,0.02);
  if(broadcastMasterGain)broadcastMasterGain.gain.setTargetAtTime(mixerValue("mixerMaster"),now,0.02);
@@ -1446,6 +1460,7 @@ async function releaseBroadcastMedia(){
   try{entry.gain.disconnect();}catch(_){}
  }
  broadcastTrackGains=[];
+ if(broadcastMixerSource){try{broadcastMixerSource.disconnect();}catch(_){}broadcastMixerSource=null;}
  if(broadcastAudioDestination){
   try{broadcastMasterGain?.disconnect(broadcastAudioDestination);}catch(_){}
   broadcastAudioDestination.stream.getTracks().forEach(track=>track.stop());
@@ -1523,18 +1538,22 @@ async function startBroadcast(){
   drawFrame();
   broadcastCanvasStream=canvas.captureStream(Number($("streamFps").value));
   await ensureBroadcastAudioGraph().resume();
+  if(!studioAudioMixer)throw new Error("Die zentrale Audio-Bus-Engine ist nicht verfügbar.");
+  await studioAudioMixer.resume();
+  applyMicrophoneRouting();
+  applySystemRouting();
+  const streamBus=studioAudioMixer.getOutputStream("stream");
+  const streamBusTrack=streamBus.getAudioTracks().find(track=>track.readyState==="live");
+  const streamHasSource=((audioMode==="mic"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("microphone"))&&effectiveAudioRoutes(selectedMicrophoneRoutes()).includes("stream"))
+   ||((audioMode==="system"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("system"))&&effectiveAudioRoutes(selectedSystemRoutes()).includes("stream"))
+   ||(musicQueueIndex>=0&&musicPlayerAudio.paused===false&&studioAudioMixer.snapshot("music"));
+  if(!streamBusTrack||!streamHasSource)throw new Error("Für den Stream-Bus ist keine aktive Audioquelle zum Stream geroutet.");
   broadcastAudioDestination=broadcastAudioContext.createMediaStreamDestination();
   broadcastMasterGain.connect(broadcastAudioDestination);
-  broadcastGainBase=1/Math.sqrt(audioInputs.length);
+  broadcastMixerSource=broadcastAudioContext.createMediaStreamSource(new MediaStream([streamBusTrack]));
+  broadcastMixerSource.connect(broadcastMasterGain);
+  broadcastGainBase=1;
   broadcastTrackGains=[];
-  for(const track of audioInputs){
-   const kind=track===systemTrack?"system":"mic";
-   const source=broadcastAudioContext.createMediaStreamSource(new MediaStream([track]));
-   const volume=broadcastAudioContext.createGain();
-   volume.gain.value=broadcastGainBase*mixerValue(kind==="system"?"mixerSystem":"mixerMic");
-   source.connect(volume).connect(broadcastMasterGain);
-   broadcastTrackGains.push({kind,source,gain:volume});
-  }
   applyMixerGains();
   const outputTracks=[...broadcastCanvasStream.getVideoTracks(),...broadcastAudioDestination.stream.getAudioTracks()];
   const stream=new MediaStream(outputTracks);
@@ -1544,7 +1563,7 @@ async function startBroadcast(){
   broadcastRecorder=recorder;
   const stopIfSourcesEnded=()=>{
    const videoAvailable=(cameraTrack?.readyState==="live")||(screenTrack?.readyState==="live");
-   const audioAvailable=audioInputs.some(track=>track.readyState==="live");
+   const audioAvailable=audioInputs.some(track=>track.readyState==="live")||(musicQueueIndex>=0&&musicPlayerAudio.paused===false);
    if(broadcastRecorder&&(!videoAvailable||!audioAvailable)){
     setBroadcastStatus("error","Eine benötigte Kamera-, Bildschirm- oder Mikrofonquelle wurde beendet.");
     void stopBroadcast(true);
@@ -2074,6 +2093,8 @@ for(const id of Object.keys(mixerDefaults)){
   updateMixerLabels();
   saveMixerSettings();
   applyMixerGains();
+  applyMicrophoneRouting();
+  applySystemRouting();
   const status=$("mixerStatus");
   if(status)status.textContent="Lokaler Mix: Mikrofon "+mixerPercent("mixerMic")+" %, System "+mixerPercent("mixerSystem")+" %, Musik "+mixerPercent("mixerMusic")+" %"+(musicMuted?" (stumm)":"")+", Master "+mixerPercent("mixerMaster")+" %.";
  });
