@@ -58,6 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     mission_mode.add_argument("--mission-run", metavar="MISSION_ID", help="Run or resume a mission until completion or SIGINT/SIGTERM.")
     mission_mode.add_argument("--mission-status", metavar="MISSION_ID", help="Show persisted mission status.")
     mission_mode.add_argument("--project-supervisor-run", action="store_true", help="Run the durable project-wide AI Chief supervisor; use --task once to set its persistent project goal.")
+    parser.add_argument("--project-supervisor-adopt-mission", help="Adopt an existing mission ID when initializing a project supervisor, preserving its checkpoint.")
     parser.add_argument("--mission-db", default=".streamiov/ai-missions.sqlite3", help="Persistent mission SQLite database.")
     parser.add_argument("--allow-self-modification", action="store_true", help="Explicitly allow a persistent mission to edit the four Chief core files on this development worktree.")
     parser.add_argument("--full-project-development", action="store_true", help="Explicitly allow a persistent mission to edit project source across the repository, including the Chief and AI providers; secrets, GitHub workflows, autonomous runner controls, and deployment configuration remain protected.")
@@ -85,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.jason_status:
         incompatible = (
             args.task or args.doctor or args.mission_create or args.mission_run
-            or args.mission_status or args.project_supervisor_run or args.enqueue or args.plan_and_enqueue
+            or args.mission_status or args.project_supervisor_run or args.project_supervisor_adopt_mission or args.enqueue or args.plan_and_enqueue
             or args.worker_once or args.worker_loop or args.allow_self_modification
             or args.full_project_development
         )
@@ -102,6 +103,8 @@ def main(argv: list[str] | None = None) -> int:
         except (JasonAdministrationError, OSError, ValueError, sqlite3.Error) as exc:
             print(f"streamiov-jason: {type(exc).__name__}: {exc}", file=sys.stderr)
             return 2
+    if args.project_supervisor_adopt_mission and not args.project_supervisor_run:
+        parser.error("--project-supervisor-adopt-mission requires --project-supervisor-run")
     if (args.allow_self_modification or args.full_project_development) and not (args.mission_run or args.project_supervisor_run):
         parser.error("--allow-self-modification and --full-project-development require --mission-run or --project-supervisor-run")
     if args.full_project_development:
@@ -181,7 +184,10 @@ def main(argv: list[str] | None = None) -> int:
                 if args.project_supervisor_run:
                     supervisor = ProjectSupervisor(engine, args.mission_db)
                     if args.task:
-                        supervisor.configure(args.task)
+                        supervisor.configure_if_missing(
+                            args.task,
+                            active_mission_id=args.project_supervisor_adopt_mission,
+                        )
                     snapshot = supervisor.run(
                         stop_event,
                         poll_seconds=args.mission_poll_seconds,
