@@ -148,9 +148,11 @@ class ProjectSupervisor:
             try:
                 if not self._renew_lease():
                     lost_lease.set()
+                    stop_event.set()
                     return
             except sqlite3.Error:
                 lost_lease.set()
+                stop_event.set()
                 return
 
     def _state(self) -> sqlite3.Row:
@@ -247,13 +249,22 @@ class ProjectSupervisor:
                 if last_snapshot.status == "completed":
                     with self._connect() as db:
                         db.execute("BEGIN IMMEDIATE")
+                        previous_progress = row["progress"] or ""
+                        milestone = (
+                            f"Mission {mission_id} (verified): "
+                            f"{last_snapshot.summary or 'Independent completion gate passed.'}"
+                        )
+                        cumulative_progress = (
+                            f"{previous_progress}\\n\\n{milestone}".strip()
+                            if previous_progress else milestone
+                        )[-MAX_PROGRESS_CHARS:]
                         cursor = db.execute("""
                             UPDATE development_supervisors
                             SET progress=?,active_mission_id=NULL,
                                 completed_missions=completed_missions+1,updated_at=?
                             WHERE supervisor_key=? AND lease_owner=? AND active_mission_id=?
                         """, (
-                            (last_snapshot.summary or "")[-MAX_PROGRESS_CHARS:],
+                            cumulative_progress,
                             time.time(), self.supervisor_key, self.owner_id, mission_id,
                         ))
                         if cursor.rowcount != 1:
