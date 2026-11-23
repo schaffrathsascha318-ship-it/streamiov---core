@@ -1,9 +1,22 @@
+import json
+import multiprocessing
 import tempfile
 import threading
 import unittest
 from pathlib import Path
 
-from ai.runtime.project_tools import ProjectTools, ToolError, _locked_path
+from ai.runtime.project_tools import ProjectTools, ToolError, _locked_path, _process_lock_path
+
+
+def _hold_process_lock(path: str, ready, release) -> None:
+    with _locked_path(Path(path), owner={"task_id": "process-holder"}):
+        ready.set()
+        release.wait(20)
+
+
+def _wait_for_process_lock(path: str, acquired) -> None:
+    with _locked_path(Path(path), owner={"task_id": "process-contender"}):
+        acquired.set()
 
 
 class ProjectToolsConcurrencyTests(unittest.TestCase):
@@ -46,6 +59,38 @@ class ProjectToolsConcurrencyTests(unittest.TestCase):
         self.assertIn(final, {"worker-a\n", "worker-b\n"})
         self.assertEqual(sum(item.startswith("Updated ") for item in outcomes), 1)
         self.assertEqual(sum(item.startswith("rejected:") for item in outcomes), 1)
+
+    def test_os_file_lock_serializes_separate_processes_and_recovers_after_crash(self):
+        context = multiprocessing.get_context("spawn")
+        path = str(self.root / "process-shared.txt")
+        ready = context.Event()
+        release = context.Event()
+        acquired = context.Event()
+        holder = context.Process(target=_hold_process_lock, args=(path, ready, release))
+        contender = context.Process(target=_wait_for_process_lock, args=(path, acquired))
+        holder.start()
+        try:
+            self.assertTrue(ready.wait(8), "first process did not acquire the OS lock")
+            contender.start()
+            self.assertFalse(acquired.wait(0.3), "second process entered while the first lock was held")
+            holder.terminate()
+            holder.join(5)
+            self.assertFalse(holder.is_alive())
+            self.assertTrue(acquired.wait(8), "OS lock was not released when the holder process died")
+            contender.join(5)
+            self.assertFalse(contender.is_alive())
+            lock_path = _process_lock_path(str(Path(path).resolve()))
+            metadata = json.loads(lock_path.read_text(encoding="utf-8"))
+            self.assertEqual(metadata["task_id"], "process-contender")
+        finally:
+            release.set()
+            if holder.is_alive():
+                holder.terminate()
+            holder.join(5)
+            if contender.pid is not None:
+                if contender.is_alive():
+                    contender.terminate()
+                contender.join(5)
 
     def test_distinct_file_locks_allow_independent_workers_to_overlap(self):
         barrier = threading.Barrier(2, timeout=3)
@@ -96,38 +141,6 @@ class ProjectToolsConcurrencyTests(unittest.TestCase):
         self.assertIn((self.root / "new.txt").read_text(encoding="utf-8"), {"from-a", "from-b"})
         self.assertEqual(sum(item.startswith("Created ") for item in outcomes), 1)
         self.assertEqual(sum(item.startswith("rejected:") for item in outcomes), 1)
-
-    def test_independent_processes_cannot_overwrite_same_file_edit(self):
-        import subprocess
-        import sys
-
-        path = self.root / "process-shared.txt"
-        path.write_text("base\n", encoding="utf-8")
-        script = (
-            "import sys; from pathlib import Path; "
-            "from ai.runtime.project_tools import ProjectTools, ToolError; "
-            "tools=ProjectTools(Path(sys.argv[1]), full_project_development=True); "
-            "try_result=None; "
-            "\ntry: try_result=tools.replace_text('process-shared.txt','base',sys.argv[2])"
-            "\nexcept ToolError as exc: print('REJECTED:'+str(exc))"
-            "\nelse: print('UPDATED:'+try_result)"
-        )
-        processes = [
-            subprocess.Popen(
-                [sys.executable, "-c", script, str(self.root), value],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-            )
-            for value in ("process-a", "process-b")
-        ]
-        results = []
-        for process in processes:
-            stdout, stderr = process.communicate(timeout=10)
-            self.assertEqual(process.returncode, 0, stderr)
-            results.append(stdout.strip())
-        final = path.read_text(encoding="utf-8")
-        self.assertIn(final, {"process-a\n", "process-b\n"})
-        self.assertEqual(sum(item.startswith("UPDATED:") for item in results), 1)
-        self.assertEqual(sum(item.startswith("REJECTED:") for item in results), 1)
 
     def test_atomic_replace_readers_never_observe_partial_content(self):
         path = self.root / "large.txt"
