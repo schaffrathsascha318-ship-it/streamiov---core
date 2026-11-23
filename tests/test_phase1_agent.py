@@ -94,7 +94,7 @@ class ProjectToolTests(unittest.TestCase):
         (self.root / "config").mkdir()
         protected_files = (
             "auth.json", "oauth.json", "token.json", "tokens.json",
-            "credentials.json", "client_secret.json", "tiktok-oauth.js",
+            "credentials.json", "client_secret.json", "tiktok-oauth.js", "twitch-oauth.js",
         )
         for name in protected_files:
             (self.root / "config" / name).write_text("sensitive", encoding="utf-8")
