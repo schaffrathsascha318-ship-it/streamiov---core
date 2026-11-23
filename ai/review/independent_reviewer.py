@@ -107,11 +107,11 @@ def classify_changed_path(path: str) -> Finding | None:
     name = lowered.rsplit("/", 1)[-1]
     path_parts = set(lowered.split("/"))
     adapter_segments = {"adapter", "adapters", "integration", "integrations", "platform", "platforms"}
-    unsupported_platforms = {"obs", "twitch", "youtube", "kick", "facebook"}
+    unsupported_platforms = {"obs", "youtube", "kick", "facebook"}
     if path_parts & adapter_segments and path_parts & unsupported_platforms:
         return Finding(
             "high", "unsupported-platform-adapter", normalized, None,
-            "Only the approved TikTok LIVE platform adapter is in scope; this path introduces a prohibited platform adapter.",
+            "Only TikTok LIVE and Twitch LIVE adapters are approved; this path introduces a prohibited platform adapter.",
         )
 
     if name in PROTECTED_FILE_NAMES or any(
