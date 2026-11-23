@@ -66,6 +66,17 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
         self.assertIn("durable state persistence was not confirmed", source)
         self.assertIn("source integration still requires independent verification and CI", source)
 
+
+    def test_active_mission_dispatches_next_slice_after_encrypted_checkpoint(self):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("Queue the next mission slice immediately", source)
+        self.assertIn("steps.mission.outputs.status == 'active'", source)
+        self.assertIn("steps.encrypt_mission_state.outputs.saved == 'true'", source)
+        self.assertIn("steps.save_mission_artifact.outcome == 'success'", source)
+        self.assertIn("gh workflow run autonomous-development.yml --ref main", source)
+        self.assertIn("concurrency:", source)
+        self.assertIn("cancel-in-progress: false", source)
+
     def test_ci_rejects_sensitive_files_and_symlink_changes(self):
         source = WORKFLOW.read_text(encoding="utf-8")
         for pattern in ("*.pem", "*.key", "*.p12", "*.pfx", ".env*", ".ssh/*", "wrangler.jsonc", "wrangler.toml"):
