@@ -249,8 +249,8 @@ def verify() -> dict[str, Any]:
             errors.append(f"cloudflare-deploy.yml is missing: {required}")
     if re.search(r"^  pull_request:", workflow_text, flags=re.M):
         errors.append("cloudflare-deploy.yml must not deploy from pull_request events")
-    ai_job = re.search(r"(?ms)^  deploy-ai-worker:\\n(.*?)(?=^  [a-zA-Z0-9_-]+:|\\Z)", workflow_text)
-    if not ai_job or "github.event_name == 'workflow_dispatch'" not in ai_job.group(1):
+    ai_job = re.search(r"(?ms)^  deploy-ai-worker:.*?^    if:.*github.event_name == 'workflow_dispatch'.*?(?=^  [a-zA-Z0-9_-]+:|\Z)", workflow_text)
+    if not ai_job:
         errors.append("AI Worker deployment must remain restricted to manually dispatched, confirmed runs")
     if "Deploy homepage assets Worker" in workflow_text:
         errors.append("cloudflare-deploy.yml still deploys the homepage Worker instead of the Pages project")
