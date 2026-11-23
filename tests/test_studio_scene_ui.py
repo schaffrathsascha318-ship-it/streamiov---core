@@ -206,7 +206,8 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("Der derzeit gelistete Installer 1.0.2 enthält die Electron-Desktop-Regie.", download)
         self.assertIn("Der neue Build 1.0.3 bindet eine geprüfte FFmpeg-Laufzeit ein", download)
         self.assertIn("Echte Gerätetests stehen weiterhin aus.", download)
-        self.assertIn("FFmpeg mit libx264, AAC und RTMP-Unterstützung", download)
+        self.assertIn("benötigt FFmpeg noch separat", download)
+        self.assertIn("Veröffentlichung bleibt bis zum vollständigen GPL-Quellcodepaket gesperrt", download)
 
 
     def test_regie_exposes_real_camera_and_microphone_capture_controls(self):
