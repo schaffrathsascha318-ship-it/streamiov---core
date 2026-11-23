@@ -90,6 +90,13 @@ class VoiceRoomStore:
         self.data_dir = Path(data_dir).expanduser().resolve()
         self.data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.database = self.data_dir / "voice-rooms.sqlite3"
+        if self.database.is_symlink():
+            raise VoiceError("Voice-Datenbank darf kein Symlink sein.")
+        if os.name != "nt":
+            try:
+                os.chmod(self.data_dir, 0o700)
+            except OSError as exc:
+                raise VoiceError("Private Berechtigungen für den Voice-Datenordner konnten nicht gesetzt werden.") from exc
         self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
@@ -138,10 +145,11 @@ class VoiceRoomStore:
                 CREATE INDEX IF NOT EXISTS voice_invites_room ON voice_invites(room_id);
                 CREATE INDEX IF NOT EXISTS voice_members_user ON voice_members(user_id,revoked_at);
             """)
-        try:
-            os.chmod(self.database, 0o600)
-        except OSError:
-            pass
+        if os.name != "nt":
+            try:
+                os.chmod(self.database, 0o600)
+            except OSError as exc:
+                raise VoiceError("Private Berechtigungen für die Voice-Datenbank konnten nicht gesetzt werden.") from exc
 
     @staticmethod
     def _hash_invite(code: str) -> bytes:
