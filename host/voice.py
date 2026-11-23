@@ -155,9 +155,9 @@ class VoiceRoomStore:
                       ttl: int = 3600, max_uses: int = 1, now: int | None = None) -> dict:
         if role not in {"moderator", "member", "guest"}:
             raise VoiceError("Ungültige Einladungsrolle.")
-        if not isinstance(ttl, int) or not 60 <= ttl <= MAX_INVITE_TTL:
+        if type(ttl) is not int or not 60 <= ttl <= MAX_INVITE_TTL:
             raise VoiceError("Einladung muss 60–86400 Sekunden gültig sein.")
-        if not isinstance(max_uses, int) or not 1 <= max_uses <= MAX_INVITE_USES:
+        if type(max_uses) is not int or not 1 <= max_uses <= MAX_INVITE_USES:
             raise VoiceError("Einladung darf 1–20 Verwendungen haben.")
         current = int(time.time()) if now is None else int(now)
         with self._db() as db:
@@ -182,13 +182,15 @@ class VoiceRoomStore:
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
             invite = db.execute("""
-                SELECT i.room_id,i.role,i.expires_at,i.max_uses,i.uses,r.name,r.closed_at
+                SELECT i.room_id,i.role,i.expires_at,i.max_uses,i.uses,r.name,r.closed_at,r.owner_id
                 FROM voice_invites i JOIN voice_rooms r USING(room_id)
                 WHERE i.invite_hash=? AND i.revoked_at IS NULL
             """, (invite_hash,)).fetchone()
             if (invite is None or invite["closed_at"] is not None or invite["expires_at"] <= current
                     or invite["uses"] >= invite["max_uses"]):
                 raise VoiceError("Einladung ist ungültig, abgelaufen oder bereits verwendet.")
+            if user_id == invite["owner_id"]:
+                return {"room_id": invite["room_id"], "name": invite["name"], "role": "owner"}
             db.execute("UPDATE voice_invites SET uses=uses+1 WHERE invite_hash=? AND uses<max_uses",
                        (invite_hash,))
             db.execute("""
