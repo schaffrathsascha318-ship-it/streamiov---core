@@ -237,8 +237,8 @@ class StudioAudioMixer {
   }
 
   #applyRoutes(channel) {
-    try { channel.gainNode.disconnect(); } catch {}
-    for (const name of channel.routes) channel.gainNode.connect(this.buses.get(name).gainNode);
+    try { channel.analyser.disconnect(); } catch {}
+    for (const name of channel.routes) channel.analyser.connect(this.buses.get(name).gainNode);
   }
 
   #validateName(name, kind) {
