@@ -322,7 +322,7 @@ dialog::backdrop{background:#000b}
       <div class="panel-title">GETRENNTE AUDIO-AUSGÄNGE</div>
       <div class="audio-bus-grid">
        <article class="audio-bus" data-audio-bus="stream">
-        <h4>STREAM / PROGRAMM</h4><label for="audioBusGainStream">Ausgangspegel</label><input id="audioBusGainStream" data-audio-bus-gain="stream" type="range" min="0" max="100" value="100">
+        <h4>STREAM / PROGRAMM</h4><div class="meter"><i data-mixer-meter="output:stream" style="width:0%"></i></div><label for="audioBusGainStream">Ausgangspegel</label><input id="audioBusGainStream" data-audio-bus-gain="stream" type="range" min="0" max="100" value="100">
         <div class="audio-bus-actions"><button type="button" data-audio-bus-mute="stream" aria-pressed="false">STUMM</button></div>
         <small class="audio-bus-status" data-audio-bus-status="stream">Logischer Stream-Bus · Encoder-Anbindung noch offen.</small>
        </article>
@@ -401,18 +401,18 @@ dialog::backdrop{background:#000b}
   <div class="panel section">
    <div class="panel-title">AUDIO-MIXER / LOKALE REGLER</div>
    <div class="pad mixer">
-    <div class="channel"><b>Mikrofon</b><div class="meter"><i></i></div>
+    <div class="channel"><b>Mikrofon</b><div class="meter"><i data-mixer-meter="microphone" style="width:0%"></i></div>
      <input id="mixerMic" type="range" min="0" max="100" value="75" aria-label="Mikrofonlautstärke"><small id="mixerMicValue">MIC 1 · 75 %</small></div>
-    <div class="channel"><b>System</b><div class="meter"><i></i></div>
+    <div class="channel"><b>System</b><div class="meter"><i data-mixer-meter="system" style="width:0%"></i></div>
      <input id="mixerSystem" type="range" min="0" max="100" value="45" aria-label="Systemtonlautstärke"><small id="mixerSystemValue">SYSTEM · 45 %</small></div>
-    <div class="channel"><b>Musik</b><div class="meter"><i></i></div>
+    <div class="channel"><b>Musik</b><div class="meter"><i data-mixer-meter="music" style="width:0%"></i></div>
      <input id="mixerMusic" type="range" min="0" max="100" value="50" aria-label="Musiklautstärke"><small id="mixerMusicValue">MUSIK · 50 %</small>
      <button id="mixerMusicMute" type="button" aria-pressed="false" style="width:100%;margin-top:6px;padding:4px">MUTE</button></div>
-    <div class="channel"><b>TTS</b><div class="meter"><i></i></div>
+    <div class="channel"><b>TTS</b><div class="meter"><i data-mixer-meter="tts" style="width:0%"></i></div>
      <input id="mixerTts" type="range" min="0" max="100" value="100" aria-label="TTS-Lautstärke"><small id="mixerTtsValue">TTS · 100 %</small></div>
-    <div class="channel"><b>Alerts</b><div class="meter"><i></i></div>
+    <div class="channel"><b>Alerts</b><div class="meter"><i data-mixer-meter="alert" style="width:0%"></i></div>
      <input id="mixerAlert" type="range" min="0" max="100" value="70" aria-label="Alert-Lautstärke"><small id="mixerAlertValue">ALERTS · 70 %</small></div>
-    <div class="channel"><b>Master</b><div class="meter"><i></i></div>
+    <div class="channel"><b>Master</b><div class="meter"><i data-mixer-meter="output:stream" style="width:0%"></i></div>
      <input id="mixerMaster" type="range" min="0" max="100" value="80" aria-label="Masterlautstärke"><small id="mixerMasterValue">MASTER · 80 %</small></div>
    </div>
    <p id="mixerStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted);margin:0 12px 12px">Mikrofon, Systemton und lokale Musikdatei haben getrennte Fader. Musik wird nur übertragen, wenn sie im Player geladen und abgespielt wird. Spiel- und Alert-Kanäle sind noch nicht angebunden.</p>
@@ -1014,6 +1014,7 @@ async function refreshAudioBusDevices(){
  });
 }
 audioBusNames.forEach(renderAudioBus);
+if(!mixerMeterFrame)mixerMeterFrame=requestAnimationFrame(drawMixerMeters);
 refreshAudioBusDevices().catch(()=>audioBusNames.slice(1).forEach(name=>audioBusStatus(name,"Geräteliste nicht verfügbar.")));
 
 const cameraSelect=$("cameraDeviceSelect");
@@ -1216,7 +1217,7 @@ $("microphoneStart").onclick=async()=>{
 };
 if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener("devicechange",()=>refreshCaptureDevices().catch(()=>{}));
 if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener("devicechange",()=>refreshAudioBusDevices().catch(()=>{}));
-window.addEventListener("beforeunload",()=>{stopBroadcast();stopCapture("camera");stopCapture("screen");stopCapture("microphone");if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
+window.addEventListener("beforeunload",()=>{if(mixerMeterFrame)cancelAnimationFrame(mixerMeterFrame);stopBroadcast();stopCapture("camera");stopCapture("screen");stopCapture("microphone");if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
 $("refreshDevices").click();
 $("runtimeCheck").onclick=async()=>{
  const output=$("runtimeDiagnostics");
@@ -1348,6 +1349,18 @@ function updateMixerLabels(){
   const label=$(id+"Value");
   if(label)label.textContent=mixerLabel(id)+" · "+mixerPercent(id)+" %";
  }
+}
+let mixerMeterFrame=0;
+function drawMixerMeters(){
+ if(!studioAudioMixer)return;
+ document.querySelectorAll("[data-mixer-meter]").forEach(element=>{
+  const key=element.dataset.mixerMeter;
+  const level=key.startsWith("output:")?studioAudioMixer.getOutputMeter(key.slice(7)):studioAudioMixer.getChannelMeter(key);
+  const percent=Math.min(100,Math.round(level.rms*220));
+  element.style.width=percent+"%";
+  element.title="RMS "+Math.round(level.rms*100)+" % · Peak "+Math.round(level.peak*100)+" %";
+ });
+ mixerMeterFrame=requestAnimationFrame(drawMixerMeters);
 }
 function saveMixerSettings(){
  try{localStorage.setItem(mixerStorageKey,JSON.stringify({...Object.fromEntries(Object.keys(mixerDefaults).map(id=>[id,mixerPercent(id)])),musicMuted}));}
