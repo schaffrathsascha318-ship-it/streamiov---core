@@ -1,5 +1,5 @@
 [Unit]
-Description=Daily encrypted StreamioV host backup
+Description=Daily encrypted Streamiov host backup
 
 [Timer]
 OnCalendar=*-*-* 03:17:00
