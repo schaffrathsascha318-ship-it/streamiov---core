@@ -339,10 +339,13 @@ dialog::backdrop{background:#000b}
      <input id="mixerMic" type="range" min="0" max="100" value="75" aria-label="Mikrofonlautstärke"><small id="mixerMicValue">MIC 1 · 75 %</small></div>
     <div class="channel"><b>System</b><div class="meter"><i></i></div>
      <input id="mixerSystem" type="range" min="0" max="100" value="45" aria-label="Systemtonlautstärke"><small id="mixerSystemValue">SYSTEM · 45 %</small></div>
+    <div class="channel"><b>Musik</b><div class="meter"><i></i></div>
+     <input id="mixerMusic" type="range" min="0" max="100" value="50" aria-label="Musiklautstärke"><small id="mixerMusicValue">MUSIK · 50 %</small>
+     <button id="mixerMusicMute" type="button" aria-pressed="false" style="width:100%;margin-top:6px;padding:4px">MUTE</button></div>
     <div class="channel"><b>Master</b><div class="meter"><i></i></div>
      <input id="mixerMaster" type="range" min="0" max="100" value="80" aria-label="Masterlautstärke"><small id="mixerMasterValue">MASTER · 80 %</small></div>
    </div>
-   <p id="mixerStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted);margin:0 12px 12px">Regler wirken auf den lokalen Stream-Mix. Musik-, Spiel- und Alert-Kanäle sind noch nicht als eigene Quellen angebunden.</p>
+   <p id="mixerStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted);margin:0 12px 12px">Mikrofon, Systemton und lokale Musikdatei haben getrennte Fader. Musik wird nur übertragen, wenn sie im Player geladen und abgespielt wird. Spiel- und Alert-Kanäle sind noch nicht angebunden.</p>
   </div>
  </section>
 
@@ -1089,18 +1092,41 @@ let broadcastCanvasStream=null;
 let broadcastAudioContext=null;
 let broadcastTrackGains=[];
 let broadcastMasterGain=null;
+let broadcastAudioDestination=null;
+let musicPlayerAudio=new Audio();
+let musicMediaSource=null;
+let musicChannelGain=null;
+let musicObjectUrl="";
+let musicMuted=false;
 let broadcastGainBase=1;
+function ensureBroadcastAudioGraph(){
+ const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+ if(!AudioContextClass)throw new Error("AudioContext ist in dieser Laufzeit nicht verfügbar.");
+ if(!broadcastAudioContext){
+  broadcastAudioContext=new AudioContextClass();
+  broadcastMasterGain=broadcastAudioContext.createGain();
+  broadcastMasterGain.gain.value=mixerValue("mixerMaster");
+  broadcastMasterGain.connect(broadcastAudioContext.destination);
+ }
+ if(!musicMediaSource){
+  musicMediaSource=broadcastAudioContext.createMediaElementSource(musicPlayerAudio);
+  musicChannelGain=broadcastAudioContext.createGain();
+  musicChannelGain.gain.value=musicMuted?0:mixerValue("mixerMusic");
+  musicMediaSource.connect(musicChannelGain).connect(broadcastMasterGain);
+ }
+ return broadcastAudioContext;
+}
 let broadcastFrame=0;
 const liveButton=$("live");
 const liveStatus=$("liveStatus");
-const mixerDefaults={mixerMic:75,mixerSystem:45,mixerMaster:80};
+const mixerDefaults={mixerMic:75,mixerSystem:45,mixerMusic:50,mixerMaster:80};
 const mixerStorageKey="streamiov.studio.audio-mixer.v1";
 function mixerValue(id){
  const value=Number($(id)?.value);
  return Number.isFinite(value)?Math.max(0,Math.min(100,value))/100:0;
 }
 function mixerPercent(id){return Math.round(mixerValue(id)*100);}
-function mixerLabel(id){return id==="mixerMic"?"MIC 1":id==="mixerSystem"?"SYSTEM":"MASTER";}
+function mixerLabel(id){return ({mixerMic:"MIC 1",mixerSystem:"SYSTEM",mixerMusic:"MUSIK",mixerMaster:"MASTER"})[id]||id.toUpperCase();}
 function updateMixerLabels(){
  for(const id of Object.keys(mixerDefaults)){
   const label=$(id+"Value");
@@ -1108,7 +1134,7 @@ function updateMixerLabels(){
  }
 }
 function saveMixerSettings(){
- try{localStorage.setItem(mixerStorageKey,JSON.stringify(Object.fromEntries(Object.keys(mixerDefaults).map(id=>[id,mixerPercent(id)]))));}
+ try{localStorage.setItem(mixerStorageKey,JSON.stringify({...Object.fromEntries(Object.keys(mixerDefaults).map(id=>[id,mixerPercent(id)])),musicMuted}));}
  catch(_){/* local storage is optional */}
 }
 function applyMixerGains(){
@@ -1118,6 +1144,7 @@ function applyMixerGains(){
   const target=broadcastGainBase*mixerValue(entry.kind==="system"?"mixerSystem":"mixerMic");
   entry.gain.gain.setTargetAtTime(target,now,0.02);
  }
+ if(musicChannelGain)musicChannelGain.gain.setTargetAtTime(musicMuted?0:mixerValue("mixerMusic"),now,0.02);
  if(broadcastMasterGain)broadcastMasterGain.gain.setTargetAtTime(mixerValue("mixerMaster"),now,0.02);
 }
 // Schutzregie / Privacy Shield: lokal, kostenlos und ehrlich begrenzt.
@@ -1237,9 +1264,19 @@ async function releaseBroadcastMedia(){
  if(broadcastFrame)cancelAnimationFrame(broadcastFrame);
  broadcastFrame=0;
  if(broadcastCanvasStream){broadcastCanvasStream.getTracks().forEach(track=>track.stop());broadcastCanvasStream=null;}
- if(broadcastAudioContext){await broadcastAudioContext.close().catch(()=>{});broadcastAudioContext=null;}
+ for(const entry of broadcastTrackGains){
+  try{entry.source.disconnect();}catch(_){}
+  try{entry.gain.disconnect();}catch(_){}
+ }
  broadcastTrackGains=[];
- broadcastMasterGain=null;
+ if(broadcastAudioDestination){
+  try{broadcastMasterGain?.disconnect(broadcastAudioDestination);}catch(_){}
+  broadcastAudioDestination.stream.getTracks().forEach(track=>track.stop());
+  broadcastAudioDestination=null;
+ }
+ // Keep the AudioContext and the single MediaElementAudioSourceNode alive.
+ // A media element can only be connected to one AudioContext for its lifetime.
+ // This preserves the music player across repeated start/stop cycles.
  broadcastGainBase=1;
 }
 async function stopBroadcast(preserveStatus=false){
@@ -1308,23 +1345,21 @@ async function startBroadcast(){
   };
   drawFrame();
   broadcastCanvasStream=canvas.captureStream(Number($("streamFps").value));
-  broadcastAudioContext=new AudioContext();
-  await broadcastAudioContext.resume();
-  const audioOutput=broadcastAudioContext.createMediaStreamDestination();
+  await ensureBroadcastAudioGraph().resume();
+  broadcastAudioDestination=broadcastAudioContext.createMediaStreamDestination();
+  broadcastMasterGain.connect(broadcastAudioDestination);
   broadcastGainBase=1/Math.sqrt(audioInputs.length);
   broadcastTrackGains=[];
-  broadcastMasterGain=broadcastAudioContext.createGain();
-  broadcastMasterGain.gain.value=mixerValue("mixerMaster");
-  broadcastMasterGain.connect(audioOutput);
   for(const track of audioInputs){
    const kind=track===systemTrack?"system":"mic";
    const source=broadcastAudioContext.createMediaStreamSource(new MediaStream([track]));
    const volume=broadcastAudioContext.createGain();
    volume.gain.value=broadcastGainBase*mixerValue(kind==="system"?"mixerSystem":"mixerMic");
    source.connect(volume).connect(broadcastMasterGain);
-   broadcastTrackGains.push({kind,gain:volume});
+   broadcastTrackGains.push({kind,source,gain:volume});
   }
-  const outputTracks=[...broadcastCanvasStream.getVideoTracks(),...audioOutput.stream.getAudioTracks()];
+  applyMixerGains();
+  const outputTracks=[...broadcastCanvasStream.getVideoTracks(),...broadcastAudioDestination.stream.getAudioTracks()];
   const stream=new MediaStream(outputTracks);
   const mimeType="video/webm;codecs=vp8,opus";
   if(!MediaRecorder.isTypeSupported(mimeType))throw new Error("Dieser Browser unterstützt keinen VP8/Opus-Medienstream.");
@@ -1557,21 +1592,27 @@ async function renderMusicTool(body){
  const file=document.createElement("input");
  file.type="file";
  file.accept="audio/*";
- const audio=document.createElement("audio");
- audio.controls=true;
- audio.style.width="100%";
+ musicPlayerAudio.controls=true;
+ musicPlayerAudio.style.width="100%";
+ musicPlayerAudio.preload="metadata";
  file.addEventListener("change",()=>{
   const chosen=file.files?.[0];
   if(!chosen)return;
-  if(audio.src)URL.revokeObjectURL(audio.src);
-  audio.src=URL.createObjectURL(chosen);
-  audio.play().catch(()=>{});
-  log("Lokale Audiodatei geladen: "+chosen.name+".");
+  if(musicObjectUrl)URL.revokeObjectURL(musicObjectUrl);
+  musicObjectUrl=URL.createObjectURL(chosen);
+  musicPlayerAudio.src=musicObjectUrl;
+  musicPlayerAudio.load();
+  try{ensureBroadcastAudioGraph();}catch(error){log("Musik-Mixer nicht verfügbar: "+String(error.message||error));}
+  musicPlayerAudio.play().then(()=>{
+   log("Lokale Audiodatei geladen und im Musik-Kanal abgespielt: "+chosen.name+".");
+  }).catch(error=>{
+   log("Musik geladen; Wiedergabe bitte über die Player-Steuerung starten: "+String(error.message||error));
+  });
  });
  body.append(
-  toolNote("Wiedergabe erfolgt nur lokal. Du bist selbst für die Rechte an der geladenen Musik "+
-   "verantwortlich; StreamioV prüft keine Lizenz."),
-  toolField("Audiodatei",file),audio
+  toolNote("Lokale Audiodateien werden über den eigenen Musik-Kanal in den Stream-Mix geroutet. Der Musik-Fader und MUTE wirken unabhängig. Nur Dateien verwenden, für die du die nötigen Rechte besitzt."),
+  toolField("Audiodatei",file),musicPlayerAudio,
+  toolNote("Hinweis: Der Player verarbeitet lokale Dateien. Der Rechte-Katalog und die vorhandenen Playlist-Rohdaten sind noch nicht mit einer automatischen Wiedergabe-Warteschlange verbunden.")
  );
  const api=window.streamiovStudio?.dataQuery;
  const catalogLine=toolNote("Musik-Katalog wird geladen …");
@@ -1767,15 +1808,30 @@ try{
   const value=Number(saved[id]);
   if(Number.isFinite(value))$(id).value=String(Math.max(0,Math.min(100,value)));
  }
+ musicMuted=saved.musicMuted===true;
 }catch(_){/* markup defaults stay active */}
 updateMixerLabels();
+const musicMuteButton=$("mixerMusicMute");
+if(musicMuteButton){
+ musicMuteButton.setAttribute("aria-pressed",musicMuted?"true":"false");
+ musicMuteButton.classList.toggle("active",musicMuted);
+ musicMuteButton.textContent=musicMuted?"MUTED":"MUTE";
+ musicMuteButton.addEventListener("click",()=>{
+  musicMuted=!musicMuted;
+  musicMuteButton.setAttribute("aria-pressed",musicMuted?"true":"false");
+  musicMuteButton.classList.toggle("active",musicMuted);
+  musicMuteButton.textContent=musicMuted?"MUTED":"MUTE";
+  applyMixerGains();
+  saveMixerSettings();
+ });
+}
 for(const id of Object.keys(mixerDefaults)){
  $(id).addEventListener("input",()=>{
   updateMixerLabels();
   saveMixerSettings();
   applyMixerGains();
   const status=$("mixerStatus");
-  if(status)status.textContent="Lokaler Mix: Mikrofon "+mixerPercent("mixerMic")+" %, System "+mixerPercent("mixerSystem")+" %, Master "+mixerPercent("mixerMaster")+" %.";
+  if(status)status.textContent="Lokaler Mix: Mikrofon "+mixerPercent("mixerMic")+" %, System "+mixerPercent("mixerSystem")+" %, Musik "+mixerPercent("mixerMusic")+" %"+(musicMuted?" (stumm)":"")+", Master "+mixerPercent("mixerMaster")+" %.";
  });
 }
 $("privacyShield")?.addEventListener("click",togglePrivacyShield);
