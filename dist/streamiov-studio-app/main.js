@@ -272,7 +272,7 @@ ipcMain.handle('studio:chat-action', async (event, payload = {}) => {
     const speed = Number(payload.speed ?? 175);
     const amplitude = Number(payload.amplitude ?? 100);
     if (!Number.isInteger(speed) || speed < 80 || speed > 300) return { ok: false, error: 'TTS-Geschwindigkeit muss zwischen 80 und 300 Wörtern pro Minute liegen.' };
-    if (!Number.isInteger(amplitude) || amplitude < 0 || amplitude > 200) return { ok: false, error: 'TTS-Lautstärke muss zwischen 0 und 200 liegen.' };
+    if (!Number.isInteger(amplitude) || amplitude < 0 || amplitude > 100) return { ok: false, error: 'TTS-Sprachlautstärke muss zwischen 0 und 100 liegen.' };
     const outputFile = path.join(os.tmpdir(), 'streamiov-tts-' + randomUUID() + '.wav');
     try {
       try {
