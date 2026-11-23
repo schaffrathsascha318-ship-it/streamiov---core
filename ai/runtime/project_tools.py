@@ -292,7 +292,7 @@ class ProjectTools:
         if not isinstance(content, str) or len(content.encode("utf-8")) > 100_000:
             raise ToolError("Content must be text no larger than 100 KB.")
         target.parent.mkdir(parents=True, exist_ok=True)
-        with _locked_path(target):
+        with _locked_path(target, owner={"task_id": self.task_id}):
             target, normalized = self._writable_target(path)
             if target.exists():
                 raise ToolError("Refusing to overwrite an existing file; use an exact-match edit or submit a focused patch through review.")
@@ -321,7 +321,7 @@ class ProjectTools:
             raise ToolError("old_text must be a non-empty string.")
         if not isinstance(new_text, str) or old_text == new_text:
             raise ToolError("new_text must be text different from old_text.")
-        with _locked_path(target):
+        with _locked_path(target, owner={"task_id": self.task_id}):
             target, normalized = self._writable_target(path)
             if not target.is_file():
                 raise ToolError("Exact-match edits require an existing regular file.")
