@@ -1084,7 +1084,7 @@ function applyMonitorFeedbackGuard(){
  for(const name of ["music","tts","alert"]){if(studioAudioMixer?.snapshot(name))studioAudioMixer.setRoutes(name,effectiveAuxRoutes(name));}
  for(const pad of soundboardPads){if(pad.channelName&&studioAudioMixer?.snapshot(pad.channelName))studioAudioMixer.setRoutes(pad.channelName,effectiveAuxRoutes("soundboard"));}
  const status=$("loopbackGuardStatus");
- if(status)status.textContent=isLoopbackCaptureActive()&&!allowMonitorDuringLoopback?"Feedback-Schutz aktiv: Monitor-Routing bei aktivem Loopback blockiert.":"Monitor-Routing freigegeben; bei Loopback kann Rückkopplung entstehen.";
+ if(status)status.textContent=isLoopbackCaptureActive()?allowMonitorDuringLoopback?"WARNUNG: Loopback aktiv, Monitor freigegeben; Rückkopplung möglich.":"Feedback-Schutz aktiv: Monitor-Routing bei aktivem Loopback blockiert.":"Kein Loopback aktiv; Monitor-Routing folgt der Quellenmatrix.";
 }
 function applyMicrophoneRouting(){
  if(!studioAudioMixer||!studioAudioMixer.snapshot("microphone")){mixerPanState.microphone=Number($("micPan").value)/100;saveAudioRoutingState();saveMixerSettings();return;}
