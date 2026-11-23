@@ -48,6 +48,12 @@ All five remain prototypes. HD is a design target only: no local browser viewpor
 
 GitHub issue #3 lists Neon Relay (reflex arcade), Echo Grid (sequence-memory puzzle), and Pulse Defender (wave shooter). Local copies are now packaged and audited through this repository's manifests; upstream Chromium smoke evidence is not substituted for local browser or hardware verification. Signal Weave adds a distinct spatial-routing puzzle. Its SVG/CSS layout is designed to scale through HD/Full HD, while actual HD viewport and touch-device checks remain pending.
 
+## Native multi-platform game packages
+
+The native game projects are generated from games/native-template/ by scripts/generate-native-games.py. Each of the five games has a separate project and build identity. The native CI workflow targets Windows 11 x64, Linux x86_64 and ARM64, Android ARM64, Android x86_64 for Intel Chromebooks, and an unsigned iOS/iPadOS Xcode project export. ChromeOS can use the matching Android APK where Android support is available, or the Linux package through compatible Crostini.
+
+Android APKs produced by CI are debug/test packages until a persistent release keystore is configured. iOS exports are unsigned Xcode projects until Apple Developer signing and provisioning are supplied. Desktop executables are not code-signed. A successful export is not proof of gameplay, hardware compatibility, accessibility, or release approval. Each game must pass its own device checklist before its native packages can be published as a public release.
+
 ## Required per-game files
 
 Every game must include:
