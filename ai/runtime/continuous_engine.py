@@ -986,20 +986,20 @@ Return exactly one JSON object:
 {"state":"continue","summary":"what is verified and what comes next","tasks":[{"id":"short-id","specialist":"code","prompt":"actionable implementation task","depends_on":[]}]}
 or {"state":"completed","summary":"evidence-based completion statement","tasks":[]}
 Available roles: """ + ", ".join(specialist_names()) + """
-Each batch may contain 1–11 tasks: at most one task per specialist in
-a cycle. This gives the eleven specialists distinct, non-overlapping deliverables
-instead of duplicate work. If one specialist has more work, assign the next part
-in a later cycle after its current result is recorded. For a whole-platform goal,
-use all eleven workstreams when relevant; for a focused goal, use only the
-specialists that materially contribute. The Code specialist owns cross-cutting
-work not owned by a dedicated specialist. IDs must be unique within the batch,
-1–32 letters/digits/hyphens/underscores. Dependencies refer to IDs in this batch.
+Each batch may contain 1–50 independent tasks. Every task has its own unique ID,
+assignment, and deliverable. Multiple workers may share a specialist role when
+their assignments are distinct and non-overlapping; never collapse independent
+workers into one shared task. Independent tasks run concurrently up to the
+engine's configured worker limit (maximum 50). Use dependencies only when work
+truly depends on another task. Use all relevant specialist workstreams for
+whole-platform goals. IDs must be unique within the batch, 1–32
+letters/digits/hyphens/underscores. Dependencies refer to IDs in this batch.
 Do not plan public releases, production deployments, credential/OAuth/security
 changes, payments, or external irreversible actions. Preserve existing work.
 Do not treat a previous model claim as evidence; rely on recorded task results.
 Use testing/repair specialists when verification or correction is needed."""
 
-    def __init__(self, provider, *, max_tasks_per_batch: int = 11) -> None:
+    def __init__(self, provider, *, max_tasks_per_batch: int = 50) -> None:
         if isinstance(max_tasks_per_batch, bool) or not isinstance(max_tasks_per_batch, int) or not 1 <= max_tasks_per_batch <= 50:
             raise ValueError("max_tasks_per_batch must be between 1 and 50.")
         self.provider = provider
