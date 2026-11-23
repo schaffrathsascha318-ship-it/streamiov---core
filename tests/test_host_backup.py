@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import sqlite3
 import tarfile
@@ -12,6 +13,7 @@ import unittest
 from host.backup import (
     BackupError,
     _check_paths,
+    _directory_path,
     _safe_backup_file,
     _verify_archive,
     prune_backups,
@@ -84,6 +86,23 @@ class HostBackupSafetyTests(unittest.TestCase):
         (backup_dir / name).symlink_to(target)
         with self.assertRaises(BackupError):
             _safe_backup_file(backup_dir, name)
+
+    def test_backup_directory_rejects_symlinked_parent_before_creation(self):
+        target = self.root / "real-target"
+        target.mkdir()
+        link = self.root / "linked-parent"
+        try:
+            link.symlink_to(target, target_is_directory=True)
+        except (NotImplementedError, OSError):
+            self.skipTest("directory symlinks are unavailable on this platform")
+        with self.assertRaises(BackupError):
+            _directory_path(link / "backups", create=True, private=True)
+        self.assertFalse((target / "backups").exists())
+
+    @unittest.skipIf(os.name == "nt", "POSIX directory mode bits are not portable on Windows")
+    def test_private_backup_directory_is_enforced_as_0700(self):
+        path = _directory_path(self.root / "private-backups", create=True, private=True)
+        self.assertEqual(path.stat().st_mode & 0o777, 0o700)
 
     def test_live_and_backup_directories_must_be_separate(self):
         data = self.root / "data"
