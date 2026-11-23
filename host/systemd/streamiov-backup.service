@@ -8,6 +8,7 @@ User=streamiov
 Group=streamiov
 WorkingDirectory=/opt/streamiov
 EnvironmentFile=-/etc/streamiov/backup.env
+Environment=STREAMIOV_DATA_DIR=/var/lib/streamiov-host
 ExecStart=/usr/bin/python3 -m host.backup create
 ExecStartPost=/usr/bin/python3 -m host.backup prune --keep-days 30
 NoNewPrivileges=yes
