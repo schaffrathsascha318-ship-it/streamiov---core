@@ -805,7 +805,7 @@ ipcMain.handle('studio:get-module-status', async (event) => {
       { id: 'synthetic-av-test', status: 'dependency_gated', note: 'Lokaler Test mit installierten GStreamer-Komponenten.' },
       { id: 'compositor', status: 'not_implemented' },
       { id: 'production-encoder', status: 'not_implemented' },
-      { id: 'audio-mixer-routing', status: 'local_four_bus_engine', note: 'Echte Mikrofon-MediaStreams können über getrennte Stream-, Monitor-, Kopfhörer- und Kommunikationsbusse mit unabhängigen Gain-/Mute-Stufen geroutet werden. Physische Wiedergabe erfordert die lokale Geräteverbindung; Encoder-Feed sowie Musik, Spiel, Alerts und TTS sind noch nicht vollständig angebunden.' },
+      { id: 'audio-mixer-routing', status: 'local_four_bus_engine', note: 'Mikrofon, Bildschirm-Systemton und lokaler Musikplayer werden über getrennte Stream-, Monitor-, Kopfhörer- und Kommunikationsbusse mit unabhängigen Gain-/Mute-Stufen geroutet. Der Stream-Bus speist den lokalen MediaRecorder/Encoder-Eingang; physische Wiedergabe erfordert die lokale Geräteverbindung. Spielton, Alerts und TTS sind noch nicht angebunden.' },
       { id: 'tiktok-live-output', status: 'oauth_and_live_verification_pending' },
       { id: 'chat-events', status: 'not_connected' },
       { id: 'gift-events', status: 'not_connected' },
