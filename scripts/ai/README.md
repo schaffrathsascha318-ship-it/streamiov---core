@@ -1,53 +1,56 @@
-# Streamiov AI Chief – persistent mission runner
+# Streamiov AI Chief – persistent project supervisor
 
-This service is a **local development runner**. It does not deploy or publish production changes and is not a production hosting service.
+The local service is the long-running development runner for the complete Streamiov project. It uses the existing mission engine and its SQLite database, then starts the next distinct mission only after the current mission passes the independent testing-specialist completion gate.
 
-## Create a mission
+## Configure the provider
 
-From the repository root, with the Streamiov AI Worker environment already configured:
+Keep provider credentials only in the private local file:
+
+`~/.config/streamiov/ai-worker.env`
+
+Never commit that file or copy tokens into `ai-chief.env`.
+
+## Start the project supervisor
+
+From the repository root:
 
 ```bash
-python3 -m ai --mission-create --task "Finish and verify the existing Streamiov AI Chief Developer."
+bash scripts/ai/run-chief-mission.sh
 ```
 
-Copy the returned `mission_id`. The mission database defaults to `.streamiov/ai-missions.sqlite3`.
+The runner uses `.streamiov/ai-missions.sqlite3` by default and keeps its project goal in the same database. It works across multiple verified missions, resumes an active mission after interruption, and prevents concurrent supervisor processes with a renewable SQLite lease.
+
+Optional private configuration in `~/.config/streamiov/ai-chief.env`:
+
+```bash
+# Optional project-goal override:
+# STREAMIOV_AI_PROJECT_GOAL="Continue building and verifying the complete Streamiov platform."
+# Optional: adopt an existing mission on the first supervisor start.
+STREAMIOV_AI_MISSION_ID=
+# Optional database override:
+# STREAMIOV_AI_MISSION_DB=/absolute/path/to/.streamiov/ai-missions.sqlite3
+```
+
+If `STREAMIOV_AI_MISSION_ID` is set and no supervisor state exists yet, the supervisor adopts that mission instead of discarding its checkpoint. Once supervisor state exists, it remains authoritative and is not overwritten by later environment changes.
 
 ## Configure auto-start
 
-Create or edit the private local file `~/.config/streamiov/ai-chief.env`:
-
-```bash
-mkdir -p ~/.config/streamiov
-chmod 700 ~/.config/streamiov
-nano ~/.config/streamiov/ai-chief.env
-```
-
-Set the mission ID (do not put API tokens in this file):
-
-```bash
-STREAMIOV_AI_MISSION_ID=PASTE_THE_RETURNED_MISSION_ID
-```
-
-The runner also sources the existing private `~/.config/streamiov/ai-worker.env` file if present. Neither file belongs in Git.
-
-Install and start the user service:
+On systems with a working systemd user manager:
 
 ```bash
 bash scripts/ai/install-user-service.sh
 ```
 
-The installer requires a working systemd user manager. It does not silently fall back to an unmanaged background process. On systems without a user manager, run the mission in a terminal:
+The installer creates a private configuration template if needed and enables the service. It does not modify production services or install an unmanaged background process.
 
-```bash
-bash scripts/ai/run-chief-mission.sh
-```
+On systems without a user manager, start the runner manually with `bash scripts/ai/run-chief-mission.sh`.
 
 ## Operations
 
 ```bash
 systemctl --user status streamiov-ai-chief.service
 journalctl --user -u streamiov-ai-chief.service -f
-python3 -m ai --mission-status MISSION_ID
+python3 -m ai --jason-status
 ```
 
 Stop and disable auto-start:
@@ -58,10 +61,12 @@ rm -f ~/.config/systemd/user/streamiov-ai-chief.service
 systemctl --user daemon-reload
 ```
 
-The mission engine stores plans, task outcomes, retries and leases in SQLite. Agent checkpoints store conversation history, pending tool batches, completed tool results and a final result until the mission engine records task success. After a process interruption, completed tool actions are not replayed; an action interrupted between execution and its checkpoint write may be attempted again, so the tool layer must continue to enforce safe/idempotent behavior.
+## Safety and recovery
 
-Provider request sizes and individual model responses remain subject to the provider's natural limits. The agent continues across multiple turns and the mission engine chunks work into planning batches instead of treating those protocol limits as a mission-wide task or runtime ceiling.
-
-The Python file tool prefers Linux `setpriv`: it drops to UID/GID 65534, clears supplementary groups, sets `no-new-privs`, and passes a clean environment without the developer's tokens. This is not a complete network or syscall sandbox; do not run untrusted third-party Python source with it. On local systems where `setpriv` is unavailable, execution is disabled unless the user explicitly sets `STREAMIOV_AI_ALLOW_UNSANDBOXED_PYTHON=1` in the private runtime environment. GitHub-hosted CI has a narrowly scoped fallback because its disposable runner may forbid UID changes and contains no user credentials.
-
-The service runner does not authorize production deployment, public release, OAuth/security changes, or irreversible external actions. Those remain approval-gated.
+- Mission plans, task outcomes, retry state, supervisor progress, and leases are persisted in SQLite.
+- The local service reuses the existing mission database; it does not delete or replace it.
+- A process restart resumes the active mission. A verified mission is recorded before the next mission is created.
+- The supervisor's renewable lease prevents two local service instances from executing the same project goal concurrently.
+- Full-project development still respects protected secrets, GitHub workflow/runner controls, deployment configuration, credential boundaries, and the existing sandbox rules.
+- The Python file tool prefers Linux `setpriv`; when the environment cannot drop privileges, safe execution is blocked rather than silently rerun unsandboxed.
+- Production deployment, public release, OAuth/security changes, and irreversible external actions remain behind their existing safeguards.

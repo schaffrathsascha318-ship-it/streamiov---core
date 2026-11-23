@@ -20,19 +20,14 @@ fi
 if [[ ! -f "${HOME}/.config/streamiov/ai-chief.env" ]]; then
   mkdir -p "${HOME}/.config/streamiov"
   cat > "${HOME}/.config/streamiov/ai-chief.env" <<'EOF'
-# Set the mission ID printed by: python3 -m ai --mission-create --task "..."
+# Optional: override the persistent whole-platform development goal.
+# STREAMIOV_AI_PROJECT_GOAL="Continue building and verifying the complete Streamiov platform."
+# Optional: adopt an existing mission checkpoint on first supervisor start.
 STREAMIOV_AI_MISSION_ID=
 # Optional:
 # STREAMIOV_AI_MISSION_DB=/absolute/path/to/.streamiov/ai-missions.sqlite3
 EOF
   chmod 600 "${HOME}/.config/streamiov/ai-chief.env"
-  echo "Created ~/.config/streamiov/ai-chief.env. Set STREAMIOV_AI_MISSION_ID, then rerun this installer."
-  exit 2
-fi
-
-if ! grep -Eq '^STREAMIOV_AI_MISSION_ID=.+$' "${HOME}/.config/streamiov/ai-chief.env"; then
-  echo "Set STREAMIOV_AI_MISSION_ID in ~/.config/streamiov/ai-chief.env before installing." >&2
-  exit 2
 fi
 
 mkdir -p "${UNIT_DIR}"

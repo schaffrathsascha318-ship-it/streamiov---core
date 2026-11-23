@@ -52,6 +52,14 @@ jobs:
           # in-progress label left by an interrupted or misrouted runner.
           issue_json="$(gh issue list --state open --label agent-ready --limit 1 --json number,title,body)"
           if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
+            # Keep the P0 whole-platform objective at the front of the resumable
+            # queue so event-driven continuation cannot drift to stale issues.
+            project_issue="$(gh issue view 223 --json number,title,body,labels,state)"
+            if jq -e '.state == "OPEN" and any(.labels[]; .name == "agent-in-progress")' <<< "$project_issue" >/dev/null; then
+              issue_json="$(jq -cn --argjson issue "$project_issue" '[{number:$issue.number,title:$issue.title,body:$issue.body}]')"
+            fi
+          fi
+          if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
             issue_json="$(gh issue list --state open --label agent-in-progress --limit 1 --json number,title,body)"
           fi
 
@@ -78,15 +86,24 @@ jobs:
 
           # Issue 172 is the repair/control ticket for the existing issue-145
           # mission. Reuse its durable checkpoint instead of creating issue-172.
+          # Issue 223 is the P0 whole-platform objective; reuse the platform
+          # checkpoint and route it through the persistent project supervisor.
           mission_key="$issue_number"
           if [[ "$issue_number" == "172" ]]; then
             mission_key="145"
+          elif [[ "$issue_number" == "223" ]]; then
+            mission_key="0"
           fi
 
           issue_b64="$(jq -r '.[0] | @base64' <<< "$issue_json")"
           {
             echo "issue_number=$issue_number"
             echo "mission_key=$mission_key"
+            if [[ "$mission_key" == "0" ]]; then
+              echo "project_supervisor=true"
+            else
+              echo "project_supervisor=false"
+            fi
             echo "issue_title=$issue_title"
             echo "issue_b64=$issue_b64"
           } >> "$GITHUB_OUTPUT"
@@ -164,6 +181,7 @@ jobs:
           STREAMIOV_AGENT_ISSUE_B64: ${{ steps.pick.outputs.issue_b64 }}
           STREAMIOV_MISSION_ID: ${{ steps.pick.outputs.mission_key == '0' && 'streamiov-platform' || format('streamiov-issue-{0}', steps.pick.outputs.mission_key) }}
           STREAMIOV_MISSION_DB: ${{ runner.temp }}/streamiov-ai-missions/missions.sqlite3
+          STREAMIOV_PROJECT_SUPERVISOR: ${{ steps.pick.outputs.project_supervisor }}
           STREAMIOV_AI_WORKER_TOKEN: ${{ secrets.STREAMIOV_AI_WORKER_TOKEN }}
           STREAMIOV_MODEL_URL: ${{ vars.STREAMIOV_MODEL_URL }}
           STREAMIOV_MODEL_PROVIDER: cloudflare-workers-ai
@@ -317,6 +335,7 @@ jobs:
           ISSUE_NUMBER: ${{ steps.pick.outputs.issue_number }}
           ISSUE_TITLE: ${{ steps.pick.outputs.issue_title }}
           TESTS_PASSED: ${{ steps.validation.outputs.tests_passed }}
+          PROJECT_SUPERVISOR: ${{ steps.pick.outputs.project_supervisor }}
           MISSION_STATUS: ${{ steps.mission.outputs.status }}
         shell: bash
         run: |
@@ -399,7 +418,7 @@ jobs:
             fi
           fi
 
-          if [[ "$ISSUE_NUMBER" != "0" ]]; then
+          if [[ "$ISSUE_NUMBER" != "0" && "$PROJECT_SUPERVISOR" != "true" ]]; then
             if [[ "$TESTS_PASSED" == "true" && "${MISSION_STATUS:-active}" == "completed" ]]; then
               gh issue edit "$ISSUE_NUMBER" --remove-label agent-in-progress --add-label agent-review
               gh issue comment "$ISSUE_NUMBER" --body "The AI Chief prepared a development checkpoint and the independent acceptance checks passed. A draft pull request is available for owner review; no integration or deployment was performed."
@@ -409,7 +428,7 @@ jobs:
           fi
 
       - name: Mark failed runner execution as blocked
-        if: failure() && steps.pick.outputs.issue_number != '' && steps.pick.outputs.issue_number != '0'
+        if: failure() && steps.pick.outputs.issue_number != '' && steps.pick.outputs.issue_number != '0' && steps.pick.outputs.project_supervisor != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ steps.pick.outputs.issue_number }}
@@ -417,3 +436,14 @@ jobs:
         run: |
           gh issue edit "$ISSUE_NUMBER" --remove-label agent-in-progress --add-label agent-blocked || true
           gh issue comment "$ISSUE_NUMBER" --body "The autonomous runner stopped safely. No unverified change is integrated or deployed. Review the workflow log and resume the persistent mission after repairing the cause." || true
+
+      - name: Continue the project-wide supervisor immediately
+        if: always() && steps.pick.outputs.project_supervisor == 'true' && steps.encrypt_mission_state.outputs.saved == 'true' && steps.save_mission_artifact.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # workflow_dispatch is an explicit event-driven continuation, not a
+          # polling cron. The concurrency group keeps slices strictly serial.
+          gh workflow run autonomous-development.yml --ref main

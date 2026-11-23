@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ai.runtime.continuous_engine import MissionEngineError, MissionSnapshot
 from ai.runtime.project_supervisor import ProjectSupervisor, ProjectSupervisorError
+from ai.__main__ import build_parser
 
 
 class FakeMissionEngine:
@@ -56,6 +57,17 @@ class ProjectSupervisorTests(unittest.TestCase):
         return ProjectSupervisor(
             engine, self.db, lease_seconds=10, heartbeat_seconds=0.1
         )
+
+    def test_cli_accepts_existing_mission_adoption_for_project_supervisor(self):
+        args = build_parser().parse_args([
+            "--project-supervisor-run",
+            "--task", "Finish and verify Streamiov.",
+            "--project-supervisor-adopt-mission", "streamiov-platform",
+            "--full-project-development",
+        ])
+        self.assertTrue(args.project_supervisor_run)
+        self.assertEqual(args.project_supervisor_adopt_mission, "streamiov-platform")
+        self.assertTrue(args.full_project_development)
 
     def test_verified_mission_immediately_starts_next_distinct_mission(self):
         engine = FakeMissionEngine([("completed", False), ("completed", True)])
