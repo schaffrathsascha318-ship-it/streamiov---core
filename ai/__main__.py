@@ -105,6 +105,8 @@ def main(argv: list[str] | None = None) -> int:
             return 2
     if args.project_supervisor_adopt_mission and not args.project_supervisor_run:
         parser.error("--project-supervisor-adopt-mission requires --project-supervisor-run")
+    if args.project_supervisor_adopt_mission and not args.task:
+        parser.error("--project-supervisor-adopt-mission also requires --task to establish the project goal")
     if (args.allow_self_modification or args.full_project_development) and not (args.mission_run or args.project_supervisor_run):
         parser.error("--allow-self-modification and --full-project-development require --mission-run or --project-supervisor-run")
     if args.full_project_development:
