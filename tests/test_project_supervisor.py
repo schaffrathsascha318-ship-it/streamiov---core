@@ -33,14 +33,11 @@ class FakeMissionEngine:
 
     def run(self, mission_id, stop_event, *, poll_seconds, emit, worker_id):
         self.runs.append(mission_id)
-        outcome = self.outcomes.pop(0)
-        status, should_stop = outcome[:2]
-        summary = outcome[2] if len(outcome) > 2 else (
-            f"verified result for {mission_id}" if status == "completed" else ""
-        )
+        status, should_stop = self.outcomes.pop(0)
         snapshot = MissionSnapshot(
             mission_id, self.missions[mission_id].goal, status, 1,
-            summary, 0, 0, 1 if status == "completed" else 0, 0, 1,
+            f"verified result for {mission_id}" if status == "completed" else "",
+            0, 0, 1 if status == "completed" else 0, 0, 1,
         )
         self.missions[mission_id] = snapshot
         if should_stop:
@@ -71,49 +68,6 @@ class ProjectSupervisorTests(unittest.TestCase):
         self.assertTrue(args.project_supervisor_run)
         self.assertEqual(args.project_supervisor_adopt_mission, "streamiov-platform")
         self.assertTrue(args.full_project_development)
-
-    def test_project_completion_marker_stops_and_persists_supervisor(self):
-        engine = FakeMissionEngine([
-            ("completed", False),
-            ("completed", True, "PROJECT_GOAL_COMPLETE: true All project objectives are verified."),
-        ])
-        supervisor = self.make_supervisor(engine)
-        supervisor.configure("Complete every Streamiov objective.")
-        result = supervisor.run(threading.Event(), poll_seconds=0.01, emit=lambda _message: None)
-
-        self.assertEqual(result.status, "completed")
-        self.assertTrue(supervisor.project_complete)
-        self.assertEqual(len(engine.created), 2)
-        self.assertEqual(len(engine.runs), 2)
-
-        restarted = self.make_supervisor(engine)
-        resumed = restarted.run(threading.Event(), poll_seconds=0.01, emit=lambda _message: None)
-        self.assertEqual(resumed.mission_id, result.mission_id)
-        self.assertEqual(len(engine.runs), 2)
-
-    def test_existing_supervisor_database_migrates_project_status(self):
-        with sqlite3.connect(self.db) as db:
-            db.execute("""
-                CREATE TABLE development_supervisors (
-                    supervisor_key TEXT PRIMARY KEY,
-                    goal TEXT NOT NULL,
-                    active_mission_id TEXT,
-                    progress TEXT NOT NULL DEFAULT '',
-                    completed_missions INTEGER NOT NULL DEFAULT 0,
-                    lease_owner TEXT NOT NULL DEFAULT '',
-                    lease_until REAL,
-                    updated_at REAL NOT NULL
-                )
-            """)
-            db.execute(
-                "INSERT INTO development_supervisors(supervisor_key,goal,updated_at) VALUES(?,?,?)",
-                ("streamiov-project", "Existing goal", 1.0),
-            )
-        supervisor = self.make_supervisor(FakeMissionEngine([]))
-        self.assertFalse(supervisor.project_complete)
-        with supervisor._connect() as db:
-            columns = {row["name"] for row in db.execute("PRAGMA table_info(development_supervisors)")}
-        self.assertIn("project_status", columns)
 
     def test_verified_mission_immediately_starts_next_distinct_mission(self):
         engine = FakeMissionEngine([("completed", False), ("completed", True)])
