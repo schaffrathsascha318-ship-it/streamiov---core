@@ -172,6 +172,7 @@ def main() -> int:
             ),
         )
         stop_event = threading.Event()
+        supervisor = None
 
         if number == 0 or os.environ.get("STREAMIOV_PROJECT_SUPERVISOR") == "true":
             # The whole-platform mission spans many independently
@@ -222,8 +223,10 @@ def main() -> int:
         if result is None:
             return fail("Mission runner stopped before producing a durable checkpoint.")
 
+        project_complete = bool(supervisor and supervisor.project_complete)
         print(json.dumps({
             "event": "mission_checkpoint",
+            "project_complete": project_complete,
             "mission_id": result.mission_id,
             "status": result.status,
             "cycle": result.cycle,
@@ -238,6 +241,7 @@ def main() -> int:
         if output_path:
             with open(output_path, "a", encoding="utf-8") as output:
                 output.write(f"status={result.status}\n")
+                output.write(f"project_complete={str(project_complete).lower()}\n")
                 output.write(f"mission_id={result.mission_id}\n")
                 output.write(f"cycle={result.cycle}\n")
                 output.write(f"pending_tasks={result.pending_tasks}\n")
