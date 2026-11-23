@@ -117,6 +117,11 @@ jobs:
           set -euo pipefail
           branch="agent/streamiov-continuous-mission"
           gh auth setup-git
+          # A merge commit may be required when the persistent agent branch
+          # is behind main. Configure a repository-local bot identity before
+          # that merge (the later commit step configures it too late).
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
             git fetch origin "+refs/heads/$branch:refs/remotes/origin/$branch"
