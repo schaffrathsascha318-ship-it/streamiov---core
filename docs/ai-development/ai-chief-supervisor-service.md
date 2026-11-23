@@ -8,7 +8,8 @@ The repository already contains a durable project supervisor (`python -m ai --pr
 2. Copy `infrastructure/systemd/streamiov-ai-chief.env.example` to `/etc/streamiov/ai-chief.env`.
 3. Set the real AI Worker URL and private `STREAMIOV_AI_WORKER_TOKEN` (or configure the local Ollama alternative). The AI Worker token is not the Core API token. Set a single persistent project goal; the supervisor initializes it once and will not overwrite an existing stored goal on restart.
 4. Protect the environment file: `sudo chown root:streamiov /etc/streamiov/ai-chief.env && sudo chmod 0640 /etc/streamiov/ai-chief.env`.
-5. Install and enable the unit:
+5. The unit runs a local preflight before starting: it rejects an empty/oversized project goal, unsupported provider, unpinned Cloudflare model, placeholder/short Worker token, and malformed or non-HTTPS workers.dev origin. It never prints the token.
+6. Install and enable the unit:
 
    ```sh
    sudo install -m 0644 infrastructure/systemd/streamiov-ai-chief-supervisor.service.example /etc/systemd/system/streamiov-ai-chief-supervisor.service
@@ -16,7 +17,7 @@ The repository already contains a durable project supervisor (`python -m ai --pr
    sudo systemctl enable --now streamiov-ai-chief-supervisor.service
    ```
 
-6. Inspect operation with `systemctl status streamiov-ai-chief-supervisor.service` and `journalctl -u streamiov-ai-chief-supervisor.service -f`.
+7. Inspect operation with `systemctl status streamiov-ai-chief-supervisor.service` and `journalctl -u streamiov-ai-chief-supervisor.service -f`.
 
 ## Safety and behavior
 
