@@ -948,7 +948,19 @@ let musicBridgeDestination=null;
 const audioBusNames=["stream","monitor","headphones","communications"];
 const mixerMeterFrameState={frame:0};
 const audioBusElements={monitor:$("audioBusElementMonitor"),headphones:$("audioBusElementHeadphones"),communications:$("audioBusElementCommunications")};
+const audioBusStorageKey="streamiov.studio.audio-buses.v1";
 const audioBusState=Object.fromEntries(audioBusNames.map(name=>[name,{gain:100,muted:false,connected:false}]));
+try{
+ const saved=JSON.parse(localStorage.getItem(audioBusStorageKey)||"{}");
+ for(const name of audioBusNames){const value=saved?.[name];if(!value||typeof value!=="object")continue;
+  if(Number.isFinite(value.gain))audioBusState[name].gain=Math.max(0,Math.min(100,Math.round(value.gain)));
+  audioBusState[name].muted=value.muted===true;
+ }
+}catch(_){/* mixer preferences are optional */}
+function saveAudioBusState(){
+ try{localStorage.setItem(audioBusStorageKey,JSON.stringify(Object.fromEntries(audioBusNames.map(name=>[name,{gain:audioBusState[name].gain,muted:audioBusState[name].muted}])));}
+ catch(_){/* mixer preferences are optional */}
+}
 function audioBusStatus(name,message){const target=document.querySelector("[data-audio-bus-status='"+name+"']");if(target)target.textContent=message;}
 function renderAudioBus(name){
  const state=audioBusState[name];if(!state)return;
@@ -960,11 +972,11 @@ function renderAudioBus(name){
 }
 document.querySelectorAll("[data-audio-bus-gain]").forEach(control=>control.addEventListener("input",()=>{
  const name=control.dataset.audioBusGain,state=audioBusState[name];if(!state||!studioAudioMixer)return;
- state.gain=Number(control.value);studioAudioMixer.setOutputGain(name,state.gain/100);renderAudioBus(name);
+ state.gain=Number(control.value);studioAudioMixer.setOutputGain(name,state.gain/100);saveAudioBusState();renderAudioBus(name);
 }));
 document.querySelectorAll("[data-audio-bus-mute]").forEach(button=>button.addEventListener("click",()=>{
  const name=button.dataset.audioBusMute,state=audioBusState[name];if(!state||!studioAudioMixer)return;
- state.muted=!state.muted;studioAudioMixer.setOutputMuted(name,state.muted);renderAudioBus(name);
+ state.muted=!state.muted;studioAudioMixer.setOutputMuted(name,state.muted);saveAudioBusState();renderAudioBus(name);
 }));
 document.querySelectorAll("[data-audio-bus-connect]").forEach(button=>button.addEventListener("click",async()=>{
  const name=button.dataset.audioBusConnect,element=audioBusElements[name],select=document.querySelector("[data-audio-bus-device='"+name+"']");
@@ -1014,7 +1026,11 @@ async function refreshAudioBusDevices(){
   if([...select.options].some(option=>option.value===selected))select.value=selected;
  });
 }
-audioBusNames.forEach(renderAudioBus);
+audioBusNames.forEach(name=>{
+ const state=audioBusState[name];
+ if(studioAudioMixer){studioAudioMixer.setOutputGain(name,state.gain/100);studioAudioMixer.setOutputMuted(name,state.muted);}
+ renderAudioBus(name);
+});
 if(!mixerMeterFrameState.frame)mixerMeterFrameState.frame=requestAnimationFrame(drawMixerMeters);
 refreshAudioBusDevices().catch(()=>audioBusNames.slice(1).forEach(name=>audioBusStatus(name,"Geräteliste nicht verfügbar.")));
 
