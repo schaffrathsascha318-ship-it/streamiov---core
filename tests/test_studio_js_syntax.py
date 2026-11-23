@@ -143,7 +143,7 @@ class HomepageDownloadPageTests(unittest.TestCase):
     def test_promo_page_uses_real_media_and_states_the_limits(self):
         public = ROOT / "dist" / "streamiov-homepage-worker" / "public"
         html = (public / "promo" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("StreamioV Studio 1.0.1", html)
+        self.assertIn("StreamioV Studio 1.0.2", html)
         self.assertIn("Ctrl+Shift+P", html)
         self.assertIn("stoppt weder den Encoder noch eine laufende Aufnahme", html)
         self.assertIn("keine Plattform-Privatsphäre", html)
