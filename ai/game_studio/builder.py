@@ -100,10 +100,17 @@ def create_design_workspace(brief: dict[str, Any], repository_root: str | Path) 
     """Create a new, non-overwriting design workspace under games/ai_created."""
     audit = validate_game_brief(brief)
     root = Path(repository_root).resolve()
-    games_root = root / "games" / "ai_created"
-    games_root.mkdir(parents=True, exist_ok=True)
+    games_parent = root / "games"
+    if games_parent.is_symlink():
+        raise GameBriefError("The games directory must not be a symlink.")
+    games_parent.mkdir(parents=True, exist_ok=True)
+    games_root = games_parent / "ai_created"
     if games_root.is_symlink():
         raise GameBriefError("AI game workspace root must not be a symlink.")
+    games_root.mkdir(exist_ok=True)
+    resolved_workspace = games_root.resolve()
+    if root != resolved_workspace and root not in resolved_workspace.parents:
+        raise GameBriefError("AI game workspace resolves outside the repository.")
     destination = games_root / audit["project_id"]
     if destination.exists() or destination.is_symlink():
         raise FileExistsError(f"Game workspace already exists: {audit['project_id']}")
