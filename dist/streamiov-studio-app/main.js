@@ -47,6 +47,7 @@ function synthesizeWindowsSpeech({ text, outputFile, speed, amplitude }) {
       finish(new Error('Windows-Sprachausgabe hat das Zeitlimit überschritten.'));
     }, 60000);
     child.stderr.on('data', chunk => { stderr = (stderr + chunk.toString()).slice(-4000); });
+    child.stdin.on('error', finish);
     child.once('error', finish);
     child.once('close', code => {
       if (code === 0) finish();
