@@ -1265,7 +1265,7 @@ ipcMain.handle('studio:voice-action', async (event, payload = {}) => {
       if (!ticketResponse.ok || typeof ticketData.ticket !== 'string' || typeof ticketData.websocket_url !== 'string') {
         throw new Error(ticketData.error || 'Voice-Signalisierung konnte kein Einmal-Ticket ausstellen.');
       }
-      return { ok: true, room_id: roomId, websocket_url: ticketData.websocket_url, ticket: ticketData.ticket, ticket_expires_in: ticketData.expires_in };
+      return { ok: true, room_id: roomId, websocket_url: ticketData.websocket_url, ticket: ticketData.ticket, ticket_expires_in: ticketData.expires_in, ice_servers: Array.isArray(room.ice_servers) ? room.ice_servers : [] };
     }
     return { ok: false, error: 'Unbekannte Voice-Aktion.' };
   } catch (error) {
