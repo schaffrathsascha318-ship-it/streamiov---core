@@ -257,26 +257,32 @@ def verify() -> dict[str, Any]:
     workflow_text = DEPLOY_WORKFLOW.read_text(encoding="utf-8")
     for required in (
         "workflow_dispatch:",
-        "push:",
-        "branches:",
-        "- main",
         "environment: production",
-        "github.event_name == 'push'",
         "github.event_name == 'workflow_dispatch'",
+        "inputs.confirm == true",
         "pages deploy",
         "--project-name streamiov",
         "wrangler@4 deploy --config infrastructure/cloudflare/streamiov-ai-worker/wrangler.jsonc",
     ):
         if required not in workflow_text:
             errors.append(f"cloudflare-deploy.yml is missing: {required}")
+    trigger_block = re.search(r"(?ms)^on:\s*\n(.*?)(?=^[A-Za-z0-9_-]+:|\Z)", workflow_text)
+    if not trigger_block or "workflow_dispatch:" not in trigger_block.group(1):
+        errors.append("cloudflare-deploy.yml must expose the explicit manual workflow_dispatch trigger")
+    elif re.search(r"(?m)^\s+push:", trigger_block.group(1)):
+        errors.append("cloudflare-deploy.yml must not publish automatically on push")
     if re.search(r"^  pull_request:", workflow_text, flags=re.M):
         errors.append("cloudflare-deploy.yml must not deploy from pull_request events")
-    ai_job = re.search(r"(?ms)^  deploy-ai-worker:.*?^    if:.*github.event_name == 'workflow_dispatch'.*?(?=^  [a-zA-Z0-9_-]+:|\Z)", workflow_text)
-    if not ai_job:
-        errors.append("AI Worker deployment must remain restricted to manually dispatched, confirmed runs")
+    verify_job = re.search(r"(?ms)^  verify:.*?(?=^  [a-zA-Z0-9_-]+:|\Z)", workflow_text)
+    if not verify_job or "github.event_name == 'workflow_dispatch'" not in verify_job.group(0) or "inputs.confirm == true" not in verify_job.group(0):
+        errors.append("Cloudflare pre-deployment verification must require a confirmed manual dispatch")
+    for job_name in ("deploy-homepage", "deploy-ai-worker"):
+        job = re.search(rf"(?ms)^  {job_name}:.*?(?=^  [a-zA-Z0-9_-]+:|\Z)", workflow_text)
+        if not job or "needs.verify.result == 'success'" not in job.group(0) or "github.event_name == 'workflow_dispatch'" not in job.group(0) or "inputs.confirm == true" not in job.group(0):
+            errors.append(f"{job_name} must require successful verification and explicit owner-confirmed manual dispatch")
     if "Deploy homepage assets Worker" in workflow_text:
         errors.append("cloudflare-deploy.yml still deploys the homepage Worker instead of the Pages project")
-    checks.append("verified main-branch homepage deploy and manually confirmed AI Worker deploy target the correct Cloudflare resources")
+    checks.append("Cloudflare production deployment is manual-only, owner-confirmed, verified first, and targets the Pages project and dedicated AI Worker")
 
     checks_text = CHECKS_WORKFLOW.read_text(encoding="utf-8")
     if "python scripts/verify-cloudflare-config.py" not in checks_text:
