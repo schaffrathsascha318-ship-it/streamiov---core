@@ -53,6 +53,15 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("Keep the AudioContext and the single MediaElementAudioSourceNode alive.", self.ui)
         self.assertIn("Playlist-Rohdaten sind noch nicht mit einer automatischen Wiedergabe-Warteschlange verbunden.", self.ui)
 
+    def test_soundboard_routes_local_pads_into_shared_stream_and_monitor_mix(self):
+        self.assertIn('data-tool="Soundboard"', self.ui)
+        self.assertIn("async function renderSoundboardTool(body)", self.ui)
+        self.assertIn("createMediaElementSource(pad.audio)", self.ui)
+        self.assertIn("pad.source.connect(pad.gain).connect(broadcastMasterGain)", self.ui)
+        self.assertIn("installSoundboardHotkeys()", self.ui)
+        self.assertIn("event.key", self.ui)
+        self.assertIn("Maximal 32 Soundboard-Pads", self.ui)
+
     def test_studio_only_reacts_to_official_tiktok_gift_events_and_has_no_gift_gallery(self):
         self.assertNotIn('data-tool="Geschenke"', self.ui)
         self.assertNotIn("renderGiftsTool", self.ui)
