@@ -84,6 +84,17 @@ class ProjectSupervisorTests(unittest.TestCase):
         self.assertEqual(engine.created, [(active_id, engine.created[0][1])])
         self.assertEqual(engine.runs, [active_id, active_id])
 
+    def test_configure_if_missing_preserves_restored_project_goal(self):
+        engine = FakeMissionEngine([])
+        supervisor = self.make_supervisor(engine)
+        self.assertTrue(supervisor.configure_if_missing("Original durable goal."))
+        self.assertFalse(supervisor.configure_if_missing("Changed context must not replace the goal."))
+        with supervisor._connect() as db:
+            row = db.execute(
+                "SELECT goal FROM development_supervisors"
+            ).fetchone()
+        self.assertEqual(row["goal"], "Original durable goal.")
+
     def test_second_supervisor_cannot_take_live_lease(self):
         engine = FakeMissionEngine([])
         first = self.make_supervisor(engine)
