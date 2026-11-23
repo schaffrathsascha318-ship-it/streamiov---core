@@ -1451,6 +1451,8 @@ $("mediaTest").onclick=async()=>{
 };
 let broadcastRecorder=null;
 let streamChunkQueue=Promise.resolve();
+let streamChunkQueueBytes=0;
+const MAX_STREAM_CHUNK_QUEUE_BYTES=12*1024*1024;
 let broadcastCanvasStream=null;
 let broadcastAudioContext=null;
 let broadcastTrackGains=[];
@@ -1859,15 +1861,26 @@ async function startBroadcast(){
   };
   [cameraTrack,screenTrack,...audioInputs].filter(Boolean).forEach(track=>track.addEventListener("ended",stopIfSourcesEnded,{once:true}));
   streamChunkQueue=Promise.resolve();
+  streamChunkQueueBytes=0;
   recorder.ondataavailable=event=>{
-   if(!event.data?.size)return;
+   const blob=event.data;
+   if(!blob?.size)return;
+   streamChunkQueueBytes+=blob.size;
+   if(streamChunkQueueBytes>MAX_STREAM_CHUNK_QUEUE_BYTES){
+    streamChunkQueueBytes=Math.max(0,streamChunkQueueBytes-blob.size);
+    setBroadcastStatus("error","Encoder-Backpressure: Medienwarteschlange überschreitet 12 MiB. Stream wird sicher beendet.");
+    void stopBroadcast(true);
+    return;
+   }
    streamChunkQueue=streamChunkQueue.then(async()=>{
-    const chunk=await event.data.arrayBuffer();
+    const chunk=await blob.arrayBuffer();
     const sent=await window.streamiovStudio.writeStreamChunk(chunk);
     if(!sent?.ok)throw new Error(sent?.error||"Medienübertragung fehlgeschlagen.");
    }).catch(async error=>{
     setBroadcastStatus("error",error.message);
     void stopBroadcast(true);
+   }).finally(()=>{
+    streamChunkQueueBytes=Math.max(0,streamChunkQueueBytes-blob.size);
    });
   };
   recorder.onerror=()=>{setBroadcastStatus("error","Medienaufnahme ist fehlgeschlagen.");stopBroadcast(true);};
