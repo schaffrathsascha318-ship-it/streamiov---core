@@ -78,8 +78,8 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("keine eigene Geschenke-Galerie", self.ui)
         self.assertIn("function showGiftEffect(symbol)", self.ui)
 
-        self.assertIn('id="rtmpDestination"', self.ui)
-        self.assertIn("window.streamiovStudio.startStream({", self.ui)
+        self.assertNotIn('id="rtmpDestination"', self.ui)
+        self.assertIn("LIVE-AUSGÄNGE NOCH NICHT VERFÜGBAR", self.ui)
         self.assertIn("window.streamiovStudio.stopStream()", self.ui)
 
     def test_rtmp_process_controls_are_sender_guarded_and_validate_destination(self):
