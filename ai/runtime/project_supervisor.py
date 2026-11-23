@@ -79,6 +79,17 @@ class ProjectSupervisor:
                     updated_at REAL NOT NULL
                 )
             """)
+            columns = {
+                row["name"] for row in db.execute("PRAGMA table_info(development_supervisors)")
+            }
+            if "project_status" not in columns:
+                db.execute(
+                    "ALTER TABLE development_supervisors ADD COLUMN project_status TEXT NOT NULL DEFAULT 'active'"
+                )
+
+    @property
+    def project_complete(self) -> bool:
+        return self._state()["project_status"] == "completed"
 
     def configure(self, goal: str) -> None:
         if not isinstance(goal, str) or not goal.strip() or len(goal) > 8000:
