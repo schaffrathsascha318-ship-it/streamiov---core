@@ -32,7 +32,7 @@ class SpecialistRegistryTests(unittest.TestCase):
         self.assertEqual(len(set(missions)), 11)
         expected_topics = {
             "code": "software implementation",
-            "studio": "Studio and Regie",
+            "studio": "independently managed TikTok LIVE and Twitch LIVE outputs",
             "music": "music playback",
             "tts": "text-to-speech",
             "events": "event system",
@@ -40,7 +40,7 @@ class SpecialistRegistryTests(unittest.TestCase):
             "server": "server-side Core",
             "research": "AI technology",
             "game": "original downloadable",
-            "gifts": "original Streamiov gifts",
+            "gifts": "official TikTok LIVE gift gallery",
             "testing": "independent quality assurance",
         }
         for key, phrase in expected_topics.items():
