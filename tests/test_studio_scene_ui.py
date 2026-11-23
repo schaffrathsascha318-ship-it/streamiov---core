@@ -42,6 +42,17 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertNotIn("win.loadFile(path.join(__dirname, 'index.html'))", self.main)
         self.assertTrue((ROOT / "dist" / "streamiov-studio-app" / "regie-v2.html").is_file())
 
+    def test_music_player_routes_local_audio_through_independent_stream_mixer_channel(self):
+        self.assertIn('id="mixerMusic"', self.ui)
+        self.assertIn('id="mixerMusicMute"', self.ui)
+        self.assertIn("musicMediaSource=broadcastAudioContext.createMediaElementSource(musicPlayerAudio)", self.ui)
+        self.assertIn("musicMediaSource.connect(musicChannelGain).connect(broadcastMasterGain)", self.ui)
+        self.assertIn('musicChannelGain.gain.setTargetAtTime(musicMuted?0:mixerValue("mixerMusic")', self.ui)
+        self.assertIn("broadcastMasterGain.connect(broadcastAudioDestination)", self.ui)
+        self.assertIn("musicPlayerAudio.src=musicObjectUrl", self.ui)
+        self.assertIn("Keep the AudioContext and the single MediaElementAudioSourceNode alive.", self.ui)
+        self.assertIn("playlist-Rohdaten sind noch nicht mit einer automatischen Wiedergabe-Warteschlange verbunden.", self.ui)
+
     def test_gift_gallery_keeps_tiktok_payouts_external_and_streamiov_gifts_free(self):
         self.assertIn("TikTok wickelt Kauf, Zuordnung und mögliche Auszahlung direkt ab.", self.ui)
         self.assertIn("StreamioV zieht nichts ab und nimmt kein Geld entgegen.", self.ui)
