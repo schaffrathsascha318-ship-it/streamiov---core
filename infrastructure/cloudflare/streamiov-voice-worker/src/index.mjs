@@ -77,7 +77,7 @@ function constantTimeEqual(a, b) {
 
 function allowedOrigin(request, env) {
   const origin = request.headers.get("origin");
-  if (!origin || origin === "null") return true; // desktop clients use one-time tickets, not ambient cookies
+  if (!origin || origin === "null" || origin === "file://") return true; // desktop clients use one-time tickets, not ambient cookies
   const allowlist = String(env.STREAMIOV_VOICE_ALLOWED_ORIGINS || "")
     .split(",").map(value => value.trim()).filter(Boolean);
   return allowlist.includes(origin);
@@ -200,7 +200,7 @@ export class VoiceRoom {
       if (body?.claims?.role !== "owner" || typeof body.claims.sub !== "string") return json({ error: "owner_required" }, 403);
       await this.state.storage.put("closed", true);
       const pending = await this.state.storage.list({ prefix: "ticket:" });
-      if (pending.size) await this.state.storage.delete([...pending.keys()]);
+      for (const key of pending.keys()) await this.state.storage.delete(key);
       for (const socket of this.state.getWebSockets()) {
         try { socket.close(4001, "room_closed"); } catch {}
       }
