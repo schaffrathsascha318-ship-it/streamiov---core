@@ -12,6 +12,7 @@ class StudioAudioMixer {
     this.buses = new Map();
     this.channels = new Map();
     this.outputElements = new Map();
+    this.soloChannels = new Set();
     this.closed = false;
     for (const name of ['stream', 'monitor', 'headphones', 'communications']) this.createBus(name);
   }
@@ -60,16 +61,47 @@ class StudioAudioMixer {
     compressor.ratio.value = 1;
     compressor.attack.value = 0.003;
     compressor.release.value = 0.15;
+    const gainNode = this.context.createGain();
+    const panner = this.context.createStereoPanner ? this.context.createStereoPanner() : this.context.createPanner();
     const analyser = this.context.createAnalyser();
     analyser.fftSize = 256;
-    const gainNode = this.context.createGain();
     gainNode.gain.value = muted ? 0 : gain;
-    input.connect(highpass).connect(compressor).connect(gainNode).connect(analyser);
-    const channel = { input, highpass, compressor, gainNode, analyser, stream, gain, muted, routes: normalizedRoutes,
+    input.connect(highpass).connect(compressor).connect(gainNode).connect(panner).connect(analyser);
+    const channel = { input, highpass, compressor, gainNode, panner, analyser, stream, gain, muted, pan: 0, solo: false, routes: normalizedRoutes,
       processing: { highpassHz: 20, compressorEnabled: false } };
     this.channels.set(name, channel);
     this.#applyRoutes(channel);
     return this.snapshot(name);
+  }
+
+  setPan(name, pan) {
+    this.#assertOpen();
+    const channel = this.channels.get(name);
+    if (!channel) throw new Error("Mixer channel not found.");
+    if (!Number.isFinite(pan) || pan < -1 || pan > 1) throw new RangeError("Pan must be between -1 and 1.");
+    channel.pan = pan;
+    if ("pan" in channel.panner) channel.panner.pan.setTargetAtTime(pan, this.context.currentTime, 0.015);
+    else channel.panner.setPosition(pan, 0, 1 - Math.abs(pan));
+    return this.snapshot(name);
+  }
+
+  setSolo(name, solo) {
+    this.#assertOpen();
+    const channel = this.channels.get(name);
+    if (!channel) throw new Error("Mixer channel not found.");
+    this.#validateBoolean(solo, "solo");
+    channel.solo = solo;
+    if (solo) this.soloChannels.add(name); else this.soloChannels.delete(name);
+    this.#applySoloState();
+    return this.snapshot(name);
+  }
+
+  #applySoloState() {
+    const hasSolo = this.soloChannels.size > 0;
+    for (const [name, channel] of this.channels) {
+      const silent = channel.muted || (hasSolo && !channel.solo);
+      channel.gainNode.gain.setTargetAtTime(silent ? 0 : channel.gain, this.context.currentTime, 0.015);
+    }
   }
 
   setProcessing(name, { highpassHz = 20, compressorEnabled = false } = {}) {
@@ -103,7 +135,7 @@ class StudioAudioMixer {
     if (!channel) throw new Error('Mixer channel not found.');
     this.#validateGain(gain);
     channel.gain = gain;
-    channel.gainNode.gain.setTargetAtTime(channel.muted ? 0 : gain, this.context.currentTime, 0.015);
+    this.#applySoloState();
     return this.snapshot(name);
   }
 
@@ -113,7 +145,7 @@ class StudioAudioMixer {
     if (!channel) throw new Error('Mixer channel not found.');
     this.#validateBoolean(muted, 'channel mute');
     channel.muted = muted;
-    channel.gainNode.gain.setTargetAtTime(muted ? 0 : channel.gain, this.context.currentTime, 0.015);
+    this.#applySoloState();
     return this.snapshot(name);
   }
 
@@ -157,7 +189,8 @@ class StudioAudioMixer {
       sum += value * value;
       if (absolute > peak) peak = absolute;
     }
-    return { rms: Math.min(1, Math.sqrt(sum / samples.length)), peak: Math.min(1, peak) };
+    const normalizedPeak = Math.min(1, peak);
+    return { rms: Math.min(1, Math.sqrt(sum / samples.length)), peak: normalizedPeak, clipping: normalizedPeak >= 0.98 };
   }
 
   getOutputSnapshot(name) {
@@ -223,7 +256,7 @@ class StudioAudioMixer {
     const channel = this.channels.get(name);
     if (!channel) return null;
     return { name, gain: channel.gain, muted: channel.muted, routes: [...channel.routes], connected: true,
-      processing: { ...channel.processing } };
+      processing: { ...channel.processing }, pan: channel.pan, solo: channel.solo };
   }
 
   #normalizeRoutes(routes) {
@@ -281,8 +314,11 @@ class StudioAudioMixer {
     try { channel.highpass.disconnect(); } catch {}
     try { channel.compressor.disconnect(); } catch {}
     try { channel.gainNode.disconnect(); } catch {}
+    try { channel.panner.disconnect(); } catch {}
     try { channel.analyser.disconnect(); } catch {}
+    this.soloChannels.delete(name);
     this.channels.delete(name);
+    this.#applySoloState();
     return true;
   }
 }
