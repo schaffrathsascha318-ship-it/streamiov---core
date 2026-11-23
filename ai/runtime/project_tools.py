@@ -121,14 +121,23 @@ def _locked_path(path: Path, *, owner: dict | None = None):
     with lock:
         lock_path = _process_lock_path(key)
         flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+        if lock_path.is_symlink():
+            raise ToolError("Cross-process lock file must not be a symlink.")
         try:
             descriptor = os.open(lock_path, flags, 0o600)
         except OSError as exc:
             raise ToolError("Could not open a safe cross-process file lock.") from exc
         acquired = False
         try:
-            if not os.path.isfile(lock_path) or not stat.S_ISREG(os.fstat(descriptor).st_mode):
-                raise ToolError("Cross-process lock is not a regular file.")
+            path_info = lock_path.lstat()
+            file_info = os.fstat(descriptor)
+            if (not stat.S_ISREG(path_info.st_mode) or not stat.S_ISREG(file_info.st_mode)
+                    or (path_info.st_dev, path_info.st_ino) != (file_info.st_dev, file_info.st_ino)):
+                raise ToolError("Cross-process lock is not a stable regular file.")
+            try:
+                os.chmod(lock_path, 0o600)
+            except OSError:
+                pass
             _acquire_process_lock(descriptor)
             acquired = True
             metadata = {
@@ -144,9 +153,11 @@ def _locked_path(path: Path, *, owner: dict | None = None):
             os.fsync(descriptor)
             yield
         finally:
-            if acquired:
-                _release_process_lock(descriptor)
-            os.close(descriptor)
+            try:
+                if acquired:
+                    _release_process_lock(descriptor)
+            finally:
+                os.close(descriptor)
 
 
 def _atomic_replace_text(target: Path, content: str) -> None:
