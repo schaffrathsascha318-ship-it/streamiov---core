@@ -948,6 +948,13 @@ let musicBridgeDestination=null;
 const audioBusNames=["stream","monitor","headphones","communications"];
 const mixerMeterFrameState={frame:0};
 const audioBusElements={monitor:$("audioBusElementMonitor"),headphones:$("audioBusElementHeadphones"),communications:$("audioBusElementCommunications")};
+const audioBusDeviceStorageKey="streamiov.studio.audio-output-devices.v1";
+let savedAudioBusDevices={};
+try{savedAudioBusDevices=JSON.parse(localStorage.getItem(audioBusDeviceStorageKey)||"{}")||{};}catch(_){savedAudioBusDevices={};}
+document.querySelectorAll("[data-audio-bus-device]").forEach(select=>select.addEventListener("change",()=>{
+ savedAudioBusDevices[select.dataset.audioBusDevice]=select.value;
+ try{localStorage.setItem(audioBusDeviceStorageKey,JSON.stringify(savedAudioBusDevices));}catch(_){/* device preference is optional */}
+}));
 const audioBusStorageKey="streamiov.studio.audio-buses.v1";
 const audioBusState=Object.fromEntries(audioBusNames.map(name=>[name,{gain:100,muted:false,connected:false}]));
 try{
@@ -1043,7 +1050,7 @@ async function refreshAudioBusDevices(){
  if(!navigator.mediaDevices?.enumerateDevices)return;
  const devices=await navigator.mediaDevices.enumerateDevices();
  document.querySelectorAll("[data-audio-bus-device]").forEach(select=>{
-  const selected=select.value;select.replaceChildren();const standard=document.createElement("option");standard.value="";standard.textContent="Systemstandard";select.append(standard);
+  const selected=select.value||savedAudioBusDevices[select.dataset.audioBusDevice]||"";select.replaceChildren();const standard=document.createElement("option");standard.value="";standard.textContent="Systemstandard";select.append(standard);
   devices.filter(device=>device.kind==="audiooutput").forEach((device,index)=>{const option=document.createElement("option");option.value=device.deviceId;option.textContent=device.label||"Audioausgang "+(index+1);select.append(option);});
   if([...select.options].some(option=>option.value===selected))select.value=selected;
  });
@@ -1250,6 +1257,7 @@ $("microphoneStart").onclick=async()=>{
   $("microphoneMetric").textContent="AKTIV LOKAL";
   button.textContent="MIKROFON STOPPEN";
   await refreshCaptureDevices();
+  await refreshAudioBusDevices().catch(()=>{});
   log("Echtes Mikrofon liefert einen lokalen Audiostream.");
  }catch(error){stopCapture("microphone");status.textContent=captureError(error);log(status.textContent);}
  finally{button.disabled=false;}
