@@ -406,14 +406,14 @@ dialog::backdrop{background:#000b}
     <div class="channel"><b>Mikrofon</b><div class="meter"><i data-mixer-meter="microphone" style="width:0%"></i></div>
      <input id="mixerMic" type="range" min="0" max="100" value="75" aria-label="Mikrofonlautstärke"><small id="mixerMicValue">MIC 1 · 75 %</small></div>
     <div class="channel"><b>System</b><div class="meter"><i data-mixer-meter="system" style="width:0%"></i></div>
-     <input id="mixerSystem" type="range" min="0" max="100" value="45" aria-label="Systemtonlautstärke"><small id="mixerSystemValue">SYSTEM · 45 %</small></div>
+     <input id="mixerSystem" type="range" min="0" max="100" value="45" aria-label="Systemtonlautstärke"><small id="mixerSystemValue">SYSTEM · 45 %</small><button type="button" data-mixer-solo="system" aria-pressed="false">SOLO</button></div>
     <div class="channel"><b>Musik</b><div class="meter"><i data-mixer-meter="music" style="width:0%"></i></div>
      <input id="mixerMusic" type="range" min="0" max="100" value="50" aria-label="Musiklautstärke"><small id="mixerMusicValue">MUSIK · 50 %</small>
-     <button id="mixerMusicMute" type="button" aria-pressed="false" style="width:100%;margin-top:6px;padding:4px">MUTE</button></div>
+     <button id="mixerMusicMute" type="button" aria-pressed="false" style="width:100%;margin-top:6px;padding:4px">MUTE</button><button type="button" data-mixer-solo="music" aria-pressed="false">SOLO</button></div>
     <div class="channel"><b>TTS</b><div class="meter"><i data-mixer-meter="tts" style="width:0%"></i></div>
-     <input id="mixerTts" type="range" min="0" max="100" value="100" aria-label="TTS-Lautstärke"><small id="mixerTtsValue">TTS · 100 %</small></div>
+     <input id="mixerTts" type="range" min="0" max="100" value="100" aria-label="TTS-Lautstärke"><small id="mixerTtsValue">TTS · 100 %</small><button type="button" data-mixer-solo="tts" aria-pressed="false">SOLO</button></div>
     <div class="channel"><b>Alerts</b><div class="meter"><i data-mixer-meter="alert" style="width:0%"></i></div>
-     <input id="mixerAlert" type="range" min="0" max="100" value="70" aria-label="Alert-Lautstärke"><small id="mixerAlertValue">ALERTS · 70 %</small></div>
+     <input id="mixerAlert" type="range" min="0" max="100" value="70" aria-label="Alert-Lautstärke"><small id="mixerAlertValue">ALERTS · 70 %</small><button type="button" data-mixer-solo="alert" aria-pressed="false">SOLO</button></div>
     <div class="channel"><b>Master</b><div class="meter"><i data-mixer-meter="output:stream" style="width:0%"></i></div>
      <input id="mixerMaster" type="range" min="0" max="100" value="80" aria-label="Masterlautstärke"><small id="mixerMasterValue">MASTER · 80 %</small></div>
    </div>
@@ -1070,6 +1070,7 @@ audioBusNames.forEach(name=>{
  if(studioAudioMixer){studioAudioMixer.setOutputGain(name,state.gain/100);studioAudioMixer.setOutputMuted(name,state.muted);}
  renderAudioBus(name);
 });
+refreshMixerSoloButtons();
 if(!mixerMeterFrameState.frame)mixerMeterFrameState.frame=requestAnimationFrame(drawMixerMeters);
 refreshAudioBusDevices().catch(()=>audioBusNames.slice(1).forEach(name=>audioBusStatus(name,"Geräteliste nicht verfügbar.")));
 
@@ -1215,6 +1216,7 @@ $("screenStart").onclick=async()=>{
   const hasAudio=stream.getAudioTracks().some(item=>item.readyState==="live");
    if(hasAudio&&studioAudioMixer){
     studioAudioMixer.connect("system",stream,{gain:Number($("audioSystemGain").value)/100,routes:selectedSystemRoutes()});
+    refreshMixerSoloButtons();
     const audioTrack=stream.getAudioTracks()[0];
     audioTrack.addEventListener("ended",()=>{if(studioAudioMixer)studioAudioMixer.disconnect("system");$("systemAudioMixerStatus").textContent="Systemtonquelle wurde beendet.";},{once:true});
     $("systemAudioMixerStatus").textContent="Systemton verbunden · Routing: "+(selectedSystemRoutes().join(", ")||"kein Ausgang")+".";
@@ -1386,6 +1388,7 @@ function ensureBroadcastAudioGraph(){
    if(!musicBridgeDestination)musicBridgeDestination=broadcastAudioContext.createMediaStreamDestination();
    musicChannelGain.connect(musicBridgeDestination);
    if(!studioAudioMixer.snapshot("music"))studioAudioMixer.connect("music",musicBridgeDestination.stream,{gain:1,routes:["stream","monitor"]});
+   refreshMixerSoloButtons();
   }else musicChannelGain.connect(broadcastMasterGain);
  }
  return broadcastAudioContext;
@@ -1401,6 +1404,19 @@ function mixerValue(id){
 }
 function mixerPercent(id){return Math.round(mixerValue(id)*100);}
 function mixerLabel(id){return ({mixerMic:"MIC 1",mixerSystem:"SYSTEM",mixerMusic:"MUSIK",mixerTts:"TTS",mixerAlert:"ALERTS",mixerMaster:"MASTER"})[id]||id.toUpperCase();}
+function refreshMixerSoloButtons(){
+ document.querySelectorAll("[data-mixer-solo]").forEach(button=>{
+  const snapshot=studioAudioMixer?.snapshot(button.dataset.mixerSolo);
+  const active=Boolean(snapshot?.solo);
+  button.setAttribute("aria-pressed",String(active));button.textContent=active?"SOLO AN":"SOLO";
+ });
+}
+document.querySelectorAll("[data-mixer-solo]").forEach(button=>button.addEventListener("click",()=>{
+ const name=button.dataset.mixerSolo,snapshot=studioAudioMixer?.snapshot(name);
+ if(!snapshot){$("mixerStatus").textContent="Quelle ist noch nicht aktiv: "+name;return;}
+ studioAudioMixer.setSolo(name,!snapshot.solo);refreshMixerSoloButtons();
+ $("mixerStatus").textContent=snapshot.solo?"SOLO aufgehoben: "+name:"SOLO aktiv: "+name+" · andere Quellen stummgeschaltet.";
+}));
 function updateMixerLabels(){
  for(const id of Object.keys(mixerDefaults)){
   const label=$(id+"Value");
@@ -1744,6 +1760,7 @@ async function playAlertTone(){
  alertToneGain.gain.value=mixerValue("mixerAlert");
  alertToneGain.connect(alertToneDestination);
  studioAudioMixer.connect("alert",alertToneDestination.stream,{gain:1,routes:["stream","monitor"]});
+ refreshMixerSoloButtons();
  alertToneActive=true;
  const first=context.createOscillator(),second=context.createOscillator();
  first.type="sine";second.type="sine";
@@ -1804,6 +1821,7 @@ async function playTtsAudio(base64,mime="audio/wav"){
    ttsBridgeDestination=context.createMediaStreamDestination();
    ttsMediaSource.connect(ttsChannelGain).connect(ttsBridgeDestination);
    studioAudioMixer.connect("tts",ttsBridgeDestination.stream,{gain:1,routes:["stream","monitor"]});
+   refreshMixerSoloButtons();
   }else ttsMediaSource.connect(ttsChannelGain).connect(broadcastMasterGain);
  }
  if(ttsObjectUrl)URL.revokeObjectURL(ttsObjectUrl);
