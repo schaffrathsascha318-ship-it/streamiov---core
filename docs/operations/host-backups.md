@@ -45,3 +45,6 @@ Retention removes only backups with an owner verification sidecar whose cipherte
 - The server has only the age public recipient; it cannot decrypt owner backups. Losing the private identity means losing the ability to restore.
 - No automatic live restore, destructive database replacement, Cloudflare resource change, R2 integration, or production secret is part of this implementation.
 - Install the systemd timer only after configuring the real age recipient and backup volume. A placeholder recipient must not be used.
+
+
+Path safety: every existing component of data/backup paths is checked for symlinks. Private backup directories fail closed if POSIX mode `0700` cannot be enforced.
