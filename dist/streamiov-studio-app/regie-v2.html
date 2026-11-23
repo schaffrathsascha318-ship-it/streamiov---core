@@ -1099,6 +1099,7 @@ let musicMediaSource=null;
 let musicChannelGain=null;
 const musicQueue=[];
 let musicQueueIndex=-1;
+let musicCurrentTrackLabel=null;
 let musicShuffle=false;
 let musicRepeat=false;
 let musicMuted=false;
@@ -1658,6 +1659,7 @@ async function renderMusicTool(body){
  file.type="file";file.accept="audio/*";file.multiple=true;
  musicPlayerAudio.controls=true;musicPlayerAudio.style.width="100%";musicPlayerAudio.preload="metadata";
  const current=toolNote(musicQueueIndex>=0?"Aktuell: "+musicQueue[musicQueueIndex].file.name:"Kein Titel ausgewählt.");
+ musicCurrentTrackLabel=current;
  const status=toolNote("Lokale Wiedergabe. Nur Audiodateien verwenden, für die du die nötigen Rechte besitzt.");
  const queueBox=toolNode("div","music-queue");
  const play=toolButton("▶ Play",async()=>{
@@ -1729,8 +1731,7 @@ async function renderMusicTool(body){
  };
  body.append(
   toolNote("Integrierter lokaler Musikplayer mit Queue. Musik wird über den eigenen Musik-Kanal in den Stream-/Monitor-Mix geroutet; Musik-Fader und MUTE wirken unabhängig."),
-  toolField("Lokale Audiodateien hinzufügen",file),musicPlayerAudio,
-  toolNode("div","tool-row")
+  toolField("Lokale Audiodateien hinzufügen",file),musicPlayerAudio
  );
  const controls=toolNode("div","tool-row");
  controls.append(previous,play,pause,stop,next,shuffle,repeat,clear);
@@ -1768,6 +1769,7 @@ async function playMusicQueueItem(index){
  if(!Number.isInteger(index)||index<0||index>=musicQueue.length)throw new Error("Queue-Position ist ungültig.");
  musicQueueIndex=index;
  const track=musicQueue[index];
+ if(musicCurrentTrackLabel)musicCurrentTrackLabel.textContent="Aktuell: "+track.file.name;
  musicPlayerAudio.src=track.url;musicPlayerAudio.load();
  await ensureBroadcastAudioGraph().resume();
  await musicPlayerAudio.play();
