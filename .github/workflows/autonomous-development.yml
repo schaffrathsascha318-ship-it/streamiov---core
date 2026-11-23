@@ -52,6 +52,14 @@ jobs:
           # in-progress label left by an interrupted or misrouted runner.
           issue_json="$(gh issue list --state open --label agent-ready --limit 1 --json number,title,body)"
           if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
+            # Keep the P0 whole-platform objective at the front of the resumable
+            # queue so event-driven continuation cannot drift to stale issues.
+            project_issue="$(gh issue view 223 --json number,title,body,labels,state)"
+            if jq -e '.state == "OPEN" and any(.labels[]; .name == "agent-in-progress")' <<< "$project_issue" >/dev/null; then
+              issue_json="$(jq -cn --argjson issue "$project_issue" '[{number:$issue.number,title:$issue.title,body:$issue.body}]')"
+            fi
+          fi
+          if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
             issue_json="$(gh issue list --state open --label agent-in-progress --limit 1 --json number,title,body)"
           fi
 
@@ -327,6 +335,7 @@ jobs:
           ISSUE_NUMBER: ${{ steps.pick.outputs.issue_number }}
           ISSUE_TITLE: ${{ steps.pick.outputs.issue_title }}
           TESTS_PASSED: ${{ steps.validation.outputs.tests_passed }}
+          PROJECT_SUPERVISOR: ${{ steps.pick.outputs.project_supervisor }}
           MISSION_STATUS: ${{ steps.mission.outputs.status }}
         shell: bash
         run: |
@@ -409,7 +418,7 @@ jobs:
             fi
           fi
 
-          if [[ "$ISSUE_NUMBER" != "0" ]]; then
+          if [[ "$ISSUE_NUMBER" != "0" && "$PROJECT_SUPERVISOR" != "true" ]]; then
             if [[ "$TESTS_PASSED" == "true" && "${MISSION_STATUS:-active}" == "completed" ]]; then
               gh issue edit "$ISSUE_NUMBER" --remove-label agent-in-progress --add-label agent-review
               gh issue comment "$ISSUE_NUMBER" --body "The AI Chief prepared a development checkpoint and the independent acceptance checks passed. A draft pull request is available for owner review; no integration or deployment was performed."
@@ -419,7 +428,7 @@ jobs:
           fi
 
       - name: Mark failed runner execution as blocked
-        if: failure() && steps.pick.outputs.issue_number != '' && steps.pick.outputs.issue_number != '0'
+        if: failure() && steps.pick.outputs.issue_number != '' && steps.pick.outputs.issue_number != '0' && steps.pick.outputs.project_supervisor != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ steps.pick.outputs.issue_number }}
