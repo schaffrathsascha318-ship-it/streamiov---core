@@ -74,7 +74,7 @@ class ProjectSupervisorTests(unittest.TestCase):
     def test_long_project_goal_is_bounded_before_creating_next_mission(self):
         engine = FakeMissionEngine([("active", True)])
         supervisor = self.make_supervisor(engine)
-        long_goal = "STREAMIOV-BEGIN " + ("important project requirements " * 280) + " STREAMIOV-END"
+        long_goal = "STREAMIOV-BEGIN " + ("important project requirements " * 250) + " STREAMIOV-END"
         supervisor.configure(long_goal)
 
         supervisor.run(threading.Event(), poll_seconds=0.01, emit=lambda _message: None)
