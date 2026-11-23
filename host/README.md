@@ -56,3 +56,12 @@ The software has no license or service fee and downloads no dependencies. It sta
 ## Current stage
 
 This is a static site and local account/health bootstrap, not the final StreamioV application server. The AI task route is a fail-closed placeholder, not an executor. The raw-data catalog is read-only and seeded from repository JSON; it is not a platform gifts/music integration. The community forum is a real authenticated local write surface with operator moderation, but it is not a public-community rollout. The next gates are secure host installation on owner-controlled hardware, remote deployment review, public account signup/recovery policies, forum abuse/reporting and data-retention policy, a real local AI task executor, and measured uptime on the selected machine. No OAuth credentials or tokens are read or modified by this bootstrap.
+
+
+## STREAMIOV Voice (feature branch)
+
+The Voice room API is implemented in `host/voice.py` and `host/server.py`. It uses the existing account session and a separate SQLite database; room invites are stored as hashes, and the Core issues five-minute room-scoped HMAC tokens only for active members.
+
+Configure `STREAMIOV_VOICE_SIGNING_KEY` (at least 32 random bytes) in the private Core host and the Voice signalling Worker. Configure `STREAMIOV_VOICE_SIGNALING_URL` to the deployed HTTPS Worker origin. Never place either secret in source code or the desktop app.
+
+See [docs/studio/voice-rooms.md](../docs/studio/voice-rooms.md) for the Worker contract, one-use WebSocket tickets, peer-to-peer media path, deployment and limitations. The feature branch is source-only until the Worker is deployed and two real clients pass an end-to-end call; no production Voice availability is claimed.
