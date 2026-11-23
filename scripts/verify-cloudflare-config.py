@@ -106,6 +106,34 @@ def find_forbidden_r2_usage(text: str) -> list[str]:
     return sorted({match.group(0) for pattern in R2_FORBIDDEN_PATTERNS for match in pattern.finditer(text)})
 
 
+
+RELEASE_REPOSITORY = "schaffrathsascha318-ship-it/streamiov---core"
+RELEASE_ASSET_SUFFIXES = (".exe", ".appimage", ".deb", ".zip", ".tar.gz", ".txt")
+
+
+def find_local_download_targets(markup: str) -> list[str]:
+    """Return unique local download paths referenced by the public download page."""
+    return sorted(set(re.findall(r'href=["\'](/downloads/[^"\'#?]+)["\']', markup)))
+
+
+def find_release_download_targets(markup: str) -> list[str]:
+    """Return only direct assets hosted by this repository's GitHub Releases.
+
+    Release links are intentionally external: Pages does not need to duplicate
+    100+ MB installers in its static asset tree. Reject other repositories,
+    arbitrary hosts, tag pages, query strings, and non-asset paths.
+    """
+    pattern = (
+        r'href=["\']https://github\\.com/'
+        + re.escape(RELEASE_REPOSITORY)
+        + r'/releases/download/([A-Za-z0-9._-]+)/([A-Za-z0-9._+-]+)["\']'
+    )
+    found = set()
+    for tag, filename in re.findall(pattern, markup):
+        if filename.lower().endswith(RELEASE_ASSET_SUFFIXES):
+            found.add(f"https://github.com/{RELEASE_REPOSITORY}/releases/download/{tag}/{filename}")
+    return sorted(found)
+
 def verify() -> dict[str, Any]:
     errors: list[str] = []
     checks: list[str] = []
@@ -265,14 +293,18 @@ def verify() -> dict[str, Any]:
 
     if DOWNLOAD_PAGE.is_file():
         markup = DOWNLOAD_PAGE.read_text(encoding="utf-8")
-        targets = re.findall(r'href="(/downloads/[^"#?]+)"', markup)
-        if not targets:
-            errors.append("download page does not link any local /downloads/ file")
-        for target in sorted(set(targets)):
+        local_targets = find_local_download_targets(markup)
+        release_targets = find_release_download_targets(markup)
+        if not local_targets and not release_targets:
+            errors.append("download page does not link any verified local file or approved GitHub release asset")
+        for target in local_targets:
             path = HOMEPAGE_PUBLIC / target.lstrip("/")
             if not path.is_file():
-                errors.append(f"download page links a missing file: {target}")
-        checks.append(f"download page links {len(set(targets))} existing local files")
+                errors.append(f"download page links a missing local file: {target}")
+        checks.append(
+            f"download page links {len(local_targets)} local files and "
+            f"{len(release_targets)} approved GitHub release assets"
+        )
 
         if (DOWNLOADS / "streamiov-studio-part-00.bin").is_file():
             sums = (DOWNLOADS / "SHA256SUMS.txt").read_text(encoding="utf-8")
