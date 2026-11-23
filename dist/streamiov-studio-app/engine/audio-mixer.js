@@ -28,13 +28,15 @@ class StudioAudioMixer {
     const destination = this.context.createMediaStreamDestination();
     const gainNode = this.context.createGain();
     const limiter = this.context.createDynamicsCompressor();
+    const analyser = this.context.createAnalyser();
+    analyser.fftSize = 256;
     limiter.threshold.value = -1;
     limiter.knee.value = 0;
     limiter.ratio.value = 20;
     limiter.attack.value = 0.003;
     limiter.release.value = 0.12;
-    gainNode.connect(limiter).connect(destination);
-    this.buses.set(name, { destination, gainNode, limiter, gain: 1, muted: false });
+    gainNode.connect(limiter).connect(analyser).connect(destination);
+    this.buses.set(name, { destination, gainNode, limiter, analyser, gain: 1, muted: false });
     return destination.stream;
   }
 
@@ -58,10 +60,12 @@ class StudioAudioMixer {
     compressor.ratio.value = 1;
     compressor.attack.value = 0.003;
     compressor.release.value = 0.15;
+    const analyser = this.context.createAnalyser();
+    analyser.fftSize = 256;
     const gainNode = this.context.createGain();
     gainNode.gain.value = muted ? 0 : gain;
-    input.connect(highpass).connect(compressor).connect(gainNode);
-    const channel = { input, highpass, compressor, gainNode, stream, gain, muted, routes: normalizedRoutes,
+    input.connect(highpass).connect(compressor).connect(gainNode).connect(analyser);
+    const channel = { input, highpass, compressor, gainNode, analyser, stream, gain, muted, routes: normalizedRoutes,
       processing: { highpassHz: 20, compressorEnabled: false } };
     this.channels.set(name, channel);
     this.#applyRoutes(channel);
@@ -131,6 +135,29 @@ class StudioAudioMixer {
     bus.muted = muted;
     bus.gainNode.gain.setTargetAtTime(muted ? 0 : bus.gain, this.context.currentTime, 0.015);
     return this.getOutputSnapshot(name);
+  }
+
+  getChannelMeter(name) {
+    const channel = this.channels.get(name);
+    return channel ? this.#measure(channel.analyser) : { rms: 0, peak: 0 };
+  }
+
+  getOutputMeter(name) {
+    const bus = this.buses.get(name);
+    return bus ? this.#measure(bus.analyser) : { rms: 0, peak: 0 };
+  }
+
+  #measure(analyser) {
+    const samples = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(samples);
+    let sum = 0, peak = 0;
+    for (const sample of samples) {
+      const value = (sample - 128) / 128;
+      const absolute = Math.abs(value);
+      sum += value * value;
+      if (absolute > peak) peak = absolute;
+    }
+    return { rms: Math.min(1, Math.sqrt(sum / samples.length)), peak: Math.min(1, peak) };
   }
 
   getOutputSnapshot(name) {
@@ -239,6 +266,7 @@ class StudioAudioMixer {
     for (const bus of this.buses.values()) {
       try { bus.gainNode.disconnect(); } catch {}
       try { bus.limiter.disconnect(); } catch {}
+      try { bus.analyser.disconnect(); } catch {}
       for (const track of bus.destination.stream.getTracks()) track.stop();
     }
     this.buses.clear();
@@ -253,6 +281,7 @@ class StudioAudioMixer {
     try { channel.highpass.disconnect(); } catch {}
     try { channel.compressor.disconnect(); } catch {}
     try { channel.gainNode.disconnect(); } catch {}
+    try { channel.analyser.disconnect(); } catch {}
     this.channels.delete(name);
     return true;
   }
