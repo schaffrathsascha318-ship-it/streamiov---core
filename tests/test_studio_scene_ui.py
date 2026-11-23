@@ -51,7 +51,12 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("broadcastMasterGain.connect(broadcastAudioDestination)", self.ui)
         self.assertIn("musicPlayerAudio.src=musicObjectUrl", self.ui)
         self.assertIn("Keep the AudioContext and the single MediaElementAudioSourceNode alive.", self.ui)
-        self.assertIn("Playlist-Rohdaten sind noch nicht mit einer automatischen Wiedergabe-Warteschlange verbunden.", self.ui)
+        self.assertIn("const musicQueue=[];", self.ui)
+        self.assertIn("async function playMusicQueueItem(index)", self.ui)
+        self.assertIn("Shuffle: AUS", self.ui)
+        self.assertIn("Repeat: AUS", self.ui)
+        self.assertIn("musicPlayerAudio.onended", self.ui)
+        self.assertIn("Queue ist leer.", self.ui)
 
     def test_soundboard_routes_local_pads_into_shared_stream_and_monitor_mix(self):
         self.assertIn('data-tool="Soundboard"', self.ui)
