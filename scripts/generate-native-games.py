@@ -180,8 +180,17 @@ def main():
  DEST.mkdir(parents=True,exist_ok=True)
  for game_id,title,genre in GAMES:
   project=DEST/game_id
-  if project.exists(): shutil.rmtree(project)
+  marker=project/".streamiov-generated-native-game"
+  if project.is_symlink():
+   raise SystemExit(f"Refusing to replace symlinked game directory: {project}")
+  if project.exists():
+   if not project.is_dir() or marker.is_symlink() or not marker.is_file():
+    raise SystemExit(f"Refusing to overwrite a directory not owned by this generator: {project}")
+   if marker.read_text(encoding="utf-8").strip() != game_id:
+    raise SystemExit(f"Generator ownership marker mismatch: {project}")
+   shutil.rmtree(project)
   project.mkdir(parents=True)
+  (project/".streamiov-generated-native-game").write_text(game_id+"\\n",encoding="utf-8")
   shutil.copy2(TEMPLATE/"main.gd",project/"main.gd")
   shutil.copy2(TEMPLATE/"main.tscn",project/"main.tscn")
   shutil.copy2(TEMPLATE/"icon.svg",project/"icon.svg")
