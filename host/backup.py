@@ -6,7 +6,6 @@ never overwrites active databases: it only creates a verified staging directory.
 from __future__ import annotations
 
 import argparse
-from contextlib import closing
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -78,7 +77,7 @@ def _fsync_directory(path: Path) -> None:
 
 def _directory_path(value: str | Path, *, create: bool = False, private: bool = False) -> Path:
     path = Path(value).expanduser()
-    if path.exists() and path.is_symlink():
+    if path.is_symlink():
         raise BackupError("Data and backup directories must not be symlinks.")
     if create:
         path.mkdir(parents=True, exist_ok=True, mode=0o700 if private else 0o750)
