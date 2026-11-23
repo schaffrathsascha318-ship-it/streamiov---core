@@ -372,7 +372,7 @@ dialog::backdrop{background:#000b}
     <div class="panel-title" style="margin-top:12px">PLATTFORM-AUSGÄNGE</div>
     <p style="font-size:12px;color:var(--muted)">Streamiov verwaltet die Zielverbindungen intern. Hier werden keine RTMP-Adressen oder Stream-Keys manuell eingegeben.</p>
     <button class="go-live" style="width:100%;margin-top:10px" id="live" disabled>● LIVE-AUSGÄNGE NOCH NICHT VERFÜGBAR</button>
-    <p id="liveStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Blockiert · TikTok-Produktionsausgang und Twitch-Ausgang sind noch nicht integriert. Kein Stream wird gestartet.</p>
+    <p id="liveStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Blockiert · Verbinde Twitch, um die offizielle Stream-Key-Berechtigung zu prüfen. TikTok-Produktionsausgabe folgt separat.</p>
    </div>
   </section>
   <section class="panel">
@@ -1362,15 +1362,15 @@ async function startBroadcast(){
  const audioMode=$("streamAudio").value;
  const audioInputs=(audioMode==="mic"?[microphoneTrack]:audioMode==="system"?[systemTrack]:[microphoneTrack,systemTrack]).filter(Boolean);
  if((!cameraTrack&&!screenTrack)||!audioInputs.length){setBroadcastStatus("error","Bitte eine Kamera oder einen Bildschirm sowie eine verfügbare Audioquelle für den gewählten Modus starten.");return;}
- const destination=$("rtmpDestination")?.value?.trim()||"";
- if(!destination){setBroadcastStatus("blocked","Kein manueller RTMP-Key: Der interne TikTok-Produktionsausgang und der separate Twitch-Ausgang sind noch nicht angebunden.");return;}
+ const twitchAccount=await window.streamiovStudio?.twitchStatus?.();
+ if(twitchAccount?.status!=="connected"||!twitchAccount.streamKeyPermission){setBroadcastStatus("blocked","Bitte zuerst ein Twitch-Konto mit der Berechtigung zum automatischen Stream-Key-Abruf verbinden.");return;}
  if(!window.streamiovStudio?.startStream||!window.MediaRecorder){setBroadcastStatus("error","Streaming-Funktion ist in dieser Laufzeit nicht verfügbar.");return;}
  liveButton.disabled=true;
  setSourceControlsLocked(true);
- liveStatus.textContent="Prüfe RTMP-Ziel und starte Encoder …";
+ liveStatus.textContent="Twitch-Berechtigung prüfen und RTMPS-Zugangsdaten automatisch abrufen …";
  try{
   const result=await window.streamiovStudio.startStream({
-   destination,
+   platform:"twitch",
    resolution:$("streamResolution").value,
    fps:Number($("streamFps").value),
    bitrate:Number($("streamBitrate").value)
@@ -2112,6 +2112,10 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
    twitchConnect.hidden = connected;
    twitchDisconnect.hidden = !connected;
    twitchPrepare.hidden = !connected;
+   if (typeof liveButton !== 'undefined' && liveButton && !broadcastRecorder) {
+    liveButton.disabled = !connected;
+    liveButton.textContent = connected ? '● TWITCH LIVE STARTEN' : '● LIVE-AUSGANG NICHT VERFÜGBAR';
+   }
    twitchHelp.textContent = result?.status === 'configuration_required'
     ? 'Benötigt STREAMIOV_TWITCH_CLIENT_ID, STREAMIOV_TWITCH_CLIENT_SECRET, STREAMIOV_TWITCH_REDIRECT_URI und STREAMIOV_TWITCH_TOKEN_ENCRYPTION_KEY. Der Redirect muss in der Twitch-Entwicklerkonsole exakt übereinstimmen.'
     : 'Stream-Key wird ausschließlich über Twitch Helix mit channel:read:stream_key frisch abgerufen. Er wird nicht im Renderer angezeigt oder dauerhaft gespeichert.';
