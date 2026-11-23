@@ -413,7 +413,7 @@ dialog::backdrop{background:#000b}
      <input id="mixerSystem" type="range" min="0" max="100" value="45" aria-label="Systemtonlautstärke"><small id="mixerSystemValue">SYSTEM · 45 %</small><button type="button" data-mixer-solo="system" aria-pressed="false">SOLO</button></div>
     <div class="channel"><b>Musik</b><div class="meter"><i data-mixer-meter="music" style="width:0%"></i></div>
      <input id="mixerMusic" type="range" min="0" max="100" value="50" aria-label="Musiklautstärke"><small id="mixerMusicValue">MUSIK · 50 %</small>
-     <button id="mixerMusicMute" type="button" aria-pressed="false" style="width:100%;margin-top:6px;padding:4px">MUTE</button><button type="button" data-mixer-solo="music" aria-pressed="false">SOLO</button></div>
+     <button id="mixerMusicMute" type="button" aria-pressed="false" style="width:100%;margin-top:6px;padding:4px">MUTE</button><button type="button" data-mixer-solo="music" aria-pressed="false">SOLO</button><label><input id="musicDucking" type="checkbox" checked> TTS/Alerts senken Musik</label></div>
     <div class="channel"><b>TTS</b><div class="meter"><i data-mixer-meter="tts" style="width:0%"></i></div>
      <input id="mixerTts" type="range" min="0" max="100" value="100" aria-label="TTS-Lautstärke"><small id="mixerTtsValue">TTS · 100 %</small><button type="button" data-mixer-solo="tts" aria-pressed="false">SOLO</button></div>
     <div class="channel"><b>Alerts</b><div class="meter"><i data-mixer-meter="alert" style="width:0%"></i></div>
@@ -1376,6 +1376,7 @@ let musicCurrentTrackLabel=null;
 let musicShuffle=false;
 let musicRepeat=false;
 let musicMuted=false;
+let musicDuckingEnabled=true;
 let broadcastGainBase=1;
 const soundboardPads=[];
 const soundboardFavoritesKey="streamiov.studio.soundboard.favorites.v1";
@@ -1477,7 +1478,7 @@ function drawMixerMeters(){
  mixerMeterFrameState.frame=requestAnimationFrame(drawMixerMeters);
 }
 function saveMixerSettings(){
- try{localStorage.setItem(mixerStorageKey,JSON.stringify({...Object.fromEntries(Object.keys(mixerDefaults).map(id=>[id,mixerPercent(id)])),musicMuted}));}
+ try{localStorage.setItem(mixerStorageKey,JSON.stringify({...Object.fromEntries(Object.keys(mixerDefaults).map(id=>[id,mixerPercent(id)])),musicMuted,musicDuckingEnabled}));}
  catch(_){/* local storage is optional */}
 }
 function applyMixerGains(){
@@ -1489,7 +1490,8 @@ function applyMixerGains(){
   const system=studioAudioMixer.snapshot("system");
   if(system)studioAudioMixer.setGain("system",Number($("audioSystemGain").value)/100*mixerValue("mixerSystem"));
  }
- if(musicChannelGain)musicChannelGain.gain.setTargetAtTime(musicMuted?0:mixerValue("mixerMusic"),now,0.02);
+ const duckingActive=musicDuckingEnabled&&(!ttsAudio.paused||alertToneActive);
+ if(musicChannelGain)musicChannelGain.gain.setTargetAtTime(musicMuted?0:mixerValue("mixerMusic")*(duckingActive?0.25:1),now,0.02);
  if(ttsChannelGain)ttsChannelGain.gain.setTargetAtTime(mixerValue("mixerTts"),now,0.02);
  if(alertToneGain)alertToneGain.gain.setTargetAtTime(mixerValue("mixerAlert"),now,0.02);
  if(broadcastMasterGain)broadcastMasterGain.gain.setTargetAtTime(mixerValue("mixerMaster"),now,0.02);
@@ -1804,6 +1806,7 @@ async function playAlertTone(){
  studioAudioMixer.connect("alert",alertToneDestination.stream,{gain:1,routes:["stream","monitor"]});
  refreshMixerSoloButtons();
  alertToneActive=true;
+ applyMixerGains();
  const first=context.createOscillator(),second=context.createOscillator();
  first.type="sine";second.type="sine";
  first.frequency.value=880;second.frequency.value=1174.66;
@@ -1815,6 +1818,7 @@ async function playAlertTone(){
   if(alertToneDestination!==thisDestination)return;
   if(studioAudioMixer)studioAudioMixer.disconnect("alert");
   alertToneActive=false;
+  applyMixerGains();
   thisDestination.stream.getTracks().forEach(track=>track.stop());
   alertToneDestination=null;alertToneGain=null;
  },{once:true});
@@ -1884,9 +1888,10 @@ async function playTtsAudio(base64,mime="audio/wav"){
   ttsAudio.addEventListener("ended",onEnded,{once:true});
   ttsAudio.addEventListener("error",onError,{once:true});
   ttsAudio.play().catch(finish);
+  applyMixerGains();
  });
 }
-ttsAudio.addEventListener("ended",()=>{if(ttsObjectUrl){URL.revokeObjectURL(ttsObjectUrl);ttsObjectUrl=null;}});
+ttsAudio.addEventListener("ended",()=>{if(ttsObjectUrl){URL.revokeObjectURL(ttsObjectUrl);ttsObjectUrl=null;}applyMixerGains();});
 async function renderTtsTool(body){
  const api=window.streamiovStudio?.chatAction;
  if(!api){body.append(toolNote("TTS benötigt die installierte Desktop-App."));return;}
@@ -2356,8 +2361,11 @@ try{
   if(Number.isFinite(value))$(id).value=String(Math.max(0,Math.min(100,value)));
  }
  musicMuted=saved.musicMuted===true;
+ musicDuckingEnabled=saved.musicDuckingEnabled!==false;
+ $("musicDucking").checked=musicDuckingEnabled;
 }catch(_){/* markup defaults stay active */}
 updateMixerLabels();
+$("musicDucking").addEventListener("change",()=>{musicDuckingEnabled=$("musicDucking").checked;saveMixerSettings();applyMixerGains();});
 const musicMuteButton=$("mixerMusicMute");
 if(musicMuteButton){
  musicMuteButton.setAttribute("aria-pressed",musicMuted?"true":"false");
