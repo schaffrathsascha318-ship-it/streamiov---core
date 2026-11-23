@@ -2117,7 +2117,7 @@ document.querySelectorAll('input[type="range"]').forEach(r=>r.addEventListener("
     liveButton.textContent = connected ? '● TWITCH LIVE STARTEN' : '● LIVE-AUSGANG NICHT VERFÜGBAR';
    }
    twitchHelp.textContent = result?.status === 'configuration_required'
-    ? 'Benötigt STREAMIOV_TWITCH_CLIENT_ID, STREAMIOV_TWITCH_CLIENT_SECRET, STREAMIOV_TWITCH_REDIRECT_URI und STREAMIOV_TWITCH_TOKEN_ENCRYPTION_KEY. Der Redirect muss in der Twitch-Entwicklerkonsole exakt übereinstimmen.'
+    ? 'Benötigt STREAMIOV_TWITCH_CLIENT_ID, STREAMIOV_TWITCH_CLIENT_SECRET, STREAMIOV_TWITCH_REDIRECT_URI (Standard: http://127.0.0.1:43821/callback) und STREAMIOV_TWITCH_TOKEN_ENCRYPTION_KEY. Diesen Redirect exakt in der Twitch-Entwicklerkonsole eintragen.'
     : 'Stream-Key wird ausschließlich über Twitch Helix mit channel:read:stream_key frisch abgerufen. Er wird nicht im Renderer angezeigt oder dauerhaft gespeichert.';
   } catch (error) { twitchState.textContent = 'Twitch-Statusfehler: ' + error.message; }
  }
