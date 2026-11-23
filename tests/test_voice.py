@@ -6,6 +6,7 @@ import hmac
 import json
 import os
 from pathlib import Path
+import stat
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -21,6 +22,21 @@ class VoiceRoomStoreTests(unittest.TestCase):
 
     def tearDown(self):
         self.temp.cleanup()
+
+    def test_voice_database_is_private_on_posix(self):
+        if os.name == "nt":
+            self.skipTest("POSIX file permission bits are not available on Windows.")
+        self.assertEqual(stat.S_IMODE(self.store.data_dir.stat().st_mode), 0o700)
+        self.assertEqual(stat.S_IMODE(self.store.database.stat().st_mode), 0o600)
+
+    def test_voice_store_rejects_database_symlink(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "outside.sqlite3"
+            target.write_bytes(b"not a database")
+            (root / "voice-rooms.sqlite3").symlink_to(target)
+            with self.assertRaises(VoiceError):
+                VoiceRoomStore(root)
 
     def test_owner_room_and_active_invite_quotas_are_enforced(self):
         rooms = [self.store.create_room("owner-id", f"Room {index}") for index in range(5)]
