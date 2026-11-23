@@ -1,7 +1,9 @@
 import contextlib
 import io
 import json
+import time
 import unittest
+from unittest.mock import patch
 
 from scripts.autonomous.run_issue import ObservedProvider
 
@@ -11,12 +13,15 @@ class FakeReply:
 
 
 class FakeProvider:
-    def __init__(self, error=None):
+    def __init__(self, error=None, delay=0):
         self.error = error
+        self.delay = delay
         self.calls = []
 
     def generate(self, *, system, messages):
         self.calls.append((system, messages))
+        if self.delay:
+            time.sleep(self.delay)
         if self.error:
             raise self.error
         return FakeReply()
@@ -56,6 +61,19 @@ class ObservedProviderTests(unittest.TestCase):
         self.assertEqual(events[-1]["event"], "model_request_failed")
         self.assertEqual(events[-1]["error_class"], "RuntimeError")
         self.assertNotIn("private diagnostic", output.getvalue())
+
+    def test_emits_periodic_heartbeat_during_slow_inference(self):
+        provider = FakeProvider(delay=0.04)
+        observed = ObservedProvider(provider)
+        output = io.StringIO()
+
+        with patch("scripts.autonomous.run_issue.MODEL_PROGRESS_INTERVAL_SECONDS", 0.005):
+            with contextlib.redirect_stdout(output):
+                observed.generate(system="system", messages=[])
+
+        events = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertIn("model_request_still_running", [event["event"] for event in events])
+        self.assertEqual(events[-1]["event"], "model_request_completed")
 
     def test_passes_through_other_provider_attributes(self):
         provider = FakeProvider()
