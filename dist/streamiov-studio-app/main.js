@@ -16,6 +16,46 @@ const platformOutputRegistry = new PlatformOutputRegistry();
 const { execFile, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
 const execFileAsync = promisify(execFile);
+
+function synthesizeWindowsSpeech({ text, outputFile, speed, amplitude }) {
+  return new Promise((resolve, reject) => {
+    const script = [
+      "$ErrorActionPreference = 'Stop'",
+      "$payload = [Console]::In.ReadToEnd() | ConvertFrom-Json",
+      "$speaker = New-Object System.Speech.Synthesis.SpeechSynthesizer",
+      "$speaker.Rate = [int]$payload.rate",
+      "$speaker.Volume = [int]$payload.volume",
+      "$speaker.SetOutputToWaveFile($env:STREAMIOV_TTS_OUTPUT)",
+      "$speaker.Speak([string]$payload.text)",
+      "$speaker.Dispose()"
+    ].join("; ");
+    const child = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script], {
+      windowsHide: true,
+      env: { ...process.env, STREAMIOV_TTS_OUTPUT: outputFile },
+      stdio: ['pipe', 'ignore', 'pipe']
+    });
+    let stderr = '';
+    let settled = false;
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) reject(error); else resolve();
+    };
+    const timer = setTimeout(() => {
+      child.kill();
+      finish(new Error('Windows-Sprachausgabe hat das Zeitlimit überschritten.'));
+    }, 60000);
+    child.stderr.on('data', chunk => { stderr = (stderr + chunk.toString()).slice(-4000); });
+    child.once('error', finish);
+    child.once('close', code => {
+      if (code === 0) finish();
+      else finish(new Error(stderr.trim() || 'Windows-Systemsprachausgabe fehlgeschlagen.'));
+    });
+    const rate = Math.max(-10, Math.min(10, Math.round((speed - 175) / 12.5)));
+    child.stdin.end(JSON.stringify({ text, rate, volume: Math.max(0, Math.min(100, amplitude)) }));
+  });
+}
 const studioUrl = pathToFileURL(path.join(__dirname, 'regie-v2.html')).href;
 let liveStreamProcess = null;
 let liveStreamState = 'offline';
@@ -235,7 +275,12 @@ ipcMain.handle('studio:chat-action', async (event, payload = {}) => {
     if (!Number.isInteger(amplitude) || amplitude < 0 || amplitude > 200) return { ok: false, error: 'TTS-Lautstärke muss zwischen 0 und 200 liegen.' };
     const outputFile = path.join(os.tmpdir(), 'streamiov-tts-' + randomUUID() + '.wav');
     try {
-      await execFileAsync('espeak-ng', ['-v', 'de', '-s', String(speed), '-a', String(amplitude), '-w', outputFile, text], { timeout: 60000, windowsHide: true });
+      try {
+        await execFileAsync('espeak-ng', ['-v', 'de', '-s', String(speed), '-a', String(amplitude), '-w', outputFile, text], { timeout: 60000, windowsHide: true });
+      } catch (error) {
+        if (process.platform !== 'win32' || error.code !== 'ENOENT') throw error;
+        await synthesizeWindowsSpeech({ text, outputFile, speed, amplitude });
+      }
       const audio = await fs.readFile(outputFile);
       if (!audio.length || audio.length > 8 * 1024 * 1024) return { ok: false, error: 'TTS-Audiodatei ist leer oder überschreitet das lokale Größenlimit.' };
       return {
