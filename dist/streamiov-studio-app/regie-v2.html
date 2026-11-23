@@ -351,6 +351,8 @@ dialog::backdrop{background:#000b}
        <label><input type="checkbox" data-audio-route="headphones"> Kopfhörer</label><label><input type="checkbox" data-audio-route="communications"> Kommunikation</label>
       </div>
       <label for="audioMicGain">Mikrofon-Pegel im Mixer</label><input id="audioMicGain" type="range" min="0" max="200" value="100" style="width:100%">
+      <label for="micPan">Mikrofon-Pan <span id="micPanValue">Mitte</span></label><input id="micPan" type="range" min="-100" max="100" value="0" style="width:100%">
+      <label><input id="micSolo" type="checkbox"> Mikrofon SOLO (andere Kanäle stummschalten)</label>
       <label for="micHighpass">Mikrofon-Tiefenschnitt / Rumpelfilter <span id="micHighpassValue">80 Hz</span></label><input id="micHighpass" type="range" min="20" max="250" step="5" value="80" style="width:100%">
       <label><input id="micCompressor" type="checkbox" checked> Sprachkompressor aktivieren</label>
       <small>Ein Limiter schützt jeden Ausgang zusätzlich vor digitalen Pegelspitzen.</small>
@@ -1006,13 +1008,16 @@ try{
  if(Number.isFinite(saved.systemGain))$("audioSystemGain").value=String(Math.max(0,Math.min(200,Math.round(saved.systemGain))));
  if(Number.isFinite(saved.highpassHz))$("micHighpass").value=String(Math.max(20,Math.min(250,Math.round(saved.highpassHz/5)*5)));
  if(typeof saved.compressorEnabled==="boolean")$("micCompressor").checked=saved.compressorEnabled;
+ if(Number.isFinite(saved.microphonePan))$("micPan").value=String(Math.max(-100,Math.min(100,Math.round(saved.microphonePan))));
+ if(typeof saved.microphoneSolo==="boolean")$("micSolo").checked=saved.microphoneSolo;
 }catch(_){/* source routing preferences are optional */}
 function saveAudioRoutingState(){
  try{localStorage.setItem(sourceRoutingStorageKey,JSON.stringify({
   microphoneRoutes:[...document.querySelectorAll("[data-audio-route]:checked")].map(item=>item.dataset.audioRoute),
   systemRoutes:[...document.querySelectorAll("[data-system-route]:checked")].map(item=>item.dataset.systemRoute),
   microphoneGain:Number($("audioMicGain").value),systemGain:Number($("audioSystemGain").value),
-  highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked
+  highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked,
+  microphonePan:Number($("micPan").value),microphoneSolo:$("micSolo").checked
  }));}catch(_){/* source routing preferences are optional */}
 }
 function selectedMicrophoneRoutes(){return [...document.querySelectorAll("[data-audio-route]:checked")].map(item=>item.dataset.audioRoute);}
@@ -1026,6 +1031,9 @@ function applyMicrophoneRouting(){
  studioAudioMixer.setRoutes("microphone",effectiveAudioRoutes(selectedMicrophoneRoutes(),"microphone"));
  studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100*mixerValue("mixerMic"));
  studioAudioMixer.setProcessing("microphone",{highpassHz:Number($("micHighpass").value),compressorEnabled:$("micCompressor").checked});
+ studioAudioMixer.setPan("microphone",Number($("micPan").value)/100);
+ studioAudioMixer.setSolo("microphone",$("micSolo").checked);
+ $("micPanValue").textContent=Number($("micPan").value)===0?"Mitte":Number($("micPan").value)<0?"L "+Math.abs($("micPan").value):"R "+$("micPan").value;
  saveAudioRoutingState();
  $("micHighpassValue").textContent=$("micHighpass").value+" Hz";
  $("audioMixerStatus").textContent="Mikrofonquelle verbunden · Routing: "+(selectedMicrophoneRoutes().join(", ")||"kein Ausgang")+".";
@@ -1034,6 +1042,8 @@ document.querySelectorAll("[data-audio-route]").forEach(control=>control.addEven
 $("audioMicGain").addEventListener("input",applyMicrophoneRouting);
 $("micHighpass").addEventListener("input",applyMicrophoneRouting);
 $("micCompressor").addEventListener("change",applyMicrophoneRouting);
+$("micPan").addEventListener("input",applyMicrophoneRouting);
+$("micSolo").addEventListener("change",applyMicrophoneRouting);
 function selectedSystemRoutes(){return [...document.querySelectorAll("[data-system-route]:checked")].map(item=>item.dataset.systemRoute);}
 function applySystemRouting(){
  if(!studioAudioMixer||!studioAudioMixer.snapshot("system")){saveAudioRoutingState();return;}
