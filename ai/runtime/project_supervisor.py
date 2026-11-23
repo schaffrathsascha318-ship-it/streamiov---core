@@ -189,12 +189,12 @@ class ProjectSupervisor:
             goal = row["goal"].strip()
             progress = (row["progress"] or "").strip()
             mission_goal = (
-                f"PROJECT-WIDE STREAMIOV GOAL:\\n{goal}\\n\\n"
+                f"PROJECT-WIDE STREAMIOV GOAL:\n{goal}\n\n"
                 "Continue the project from its verified state. Identify the next highest-priority "
                 "unfinished deliverable from the repository and the cumulative progress below. "
                 "Do not repeat completed work; repair blockers before starting unrelated work. "
-                "Completion requires the mission engine's independent testing-specialist verification.\\n\\n"
-                f"VERIFIED PROJECT PROGRESS:\\n{progress or 'No project missions have been verified yet.'}"
+                "Completion requires the mission engine's independent testing-specialist verification.\n\n"
+                f"VERIFIED PROJECT PROGRESS:\n{progress or 'No project missions have been verified yet.'}"
             )
             return self.engine.create_mission(mission_goal, mission_id=mission_id)
 
