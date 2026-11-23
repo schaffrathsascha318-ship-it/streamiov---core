@@ -110,7 +110,7 @@ encrypt_directory=false
 [preset.3.options]
 custom_template/debug=""
 custom_template/release=""
-application/app_store_team_id=""
+application/app_store_team_id="0000000000"
 application/bundle_identifier="{bundle}"
 application/signature="StreamioV"
 application/short_version="0.1.0"
