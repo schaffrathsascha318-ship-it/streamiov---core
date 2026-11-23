@@ -1,9 +1,22 @@
+import json
+import multiprocessing
 import tempfile
 import threading
 import unittest
 from pathlib import Path
 
-from ai.runtime.project_tools import ProjectTools, ToolError, _locked_path
+from ai.runtime.project_tools import ProjectTools, ToolError, _locked_path, _process_lock_path
+
+
+def _hold_process_lock(path: str, ready, release) -> None:
+    with _locked_path(Path(path), owner={"task_id": "process-holder"}):
+        ready.set()
+        release.wait(20)
+
+
+def _wait_for_process_lock(path: str, acquired) -> None:
+    with _locked_path(Path(path), owner={"task_id": "process-contender"}):
+        acquired.set()
 
 
 class ProjectToolsConcurrencyTests(unittest.TestCase):
@@ -46,6 +59,28 @@ class ProjectToolsConcurrencyTests(unittest.TestCase):
         self.assertIn(final, {"worker-a\n", "worker-b\n"})
         self.assertEqual(sum(item.startswith("Updated ") for item in outcomes), 1)
         self.assertEqual(sum(item.startswith("rejected:") for item in outcomes), 1)
+
+    def test_os_file_lock_serializes_separate_processes_and_recovers_after_crash(self):
+        context = multiprocessing.get_context("spawn")
+        path = str(self.root / "process-shared.txt")
+        ready = context.Event()
+        release = context.Event()
+        acquired = context.Event()
+        holder = context.Process(target=_hold_process_lock, args=(path, ready, release))
+        contender = context.Process(target=_wait_for_process_lock, args=(path, acquired))
+        holder.start()
+        self.assertTrue(ready.wait(8), "first process did not acquire the OS lock")
+        contender.start()
+        self.assertFalse(acquired.wait(0.3), "second process entered while the first lock was held")
+        holder.terminate()
+        holder.join(5)
+        self.assertFalse(holder.is_alive())
+        self.assertTrue(acquired.wait(8), "OS lock was not released when the holder process died")
+        contender.join(5)
+        self.assertFalse(contender.is_alive())
+        lock_path = _process_lock_path(str(Path(path).resolve()))
+        metadata = json.loads(lock_path.read_text(encoding="utf-8"))
+        self.assertEqual(metadata["task_id"], "process-contender")
 
     def test_distinct_file_locks_allow_independent_workers_to_overlap(self):
         barrier = threading.Barrier(2, timeout=3)
