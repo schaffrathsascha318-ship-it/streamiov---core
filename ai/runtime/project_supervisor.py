@@ -255,7 +255,7 @@ class ProjectSupervisor:
                             f"{last_snapshot.summary or 'Independent completion gate passed.'}"
                         )
                         cumulative_progress = (
-                            f"{previous_progress}\\n\\n{milestone}".strip()
+                            f"{previous_progress}\n\n{milestone}".strip()
                             if previous_progress else milestone
                         )[-MAX_PROGRESS_CHARS:]
                         cursor = db.execute("""
