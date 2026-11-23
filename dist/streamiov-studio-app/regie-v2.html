@@ -352,6 +352,13 @@ dialog::backdrop{background:#000b}
       </div>
       <label for="audioMicGain">Mikrofon-Pegel im Mixer</label><input id="audioMicGain" type="range" min="0" max="200" value="100" style="width:100%">
       <small id="audioMixerStatus" class="audio-bus-status" role="status">Audio-Engine bereit, noch keine Mikrofonquelle verbunden.</small>
+      <div class="panel-title" style="margin-top:10px">SYSTEMTON-ROUTING</div>
+      <div class="audio-route-list">
+       <label><input type="checkbox" data-system-route="stream" checked> Stream</label><label><input type="checkbox" data-system-route="monitor" checked> Monitor</label>
+       <label><input type="checkbox" data-system-route="headphones"> Kopfhörer</label><label><input type="checkbox" data-system-route="communications"> Kommunikation</label>
+      </div>
+      <label for="audioSystemGain">Systemton-Pegel</label><input id="audioSystemGain" type="range" min="0" max="200" value="100" style="width:100%">
+      <small id="systemAudioMixerStatus" class="audio-bus-status" role="status">Systemton wartet auf eine Bildschirmquelle mit Audiostream.</small>
      </div>
     </div>
    </section>
@@ -968,6 +975,16 @@ function applyMicrophoneRouting(){
 }
 document.querySelectorAll("[data-audio-route]").forEach(control=>control.addEventListener("change",applyMicrophoneRouting));
 $("audioMicGain").addEventListener("input",applyMicrophoneRouting);
+function selectedSystemRoutes(){return [...document.querySelectorAll("[data-system-route]:checked")].map(item=>item.dataset.systemRoute);}
+function applySystemRouting(){
+ if(!studioAudioMixer||!studioAudioMixer.snapshot("system"))return;
+ studioAudioMixer.setRoutes("system",selectedSystemRoutes());
+ studioAudioMixer.setGain("system",Number($("audioSystemGain").value)/100);
+ $("systemAudioMixerStatus").textContent="Systemton verbunden · Routing: "+(selectedSystemRoutes().join(", ")||"kein Ausgang")+".";
+}
+document.querySelectorAll("[data-system-route]").forEach(control=>control.addEventListener("change",applySystemRouting));
+$("audioSystemGain").addEventListener("input",applySystemRouting);
+
 async function refreshAudioBusDevices(){
  if(!navigator.mediaDevices?.enumerateDevices)return;
  const devices=await navigator.mediaDevices.enumerateDevices();
@@ -989,6 +1006,8 @@ function stopCapture(kind){
  if(stream){for(const track of stream.getTracks())track.stop();captureState[kind]=null;}
  if(kind==="camera"){cameraVideo.pause();cameraVideo.srcObject=null;cameraVideo.style.display="none";$("cameraStart").textContent="KAMERA TESTEN";}
  if(kind==="screen"){
+  if(studioAudioMixer)studioAudioMixer.disconnect("system");
+  $("systemAudioMixerStatus").textContent="Systemtonquelle getrennt.";
   screenVideo.pause();screenVideo.srcObject=null;screenVideo.style.display="none";
   $("screenStart").textContent="BILDSCHIRM TEILEN";
   $("screenCaptureStatus").textContent="Bildschirmfreigabe beendet.";
@@ -1118,6 +1137,12 @@ $("screenStart").onclick=async()=>{
   if(!track||track.readyState!=="live")throw new Error("Die ausgewählte Bildschirmquelle liefert kein Bild.");
   track.addEventListener("ended",()=>{if(captureState.screen===stream)stopCapture("screen");},{once:true});
   const hasAudio=stream.getAudioTracks().some(item=>item.readyState==="live");
+   if(hasAudio&&studioAudioMixer){
+    studioAudioMixer.connect("system",stream,{gain:Number($("audioSystemGain").value)/100,routes:selectedSystemRoutes()});
+    const audioTrack=stream.getAudioTracks()[0];
+    audioTrack.addEventListener("ended",()=>{if(studioAudioMixer)studioAudioMixer.disconnect("system");$("systemAudioMixerStatus").textContent="Systemtonquelle wurde beendet.";},{once:true});
+    $("systemAudioMixerStatus").textContent="Systemton verbunden · Routing: "+(selectedSystemRoutes().join(", ")||"kein Ausgang")+".";
+   }
   $("screenStart").textContent="BILDSCHIRM TEILEN STOPPEN";
   $("screenMetric").textContent="GETEILT LOKAL";
   status.textContent="Bildschirm lokal geteilt"+(hasAudio?" · Systemton verfügbar.":" · Kein Systemton von dieser Quelle.");
