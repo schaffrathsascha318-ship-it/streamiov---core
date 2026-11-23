@@ -42,7 +42,7 @@ jobs:
       - name: Install Android export dependencies
         run: |
           yes | sdkmanager --licenses >/dev/null
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.1" "cmdline-tools;latest" "cmake;3.10.2.4988404" "ndk;28.1.13356709"
 
       - name: Generate five independent native game projects
         run: python3 scripts/generate-native-games.py
@@ -83,16 +83,19 @@ jobs:
             godot --headless --editor --path "$project" --quit
             godot --headless --path "$project" --export-release "Windows Desktop x64" "$project/build/StreamioV-$game-windows-x64.exe"
             godot --headless --path "$project" --export-release "Linux x64" "$project/build/StreamioV-$game-linux-x86_64"
+            godot --headless --path "$project" --export-release "Linux ARM64" "$project/build/StreamioV-$game-linux-arm64"
             godot --headless --path "$project" --export-debug "Android ARM64" "$project/build/StreamioV-$game-android-arm64.apk"
-            chmod +x "$project/build/StreamioV-$game-linux-x86_64"
+            godot --headless --path "$project" --export-debug "Android x86_64" "$project/build/StreamioV-$game-android-x86_64.apk"
+            chmod +x "$project/build/StreamioV-$game-linux-x86_64" "$project/build/StreamioV-$game-linux-arm64"
             mkdir -p "artifacts/$game"
             cp "$project/build/"* "artifacts/$game/"
             cat > "artifacts/$game/DEVICE-READ-ME.txt" <<EOF
           $game
           Windows: Windows x64 executable (.exe)
           Linux: Linux x86_64 executable
+          Linux ARM64: native ARM64 executable for compatible Linux devices
           Android phone/tablet: ARM64 debug APK for sideload testing
-          ChromeOS: the same Android ARM64 APK on Android-compatible Chromebooks; Linux x86_64 build via Crostini
+          ChromeOS: ARM64 APK for ARM Chromebooks or x86_64 APK for Intel Chromebooks with Android support; Linux x86_64/ARM64 via Crostini
           These are development builds. Gameplay and physical-device verification are not implied.
           EOF
             (cd "artifacts/$game" && sha256sum * > SHA256SUMS.txt)
