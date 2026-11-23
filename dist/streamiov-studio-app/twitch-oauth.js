@@ -57,7 +57,7 @@ class TwitchOAuth {
     const env = options.env || process.env;
     this.clientId = required(options.clientId || env.STREAMIOV_TWITCH_CLIENT_ID, 'twitch_client_id');
     this.clientSecret = required(options.clientSecret || env.STREAMIOV_TWITCH_CLIENT_SECRET, 'twitch_client_secret');
-    this.redirectUri = safeRedirect(options.redirectUri || env.STREAMIOV_TWITCH_REDIRECT_URI);
+    this.redirectUri = safeRedirect(options.redirectUri || env.STREAMIOV_TWITCH_REDIRECT_URI || 'http://127.0.0.1:43821/callback');
     this.fetch = options.fetch || globalThis.fetch;
     this.clock = options.clock || Date.now;
     this.pending = new Map();
@@ -140,9 +140,9 @@ class TwitchOAuth {
   }
   status() {
     const tokens = this.store.load();
-    if (!tokens) return { status: 'not_connected', requiredScopes: [...REQUIRED_SCOPES] };
+    if (!tokens) return { status: 'not_connected', requiredScopes: [...REQUIRED_SCOPES], redirectUri: this.redirectUri };
     return { status: tokens.expiresAt <= this.clock() ? 'token_expired' : 'connected',
-      scopes: [...(tokens.scopes || [])], streamKeyPermission: REQUIRED_SCOPES.every(scope => tokens.scopes?.includes(scope)) };
+      scopes: [...(tokens.scopes || [])], streamKeyPermission: REQUIRED_SCOPES.every(scope => tokens.scopes?.includes(scope)), redirectUri: this.redirectUri };
   }
   async disconnect() {
     const tokens = this.store.load();
