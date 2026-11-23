@@ -194,87 +194,37 @@ function isTrustedStudioSender(event) {
     isStudioDocument(frame.url);
 }
 
-const streamiovChatState = {
-  chat: 'offline',
-  tts: 'offline',
-  messages: []
-};
+const { StreamiovChatHub } = require('./engine/chat-hub');
+const streamiovChatHub = new StreamiovChatHub();
+const streamiovChatState = { chat: 'offline', tts: 'offline' };
 
 ipcMain.handle('studio:chat-action', async (event, payload = {}) => {
-  if (!isTrustedStudioSender(event)) {
-    throw new Error('Nicht autorisierter Studio-Aufruf');
-  }
-
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
   const action = payload.action;
   if (action === 'status') {
-    return {
-      ok: true,
-      chat: streamiovChatState.chat,
-      tts: streamiovChatState.tts,
-      message_count: streamiovChatState.messages.length,
-      messages: streamiovChatState.messages.slice(-100),
-      external_platform_connected: false,
-      tts_audio_verified: false
-    };
+    return { ok: true, chat: streamiovChatState.chat, tts: streamiovChatState.tts, ...streamiovChatHub.snapshot(), external_platform_connected: false, tts_audio_verified: false };
   }
   if (action === 'toggle-chat') {
-    streamiovChatState.chat =
-      streamiovChatState.chat === 'online' ? 'offline' : 'online';
+    streamiovChatState.chat = streamiovChatState.chat === 'online' ? 'offline' : 'online';
   } else if (action === 'toggle-tts') {
-    streamiovChatState.tts =
-      streamiovChatState.tts === 'online' ? 'offline' : 'online';
+    streamiovChatState.tts = streamiovChatState.tts === 'online' ? 'offline' : 'online';
   } else if (action === 'receive') {
-    const text = typeof payload.text === 'string' ? payload.text.trim() : '';
-    if (!text || text.length > 2000) {
-      return { ok: false, error: 'Nachricht muss 1–2000 Zeichen lang sein.' };
-    }
-    if (streamiovChatState.chat !== 'online') {
-      return { ok: false, error: 'Chat ist ausgeschaltet.' };
-    }
-    streamiovChatState.messages.push({
-      text: text,
-      time: new Date().toISOString(),
-      source: 'local_test'
-    });
-    streamiovChatState.messages = streamiovChatState.messages.slice(-500);
+    if (streamiovChatState.chat !== 'online') return { ok: false, error: 'Chat ist ausgeschaltet.' };
+    try { streamiovChatHub.receive({ source: 'local_test', author: 'Lokaler Test', text: payload.text, channel: 'Studio' }); }
+    catch (error) { return { ok: false, error: error.message }; }
+  } else if (action === 'send') {
+    if (streamiovChatState.chat !== 'online') return { ok: false, error: 'Chat ist ausgeschaltet.' };
+    try { return await streamiovChatHub.send({ text: payload.text, targets: payload.targets, permissions: { tiktok: false, twitch: false } }); }
+    catch (error) { return { ok: false, error: error.message }; }
   } else if (action === 'speak') {
     const text = typeof payload.text === 'string' ? payload.text.trim() : '';
-    if (!text || text.length > 1000) {
-      return { ok: false, error: 'TTS-Text muss 1–1000 Zeichen lang sein.' };
-    }
-    if (streamiovChatState.tts !== 'online') {
-      return { ok: false, error: 'TTS ist ausgeschaltet.' };
-    }
-    try {
-      await execFileAsync('espeak-ng', ['-v', 'de', text], {
-        timeout: 60000,
-        windowsHide: true
-      });
-    } catch (error) {
-      return {
-        ok: false,
-        error: error.code === 'ENOENT'
-          ? 'espeak-ng ist auf diesem Gerät nicht verfügbar.'
-          : 'Sprachausgabe fehlgeschlagen: ' + (error.message || 'unbekannter Fehler'),
-        tts_audio_verified: false
-      };
-    }
-  } else {
-    return { ok: false, error: 'Unbekannte Chat-Aktion.' };
-  }
-
-  return {
-    ok: true,
-    chat: streamiovChatState.chat,
-    tts: streamiovChatState.tts,
-    message_count: streamiovChatState.messages.length,
-    messages: streamiovChatState.messages.slice(-100),
-    external_platform_connected: false,
-    tts_audio_verified: false
-  };
+    if (!text || text.length > 1000) return { ok: false, error: 'TTS-Text muss 1–1000 Zeichen lang sein.' };
+    if (streamiovChatState.tts !== 'online') return { ok: false, error: 'TTS ist ausgeschaltet.' };
+    try { await execFileAsync('espeak-ng', ['-v', 'de', text], { timeout: 60000, windowsHide: true }); }
+    catch (error) { return { ok: false, error: error.code === 'ENOENT' ? 'espeak-ng ist auf diesem Gerät nicht verfügbar.' : 'Sprachausgabe fehlgeschlagen: ' + (error.message || 'unbekannter Fehler'), tts_audio_verified: false }; }
+  } else { return { ok: false, error: 'Unbekannte Chat-Aktion.' }; }
+  return { ok: true, chat: streamiovChatState.chat, tts: streamiovChatState.tts, ...streamiovChatHub.snapshot(), external_platform_connected: false, tts_audio_verified: false };
 });
-
-
 
 // Dauerhafte lokale Szenenverwaltung. Keine Videoausgabe oder Plattformaktion.
 ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
