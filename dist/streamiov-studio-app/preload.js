@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
   getNetworkStatus: () => ipcRenderer.invoke('studio:get-network-status'),
   getModuleStatus: () => ipcRenderer.invoke('studio:get-module-status'),
   chatAction: (payload) => ipcRenderer.invoke('studio:chat-action', payload),
+  chatStatus: () => ipcRenderer.invoke('studio:chat-action', { action: 'status' }),
+  chatSend: (text, targets) => ipcRenderer.invoke('studio:chat-action', { action: 'send', text, targets }),
   sceneAction: (payload) => ipcRenderer.invoke('studio:scene-action', payload),
   startStream: (payload) => ipcRenderer.invoke('studio:start-stream', payload),
   writeStreamChunk: (chunk) => ipcRenderer.invoke('studio:write-stream-chunk', chunk),
