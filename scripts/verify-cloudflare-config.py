@@ -93,17 +93,18 @@ def _contains_secret_like_key(value: Any) -> bool:
 
 
 R2_FORBIDDEN_PATTERNS = (
-    re.compile(r"\\br2_buckets\\b", re.IGNORECASE),
-    re.compile(r"\\bwrangler(?:@[^\\s]+)?\\s+r2\\b", re.IGNORECASE),
-    re.compile(r"\\b(?:env|context)\\.R2(?:_[A-Z0-9_]+)?\\b"),
-    re.compile(r"\\bR2_BUCKET\\b", re.IGNORECASE),
-    re.compile(r"\\bR2Bucket\\b"),
+    re.compile(r"\br2_buckets\b", re.IGNORECASE),
+    re.compile(r"\bwrangler(?:@[^\s]+)?\s+r2\b", re.IGNORECASE),
+    re.compile(r"\b(?:env|context)\.R2(?:_[A-Z0-9_]+)?\b"),
+    re.compile(r"\bR2_BUCKET\b", re.IGNORECASE),
+    re.compile(r"\bR2Bucket\b"),
 )
 
 
 def find_forbidden_r2_usage(text: str) -> list[str]:
     """Return actual Cloudflare R2 configuration/API markers found in text."""
     return sorted({match.group(0) for pattern in R2_FORBIDDEN_PATTERNS for match in pattern.finditer(text)})
+
 
 def verify() -> dict[str, Any]:
     errors: list[str] = []
@@ -118,7 +119,9 @@ def verify() -> dict[str, Any]:
         for scan_root in r2_scan_roots
         if scan_root.exists()
         for path in scan_root.rglob("*")
-        if path.is_file() and path.suffix.lower() in {".yml", ".yaml", ".sh", ".json", ".jsonc", ".toml", ".js", ".mjs", ".ts"}
+        if path.is_file()
+        and path.resolve() != Path(__file__).resolve()
+        and path.suffix.lower() in {".yml", ".yaml", ".sh", ".json", ".jsonc", ".toml", ".js", ".mjs", ".ts"}
     })
     for path in r2_scan_files:
         markers = find_forbidden_r2_usage(path.read_text(encoding="utf-8"))
