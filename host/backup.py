@@ -249,6 +249,18 @@ def _safe_backup_file(backup_dir: Path, name: str) -> Path:
         raise BackupError("Backup file is missing or is not a regular file.")
     return path
 
+def _load_metadata(root: Path, name: str) -> dict:
+    path = root / (name + ".meta.json")
+    if path.is_symlink() or not path.is_file():
+        raise BackupError("Backup metadata is missing or unsafe.")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise BackupError("Backup metadata is invalid.") from exc
+    if not isinstance(payload, dict) or payload.get("backup_file") != name:
+        raise BackupError("Backup metadata does not match the selected backup.")
+    return payload
+
 
 def _decrypt_backup(backup_path: Path, temp_root: Path, identity: Path) -> Path:
     archive_path = temp_root / "decrypted.tar.gz"
@@ -356,10 +368,7 @@ def _verify_archive(archive_path: Path, output_dir: Path) -> tuple[dict, str]:
 def verify_backup(backup_dir: str | Path, name: str, identity_file: str | None = None) -> dict:
     root = _directory_path(backup_dir)
     backup_path = _safe_backup_file(root, name)
-    metadata_path = root / (name + ".meta.json")
-    if metadata_path.is_symlink() or not metadata_path.is_file():
-        raise BackupError("Backup metadata is missing.")
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata = _load_metadata(root, name)
     actual_hash = _sha256_file(backup_path)
     if metadata.get("ciphertext_sha256") != actual_hash:
         raise BackupError("Encrypted backup checksum does not match its metadata.")
@@ -384,8 +393,7 @@ def verify_backup(backup_dir: str | Path, name: str, identity_file: str | None =
 def restore_to_staging(backup_dir: str | Path, name: str, identity_file: str | None = None) -> dict:
     root = _directory_path(backup_dir)
     backup_path = _safe_backup_file(root, name)
-    metadata_path = root / (name + ".meta.json")
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata = _load_metadata(root, name)
     if metadata.get("ciphertext_sha256") != _sha256_file(backup_path):
         raise BackupError("Encrypted backup checksum does not match its metadata.")
     identity = _identity_path(identity_file)
