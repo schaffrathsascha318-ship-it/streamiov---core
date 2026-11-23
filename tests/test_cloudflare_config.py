@@ -27,7 +27,7 @@ class CloudflareConfigTests(unittest.TestCase):
         self.assertNotRegex(workflow, r"(?m)^  push:")
         self.assertNotRegex(workflow, r"(?m)^  pull_request:")
         for job_name in ("verify", "deploy-homepage", "deploy-ai-worker"):
-            match = re.search(rf"(?ms)^  {job_name}:.*?(?=^  [A-Za-z0-9_-]+:|\\Z)", workflow)
+            match = re.search(rf"(?ms)^  {job_name}:.*?(?=^  [A-Za-z0-9_-]+:|\Z)", workflow)
             self.assertIsNotNone(match, f"missing Cloudflare job: {job_name}")
             block = match.group(0)
             self.assertIn("github.event_name == 'workflow_dispatch'", block)
