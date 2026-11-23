@@ -1078,21 +1078,22 @@ async function reconcileAudioOutputDevices(){
   const requested=previous[name]||"";
   const available=!requested||[...select.options].some(option=>option.value===requested);
   if(!available){
-   studioAudioMixer?.detachOutput(name,element);
+   if(studioAudioDeviceAdapter)studioAudioDeviceAdapter.detachOutput(name,element);else studioAudioMixer?.detachOutput(name,element);
    audioBusState[name].connected=false;
-   audioBusStatus(name,"Ausgabegerät wurde entfernt · bitte neues Gerät auswählen.");
    renderAudioBus(name);
+   audioBusStatus(name,"Ausgabegerät wurde entfernt · bitte neues Gerät auswählen.");
    continue;
   }
+  let message="Audioausgang nach Gerätewechsel wieder verbunden.";
   try{
    if(studioAudioDeviceAdapter)await studioAudioDeviceAdapter.attachOutput(name,element,{deviceId:requested});else await studioAudioMixer.attachOutput(name,element,{deviceId:requested});
    audioBusState[name].connected=true;
-   audioBusStatus(name,"Audioausgang nach Gerätewechsel wieder verbunden.");
   }catch(error){
    audioBusState[name].connected=false;
-   audioBusStatus(name,"Wiederverbindung fehlgeschlagen: "+captureError(error));
+   message="Wiederverbindung fehlgeschlagen: "+captureError(error);
   }
   renderAudioBus(name);
+  audioBusStatus(name,message);
  }
 }
 async function refreshAudioBusDevices(){
