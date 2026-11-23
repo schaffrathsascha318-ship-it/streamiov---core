@@ -76,6 +76,7 @@ class StudioAudioMixer {
       processing: { highpassHz: 20, compressorEnabled: false } };
     this.channels.set(name, channel);
     this.#applyRoutes(channel);
+    this.#applySoloState();
     return this.snapshot(name);
   }
 
