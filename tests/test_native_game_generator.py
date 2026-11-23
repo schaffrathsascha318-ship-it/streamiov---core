@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import runpy
+import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,10 +19,13 @@ class NativeGameGeneratorSafetyTests(unittest.TestCase):
         (self.template / "main.gd").write_text("extends Node2D\n", encoding="utf-8")
         (self.template / "main.tscn").write_text("[gd_scene format=3]\n", encoding="utf-8")
         (self.template / "icon.svg").write_text("<svg/>\n", encoding="utf-8")
-        self.generator = runpy.run_path(str(SCRIPT))
-        self.generator["TEMPLATE"] = self.template
-        self.generator["DEST"] = self.destination
-        self.generator["GAMES"] = [("neon-relay", "Neon Relay", "Arcade")]
+        spec = importlib.util.spec_from_file_location("streamiov_native_game_generator", SCRIPT)
+        self.generator = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(self.generator)
+        self.generator.TEMPLATE = self.template
+        self.generator.DEST = self.destination
+        self.generator.GAMES = [("neon-relay", "Neon Relay", "Arcade")]
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -34,7 +37,7 @@ class NativeGameGeneratorSafetyTests(unittest.TestCase):
         important.write_text("keep this work", encoding="utf-8")
 
         with self.assertRaisesRegex(SystemExit, "not owned by this generator"):
-            self.generator["main"]()
+            self.generator.main()
 
         self.assertEqual(important.read_text(encoding="utf-8"), "keep this work")
 
