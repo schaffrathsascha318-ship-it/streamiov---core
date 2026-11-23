@@ -732,7 +732,7 @@ ipcMain.handle('studio:twitch-connect', async (event) => {
   try {
     const oauth = getTwitchOAuth();
     const authorization = oauth.createAuthorizationUrl();
-    const redirect = new URL(process.env.STREAMIOV_TWITCH_REDIRECT_URI);
+    const redirect = new URL(oauth.redirectUri);
     if (redirect.protocol !== 'http:' || redirect.hostname !== '127.0.0.1' || !redirect.port ||
         redirect.pathname !== '/callback' || redirect.search || redirect.hash) throw new Error('Ungültiger Twitch-Loopback-Callback.');
     if (twitchCallbackServer) { await new Promise(resolve => twitchCallbackServer.close(resolve)); twitchCallbackServer = null; }
