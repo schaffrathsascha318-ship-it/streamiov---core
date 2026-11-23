@@ -869,8 +869,8 @@ ipcMain.handle('studio:get-module-status', async (event) => {
       { id: 'source-model', status: 'automated_tested', note: 'Quellen-Metadaten werden lokal gespeichert; keine Capture-/Encoder-Verbindung.' },
       { id: 'local-camera-preview', status: 'renderer_local_only', note: 'Getrennte lokale MediaDevices-Vorschau; nicht in Program/Encoder eingebunden.' },
       { id: 'synthetic-av-test', status: 'dependency_gated', note: 'Lokaler Test mit installierten GStreamer-Komponenten.' },
-      { id: 'compositor', status: 'not_implemented' },
-      { id: 'production-encoder', status: 'not_implemented' },
+      { id: 'compositor', status: 'canvas_2d_scene_capture', note: 'Programmszene wird in einen Canvas gerendert und per captureStream an MediaRecorder übergeben; native GPU-Compositing-/Multi-Source-Clock-Abnahme fehlt.' },
+      { id: 'production-encoder', status: 'ffmpeg_rtmp_pipe', note: 'MediaRecorder-WebM wird über eine begrenzte IPC-Pipe an FFmpeg (libx264/AAC/FLV/RTMP) übergeben. Abhängigkeiten und Plattformberechtigungen müssen verfügbar sein; Serverempfang und Plattform-LIVE bleiben unverifiziert.' },
       { id: 'voice-rooms', status: 'implementation_not_verified', note: 'Room-/Invite-API, Core-Tokens, WebRTC-Client und separates Signalling-Worker-Source vorhanden; Worker-Secrets, Deployment, TURN und Zwei-Client-Hardwareabnahme fehlen.' },
       { id: 'audio-mixer-routing', status: 'local_four_bus_engine', note: 'Mikrofon, Bildschirm-Systemton, lokaler Musikplayer, Soundboard-Pads, deutsches TTS und manuelle Alert-Töne werden über getrennte Stream-, Monitor-, Kopfhörer- und Kommunikationsbusse geroutet. Jeder Ausgang besitzt einen Limiter; ein plattformneutraler Geräteadapter übernimmt Geräteinventar, Mikrofonöffnung, Ausgabeverbindung und Hot-plug-Beobachtung. Mikrofon bietet Hochpass, optionalen Sprachkompressor, Noise Gate/Expander mit Hysterese, Pan, Solo und konfigurierbare OS-Echo-/Rauschunterdrückung sowie automatische Pegelregelung. Live-RMS-/Peak-Meter zeigen Quellen- und Stream-Ausgangspegel samt Clipping-Hinweis. Der Stream-Bus speist den lokalen MediaRecorder/Encoder-Eingang. Spiel-/Fensterton wird über den ausgewählten Capture-Track aufgenommen, sofern Windows/Electron einen Loopback-Audiotrack liefert; separate App-Audio-Kanäle, Voice-Räume und automatische Plattform-Event-Zuordnung für Alerts sind noch nicht angebunden. TTS nutzt espeak-ng, wenn vorhanden, und unter Windows zusätzlich die native System.Speech-Fallback-Ausgabe. Physische Geräteausgabe und LIVE-Übertragung sind nicht hardwareverifiziert.' },
       { id: 'tiktok-live-output', status: 'oauth_and_live_verification_pending' },
@@ -887,26 +887,29 @@ ipcMain.handle('studio:get-status', async (event) => {
     throw new Error('Nicht autorisierter Studio-Aufruf');
   }
 
+  const encoderProcessActive = Boolean(liveStreamProcess);
+  const encoderOutputInitialized = liveStreamState === 'output_ready';
   return {
     ok: true,
     bridge: 'ready',
     backend: {
-      connected: false,
-      state: 'foundation_only',
+      connected: encoderProcessActive,
+      state: encoderProcessActive ? liveStreamState : 'local_runtime_ready',
       engine: {
         name: 'STREAMIOV Studio Runtime',
         scene_engine: 'available',
         source_metadata_store: 'available',
-        compositor: 'not_implemented',
-        encoder: 'not_implemented',
+        compositor: 'canvas_2d_scene_capture',
+        encoder: 'ffmpeg_rtmp_pipe',
+        encoder_process_active: encoderProcessActive,
+        encoder_output_initialized: encoderOutputInitialized,
         output_connected: false,
         output_active: false,
         live_stream_verified: false
       },
-      note: 'Die eigene Medienpipeline und der produktive Encoder sind noch nicht integriert.'
+      note: 'Canvas/MediaRecorder/FFmpeg-RTMP-Pipeline ist implementiert. output_ready bestätigt nur initialisierten FLV-Encoder-Output, nicht RTMP-Serverempfang oder Plattform-LIVE.'
     }
   };
-
 });
 
 ipcMain.handle('studio:run-media-test', async (event) => {
