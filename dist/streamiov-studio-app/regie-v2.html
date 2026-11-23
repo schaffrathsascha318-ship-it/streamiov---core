@@ -1595,7 +1595,7 @@ async function renderSoundboardTool(body){
    for(let key=1;key<=9;key++)hotkey.add(new Option("Taste "+key,String(key)));
    hotkey.value=pad.hotkey;
    hotkey.addEventListener("change",()=>{
-    if(hotkey.value){for(const other of soundboardPads){if(other!==pad&&other.hotkey===hotkey.value){other.hotkey="";const otherMeta=other.card?.querySelector("small");if(otherMeta)otherMeta.textContent=other.category+" · kein Hotkey";}}}
+    if(hotkey.value){for(const other of soundboardPads){if(other!==pad&&other.hotkey===hotkey.value){other.hotkey="";if(other.hotkeySelect)other.hotkeySelect.value="";const otherMeta=other.card?.querySelector("small");if(otherMeta)otherMeta.textContent=other.category+" · kein Hotkey";}}}
     pad.hotkey=hotkey.value;meta.textContent=pad.category+" · "+(pad.hotkey?"Hotkey "+pad.hotkey:"kein Hotkey");
    });
    const controls=toolNode("div","tool-row");
@@ -1627,19 +1627,19 @@ async function renderSoundboardTool(body){
    });
    favorite.setAttribute("aria-pressed",pad.favorite?"true":"false");
    const remove=toolButton("Entfernen",()=>{
-    audio.pause();audio.removeAttribute("src");audio.load();URL.revokeObjectURL(objectUrl);
+    audio.pause();if(pad.source)pad.source.disconnect();if(pad.gain)pad.gain.disconnect();audio.removeAttribute("src");audio.load();URL.revokeObjectURL(objectUrl);
     const position=soundboardPads.indexOf(pad);if(position>=0)soundboardPads.splice(position,1);
     if(pad.favorite){soundboardFavorites.delete(favoriteId);try{localStorage.setItem(soundboardFavoritesKey,JSON.stringify([...soundboardFavorites]));}catch(_){}}
     card.remove();status.textContent="Pad entfernt: "+file.name;
    });
    controls.append(play,stop,mute,favorite,remove);
    card.append(title,meta,toolField("Kategorie",categoryField),toolField("Hotkey",hotkey),toolField("Pad-Lautstärke",volume),controls);
-   pad.card=card;
+   pad.card=card;pad.hotkeySelect=hotkey;
    grid.append(card);
   }
   status.textContent=soundboardPads.length+" Soundboard-Pad(s) geladen. Hotkeys 1–9 sind pro Pad frei zuweisbar.";
  };
- picker.addEventListener("change",()=>addFiles(picker.files));
+ picker.addEventListener("change",()=>{addFiles(picker.files);picker.value="";});
  body.append(
   toolNote("Eigene lokale Soundboard-Dateien. Wiedergabe wird in den gemeinsamen Stream-/Monitor-Audiomix geroutet; keine Datei wird hochgeladen."),
   toolField("Kategorie für neue Pads",category),
