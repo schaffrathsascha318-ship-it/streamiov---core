@@ -43,6 +43,7 @@ def fail(message: str) -> int:
 
 MAX_ISSUE_BODY_CHARS = 20000
 MAX_MISSION_GOAL_CHARS = 8000
+MODEL_PROGRESS_INTERVAL_SECONDS = 15
 
 
 class ObservedProvider:
@@ -64,6 +65,22 @@ class ObservedProvider:
             "message_count": len(messages),
             "prompt_chars": sum(len(item.get("content", "")) for item in messages if isinstance(item, dict)),
         }), flush=True)
+        heartbeat_stop = threading.Event()
+
+        def report_waiting():
+            while not heartbeat_stop.wait(MODEL_PROGRESS_INTERVAL_SECONDS):
+                print(json.dumps({
+                    "event": "model_request_still_running",
+                    "request_id": request_id,
+                    "elapsed_seconds": round(time.monotonic() - started, 2),
+                }), flush=True)
+
+        heartbeat = threading.Thread(
+            target=report_waiting,
+            name=f"streamiov-model-progress-{request_id}",
+            daemon=True,
+        )
+        heartbeat.start()
         try:
             reply = self._provider.generate(system=system, messages=messages)
         except Exception as exc:
@@ -74,12 +91,16 @@ class ObservedProvider:
                 "error_class": type(exc).__name__,
             }), flush=True)
             raise
-        print(json.dumps({
-            "event": "model_request_completed",
-            "request_id": request_id,
-            "duration_seconds": round(__import__("time").monotonic() - started, 2),
-        }), flush=True)
-        return reply
+        else:
+            print(json.dumps({
+                "event": "model_request_completed",
+                "request_id": request_id,
+                "duration_seconds": round(time.monotonic() - started, 2),
+            }), flush=True)
+            return reply
+        finally:
+            heartbeat_stop.set()
+            heartbeat.join(timeout=1)
 
     def __getattr__(self, name):
         return getattr(self._provider, name)
