@@ -40,7 +40,7 @@ class SpecialistRegistryTests(unittest.TestCase):
             "server": "server-side Core",
             "research": "AI technology",
             "game": "original downloadable",
-            "gifts": "official TikTok LIVE gift gallery",
+            "gifts": "TikTok's official LIVE gift gallery",
             "testing": "independent quality assurance",
         }
         for key, phrase in expected_topics.items():
