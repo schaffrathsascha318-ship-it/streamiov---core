@@ -407,6 +407,8 @@ dialog::backdrop{background:#000b}
      <button id="mixerMusicMute" type="button" aria-pressed="false" style="width:100%;margin-top:6px;padding:4px">MUTE</button></div>
     <div class="channel"><b>TTS</b><div class="meter"><i></i></div>
      <input id="mixerTts" type="range" min="0" max="100" value="100" aria-label="TTS-Lautstärke"><small id="mixerTtsValue">TTS · 100 %</small></div>
+    <div class="channel"><b>Alerts</b><div class="meter"><i></i></div>
+     <input id="mixerAlert" type="range" min="0" max="100" value="70" aria-label="Alert-Lautstärke"><small id="mixerAlertValue">ALERTS · 70 %</small></div>
     <div class="channel"><b>Master</b><div class="meter"><i></i></div>
      <input id="mixerMaster" type="range" min="0" max="100" value="80" aria-label="Masterlautstärke"><small id="mixerMasterValue">MASTER · 80 %</small></div>
    </div>
@@ -1255,6 +1257,8 @@ let ttsMediaSource=null;
 let ttsChannelGain=null;
 let ttsBridgeDestination=null;
 let ttsObjectUrl=null;
+let alertToneGain=null;
+let alertToneDestination=null;
 const musicQueue=[];
 let musicQueueIndex=-1;
 let musicCurrentTrackLabel=null;
@@ -1321,14 +1325,14 @@ function ensureBroadcastAudioGraph(){
 let broadcastFrame=0;
 const liveButton=$("live");
 const liveStatus=$("liveStatus");
-const mixerDefaults={mixerMic:75,mixerSystem:45,mixerMusic:50,mixerTts:100,mixerMaster:80};
+const mixerDefaults={mixerMic:75,mixerSystem:45,mixerMusic:50,mixerTts:100,mixerAlert:70,mixerMaster:80};
 const mixerStorageKey="streamiov.studio.audio-mixer.v1";
 function mixerValue(id){
  const value=Number($(id)?.value);
  return Number.isFinite(value)?Math.max(0,Math.min(100,value))/100:0;
 }
 function mixerPercent(id){return Math.round(mixerValue(id)*100);}
-function mixerLabel(id){return ({mixerMic:"MIC 1",mixerSystem:"SYSTEM",mixerMusic:"MUSIK",mixerTts:"TTS",mixerMaster:"MASTER"})[id]||id.toUpperCase();}
+function mixerLabel(id){return ({mixerMic:"MIC 1",mixerSystem:"SYSTEM",mixerMusic:"MUSIK",mixerTts:"TTS",mixerAlert:"ALERTS",mixerMaster:"MASTER"})[id]||id.toUpperCase();}
 function updateMixerLabels(){
  for(const id of Object.keys(mixerDefaults)){
   const label=$(id+"Value");
@@ -1350,6 +1354,7 @@ function applyMixerGains(){
  }
  if(musicChannelGain)musicChannelGain.gain.setTargetAtTime(musicMuted?0:mixerValue("mixerMusic"),now,0.02);
  if(ttsChannelGain)ttsChannelGain.gain.setTargetAtTime(mixerValue("mixerTts"),now,0.02);
+ if(alertToneGain)alertToneGain.gain.setTargetAtTime(mixerValue("mixerAlert"),now,0.02);
  if(broadcastMasterGain)broadcastMasterGain.gain.setTargetAtTime(mixerValue("mixerMaster"),now,0.02);
 }
 // Schutzregie / Privacy Shield: lokal, kostenlos und ehrlich begrenzt.
@@ -1646,8 +1651,32 @@ function showGiftEffect(symbol){
  }
  window.setTimeout(()=>{overlay.style.display="none";overlay.replaceChildren();},3400);
 }
+async function playAlertTone(){
+ const context=await ensureBroadcastAudioGraph();
+ await context.resume();
+ if(!studioAudioMixer)return;
+ if(alertToneGain){try{alertToneGain.disconnect();}catch(_){}if(alertToneDestination)alertToneDestination.stream.getTracks().forEach(track=>track.stop());studioAudioMixer.disconnect("alert");}
+ alertToneDestination=context.createMediaStreamDestination();
+ alertToneGain=context.createGain();
+ alertToneGain.gain.value=mixerValue("mixerAlert");
+ alertToneGain.connect(alertToneDestination);
+ studioAudioMixer.connect("alert",alertToneDestination.stream,{gain:1,routes:["stream","monitor"]});
+ const first=context.createOscillator(),second=context.createOscillator();
+ first.type="sine";second.type="sine";
+ first.frequency.value=880;second.frequency.value=1174.66;
+ const start=context.currentTime;
+ first.connect(alertToneGain);second.connect(alertToneGain);
+ first.start(start);first.stop(start+0.11);
+ second.start(start+0.12);second.stop(start+0.30);
+ second.addEventListener("ended",()=>{
+  if(studioAudioMixer)studioAudioMixer.disconnect("alert");
+  if(alertToneDestination)alertToneDestination.stream.getTracks().forEach(track=>track.stop());
+  alertToneDestination=null;alertToneGain=null;
+ },{once:true});
+}
 function showAlert(text){
  programAlert={text:String(text).slice(0,120),startedAt:performance.now()};
+ playAlertTone().catch(error=>log("Alert-Ton nicht verfügbar: "+String(error.message||error)));
 }
 async function renderChatTool(body){
  const api=window.streamiovStudio?.chatAction;
