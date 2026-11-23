@@ -208,7 +208,6 @@ class StreamiovVoiceClient {
     try { this.socket?.close(1000, 'client_disconnect'); } catch {}
     this.#closePeers();
     this.socket = null;
-    for (const track of this.localStream.getAudioTracks()) track.enabled = false;
     this.onState({ state: 'disconnected' });
   }
 }
