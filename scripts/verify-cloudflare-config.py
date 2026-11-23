@@ -192,13 +192,14 @@ def verify() -> dict[str, Any]:
             "download/index.html",
             "forum/index.html",
             "account/index.html",
-            "app/index.html",
             "assets/streamiov-wordmark.svg",
             "assets/streamiov-symbol.svg",
         ):
             if not (HOMEPAGE_PUBLIC / required).is_file():
                 errors.append(f"homepage public file is missing: {required}")
-        checks.append("homepage asset tree contains the public entry points")
+        if (HOMEPAGE_PUBLIC / "app" / "index.html").exists():
+            errors.append("homepage must not host a browser-based Streamiov Studio under /app/")
+        checks.append("homepage asset tree contains information, downloads, and no web Studio")
 
     if ai:
         if ai.get("name") != "streamiov-ai-worker":
