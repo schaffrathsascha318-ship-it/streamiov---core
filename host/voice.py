@@ -40,6 +40,24 @@ def _signing_key() -> bytes:
     return raw.encode("utf-8")
 
 
+def voice_ice_configuration(user_id: str, *, now: int | None = None) -> dict:
+    """Return public STUN plus short-lived coturn REST credentials when configured."""
+    current = int(time.time()) if now is None else int(now)
+    raw_urls = os.environ.get("STREAMIOV_TURN_URLS", "")
+    urls = [item.strip() for item in raw_urls.split(",") if item.strip()]
+    urls = [item for item in urls if item.startswith(("turn:", "turns:")) and len(item) <= 512 and not any(ch.isspace() for ch in item)]
+    secret = os.environ.get("STREAMIOV_TURN_SHARED_SECRET", "")
+    result = [{"urls": "stun:stun.l.google.com:19302"}]
+    if urls and len(secret.encode("utf-8")) >= 32:
+        expiry = current + 3600
+        username = f"{expiry}:{user_id}"
+        credential = base64.b64encode(
+            hmac.new(secret.encode("utf-8"), username.encode("utf-8"), hashlib.sha1).digest()
+        ).decode("ascii")
+        result.insert(0, {"urls": urls, "username": username, "credential": credential})
+    return {"ice_servers": result, "turn_available": bool(urls and len(secret.encode("utf-8")) >= 32)}
+
+
 def issue_voice_token(*, user_id: str, room_id: str, role: str, now: int | None = None) -> dict:
     current = int(time.time()) if now is None else int(now)
     if role not in {"owner", "moderator", "member", "guest"}:
