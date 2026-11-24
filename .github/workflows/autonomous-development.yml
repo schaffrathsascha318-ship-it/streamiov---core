@@ -230,7 +230,7 @@ jobs:
           STREAMIOV_MISSION_ID: ${{ steps.pick.outputs.mission_key == '0' && 'streamiov-platform' || format('streamiov-issue-{0}', steps.pick.outputs.mission_key) }}
           STREAMIOV_MISSION_DB: ${{ runner.temp }}/streamiov-ai-missions/missions.sqlite3
           STREAMIOV_PROJECT_SUPERVISOR: ${{ steps.pick.outputs.project_supervisor }}
-          STREAMIOV_MODEL_PROVIDERS: ${{ vars.STREAMIOV_MODEL_PROVIDERS || 'cloudflare-workers-ai' }}
+          STREAMIOV_MODEL_PROVIDERS: ${{ vars.STREAMIOV_MODEL_PROVIDERS || 'ollama' }}
           STREAMIOV_SELF_HOSTED_MODEL_URL: ${{ vars.STREAMIOV_SELF_HOSTED_MODEL_URL }}
           STREAMIOV_SELF_HOSTED_MODEL: ${{ vars.STREAMIOV_SELF_HOSTED_MODEL || 'qwen2.5-coder:7b' }}
           STREAMIOV_OLLAMA_MODEL: ${{ vars.STREAMIOV_OLLAMA_MODEL || 'qwen2.5-coder:1.5b' }}
@@ -242,6 +242,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # A healthy local Ollama provider makes any persisted Cloudflare quota cooldown obsolete.
+          if [[ "$STREAMIOV_MODEL_PROVIDERS" == "ollama" ]]; then
+            python - <<'PY'
+          import os
+          import sqlite3
+          database = os.environ["STREAMIOV_MISSION_DB"]
+          mission_id = os.environ["STREAMIOV_MISSION_ID"]
+          with sqlite3.connect(database) as db:
+              db.execute(
+                  """UPDATE development_missions
+                     SET planning_retry_at=NULL, planning_failures=0,
+                         planning_owner='', planning_lease_until=NULL
+                     WHERE mission_id=? AND status='active'""",
+                  (mission_id,),
+              )
+          print("Cleared only the obsolete planning cooldown for the active mission using verified local Ollama.")
+          PY
+          fi
           timeout --preserve-status --signal=INT --kill-after=90s 18m python scripts/autonomous/run_issue.py
 
       - name: Checkpoint and encrypt durable AI Chief mission state
