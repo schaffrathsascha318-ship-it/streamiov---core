@@ -27,7 +27,7 @@ class SequenceProvider:
 
     def generate(self, *, system: str, messages: list[dict[str, str]]) -> ModelReply:
         self.calls += 1
-        self.messages.append(messages)
+        self.messages.append([dict(message) for message in messages])
         if not self.responses:
             raise AssertionError("Unexpected extra model request.")
         return ModelReply(self.responses.pop(0), "test", "fixture")
@@ -147,7 +147,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
             agent = DevelopmentAgent(provider, directory, specialist="code")
             result = agent.run("Create created.txt with the word safe.")
             self.assertIn("created", result)
-            self.assertIn("Verified tool evidence: write_file", result)
+            self.assertEqual(result, "created")
             self.assertEqual(Path(directory, "ai", "created.py").read_text(encoding="utf-8"), "safe")
         self.assertEqual(provider.calls, 2)
 
@@ -189,9 +189,14 @@ class SpecialistActionProtocolTests(unittest.TestCase):
     def test_successful_read_only_inspection_counts_as_research_evidence(self):
         provider = SequenceProvider('{"tool":"list_files","arguments":{"path":"."}}', '{"final":"Inspected the project."}')
         with tempfile.TemporaryDirectory() as directory:
-            agent = DevelopmentAgent(provider, directory, specialist="research")
-            result = agent.run("Inspect the project.")
-            self.assertIn("Verified tool evidence: list_files", result)
+            database = Path(directory, "agent-checkpoints.sqlite3")
+            agent = DevelopmentAgent(provider, directory, specialist="research", checkpoint_db=database)
+            result = agent.run("Inspect the project.", checkpoint_id="research-inspection")
+            self.assertEqual(result, "Inspected the project.")
+            evidence = AgentCheckpointStore(database).load(
+                "research-inspection", "Inspect the project.", "research"
+            )["successful_actions"]
+            self.assertEqual([item["tool"] for item in evidence], ["list_files"])
 
     def test_malformed_replies_have_bounded_corrections_per_run(self):
         provider = SequenceProvider("not json", "still not json", "still invalid", "invalid again")
