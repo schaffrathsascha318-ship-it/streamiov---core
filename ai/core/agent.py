@@ -549,8 +549,10 @@ class DevelopmentAgent:
                 final_result = actions[0]["final"].strip()
                 if not final_result:
                     raise AgentError("Final result must not be empty.")
-                verified_tools = sorted({item.get("tool", "unknown") for item in evidence if isinstance(item, dict)})
-                state["final_result"] = final_result + "\\n\\nVerified tool evidence: " + ", ".join(verified_tools)
+                # Keep the public result stable; evidence remains structured in the
+                # durable checkpoint for audit and recovery instead of being appended
+                # to user-facing task text.
+                state["final_result"] = final_result
                 persist()
                 return state["final_result"]
             state["pending_actions"] = actions
