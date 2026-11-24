@@ -1,0 +1,39 @@
+[Unit]
+Description=STREAMIOV persistent AI Chief project supervisor
+Documentation=https://github.com/schaffrathsascha318-ship-it/streamiov---core
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=streamiov
+Group=streamiov
+WorkingDirectory=/opt/streamiov
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/etc/streamiov/ai-chief.env
+ExecStartPre=/usr/bin/test -n "${STREAMIOV_PROJECT_GOAL}"
+ExecStartPre=/opt/streamiov/.venv/bin/python /opt/streamiov/scripts/ai/validate-chief-service-env.py
+StateDirectory=streamiov
+StateDirectoryMode=0700
+ExecStart=/opt/streamiov/.venv/bin/python -m ai --project-supervisor-run --task ${STREAMIOV_PROJECT_GOAL} --project-root /opt/streamiov --mission-db /var/lib/streamiov/ai-missions.sqlite3 --learning-db /var/lib/streamiov/verified-learning.sqlite3 --full-project-development --allow-self-modification --mission-poll-seconds 5
+Restart=always
+RestartSec=10
+KillSignal=SIGTERM
+TimeoutStopSec=90
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths=/opt/streamiov /var/lib/streamiov
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=2G
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target
