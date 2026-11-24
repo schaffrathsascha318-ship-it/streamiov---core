@@ -104,6 +104,85 @@ function extractModelText(result) {
   return "";
 }
 
+
+function selfHostedConfig(env) {
+  const base = env.STREAMIOV_SELF_HOSTED_MODEL_URL;
+  const token = env.STREAMIOV_SELF_HOSTED_MODEL_TOKEN;
+  const model = env.STREAMIOV_SELF_HOSTED_MODEL || "qwen2.5-coder:7b";
+  if (!base && !token) return null;
+  if (typeof base !== "string" || typeof token !== "string" || token.length < 32) return null;
+  try {
+    const parsed = new URL(base);
+    if (
+      parsed.protocol !== "https:" ||
+      !parsed.hostname ||
+      !parsed.hostname.includes(".") ||
+      !/[a-z]/i.test(parsed.hostname) ||
+      parsed.hostname.toLowerCase() === "localhost" ||
+      parsed.hostname.toLowerCase().endsWith(".localhost") ||
+      parsed.username ||
+      parsed.password ||
+      parsed.search ||
+      parsed.hash ||
+      (parsed.port && parsed.port !== "443") ||
+      !["", "/"].includes(parsed.pathname)
+    ) return null;
+    return { base: parsed.origin, token, model };
+  } catch {
+    return null;
+  }
+}
+
+async function selfHostedHealth(env) {
+  const config = selfHostedConfig(env);
+  if (!config) return { ready: false, model: null };
+  try {
+    const response = await fetch(config.base + "/health", {
+      method: "GET",
+      headers: { authorization: `Bearer ${config.token}`, accept: "application/json" },
+      redirect: "error",
+      cache: "no-store"
+    });
+    if (!response.ok) return { ready: false, model: config.model };
+    const result = await response.json();
+    return {
+      ready: result?.ok === true && (result?.model === config.model || result?.model_available === true),
+      model: config.model
+    };
+  } catch {
+    return { ready: false, model: config.model };
+  }
+}
+
+async function selfHostedGenerate(env, payload) {
+  const config = selfHostedConfig(env);
+  if (!config) return null;
+  try {
+    const response = await fetch(config.base + "/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${config.token}`,
+        "content-type": "application/json",
+        accept: "application/json"
+      },
+      redirect: "error",
+      cache: "no-store",
+      body: JSON.stringify({
+        model: config.model,
+        stream: false,
+        temperature: 0.1,
+        messages: payload.messages
+      })
+    });
+    if (!response.ok) return null;
+    const result = await response.json();
+    const content = result?.choices?.[0]?.message?.content;
+    return typeof content === "string" && content.trim() ? content : null;
+  } catch {
+    return null;
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -120,15 +199,26 @@ export default {
     }
 
     if (request.method === "GET" && url.pathname === "/health") {
-      return json({ ok: true, service: "streamiov-ai-worker", model: MODEL_ID, authentication: "verified" });
+      const selfHosted = await selfHostedHealth(env);
+      const cloudflareReady = Boolean(env.AI && typeof env.AI.run === "function");
+      const activeProvider = selfHosted.ready
+        ? "self-hosted-openai-compatible"
+        : cloudflareReady ? "cloudflare-workers-ai" : null;
+      return json({
+        ok: Boolean(activeProvider),
+        service: "streamiov-ai-worker",
+        model: MODEL_ID,
+        active_provider: activeProvider,
+        providers: [
+          { provider: "self-hosted-openai-compatible", ready: selfHosted.ready, model: selfHosted.model },
+          { provider: "cloudflare-workers-ai", ready: cloudflareReady, model: MODEL_ID }
+        ],
+        authentication: "verified"
+      });
     }
     if (request.method !== "POST" || url.pathname !== "/v1/chat/completions") {
       return json({ error: { code: "method_not_allowed", message: "Method not allowed." } }, 405);
     }
-    if (!env.AI || typeof env.AI.run !== "function") {
-      return json({ error: { code: "inference_not_configured", message: "Workers AI binding is unavailable." } }, 503);
-    }
-
     let payload;
     try {
       payload = await readJsonLimited(request);
@@ -144,6 +234,21 @@ export default {
     }
 
     try {
+      // Prefer the explicitly configured Streamiov-owned model host. The
+      // existing Workers AI binding remains the only configured fallback.
+      const selfHostedContent = await selfHostedGenerate(env, payload);
+      if (selfHostedContent) {
+        return json({
+          id: crypto.randomUUID(),
+          object: "chat.completion",
+          created: Math.floor(Date.now() / 1000),
+          model: MODEL_ID,
+          choices: [{ index: 0, message: { role: "assistant", content: selfHostedContent }, finish_reason: "stop" }]
+        });
+      }
+      if (!env.AI || typeof env.AI.run !== "function") {
+        return json({ error: { code: "inference_not_configured", message: "No self-hosted model endpoint or Workers AI binding is ready." } }, 503);
+      }
       const result = await env.AI.run(MODEL_ID, {
         messages: payload.messages,
         temperature: 0.1,
