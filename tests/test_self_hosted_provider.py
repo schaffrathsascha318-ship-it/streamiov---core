@@ -33,6 +33,9 @@ class SelfHostedProviderTests(unittest.TestCase):
             "https://user:pass@model.example.com",
             "https://model.example.com:8443",
             "https://model.example.com/path?token=secret",
+            "https://127.0.0.1",
+            "https://192.168.1.10",
+            "https://model.example.com/path",
         ):
             with self.subTest(url=url), self.assertRaises(ProviderError):
                 _endpoint_url(url)
