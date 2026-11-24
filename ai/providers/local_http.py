@@ -148,14 +148,20 @@ def _post(url: str, payload: dict) -> dict:
     return data
 
 
-def _configured_provider(kind: str):
+def _configured_provider(kind: str, *, legacy: bool = False):
     if kind == "ollama":
-        model = os.environ.get("STREAMIOV_OLLAMA_MODEL", os.environ.get("STREAMIOV_MODEL", "qwen2.5-coder:7b"))
+        model = os.environ.get("STREAMIOV_OLLAMA_MODEL", "qwen2.5-coder:7b")
         url = os.environ.get("STREAMIOV_OLLAMA_URL", "http://127.0.0.1:11434")
+        if legacy:
+            model = os.environ.get("STREAMIOV_MODEL", model)
+            url = os.environ.get("STREAMIOV_MODEL_URL", url)
         return OllamaProvider(model, url)
     if kind == "openai-compatible-local":
-        model = os.environ.get("STREAMIOV_LOCAL_OPENAI_MODEL", os.environ.get("STREAMIOV_MODEL", "local-code-model"))
+        model = os.environ.get("STREAMIOV_LOCAL_OPENAI_MODEL", "local-code-model")
         url = os.environ.get("STREAMIOV_LOCAL_OPENAI_URL", "http://127.0.0.1:8000/v1")
+        if legacy:
+            model = os.environ.get("STREAMIOV_MODEL", model)
+            url = os.environ.get("STREAMIOV_MODEL_URL", url)
         return LocalOpenAICompatibleProvider(model, url)
     if kind == "cloudflare-workers-ai":
         from .cloudflare_worker import provider_from_env as cloudflare_provider_from_env
@@ -176,4 +182,4 @@ def provider_from_env():
             raise ProviderError("STREAMIOV_MODEL_PROVIDERS cannot contain duplicate providers.")
         return ProviderRouter([(kind, _configured_provider(kind)) for kind in kinds])
     kind = os.environ.get("STREAMIOV_MODEL_PROVIDER", "ollama").lower()
-    return _configured_provider(kind)
+    return _configured_provider(kind, legacy=True)
