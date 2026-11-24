@@ -99,7 +99,12 @@ class SpecialistActionProtocolTests(unittest.TestCase):
             result = agent.run(task, checkpoint_id="crash")
             self.assertIn("Inspected the workspace", result)
             self.assertEqual(provider.calls, 2)
-            recovery = provider.messages[0][-1]["content"]
+            recovery = next(
+                message["content"]
+                for call in provider.messages
+                for message in call
+                if "CRASH RECOVERY" in message["content"]
+            )
             self.assertIn("CRASH RECOVERY", recovery)
             self.assertIn("UNKNOWN", recovery)
             self.assertIn("NEVER replay", recovery)
@@ -162,7 +167,12 @@ class SpecialistActionProtocolTests(unittest.TestCase):
             self.assertIn("no action executed", agent.run("Do not create blocked.txt."))
             self.assertFalse(Path(directory, "blocked.txt").exists())
         self.assertEqual(provider.calls, 3)
-        correction = provider.messages[1][-1]["content"]
+        correction = next(
+            message["content"]
+            for call in provider.messages
+            for message in call
+            if "FORMAT CORRECTION:" in message["content"]
+        )
         self.assertIn("allowed keys are ['content', 'path']", correction)
         self.assertIn("unexpected keys are ['extra']", correction)
 
@@ -175,7 +185,12 @@ class SpecialistActionProtocolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="code")
             self.assertIn("corrected", agent.run("Read the README safely."))
-        diagnostic = provider.messages[1][-1]["content"]
+        diagnostic = next(
+            message["content"]
+            for call in provider.messages
+            for message in call
+            if "FORMAT CORRECTION:" in message["content"]
+        )
         self.assertIn("allowed keys are ['path']", diagnostic)
         self.assertIn("unexpected keys are ['length', 'offset']", diagnostic)
 
@@ -231,7 +246,13 @@ class SpecialistActionProtocolTests(unittest.TestCase):
             self.assertFalse(Path(directory, "must-not-exist.txt").exists())
             self.assertFalse(Path(directory, "also-invalid.txt").exists())
         self.assertEqual(provider.calls, 3)
-        self.assertIn("unexpected keys are ['unexpected']", provider.messages[1][-1]["content"])
+        correction = next(
+            message["content"]
+            for call in provider.messages
+            for message in call
+            if "FORMAT CORRECTION:" in message["content"]
+        )
+        self.assertIn("unexpected keys are ['unexpected']", correction)
 
     def test_mixed_final_and_tool_actions_are_rejected_before_execution(self):
         provider = SequenceProvider(
@@ -246,7 +267,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
             agent = DevelopmentAgent(provider, directory, specialist="code")
             self.assertIn("mixed batch rejected", agent.run("Reject a mixed final/action response."))
             self.assertFalse(Path(directory, "must-not-exist.txt").exists())
-        self.assertEqual(provider.calls, 2)
+        self.assertEqual(provider.calls, 3)
 
 
 if __name__ == "__main__":
