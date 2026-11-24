@@ -9,11 +9,12 @@ from ai.runtime.learning_store import LearningStoreError, VerifiedLearningStore
 class FakeProvider:
     def __init__(self):
         self.messages = None
+        self.responses = iter(('{"tool":"list_files","arguments":{"path":"."}}', '{"final":"completed"}'))
     def generate(self, *, system, messages):
         self.messages = messages
         class Reply:
-            content = '{"final":"completed"}'
-        return Reply()
+            def __init__(self, content): self.content = content
+        return Reply(next(self.responses))
 
 
 class VerifiedLearningStoreTests(unittest.TestCase):

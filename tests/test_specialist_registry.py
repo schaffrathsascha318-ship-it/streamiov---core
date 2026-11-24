@@ -11,12 +11,13 @@ from ai.specialists.registry import build_specialist_system_prompt
 class FakeProvider:
     def __init__(self):
         self.system = None
+        self.responses = iter(('{"tool":"list_files","arguments":{"path":"."}}', '{"final":"role prompt received"}'))
 
     def generate(self, *, system, messages):
         self.system = system
         class Reply:
-            content = '{"final":"role prompt received"}'
-        return Reply()
+            def __init__(self, content): self.content = content
+        return Reply(next(self.responses))
 
 
 class SpecialistRegistryTests(unittest.TestCase):

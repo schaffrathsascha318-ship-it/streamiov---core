@@ -32,10 +32,19 @@ class QueueCliTests(unittest.TestCase):
             queue.enqueue_plan([SpecialistTask("task-1", "testing", "Run the checks")])
 
             class FakeProvider:
+                def __init__(self):
+                    self.inspected = False
+
                 def generate(self, *, system, messages):
+                    content = (
+                        '{"tool":"list_files","arguments":{"path":"."}}'
+                        if not self.inspected else '{"final":"All assigned checks completed."}'
+                    )
+                    self.inspected = True
                     class Reply:
-                        content = '{"final":"All assigned checks completed."}'
-                    return Reply()
+                        def __init__(self, value):
+                            self.content = value
+                    return Reply(content)
 
             output = StringIO()
             with patch("ai.__main__.provider_from_env", return_value=FakeProvider()), redirect_stdout(output):
