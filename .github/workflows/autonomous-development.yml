@@ -2,7 +2,7 @@ name: STREAMIOV autonomous development runner
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "0 */6 * * *"
   issues:
     types: [labeled]
   workflow_dispatch:
@@ -446,9 +446,19 @@ jobs:
         if: always() && steps.pick.outputs.project_supervisor == 'true' && steps.mission.outcome == 'success' && steps.encrypt_mission_state.outputs.saved == 'true' && steps.save_mission_artifact.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MISSION_STATUS: ${{ steps.mission.outputs.status }}
+          PENDING_TASKS: ${{ steps.mission.outputs.pending_tasks }}
+          RUNNING_TASKS: ${{ steps.mission.outputs.running_tasks }}
         shell: bash
         run: |
           set -euo pipefail
-          # workflow_dispatch is an explicit event-driven continuation, not a
-          # polling cron. The concurrency group keeps slices strictly serial.
-          gh workflow run autonomous-development.yml --ref main
+          pending="${PENDING_TASKS:-0}"
+          running="${RUNNING_TASKS:-0}"
+          mission_status="${MISSION_STATUS:-unknown}"
+          # Avoid another runner slice while the planner is backing off
+          # (for example after the daily AI allocation has been exhausted).
+          if [[ "$mission_status" == "completed" || "$pending" -gt 0 || "$running" -gt 0 ]]; then
+            gh workflow run autonomous-development.yml --ref main
+          else
+            echo "No immediate continuation: no runnable tasks; scheduled recovery will resume the mission."
+          fi
