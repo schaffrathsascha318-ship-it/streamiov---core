@@ -23,8 +23,8 @@ MAX_TOTAL_CHARS = 48_000
 
 def configuration():
     token = os.environ.get("STREAMIOV_MODEL_GATEWAY_TOKEN", "")
-    if len(token) < 32:
-        raise RuntimeError("STREAMIOV_MODEL_GATEWAY_TOKEN must contain at least 32 characters.")
+    if len(token) < 32 or token.lower().startswith(("replace", "change_me", "changeme")):
+        raise RuntimeError("STREAMIOV_MODEL_GATEWAY_TOKEN must be a unique random secret of at least 32 characters.")
     model = os.environ.get("STREAMIOV_OLLAMA_MODEL", "qwen2.5-coder:7b").strip()
     if not model:
         raise RuntimeError("STREAMIOV_OLLAMA_MODEL must not be empty.")
