@@ -30,6 +30,16 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(calls[0], ("core", "define shared contract"))
         self.assertIn(("game", "build independent game"), calls)
 
+    def test_empty_specialist_output_is_failed_not_succeeded(self):
+        class EmptyAgent:
+            def run(self, prompt):
+                return "  \n"
+        results = TaskOrchestrator(lambda _role: EmptyAgent()).run([
+            SpecialistTask("empty", "code", "Return no result."),
+        ])
+        self.assertEqual(results[0].status, "failed")
+        self.assertIn("empty result", results[0].error)
+
     def test_failed_dependency_skips_only_its_dependants(self):
         calls = []
         orchestrator = TaskOrchestrator(lambda role: FakeAgent(role, calls, {"fail core"}))
