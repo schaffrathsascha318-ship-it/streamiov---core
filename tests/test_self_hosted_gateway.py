@@ -52,6 +52,13 @@ class SelfHostedGatewayTests(unittest.TestCase):
         except HTTPError as exc:
             return exc.code, json.loads(exc.read().decode("utf-8"))
 
+    def test_gateway_rejects_placeholder_token_at_startup(self):
+        with patch.dict(os.environ, {
+            "STREAMIOV_MODEL_GATEWAY_TOKEN": "replace-with-a-random-secret-at-least-32-characters"
+        }):
+            with self.assertRaisesRegex(RuntimeError, "unique random secret"):
+                self.gateway.configuration()
+
     def test_health_requires_bearer_token(self):
         status, body = self.request("/health")
         self.assertEqual(status, 401)
