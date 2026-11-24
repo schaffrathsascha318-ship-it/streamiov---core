@@ -375,7 +375,7 @@ class AgentTests(unittest.TestCase):
                     super().__init__(replies)
                     self.calls = []
                 def generate(self, **kwargs):
-                    self.calls.append(kwargs["messages"])
+                    self.calls.append([dict(message) for message in kwargs["messages"]])
                     return super().generate(**kwargs)
 
             provider = CapturingProvider(["not json", '{"tool":"list_files","arguments":{"path":"."}}', '{"final":"Recovered safely."}'])
