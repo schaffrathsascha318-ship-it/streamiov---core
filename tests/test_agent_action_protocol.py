@@ -62,6 +62,26 @@ class SpecialistActionProtocolTests(unittest.TestCase):
                 self.assertTrue({"format_retries", "final_result", "in_flight_action_index", "checkpoint_version"} <= columns)
                 self.assertEqual(db.execute("SELECT COUNT(*) FROM agent_checkpoints").fetchone()[0], 1)
 
+    def test_successful_tool_evidence_survives_checkpoint_reload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory, "checkpoints.sqlite3")
+            task = "inspect and resume"
+            store = AgentCheckpointStore(database)
+            state = {
+                "messages": [{"role": "user", "content": task}],
+                "pending_actions": [],
+                "next_action_index": 0,
+                "results": [],
+                "successful_actions": [{"tool": "list_files", "result": "README.md"}],
+                "format_retries": 0,
+                "final_result": None,
+                "in_flight_action_index": None,
+                "checkpoint_version": 1,
+            }
+            store.save("evidence", task, "research", state)
+            resumed = store.load("evidence", task, "research")
+            self.assertEqual(resumed["successful_actions"], state["successful_actions"])
+
     def test_interrupted_action_is_not_replayed_and_checkpoint_recovers_through_inspection(self):
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory, "checkpoints.sqlite3")
