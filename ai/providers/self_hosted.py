@@ -1,6 +1,7 @@
 """Authenticated HTTPS client for a self-hosted OpenAI-compatible model endpoint."""
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 from urllib.error import HTTPError, URLError
@@ -24,11 +25,18 @@ def _endpoint_url(value: str) -> str:
     except ValueError as exc:
         raise ProviderError("Self-hosted model endpoint URL is malformed.") from exc
     host = parsed.hostname or ""
+    try:
+        ipaddress.ip_address(host)
+        is_ip_literal = True
+    except ValueError:
+        is_ip_literal = False
     if (
         parsed.scheme != "https"
         or not host
         or "." not in host
         or host in {"localhost"}
+        or is_ip_literal
+        or parsed.path not in ("", "/")
         or parsed.username is not None
         or parsed.password is not None
         or parsed.query
