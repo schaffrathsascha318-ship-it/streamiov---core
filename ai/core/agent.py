@@ -365,6 +365,7 @@ class DevelopmentAgent:
                 "pending_actions": [],
                 "next_action_index": 0,
                 "results": [],
+                "successful_actions": [],
                 "format_retries": 0,
                 "final_result": None,
                 "in_flight_action_index": None,
@@ -470,6 +471,11 @@ class DevelopmentAgent:
                         marker = "[tool output truncated at 12,000 characters]\n"
                         result = marker + result[:MAX_TOOL_RESULT_CHARS - len(marker)]
                     results.append(f"ACTION {index + 1} ({tool}):\n{result}")
+                    if not result.lstrip().startswith("TOOL_ERROR:"):
+                        state.setdefault("successful_actions", []).append({
+                            "tool": tool,
+                            "result": result[:1000],
+                        })
                     state["next_action_index"] = index + 1
                     state["in_flight_action_index"] = None
                     # Result, cursor advancement, and marker removal are saved together.
@@ -528,9 +534,19 @@ class DevelopmentAgent:
             state["format_retries"] = 0
             if any("final" in action for action in actions):
                 check_cancelled()
-                state["final_result"] = actions[0]["final"]
+                evidence = state.get("successful_actions", [])
+                if not isinstance(evidence, list) or not evidence:
+                    raise AgentError(
+                        "Refusing to report task success without at least one successfully executed project tool. "
+                        "Inspect the project and perform or verify a concrete action before returning final."
+                    )
+                final_result = actions[0]["final"].strip()
+                if not final_result:
+                    raise AgentError("Final result must not be empty.")
+                verified_tools = sorted({item.get("tool", "unknown") for item in evidence if isinstance(item, dict)})
+                state["final_result"] = final_result + "\\n\\nVerified tool evidence: " + ", ".join(verified_tools)
                 persist()
-                return actions[0]["final"]
+                return state["final_result"]
             state["pending_actions"] = actions
             state["next_action_index"] = 0
             state["results"] = []
