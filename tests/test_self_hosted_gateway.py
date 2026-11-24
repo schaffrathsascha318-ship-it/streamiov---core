@@ -1,4 +1,6 @@
-import importlib
+import importlib.util
+from pathlib import Path
+import sys
 import json
 import os
 import threading
@@ -18,7 +20,11 @@ class SelfHostedGatewayTests(unittest.TestCase):
             "STREAMIOV_MODEL_MAX_CONCURRENCY": "2",
         })
         cls.env_patch.start()
-        cls.gateway = importlib.import_module("infrastructure.ai-model-runtime.gateway")
+        gateway_path = Path(__file__).resolve().parents[1] / "infrastructure" / "ai-model-runtime" / "gateway.py"
+        spec = importlib.util.spec_from_file_location("streamiov_model_gateway_test", gateway_path)
+        cls.gateway = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = cls.gateway
+        spec.loader.exec_module(cls.gateway)
         cls.server = cls.gateway.ThreadingHTTPServer(("127.0.0.1", 0), cls.gateway.Handler)
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
