@@ -4,76 +4,68 @@ A separate Cloudflare Worker for Streamiov's server-side model inference. It is 
 
 ## Model and cost boundary
 
-- Fixed model: `@cf/zai-org/glm-4.7-flash`.
-- Cloudflare lists this model as hosted, with reasoning and function-calling support.
-- Workers AI Free currently includes 10,000 Neurons per day. This is a real provider quota, not unlimited compute. When the allocation is exhausted, this Worker returns HTTP 429 and pauses requests until reset.
-- No paid fallback, external model provider, automatic upgrade, or user-facing paid tier is configured.
+- The Worker now supports an explicitly configured Streamiov-controlled, self-hosted model endpoint first.
+- The self-hosted endpoint must be HTTPS and bearer-authenticated. It can be an Ollama-backed OpenAI-compatible gateway from `infrastructure/ai-model-runtime`.
+- If the self-hosted endpoint is absent or unavailable, the existing pinned Workers AI model `@cf/zai-org/glm-4.7-flash` remains the configured fallback.
+- Workers AI Free has a real provider quota. When its allocation is exhausted, the Worker returns HTTP 429; it does not activate paid inference or upgrade billing.
+- The self-hosted model runs on hardware controlled by Streamiov. A Cloudflare Worker is the control plane and secure router; it does not load multi-gigabyte model weights into the Worker runtime.
 
-Official references:
-- https://developers.cloudflare.com/workers-ai/models/glm-4.7-flash/
-- https://developers.cloudflare.com/workers-ai/platform/pricing/
-- https://developers.cloudflare.com/workers-ai/configuration/bindings/
+## Configure self-hosted inference
+
+Deploy the model gateway described in [the self-hosted runtime guide](../../ai-model-runtime/README.md) on a separate machine with sufficient RAM/storage (and an optional compatible GPU). Do not use the Chromebook development environment as a production model host.
+
+Set these variables/secrets on the Cloudflare Worker:
+
+- Variable `STREAMIOV_SELF_HOSTED_MODEL_URL`: HTTPS hostname of the authenticated model gateway, e.g. `https://model.example.com`.
+- Variable `STREAMIOV_SELF_HOSTED_MODEL`: exact model name exposed by the gateway, e.g. `qwen2.5-coder:7b`.
+- Secret `STREAMIOV_SELF_HOSTED_MODEL_TOKEN`: same high-entropy bearer token configured on the gateway.
+
+The Worker probes the self-hosted `/health` endpoint and tries it before Workers AI. If the self-hosted service is unavailable, the existing Workers AI binding is used. To disable that fallback entirely, remove/disable the Workers AI binding only after a self-hosted-only deployment has been verified; do not make that production change as part of this code-only change.
 
 ## Security
 
-- All routes require a bearer token of at least 32 characters, including the health endpoint.
-- Store the token as a Cloudflare Worker secret; never commit it or put it in a frontend bundle.
-- Requests are limited to 64 KiB, 24 messages, 32,000 characters per message, 48,000 prompt characters, and 4,096 output tokens. The per-message limit accommodates bounded multi-file context returned by the development agent; the aggregate prompt and body limits remain enforced.
-- Only system/user/assistant messages are accepted. The model ID is fixed server-side.
+- All Worker routes require the existing bearer token of at least 32 characters, including health.
+- The self-hosted endpoint has its own bearer secret. It is never returned in health responses or application logs.
+- Self-hosted endpoint URLs must use HTTPS and cannot contain credentials, query strings, fragments, or custom ports.
+- Requests are limited to 64 KiB, 24 messages, 32,000 characters per message, and 48,000 prompt characters.
+- Only system/user/assistant messages are accepted. The Worker model identifier remains pinned at the public gateway boundary.
 - Prompts, responses, and tokens are not written to application logs.
-- Only the Cloudflare AI binding is used for inference.
 
 ## Deploy
 
-For a guided one-command setup from the repository root, run:
+The deployment workflow remains manual and owner-approved. After configuring the self-hosted variables/secrets, deploy the Worker using the existing process:
 
 ```bash
-bash scripts/deploy-streamiov-ai-worker.sh
-```
-
-The script checks the existing Wrangler login, deploys the Worker, generates a random 256-bit bearer token, stores it as a Cloudflare secret, writes a mode-600 local environment file under `~/.config/streamiov/ai-worker.env`, and performs an authenticated health check. It never prints or commits the token.
-
-Alternatively, use the manual process below. Use the Cloudflare account already authorized with Wrangler:
-
-```bash
-npx wrangler@4 secret put STREAMIOV_AI_WORKER_TOKEN --config infrastructure/cloudflare/streamiov-ai-worker/wrangler.jsonc
+npx wrangler@4 secret put STREAMIOV_SELF_HOSTED_MODEL_TOKEN --config infrastructure/cloudflare/streamiov-ai-worker/wrangler.jsonc
 npx wrangler@4 deploy --config infrastructure/cloudflare/streamiov-ai-worker/wrangler.jsonc
 ```
 
-Create a high-entropy token (at least 32 characters) locally and enter it only at the Wrangler secret prompt. Keep the same value in the agent machine's `STREAMIOV_AI_WORKER_TOKEN` environment variable. Do not put it in GitHub source files.
-
-Wrangler prints the deployed `workers.dev` URL. Use that URL as `STREAMIOV_MODEL_URL`.
+Keep the existing `STREAMIOV_AI_WORKER_TOKEN` secret configured. Do not commit secrets or put them in a frontend bundle.
 
 ## Client configuration
 
-After deployment:
+The AI Chief can use a direct self-hosted provider chain. Configure the GitHub Actions repository variable `STREAMIOV_MODEL_PROVIDERS` as:
+
+```text
+self-hosted-openai-compatible,cloudflare-workers-ai
+```
+
+Also set repository variables `STREAMIOV_SELF_HOSTED_MODEL_URL` and `STREAMIOV_SELF_HOSTED_MODEL`, and secret `STREAMIOV_SELF_HOSTED_MODEL_TOKEN`. The self-hosted model is tried first; the existing Workers AI gateway is used only if it is explicitly listed later in the chain.
+
+For a direct local CLI connection to the HTTPS gateway:
 
 ```bash
-export STREAMIOV_MODEL_PROVIDER=cloudflare-workers-ai
-export STREAMIOV_MODEL=@cf/zai-org/glm-4.7-flash
-export STREAMIOV_MODEL_URL=https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev
-export STREAMIOV_AI_WORKER_TOKEN='the-same-secret-entered-in-wrangler'
+export STREAMIOV_MODEL_PROVIDERS=self-hosted-openai-compatible
+export STREAMIOV_SELF_HOSTED_MODEL=qwen2.5-coder:7b
+export STREAMIOV_SELF_HOSTED_MODEL_URL=https://model.example.com
+export STREAMIOV_SELF_HOSTED_MODEL_TOKEN='the-same-secret-entered-on-the-model-host'
 python -m ai --doctor
 ```
 
-The agent CLI should report the worker and model as ready before running a task. Replace the example URL with the exact URL printed by Wrangler.
-
-## GitHub Actions
-
-Two workflows cover this Worker:
-
-- `.github/workflows/cloudflare-checks.yml` is read-only. It verifies the Wrangler config, the pinned model, bearer authentication, the deploy script, and the Worker contract tests on pull requests and pushes to `main`.
-- `.github/workflows/cloudflare-deploy.yml` is manual and owner-approved. It uses the GitHub `production` environment and requires `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. After deploying, it checks that `STREAMIOV_AI_WORKER_TOKEN` exists as a Cloudflare secret. It does not create the secret, enable Workers AI, or prove quota/model availability.
-
 ## Verification status
 
-The Worker source and tests are validated in GitHub Actions. The Worker is also deployed in the owner's Cloudflare account at `https://streamiov-ai-worker.schaffrathsascha318.workers.dev`.
+The self-hosted gateway, Python provider, Cloudflare Worker routing, and their tests are part of the repository source. They are not proof that a production model host has been provisioned or that the new Worker code has been deployed.
 
-Verified on 2026-11-03 with the owner's local `~/.config/streamiov/ai-worker.env`:
+A successful `/health` check proves that the configured model is listed. A real inference request must also succeed before calling the runtime operational. The existing production Worker remains on its last deployed revision until a separately owner-approved deployment is completed.
 
-- `python -m ai --doctor` exits 0 with `ready: true`, `reachable: true`, and `model_available: true`.
-- A minimal authenticated `POST /v1/chat/completions` returned HTTP 200 with `STREAMIOV_AI_OK` from `@cf/zai-org/glm-4.7-flash`.
-
-Those credentials are not in this repository. A fresh checkout still needs the owner's environment or the GitHub `production` environment secrets before it can deploy or call the Worker.
-
-The current development host cannot run the local Ollama fallback because only about 213 MiB RAM is available. That limit applies to local inference only; the deployed Cloudflare Worker is reachable.
+The Chromebook development host previously had only about 213 MiB of available RAM, which is not sufficient for the proposed 7B model. The self-hosted runtime therefore requires a separate machine with adequate resources. No paid GPU instance, model-provider billing, or Cloudflare production deployment is activated by this PR.
