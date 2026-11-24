@@ -319,6 +319,35 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(len(provider.calls), 2)
         self.assertIn("FORMAT CORRECTION", provider.calls[1][-1]["content"])
 
+    def test_planner_retries_dependency_schema_errors_twice_before_accepting_a_valid_plan(self):
+        class Provider:
+            def __init__(self):
+                self.responses = [
+                    json.dumps({"state": "continue", "summary": "Bad dependency shape.", "tasks": [
+                        {"id": "base", "specialist": "code", "prompt": "Build base.", "depends_on": ["missing"]}
+                    ]}),
+                    json.dumps({"state": "continue", "summary": "Still invalid.", "tasks": [
+                        {"id": "base", "specialist": "code", "prompt": "Build base.", "depends_on": ["not-in-batch"]}
+                    ]}),
+                    json.dumps({"state": "continue", "summary": "Valid repaired plan.", "tasks": [
+                        {"id": "base", "specialist": "code", "prompt": "Build base.", "depends_on": []}
+                    ]}),
+                ]
+                self.calls = []
+
+            def generate(self, *, system, messages):
+                self.calls.append(messages)
+                return type("Reply", (), {"content": self.responses.pop(0)})()
+
+        provider = Provider()
+        plan = ModelMissionPlanner(provider).plan(
+            "Repair invalid task dependencies.", "", mission_id="dependency-retry", cycle=2,
+        )
+        self.assertEqual(len(plan.tasks), 1)
+        self.assertEqual(plan.tasks[0].depends_on, ())
+        self.assertEqual(len(provider.calls), 3)
+        self.assertIn("depends_on MUST be a JSON array of strings", provider.calls[2][-1]["content"])
+
     def test_existing_mission_database_is_migrated_with_retry_columns(self):
         with closing(sqlite3.connect(self.db)) as db, db:
             db.executescript("""
@@ -765,6 +794,30 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(sum(item["event"] == "task_succeeded" for item in parsed), 2)
         self.assertEqual(sum(item["event"] == "checkpoint_cleanup_warning" for item in parsed), 2)
         self.assertFalse(any(item["event"] == "task_retry_scheduled" for item in parsed))
+
+    def test_empty_specialist_output_is_not_persisted_as_task_success(self):
+        planner = SequencePlanner([
+            MissionPlan("continue", "Run an empty-output task.", (
+                SpecialistTask("empty-output", "code", "return no content"),
+            )),
+        ])
+        events = []
+
+        class EmptyAgent:
+            def run(self, _prompt):
+                return "   "
+
+        engine = self.make_engine(planner, lambda _role: EmptyAgent())
+        mission_id = engine.create_mission("Reject empty specialist output")
+        engine._claim_planning(mission_id, "planner")
+        engine._store_plan(mission_id, "planner", 1, planner.plans[0])
+        task = engine._claim_task(mission_id, "worker")
+        self.assertIsNotNone(task)
+        engine._execute_task(task, "worker", events.append)
+        snapshot = engine.get_mission(mission_id)
+        self.assertEqual(snapshot.completed_tasks, 0)
+        self.assertEqual(snapshot.pending_tasks, 1)
+        self.assertTrue(any('"event": "task_retry_scheduled"' in event for event in events))
 
     def test_expired_planning_lease_cannot_commit_a_stale_plan(self):
         planner = SequencePlanner([])

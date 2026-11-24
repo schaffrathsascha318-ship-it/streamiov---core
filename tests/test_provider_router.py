@@ -99,6 +99,40 @@ class ProviderRouterTests(unittest.TestCase):
         self.assertIsInstance(router.providers[0][1], OllamaProvider)
         self.assertEqual(router.providers[0][1].model, "qwen2.5-coder:7b")
 
+    def test_local_providers_request_json_constrained_model_output(self):
+        captured = []
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return b'{"message":{"content":"{}"}}'
+
+        def fake_urlopen(request, timeout):
+            import json
+            captured.append((request.full_url, json.loads(request.data.decode("utf-8")), timeout))
+            return Response()
+
+        with patch("ai.providers.local_http.urlopen", side_effect=fake_urlopen):
+            OllamaProvider("qwen2.5-coder:1.5b").generate(system="Return JSON.", messages=[])
+        self.assertEqual(captured[0][1]["format"], "json")
+
+        def fake_openai_urlopen(request, timeout):
+            import json
+            captured.append((request.full_url, json.loads(request.data.decode("utf-8")), timeout))
+            class OpenAIResponse(Response):
+                def read(self):
+                    return b'{"choices":[{"message":{"content":"{}"}}]}'
+            return OpenAIResponse()
+
+        with patch("ai.providers.local_http.urlopen", side_effect=fake_openai_urlopen):
+            LocalOpenAICompatibleProvider("local-model").generate(system="Return JSON.", messages=[])
+        self.assertEqual(captured[1][1]["response_format"], {"type": "json_object"})
+
     def test_environment_router_rejects_unknown_provider(self):
         with patch.dict("os.environ", {"STREAMIOV_MODEL_PROVIDERS": "ollama,unknown"}, clear=True):
             with self.assertRaisesRegex(ProviderError, "Unsupported provider"):

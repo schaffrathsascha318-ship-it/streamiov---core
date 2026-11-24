@@ -796,6 +796,8 @@ class ContinuousDevelopmentEngine:
                 )
             if not isinstance(result, str):
                 raise TypeError("Specialist agent returned a non-text result.")
+            if not result.strip():
+                raise MissionEngineError("Specialist agent returned an empty result; refusing to mark the task successful.")
             self._finish_task(task.task_id, worker_id, result=result)
         except Exception as exc:
             error = f"{type(exc).__name__}: {str(exc)[:3500]}"
@@ -1037,28 +1039,39 @@ Use testing/repair specialists when verification or correction is needed."""
         reply = self.provider.generate(system=self.SYSTEM, messages=messages)
         if not isinstance(reply.content, str) or len(reply.content) > 24000:
             raise MissionEngineError("Mission planner response is missing or exceeds 24 KB.")
-        try:
-            payload = _parse_planner_response(reply.content)
-            return self._build_plan(payload, cycle)
-        except MissionEngineError as first_error:
-            # One bounded correction repairs malformed JSON and structurally invalid plans.
-            correction_messages = [
-                *messages,
-                {"role": "assistant", "content": reply.content[:12_000]},
-                {"role": "user", "content": (
-                    "FORMAT CORRECTION (SCHEMA VALIDATION): Return exactly one valid JSON object and nothing else. "
-                    "Do not use Markdown fences, prose, comments, or trailing text. "
-                    'Required top-level fields are exactly "state", "summary", and "tasks". '
-                    'Use state="continue" with at least one task, or state="completed" with tasks=[]. '
-                    "For every task, use exactly id, specialist, prompt, and depends_on; use a known specialist, "
-                    "unique safe IDs, and dependencies that refer to IDs in this batch. Correct the previous "
-                    "response error: " + str(first_error)[:500]
-                )},
-            ]
-            corrected = self.provider.generate(system=self.SYSTEM, messages=correction_messages)
-            if not isinstance(corrected.content, str) or len(corrected.content) > 24000:
-                raise MissionEngineError("Mission planner format correction response is missing or exceeds 24 KB.")
-            return self._build_plan(_parse_planner_response(corrected.content), cycle)
+        candidate = reply.content
+        last_error = None
+        # Small local models occasionally need more than one schema repair. Keep
+        # retries bounded and feed back the exact validation error each time.
+        for correction_number in range(1, 4):
+            try:
+                return self._build_plan(_parse_planner_response(candidate), cycle)
+            except MissionEngineError as exc:
+                last_error = exc
+                if correction_number == 3:
+                    break
+                correction_messages = [
+                    *messages,
+                    {"role": "assistant", "content": candidate[:12_000]},
+                    {"role": "user", "content": (
+                        f"FORMAT CORRECTION {correction_number}/2 (SCHEMA VALIDATION): Return exactly one valid JSON object and nothing else. "
+                        "Do not use Markdown fences, prose, comments, or trailing text. "
+                        'Required top-level fields are exactly "state", "summary", and "tasks". '
+                        'Use state="continue" with at least one task, or state="completed" with tasks=[]. '
+                        "For every task, use exactly id, specialist, prompt, and depends_on. "
+                        "depends_on MUST be a JSON array of strings, each string exactly matching another task's id in this same batch; "
+                        "use [] for independent tasks. Never invent, prefix, or reference IDs outside this batch. "
+                        "Use a known specialist and unique safe IDs. Correct this validation error: "
+                        + str(exc)[:700]
+                    )},
+                ]
+                corrected = self.provider.generate(system=self.SYSTEM, messages=correction_messages)
+                if not isinstance(corrected.content, str) or len(corrected.content) > 24000:
+                    raise MissionEngineError("Mission planner format correction response is missing or exceeds 24 KB.")
+                candidate = corrected.content
+        raise MissionEngineError(
+            f"Mission planner response remained invalid after 3 bounded schema attempts: {last_error}"
+        ) from last_error
 
     def _build_plan(self, payload: dict, cycle: int) -> MissionPlan:
         if not isinstance(payload, dict) or set(payload) != {"state", "summary", "tasks"}:
