@@ -163,11 +163,14 @@ def _configured_provider(kind: str, *, legacy: bool = False):
             model = os.environ.get("STREAMIOV_MODEL", model)
             url = os.environ.get("STREAMIOV_MODEL_URL", url)
         return LocalOpenAICompatibleProvider(model, url)
+    if kind == "self-hosted-openai-compatible":
+        from .self_hosted import provider_from_env as self_hosted_provider_from_env
+        return self_hosted_provider_from_env()
     if kind == "cloudflare-workers-ai":
         from .cloudflare_worker import provider_from_env as cloudflare_provider_from_env
         return cloudflare_provider_from_env()
     raise ProviderError(
-        "Unsupported provider. Choose ollama, openai-compatible-local, or cloudflare-workers-ai."
+        "Unsupported provider. Choose ollama, openai-compatible-local, self-hosted-openai-compatible, or cloudflare-workers-ai."
     )
 
 
