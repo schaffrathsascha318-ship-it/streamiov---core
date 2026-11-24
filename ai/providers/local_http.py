@@ -98,6 +98,7 @@ class OllamaProvider:
             "model": self.model,
             "stream": False,
             "messages": [{"role": "system", "content": system}, *messages],
+            "format": "json",
             "options": {"temperature": 0.1},
         }
         content = _reply_content(_post(self.base_url + "/api/chat", payload), "ollama")
@@ -125,6 +126,7 @@ class LocalOpenAICompatibleProvider:
         payload = {
             "model": self.model,
             "temperature": 0.1,
+            "response_format": {"type": "json_object"},
             "messages": [{"role": "system", "content": system}, *messages],
         }
         content = _reply_content(_post(self.base_url + "/chat/completions", payload), "openai-compatible")
