@@ -440,12 +440,15 @@ class AgentTests(unittest.TestCase):
             Path(tmp, "games", "releases").mkdir(parents=True)
             Path(tmp, "games", "releases", "README.txt").write_text("No manifest", encoding="utf-8")
             agent = DevelopmentAgent(
-                FakeProvider(['{"tool":"run_game_checks","arguments":{}}', '{"final":"Checks complete."}']),
+                FakeProvider(['{"tool":"list_files","arguments":{"path":"."}}', '{"tool":"run_game_checks","arguments":{}}', '{"final":"Game checks could not run because no valid manifests exist."}']),
                 tmp,
                 specialist="game",
             )
             # No manifests is a safe, surfaced tool error rather than executing arbitrary commands.
-            self.assertEqual(agent.run("Check the game projects."), "Checks complete.")
+            self.assertEqual(
+                agent.run("Check the game projects."),
+                "Game checks could not run because no valid manifests exist.",
+            )
             with self.assertRaises(ToolError):
                 agent.tools.run_game_checks()
 
