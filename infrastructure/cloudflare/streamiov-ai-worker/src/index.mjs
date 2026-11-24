@@ -116,6 +116,9 @@ function selfHostedConfig(env) {
     if (
       parsed.protocol !== "https:" ||
       !parsed.hostname ||
+      !/[a-z]/i.test(parsed.hostname) ||
+      parsed.hostname.toLowerCase() === "localhost" ||
+      parsed.hostname.toLowerCase().endsWith(".localhost") ||
       parsed.username ||
       parsed.password ||
       parsed.search ||
