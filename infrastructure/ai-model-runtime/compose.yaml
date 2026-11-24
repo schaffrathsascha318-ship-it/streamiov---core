@@ -1,0 +1,24 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    # Intentionally not published to the host. Only the authenticated
+    # gateway can reach Ollama on this private Docker network.
+
+  model-gateway:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    environment:
+      STREAMIOV_MODEL_GATEWAY_TOKEN: ${STREAMIOV_MODEL_GATEWAY_TOKEN:?Set a long random token in .env}
+      STREAMIOV_OLLAMA_MODEL: ${STREAMIOV_OLLAMA_MODEL:-qwen2.5-coder:7b}
+      OLLAMA_BASE_URL: http://ollama:11434
+      STREAMIOV_MODEL_MAX_CONCURRENCY: ${STREAMIOV_MODEL_MAX_CONCURRENCY:-2}
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  ollama_data:
