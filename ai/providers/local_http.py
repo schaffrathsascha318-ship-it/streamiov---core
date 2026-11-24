@@ -148,14 +148,38 @@ def _post(url: str, payload: dict) -> dict:
     return data
 
 
-def provider_from_env():
-    kind = os.environ.get("STREAMIOV_MODEL_PROVIDER", "ollama").lower()
+def _configured_provider(kind: str, *, legacy: bool = False):
+    if kind == "ollama":
+        model = os.environ.get("STREAMIOV_OLLAMA_MODEL", "qwen2.5-coder:7b")
+        url = os.environ.get("STREAMIOV_OLLAMA_URL", "http://127.0.0.1:11434")
+        if legacy:
+            model = os.environ.get("STREAMIOV_MODEL", model)
+            url = os.environ.get("STREAMIOV_MODEL_URL", url)
+        return OllamaProvider(model, url)
+    if kind == "openai-compatible-local":
+        model = os.environ.get("STREAMIOV_LOCAL_OPENAI_MODEL", "local-code-model")
+        url = os.environ.get("STREAMIOV_LOCAL_OPENAI_URL", "http://127.0.0.1:8000/v1")
+        if legacy:
+            model = os.environ.get("STREAMIOV_MODEL", model)
+            url = os.environ.get("STREAMIOV_MODEL_URL", url)
+        return LocalOpenAICompatibleProvider(model, url)
     if kind == "cloudflare-workers-ai":
         from .cloudflare_worker import provider_from_env as cloudflare_provider_from_env
         return cloudflare_provider_from_env()
-    model = os.environ.get("STREAMIOV_MODEL", "qwen2.5-coder:7b")
-    if kind == "ollama":
-        return OllamaProvider(model, os.environ.get("STREAMIOV_MODEL_URL", "http://127.0.0.1:11434"))
-    if kind == "openai-compatible-local":
-        return LocalOpenAICompatibleProvider(model, os.environ.get("STREAMIOV_MODEL_URL", "http://127.0.0.1:8000/v1"))
-    raise ProviderError("Unsupported provider. Choose ollama, openai-compatible-local, or the authenticated Streamiov Cloudflare Workers AI gateway.")
+    raise ProviderError(
+        "Unsupported provider. Choose ollama, openai-compatible-local, or cloudflare-workers-ai."
+    )
+
+
+def provider_from_env():
+    provider_order = os.environ.get("STREAMIOV_MODEL_PROVIDERS", "").strip()
+    if provider_order:
+        from .router import ProviderRouter
+        kinds = [item.strip().lower() for item in provider_order.split(",")]
+        if not kinds or any(not item for item in kinds):
+            raise ProviderError("STREAMIOV_MODEL_PROVIDERS must be a comma-separated provider list.")
+        if len(set(kinds)) != len(kinds):
+            raise ProviderError("STREAMIOV_MODEL_PROVIDERS cannot contain duplicate providers.")
+        return ProviderRouter([(kind, _configured_provider(kind)) for kind in kinds])
+    kind = os.environ.get("STREAMIOV_MODEL_PROVIDER", "ollama").lower()
+    return _configured_provider(kind, legacy=True)
