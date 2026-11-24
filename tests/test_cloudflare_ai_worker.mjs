@@ -317,6 +317,29 @@ test("rejects an invalid self-hosted endpoint configuration and uses no remote r
   }
 });
 
+
+test("rejects loopback and IP-literal self-hosted model endpoints", async () => {
+  const originalFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = async () => { called = true; throw new Error("must not be called"); };
+  try {
+    for (const endpoint of ["https://127.0.0.1", "https://192.168.1.10", "https://localhost"]) {
+      const response = await worker.fetch(
+        chatRequest({ messages: [{ role: "user", content: "No SSRF" }] }),
+        env({
+          STREAMIOV_SELF_HOSTED_MODEL_URL: endpoint,
+          STREAMIOV_SELF_HOSTED_MODEL_TOKEN: TOKEN,
+          AI: { run: async () => ({ response: "SAFE" }) }
+        })
+      );
+      assert.equal(response.status, 200);
+    }
+    assert.equal(called, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("unknown routes and unavailable AI bindings fail closed", async () => {
   const notFound = await worker.fetch(
     new Request(base + "/anything", { headers: authHeaders() }),
