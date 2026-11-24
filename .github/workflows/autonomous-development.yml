@@ -166,10 +166,38 @@ jobs:
             echo "No prior mission artifact found; this mission will initialize or recover from its first checkpoint."
           fi
 
+      - name: Start an ephemeral local Ollama model on the GitHub runner
+        if: steps.pick.outputs.issue_number != '' && (vars.STREAMIOV_MODEL_PROVIDERS == '' || contains(vars.STREAMIOV_MODEL_PROVIDERS, 'ollama'))
+        env:
+          STREAMIOV_OLLAMA_MODEL: ${{ vars.STREAMIOV_OLLAMA_MODEL || 'qwen2.5-coder:1.5b' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location https://ollama.com/install.sh | sh
+          nohup ollama serve > "$RUNNER_TEMP/streamiov-ollama.log" 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:11434/api/tags >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:11434/api/tags >/dev/null || {
+            echo "::error::Ephemeral Ollama did not become ready; see sanitized service diagnostics."
+            tail -n 40 "$RUNNER_TEMP/streamiov-ollama.log" | sed -E 's/(token|authorization|password)[^ ]*/[REDACTED]/Ig'
+            exit 1
+          }
+          ollama pull "$STREAMIOV_OLLAMA_MODEL"
+          {
+            echo "STREAMIOV_MODEL_PROVIDERS=ollama"
+            echo "STREAMIOV_OLLAMA_MODEL=$STREAMIOV_OLLAMA_MODEL"
+            echo "STREAMIOV_OLLAMA_URL=http://127.0.0.1:11434"
+          } >> "$GITHUB_ENV"
+          echo "Ephemeral local model is downloaded and its Ollama API is responding."
+
       - name: Verify configured Streamiov model provider chain
         if: steps.pick.outputs.issue_number != ''
         env:
-          STREAMIOV_MODEL_PROVIDERS: ${{ vars.STREAMIOV_MODEL_PROVIDERS || 'cloudflare-workers-ai' }}
+          STREAMIOV_MODEL_PROVIDERS: ${{ vars.STREAMIOV_MODEL_PROVIDERS || 'ollama' }}
           STREAMIOV_SELF_HOSTED_MODEL_URL: ${{ vars.STREAMIOV_SELF_HOSTED_MODEL_URL }}
           STREAMIOV_SELF_HOSTED_MODEL_TOKEN: ${{ secrets.STREAMIOV_SELF_HOSTED_MODEL_TOKEN }}
           STREAMIOV_AI_WORKER_TOKEN: ${{ secrets.STREAMIOV_AI_WORKER_TOKEN }}
@@ -205,6 +233,8 @@ jobs:
           STREAMIOV_MODEL_PROVIDERS: ${{ vars.STREAMIOV_MODEL_PROVIDERS || 'cloudflare-workers-ai' }}
           STREAMIOV_SELF_HOSTED_MODEL_URL: ${{ vars.STREAMIOV_SELF_HOSTED_MODEL_URL }}
           STREAMIOV_SELF_HOSTED_MODEL: ${{ vars.STREAMIOV_SELF_HOSTED_MODEL || 'qwen2.5-coder:7b' }}
+          STREAMIOV_OLLAMA_MODEL: ${{ vars.STREAMIOV_OLLAMA_MODEL || 'qwen2.5-coder:1.5b' }}
+          STREAMIOV_OLLAMA_URL: http://127.0.0.1:11434
           STREAMIOV_SELF_HOSTED_MODEL_TOKEN: ${{ secrets.STREAMIOV_SELF_HOSTED_MODEL_TOKEN }}
           STREAMIOV_AI_WORKER_TOKEN: ${{ secrets.STREAMIOV_AI_WORKER_TOKEN }}
           STREAMIOV_MODEL_URL: ${{ vars.STREAMIOV_MODEL_URL }}
