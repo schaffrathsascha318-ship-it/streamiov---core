@@ -378,7 +378,7 @@ class AgentTests(unittest.TestCase):
                     self.calls.append(kwargs["messages"])
                     return super().generate(**kwargs)
 
-            provider = CapturingProvider(["not json", '{"final":"Recovered safely."}'])
+            provider = CapturingProvider(["not json", '{"tool":"list_files","arguments":{"path":"."}}', '{"final":"Recovered safely."}'])
             result = DevelopmentAgent(provider, tmp).run("Do task")
             self.assertEqual(result, "Recovered safely.")
             correction_context = provider.calls[1]
@@ -400,14 +400,14 @@ class AgentTests(unittest.TestCase):
                     return super().generate(**kwargs)
             provider = CountingProvider([
                 "not json", "still not json", "invalid three", "invalid four",
-                "invalid after resume", '{"final":"Recovered on resumed attempt."}',
+                "invalid after resume", '{"tool":"list_files","arguments":{"path":"."}}', '{"final":"Recovered on resumed attempt."}',
             ])
             agent = DevelopmentAgent(provider, tmp, checkpoint_db=checkpoint_db)
             with self.assertRaises(AgentError):
                 agent.run("Do task", checkpoint_id="format-recovery")
             result = agent.run("Do task", checkpoint_id="format-recovery")
             self.assertEqual(result, "Recovered on resumed attempt.")
-            self.assertEqual(provider.calls, 6)
+            self.assertEqual(provider.calls, 7)
 
     def test_invalid_json_still_fails_closed_after_retry(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -425,7 +425,7 @@ class AgentTests(unittest.TestCase):
                 def generate(self, **kwargs):
                     self.system = kwargs["system"]
                     return super().generate(**kwargs)
-            provider = CapturingProvider(['{"final":"Review complete."}'])
+            provider = CapturingProvider(['{"tool":"list_files","arguments":{"path":"."}}', '{"final":"Review complete."}'])
             agent = DevelopmentAgent(provider, tmp, specialist="game")
             self.assertEqual(agent.run("Plan an original puzzle game."), "Review complete.")
             self.assertIn("SPECIALIST ROLE: Game Development (game)", provider.system)
