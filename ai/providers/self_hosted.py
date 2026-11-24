@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
@@ -98,7 +97,7 @@ class SelfHostedOpenAIProvider:
             return {
                 "provider": "self-hosted-openai-compatible",
                 "model": self.model,
-                "reachable": "HTTP" not in str(exc),
+                "reachable": "HTTP " in str(exc),
                 "model_available": False,
                 "models_count": 0,
                 "ready": False,
