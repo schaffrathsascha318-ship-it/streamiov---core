@@ -36,6 +36,40 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Start an ephemeral local Streamiov model
+        id: local_model
+        timeout-minutes: 12
+        env:
+          CONFIGURED_MODEL_PROVIDERS: ${{ vars.STREAMIOV_MODEL_PROVIDERS || 'cloudflare-workers-ai' }}
+          STREAMIOV_OLLAMA_MODEL: qwen2.5-coder:1.5b
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Ephemeral inference worker only; Ollama remains bound to loopback.
+          curl -fsSL https://ollama.com/install.sh | sh
+          sudo systemctl enable --now ollama
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:11434/api/tags >/dev/null
+          ollama pull "$STREAMIOV_OLLAMA_MODEL"
+          # Local inference first; preserve explicitly configured fallbacks.
+          fallback=""
+          IFS=',' read -ra configured <<< "$CONFIGURED_MODEL_PROVIDERS"
+          for provider in "${configured[@]}"; do
+            provider="$(printf '%s' "$provider" | xargs)"
+            [[ -z "$provider" || "$provider" == "ollama" ]] && continue
+            if [[ -n "$fallback" ]]; then fallback+=",";
+            fi
+            fallback+="$provider"
+          done
+          provider_chain="ollama"
+          [[ -n "$fallback" ]] && provider_chain+=",${fallback}"
+          echo "provider_chain=$provider_chain" >> "$GITHUB_OUTPUT"
+          echo "model=$STREAMIOV_OLLAMA_MODEL" >> "$GITHUB_OUTPUT"
+          echo "Local Ollama model is downloaded and its API is responding."
+
       - name: Select an approved issue or the continuous platform mission
         id: pick
         env:
@@ -169,7 +203,7 @@ jobs:
       - name: Verify configured Streamiov model provider chain
         if: steps.pick.outputs.issue_number != ''
         env:
-          STREAMIOV_MODEL_PROVIDERS: ${{ vars.STREAMIOV_MODEL_PROVIDERS || 'cloudflare-workers-ai' }}
+          STREAMIOV_MODEL_PROVIDERS: ${{ steps.local_model.outputs.provider_chain }}
           STREAMIOV_SELF_HOSTED_MODEL_URL: ${{ vars.STREAMIOV_SELF_HOSTED_MODEL_URL }}
           STREAMIOV_SELF_HOSTED_MODEL_TOKEN: ${{ secrets.STREAMIOV_SELF_HOSTED_MODEL_TOKEN }}
           STREAMIOV_AI_WORKER_TOKEN: ${{ secrets.STREAMIOV_AI_WORKER_TOKEN }}
@@ -202,12 +236,13 @@ jobs:
           STREAMIOV_MISSION_ID: ${{ steps.pick.outputs.mission_key == '0' && 'streamiov-platform' || format('streamiov-issue-{0}', steps.pick.outputs.mission_key) }}
           STREAMIOV_MISSION_DB: ${{ runner.temp }}/streamiov-ai-missions/missions.sqlite3
           STREAMIOV_PROJECT_SUPERVISOR: ${{ steps.pick.outputs.project_supervisor }}
-          STREAMIOV_MODEL_PROVIDERS: ${{ vars.STREAMIOV_MODEL_PROVIDERS || 'cloudflare-workers-ai' }}
+          STREAMIOV_MODEL_PROVIDERS: ${{ steps.local_model.outputs.provider_chain }}
           STREAMIOV_SELF_HOSTED_MODEL_URL: ${{ vars.STREAMIOV_SELF_HOSTED_MODEL_URL }}
           STREAMIOV_SELF_HOSTED_MODEL: ${{ vars.STREAMIOV_SELF_HOSTED_MODEL || 'qwen2.5-coder:7b' }}
           STREAMIOV_SELF_HOSTED_MODEL_TOKEN: ${{ secrets.STREAMIOV_SELF_HOSTED_MODEL_TOKEN }}
           STREAMIOV_AI_WORKER_TOKEN: ${{ secrets.STREAMIOV_AI_WORKER_TOKEN }}
           STREAMIOV_MODEL_URL: ${{ vars.STREAMIOV_MODEL_URL }}
+          STREAMIOV_OLLAMA_MODEL: ${{ steps.local_model.outputs.model }}
           RUNNER_TEMP: ${{ runner.temp }}
         shell: bash
         run: |
