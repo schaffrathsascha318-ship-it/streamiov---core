@@ -57,6 +57,22 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
         self.assertNotIn("actions/cache/save@", source)
         self.assertNotIn("actions/cache/restore@", source)
 
+
+    def test_mission_artifact_upload_and_restore_use_the_same_stable_key(self):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn(
+            "name: streamiov-ai-missions-${{ steps.pick.outputs.mission_key }}",
+            source,
+        )
+        self.assertNotIn(
+            "name: streamiov-ai-missions-${{ steps.pick.outputs.issue_number }}",
+            source,
+        )
+        self.assertIn(
+            'artifact_name="streamiov-ai-missions-${{ steps.pick.outputs.mission_key }}"',
+            source,
+        )
+
     def test_runner_slice_success_is_not_reported_as_mission_completion(self):
         source = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("Summarize mission status separately from runner status", source)

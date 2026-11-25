@@ -72,34 +72,84 @@ class MissionEngineTests(unittest.TestCase):
         self.assertNotIn("task-result-0", context)
         self.assertTrue(context.startswith("S" * 3_000))
 
-    def test_planner_batch_limit_is_exactly_eleven_specialists(self):
+    def test_planner_accepts_fifty_independent_worker_tasks_including_shared_roles(self):
         class Provider:
             def __init__(self, tasks):
                 self.tasks = tasks
 
             def generate(self, *, system, messages):
                 return type("Reply", (), {"content": json.dumps({
-                    "state": "continue", "summary": "Valid batch.", "tasks": self.tasks,
+                    "state": "continue", "summary": "Valid independent worker batch.", "tasks": self.tasks,
                 })})()
 
         roles = ["code", "studio", "music", "tts", "events", "homepage",
                  "server", "research", "game", "gifts", "testing"]
         tasks = [
-            {"id": role, "specialist": role, "prompt": f"Work on {role}.", "depends_on": []}
-            for role in roles
+            {"id": f"worker-{index:02d}", "specialist": roles[index % len(roles)],
+             "prompt": f"Independent deliverable for worker {index}.", "depends_on": []}
+            for index in range(50)
         ]
-        plan = ModelMissionPlanner(Provider(tasks)).plan(
-            "Use all specialists.", "", mission_id="eleven-limit", cycle=1,
+        plan = ModelMissionPlanner(Provider(tasks), max_tasks_per_batch=50).plan(
+            "Schedule fifty independent workers.", "", mission_id="fifty-workers", cycle=1,
         )
-        self.assertEqual(len(plan.tasks), 11)
+        self.assertEqual(len(plan.tasks), 50)
+        self.assertEqual(len({task.task_id for task in plan.tasks}), 50)
+        self.assertGreater(sum(task.specialist == "code" for task in plan.tasks), 1)
 
-        twelve = tasks + [{
-            "id": "extra", "specialist": "code", "prompt": "Extra work.", "depends_on": [],
+        oversized = tasks + [{
+            "id": "worker-50", "specialist": "code",
+            "prompt": "The fifty-first independent deliverable.", "depends_on": [],
         }]
         with self.assertRaisesRegex(MissionEngineError, "invalid task batch"):
-            ModelMissionPlanner(Provider(twelve)).plan(
-                "Reject oversized batch.", "", mission_id="twelve-limit", cycle=1,
+            ModelMissionPlanner(Provider(oversized), max_tasks_per_batch=50).plan(
+                "Reject a batch above the configured safety limit.", "", mission_id="fifty-one", cycle=1,
             )
+
+    def test_run_executes_independent_specialists_concurrently_and_verifies_completion(self):
+        barrier = threading.Barrier(2, timeout=5)
+        lock = threading.Lock()
+        active = 0
+        max_active = 0
+
+        class ConcurrentAgent:
+            def __init__(self, role):
+                self.role = role
+
+            def run(self, prompt, **kwargs):
+                nonlocal active, max_active
+                if "STREAMIOV_FINAL_VERIFICATION" in prompt:
+                    return json.dumps({
+                        "verdict": "passed",
+                        "evidence": ["independent final verification completed"],
+                        "findings": [],
+                    })
+                with lock:
+                    active += 1
+                    max_active = max(max_active, active)
+                try:
+                    barrier.wait()
+                    time.sleep(0.02)
+                    return f"{self.role} completed its own assignment"
+                finally:
+                    with lock:
+                        active -= 1
+
+        planner = SequencePlanner([
+            MissionPlan("continue", "Run two independent workstreams.", (
+                SpecialistTask("parallel-code", "code", "Implement the code workstream."),
+                SpecialistTask("parallel-research", "research", "Complete the independent research workstream."),
+            )),
+            MissionPlan("completed", "Both workstreams and verification are complete."),
+            MissionPlan("completed", "Independent verification passed."),
+        ])
+        engine = self.make_engine(
+            planner, ConcurrentAgent, max_concurrent_workers=2,
+        )
+        mission_id = engine.create_mission("Verify real parallel specialist execution")
+        snapshot = engine.run(mission_id, threading.Event(), poll_seconds=0.01)
+        self.assertEqual(snapshot.status, "completed")
+        self.assertEqual(snapshot.completed_tasks, 3)
+        self.assertEqual(max_active, 2)
 
     def test_repeated_task_failures_never_create_a_terminal_mission_stop(self):
         planner = SequencePlanner([
@@ -269,6 +319,35 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(len(provider.calls), 2)
         self.assertIn("FORMAT CORRECTION", provider.calls[1][-1]["content"])
 
+    def test_planner_retries_dependency_schema_errors_twice_before_accepting_a_valid_plan(self):
+        class Provider:
+            def __init__(self):
+                self.responses = [
+                    json.dumps({"state": "continue", "summary": "Bad dependency shape.", "tasks": [
+                        {"id": "base", "specialist": "code", "prompt": "Build base.", "depends_on": ["missing"]}
+                    ]}),
+                    json.dumps({"state": "continue", "summary": "Still invalid.", "tasks": [
+                        {"id": "base", "specialist": "code", "prompt": "Build base.", "depends_on": ["not-in-batch"]}
+                    ]}),
+                    json.dumps({"state": "continue", "summary": "Valid repaired plan.", "tasks": [
+                        {"id": "base", "specialist": "code", "prompt": "Build base.", "depends_on": []}
+                    ]}),
+                ]
+                self.calls = []
+
+            def generate(self, *, system, messages):
+                self.calls.append(messages)
+                return type("Reply", (), {"content": self.responses.pop(0)})()
+
+        provider = Provider()
+        plan = ModelMissionPlanner(provider).plan(
+            "Repair invalid task dependencies.", "", mission_id="dependency-retry", cycle=2,
+        )
+        self.assertEqual(len(plan.tasks), 1)
+        self.assertEqual(plan.tasks[0].depends_on, ())
+        self.assertEqual(len(provider.calls), 3)
+        self.assertIn("depends_on MUST be a JSON array of strings", provider.calls[2][-1]["content"])
+
     def test_existing_mission_database_is_migrated_with_retry_columns(self):
         with closing(sqlite3.connect(self.db)) as db, db:
             db.executescript("""
@@ -437,17 +516,19 @@ class MissionEngineTests(unittest.TestCase):
             mission_id="eleven-specialists", cycle=1,
         )
         self.assertEqual([task.specialist for task in plan.tasks], roles)
-        self.assertIn("at most one task per specialist", provider.system)
+        self.assertIn("1–50 independent tasks", provider.system)
         self.assertEqual(len({task.prompt for task in plan.tasks}), 11)
 
         duplicate_aliases = [
             {"id": "legacy-core", "specialist": "core", "prompt": "Research the model runtime.", "depends_on": []},
             {"id": "research", "specialist": "research", "prompt": "Build the model runtime.", "depends_on": []},
         ]
-        with self.assertRaisesRegex(MissionEngineError, "multiple tasks in one planning cycle"):
-            ModelMissionPlanner(Provider(duplicate_aliases)).plan(
-                "Build AI infrastructure.", "", mission_id="duplicate-specialist", cycle=1,
-            )
+        duplicate_role_plan = ModelMissionPlanner(Provider(duplicate_aliases)).plan(
+            "Build AI infrastructure with two independent research workers.", "",
+            mission_id="duplicate-specialist", cycle=1,
+        )
+        self.assertEqual(len(duplicate_role_plan.tasks), 2)
+        self.assertEqual([task.specialist for task in duplicate_role_plan.tasks], ["core", "research"])
 
     def test_mission_continues_across_unbounded_planning_cycles_until_explicit_completion(self):
         planner = SequencePlanner([
@@ -713,6 +794,30 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(sum(item["event"] == "task_succeeded" for item in parsed), 2)
         self.assertEqual(sum(item["event"] == "checkpoint_cleanup_warning" for item in parsed), 2)
         self.assertFalse(any(item["event"] == "task_retry_scheduled" for item in parsed))
+
+    def test_empty_specialist_output_is_not_persisted_as_task_success(self):
+        planner = SequencePlanner([
+            MissionPlan("continue", "Run an empty-output task.", (
+                SpecialistTask("empty-output", "code", "return no content"),
+            )),
+        ])
+        events = []
+
+        class EmptyAgent:
+            def run(self, _prompt):
+                return "   "
+
+        engine = self.make_engine(planner, lambda _role: EmptyAgent())
+        mission_id = engine.create_mission("Reject empty specialist output")
+        engine._claim_planning(mission_id, "planner")
+        engine._store_plan(mission_id, "planner", 1, planner.plans[0])
+        task = engine._claim_task(mission_id, "worker")
+        self.assertIsNotNone(task)
+        engine._execute_task(task, "worker", events.append)
+        snapshot = engine.get_mission(mission_id)
+        self.assertEqual(snapshot.completed_tasks, 0)
+        self.assertEqual(snapshot.pending_tasks, 1)
+        self.assertTrue(any('"event": "task_retry_scheduled"' in event for event in events))
 
     def test_expired_planning_lease_cannot_commit_a_stale_plan(self):
         planner = SequencePlanner([])

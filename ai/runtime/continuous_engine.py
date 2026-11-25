@@ -14,6 +14,7 @@ import sqlite3
 import threading
 import time
 import uuid
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -105,7 +106,7 @@ class MissionPlanner(Protocol):
 
 
 class AgentFactory(Protocol):
-    def __call__(self, specialist: str): ...
+    def __call__(self, specialist: str, task_id: str | None = None): ...
 
 
 class ContinuousDevelopmentEngine:
@@ -124,6 +125,7 @@ class ContinuousDevelopmentEngine:
         retry_base_seconds: float = 5.0,
         lease_seconds: int = 300,
         max_task_failures: int = 5,
+        max_concurrent_workers: int = 4,
     ) -> None:
         if not callable(getattr(planner, "plan", None)):
             raise TypeError("planner must provide plan()")
@@ -135,6 +137,8 @@ class ContinuousDevelopmentEngine:
             raise ValueError("lease_seconds must be at least 10")
         if isinstance(max_task_failures, bool) or not isinstance(max_task_failures, int) or max_task_failures < 1:
             raise ValueError("max_task_failures must be a positive integer")
+        if isinstance(max_concurrent_workers, bool) or not isinstance(max_concurrent_workers, int) or not 1 <= max_concurrent_workers <= 50:
+            raise ValueError("max_concurrent_workers must be between 1 and 50")
         self.database_path = str(database_path)
         if self.database_path == ":memory:":
             raise MissionEngineError("Continuous missions require a durable on-disk database.")
@@ -144,9 +148,24 @@ class ContinuousDevelopmentEngine:
             raise MissionEngineError("Mission database must not be a symlink.")
         self.planner = planner
         self.agent_factory = agent_factory
+        try:
+            factory_parameters = inspect.signature(agent_factory).parameters
+            task_parameter = factory_parameters.get("task_id")
+            self._agent_factory_task_id_keyword = bool(
+                task_parameter and task_parameter.kind != inspect.Parameter.POSITIONAL_ONLY
+            ) or any(item.kind == inspect.Parameter.VAR_KEYWORD for item in factory_parameters.values())
+            self._agent_factory_accepts_task_id = (
+                self._agent_factory_task_id_keyword
+                or bool(task_parameter)
+                or any(item.kind == inspect.Parameter.VAR_POSITIONAL for item in factory_parameters.values())
+            )
+        except (TypeError, ValueError):
+            self._agent_factory_task_id_keyword = False
+            self._agent_factory_accepts_task_id = False
         self.retry_base_seconds = float(retry_base_seconds)
         self.lease_seconds = lease_seconds
         self.max_task_failures = max_task_failures  # legacy compatibility; not a mission stop limit
+        self.max_concurrent_workers = max_concurrent_workers
         self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
@@ -754,7 +773,13 @@ class ContinuousDevelopmentEngine:
                 "approach. Never weaken tests or bypass safety gates."
             )
         try:
-            agent = self.agent_factory(task.specialist)
+            if self._agent_factory_accepts_task_id:
+                if self._agent_factory_task_id_keyword:
+                    agent = self.agent_factory(task.specialist, task_id=task.task_id)
+                else:
+                    agent = self.agent_factory(task.specialist, task.task_id)
+            else:
+                agent = self.agent_factory(task.specialist)
             if mission_stop_event is not None and mission_stop_event.is_set():
                 cancel_event.set()
             run_parameters = inspect.signature(agent.run).parameters
@@ -771,6 +796,8 @@ class ContinuousDevelopmentEngine:
                 )
             if not isinstance(result, str):
                 raise TypeError("Specialist agent returned a non-text result.")
+            if not result.strip():
+                raise MissionEngineError("Specialist agent returned an empty result; refusing to mark the task successful.")
             self._finish_task(task.task_id, worker_id, result=result)
         except Exception as exc:
             error = f"{type(exc).__name__}: {str(exc)[:3500]}"
@@ -826,96 +853,116 @@ class ContinuousDevelopmentEngine:
         emit: Callable[[str], None] = print,
         worker_id: str | None = None,
     ) -> MissionSnapshot:
+        """Schedule independent specialist tasks concurrently with durable per-task leases."""
         if poll_seconds <= 0:
             raise ValueError("poll_seconds must be positive")
         worker_id = worker_id or f"chief-{uuid.uuid4().hex}"
-        while not stop_event.is_set():
-            snapshot = self.get_mission(mission_id)
-            if snapshot.status == "completed":
-                emit(json.dumps({"event": "mission_completed", "mission_id": mission_id, "summary": snapshot.summary}, ensure_ascii=False))
-                return snapshot
-            task = self._claim_task(mission_id, worker_id)
-            if task is not None:
-                self._execute_task(task, worker_id, emit, stop_event)
-                continue
+        futures = {}
+        with ThreadPoolExecutor(
+            max_workers=self.max_concurrent_workers,
+            thread_name_prefix="streamiov-specialist",
+        ) as pool:
+            while not stop_event.is_set() or futures:
+                while not stop_event.is_set() and len(futures) < self.max_concurrent_workers:
+                    task_worker_id = f"{worker_id}-{uuid.uuid4().hex[:12]}"
+                    task = self._claim_task(mission_id, task_worker_id)
+                    if task is None:
+                        break
+                    future = pool.submit(self._execute_task, task, task_worker_id, emit, stop_event)
+                    futures[future] = (task.task_id, task.specialist)
 
-            snapshot = self.get_mission(mission_id)
-            if snapshot.pending_tasks or snapshot.running_tasks:
-                if snapshot.running_tasks == 0:
-                    next_available = self._next_queued_task_available_at(mission_id)
-                    retry_delay = (next_available - time.time()) if next_available is not None else 0
+                if futures:
+                    done, _ = wait(tuple(futures), timeout=poll_seconds, return_when=FIRST_COMPLETED)
+                    for future in done:
+                        task_id, specialist = futures.pop(future)
+                        try:
+                            future.result()
+                        except Exception as exc:
+                            emit(json.dumps({
+                                "event": "worker_unhandled_error", "task_id": task_id,
+                                "specialist": specialist,
+                                "error": f"{type(exc).__name__}: {str(exc)[:1000]}",
+                            }, ensure_ascii=False))
+                    continue
+
+                snapshot = self.get_mission(mission_id)
+                if snapshot.status == "completed":
+                    emit(json.dumps({"event": "mission_completed", "mission_id": mission_id, "summary": snapshot.summary}, ensure_ascii=False))
+                    return snapshot
+                if stop_event.is_set():
+                    break
+
+                if snapshot.pending_tasks or snapshot.running_tasks:
+                    if snapshot.running_tasks == 0:
+                        next_available = self._next_queued_task_available_at(mission_id)
+                        retry_delay = (next_available - time.time()) if next_available is not None else 0
+                        if retry_delay > RUNNER_EARLY_RETURN_BACKOFF_SECONDS:
+                            emit(json.dumps({
+                                "event": "mission_waiting_for_retry", "mission_id": mission_id,
+                                "retry_after_seconds": int(retry_delay), "pending_tasks": snapshot.pending_tasks,
+                            }, ensure_ascii=False))
+                            return snapshot
+                    stop_event.wait(poll_seconds)
+                    continue
+
+                claim = self._claim_planning(mission_id, worker_id)
+                if claim is None:
+                    planning_retry_at = self._next_planning_retry_at(mission_id)
+                    retry_delay = (planning_retry_at - time.time()) if planning_retry_at is not None else 0
                     if retry_delay > RUNNER_EARLY_RETURN_BACKOFF_SECONDS:
                         emit(json.dumps({
-                            "event": "mission_waiting_for_retry",
-                            "mission_id": mission_id,
+                            "event": "mission_waiting_for_planning_retry", "mission_id": mission_id,
                             "retry_after_seconds": int(retry_delay),
-                            "pending_tasks": snapshot.pending_tasks,
                         }, ensure_ascii=False))
                         return snapshot
-                stop_event.wait(poll_seconds)
-                continue
-
-            claim = self._claim_planning(mission_id, worker_id)
-            if claim is None:
-                planning_retry_at = self._next_planning_retry_at(mission_id)
-                retry_delay = (planning_retry_at - time.time()) if planning_retry_at is not None else 0
-                if retry_delay > RUNNER_EARLY_RETURN_BACKOFF_SECONDS:
+                    stop_event.wait(poll_seconds)
+                    continue
+                goal, cycle = claim
+                try:
+                    progress = self._progress_context(mission_id)
+                    plan = self._plan_with_heartbeat(goal, progress, mission_id, cycle, worker_id)
+                    plan = self._store_plan(mission_id, worker_id, cycle, plan)
                     emit(json.dumps({
-                        "event": "mission_waiting_for_planning_retry",
-                        "mission_id": mission_id,
-                        "retry_after_seconds": int(retry_delay),
+                        "event": "plan_saved", "mission_id": mission_id, "cycle": cycle,
+                        "state": plan.state, "task_count": len(plan.tasks),
+                        "summary": plan.summary, "worker_capacity": self.max_concurrent_workers,
                     }, ensure_ascii=False))
-                    return snapshot
-                stop_event.wait(poll_seconds)
-                continue
-            goal, cycle = claim
-            try:
-                progress = self._progress_context(mission_id)
-                plan = self._plan_with_heartbeat(goal, progress, mission_id, cycle, worker_id)
-                plan = self._store_plan(mission_id, worker_id, cycle, plan)
-                emit(json.dumps({
-                    "event": "plan_saved", "mission_id": mission_id,
-                    "cycle": cycle, "state": plan.state,
-                    "task_count": len(plan.tasks), "summary": plan.summary,
-                }, ensure_ascii=False))
-            except Exception as exc:
-                now = time.time()
-                with self._transaction() as db:
-                    row = db.execute(
-                        "SELECT planning_failures FROM development_missions WHERE mission_id=? AND planning_owner=?",
-                        (mission_id, worker_id),
-                    ).fetchone()
-                    if row is not None:
-                        failures = row["planning_failures"] + 1
-                        delay = (
-                            _daily_ai_quota_backoff(failures)
-                            if _is_daily_ai_quota_error(f"{type(exc).__name__}: {exc}")
-                            else min(self.retry_base_seconds * (2 ** min(failures - 1, 6)), 300.0)
-                        )
-                        db.execute("""
-                            UPDATE development_missions
-                            SET planning_owner='',planning_lease_until=NULL,
-                                planning_failures=?,planning_retry_at=?,updated_at=?
-                            WHERE mission_id=? AND planning_owner=?
-                        """, (failures, now + delay, now, mission_id, worker_id))
-                    else:
-                        failures = 1
-                        delay = min(self.retry_base_seconds, 300.0)
-                emit(json.dumps({
-                    "event": "planning_retry_scheduled", "mission_id": mission_id,
-                    "cycle": cycle, "failure_count": failures,
-                    "retry_after_seconds": delay,
-                    "error": f"{type(exc).__name__}: {str(exc)[:2000]}",
-                }, ensure_ascii=False))
-                if delay > RUNNER_EARLY_RETURN_BACKOFF_SECONDS:
+                except Exception as exc:
+                    now = time.time()
+                    with self._transaction() as db:
+                        row = db.execute(
+                            "SELECT planning_failures FROM development_missions WHERE mission_id=? AND planning_owner=?",
+                            (mission_id, worker_id),
+                        ).fetchone()
+                        if row is not None:
+                            failures = row["planning_failures"] + 1
+                            delay = (
+                                _daily_ai_quota_backoff(failures)
+                                if _is_daily_ai_quota_error(f"{type(exc).__name__}: {exc}")
+                                else min(self.retry_base_seconds * (2 ** min(failures - 1, 6)), 300.0)
+                            )
+                            db.execute("""
+                                UPDATE development_missions
+                                SET planning_owner='',planning_lease_until=NULL,
+                                    planning_failures=?,planning_retry_at=?,updated_at=?
+                                WHERE mission_id=? AND planning_owner=?
+                            """, (failures, now + delay, now, mission_id, worker_id))
+                        else:
+                            failures = 1
+                            delay = min(self.retry_base_seconds, 300.0)
                     emit(json.dumps({
-                        "event": "mission_waiting_for_planning_retry",
-                        "mission_id": mission_id,
-                        "retry_after_seconds": int(delay),
+                        "event": "planning_retry_scheduled", "mission_id": mission_id,
+                        "cycle": cycle, "failure_count": failures,
+                        "retry_after_seconds": delay,
+                        "error": f"{type(exc).__name__}: {str(exc)[:2000]}",
                     }, ensure_ascii=False))
-                    return self.get_mission(mission_id)
-                stop_event.wait(min(max(poll_seconds, delay), 300.0))
-
+                    if delay > RUNNER_EARLY_RETURN_BACKOFF_SECONDS:
+                        emit(json.dumps({
+                            "event": "mission_waiting_for_planning_retry", "mission_id": mission_id,
+                            "retry_after_seconds": int(delay),
+                        }, ensure_ascii=False))
+                        return self.get_mission(mission_id)
+                    stop_event.wait(min(max(poll_seconds, delay), 300.0))
         return self.get_mission(mission_id)
 
 
@@ -961,22 +1008,22 @@ Return exactly one JSON object:
 {"state":"continue","summary":"what is verified and what comes next","tasks":[{"id":"short-id","specialist":"code","prompt":"actionable implementation task","depends_on":[]}]}
 or {"state":"completed","summary":"evidence-based completion statement","tasks":[]}
 Available roles: """ + ", ".join(specialist_names()) + """
-Each batch may contain 1–11 tasks: at most one task per specialist in
-a cycle. This gives the eleven specialists distinct, non-overlapping deliverables
-instead of duplicate work. If one specialist has more work, assign the next part
-in a later cycle after its current result is recorded. For a whole-platform goal,
-use all eleven workstreams when relevant; for a focused goal, use only the
-specialists that materially contribute. The Code specialist owns cross-cutting
-work not owned by a dedicated specialist. IDs must be unique within the batch,
-1–32 letters/digits/hyphens/underscores. Dependencies refer to IDs in this batch.
+Each batch may contain 1–50 independent tasks. Every task has its own unique ID,
+assignment, and deliverable. Multiple workers may share a specialist role when
+their assignments are distinct and non-overlapping; never collapse independent
+workers into one shared task. Independent tasks run concurrently up to the
+engine's configured worker limit (maximum 50). Use dependencies only when work
+truly depends on another task. Use all relevant specialist workstreams for
+whole-platform goals. IDs must be unique within the batch, 1–32
+letters/digits/hyphens/underscores. Dependencies refer to IDs in this batch.
 Do not plan public releases, production deployments, credential/OAuth/security
 changes, payments, or external irreversible actions. Preserve existing work.
 Do not treat a previous model claim as evidence; rely on recorded task results.
 Use testing/repair specialists when verification or correction is needed."""
 
-    def __init__(self, provider, *, max_tasks_per_batch: int = 11) -> None:
-        if isinstance(max_tasks_per_batch, bool) or not isinstance(max_tasks_per_batch, int) or not 1 <= max_tasks_per_batch <= 11:
-            raise ValueError("max_tasks_per_batch must be between 1 and 11.")
+    def __init__(self, provider, *, max_tasks_per_batch: int = 50) -> None:
+        if isinstance(max_tasks_per_batch, bool) or not isinstance(max_tasks_per_batch, int) or not 1 <= max_tasks_per_batch <= 50:
+            raise ValueError("max_tasks_per_batch must be between 1 and 50.")
         self.provider = provider
         self.max_tasks_per_batch = max_tasks_per_batch
 
@@ -992,28 +1039,39 @@ Use testing/repair specialists when verification or correction is needed."""
         reply = self.provider.generate(system=self.SYSTEM, messages=messages)
         if not isinstance(reply.content, str) or len(reply.content) > 24000:
             raise MissionEngineError("Mission planner response is missing or exceeds 24 KB.")
-        try:
-            payload = _parse_planner_response(reply.content)
-            return self._build_plan(payload, cycle)
-        except MissionEngineError as first_error:
-            # One bounded correction repairs malformed JSON and structurally invalid plans.
-            correction_messages = [
-                *messages,
-                {"role": "assistant", "content": reply.content[:12_000]},
-                {"role": "user", "content": (
-                    "FORMAT CORRECTION (SCHEMA VALIDATION): Return exactly one valid JSON object and nothing else. "
-                    "Do not use Markdown fences, prose, comments, or trailing text. "
-                    'Required top-level fields are exactly "state", "summary", and "tasks". '
-                    'Use state="continue" with at least one task, or state="completed" with tasks=[]. '
-                    "For every task, use exactly id, specialist, prompt, and depends_on; use a known specialist, "
-                    "unique safe IDs, and dependencies that refer to IDs in this batch. Correct the previous "
-                    "response error: " + str(first_error)[:500]
-                )},
-            ]
-            corrected = self.provider.generate(system=self.SYSTEM, messages=correction_messages)
-            if not isinstance(corrected.content, str) or len(corrected.content) > 24000:
-                raise MissionEngineError("Mission planner format correction response is missing or exceeds 24 KB.")
-            return self._build_plan(_parse_planner_response(corrected.content), cycle)
+        candidate = reply.content
+        last_error = None
+        # Small local models occasionally need more than one schema repair. Keep
+        # retries bounded and feed back the exact validation error each time.
+        for correction_number in range(1, 4):
+            try:
+                return self._build_plan(_parse_planner_response(candidate), cycle)
+            except MissionEngineError as exc:
+                last_error = exc
+                if correction_number == 3:
+                    break
+                correction_messages = [
+                    *messages,
+                    {"role": "assistant", "content": candidate[:12_000]},
+                    {"role": "user", "content": (
+                        f"FORMAT CORRECTION {correction_number}/2 (SCHEMA VALIDATION): Return exactly one valid JSON object and nothing else. "
+                        "Do not use Markdown fences, prose, comments, or trailing text. "
+                        'Required top-level fields are exactly "state", "summary", and "tasks". '
+                        'Use state="continue" with at least one task, or state="completed" with tasks=[]. '
+                        "For every task, use exactly id, specialist, prompt, and depends_on. "
+                        "depends_on MUST be a JSON array of strings, each string exactly matching another task's id in this same batch; "
+                        "use [] for independent tasks. Never invent, prefix, or reference IDs outside this batch. "
+                        "Use a known specialist and unique safe IDs. Correct this validation error: "
+                        + str(exc)[:700]
+                    )},
+                ]
+                corrected = self.provider.generate(system=self.SYSTEM, messages=correction_messages)
+                if not isinstance(corrected.content, str) or len(corrected.content) > 24000:
+                    raise MissionEngineError("Mission planner format correction response is missing or exceeds 24 KB.")
+                candidate = corrected.content
+        raise MissionEngineError(
+            f"Mission planner response remained invalid after 3 bounded schema attempts: {last_error}"
+        ) from last_error
 
     def _build_plan(self, payload: dict, cycle: int) -> MissionPlan:
         if not isinstance(payload, dict) or set(payload) != {"state", "summary", "tasks"}:
@@ -1039,7 +1097,6 @@ Use testing/repair specialists when verification or correction is needed."""
                 raise MissionEngineError("Mission task IDs must be unique within a batch.")
             id_map[local_id] = f"{prefix}-{local_id}"
         tasks = []
-        assigned_specialists: set[str] = set()
         for item in raw_tasks:
             dependencies = item["depends_on"]
             if (
@@ -1053,12 +1110,6 @@ Use testing/repair specialists when verification or correction is needed."""
                 specialist = get_specialist(item["specialist"])
             except ValueError as exc:
                 raise MissionEngineError(f"Mission planner selected an unknown specialist: {exc}") from exc
-            if specialist.key in assigned_specialists:
-                raise MissionEngineError(
-                    f"Specialist '{specialist.key}' received multiple tasks in one planning cycle; "
-                    "split distinct work across later cycles."
-                )
-            assigned_specialists.add(specialist.key)
             tasks.append(SpecialistTask(
                 id_map[item["id"]], item["specialist"], item["prompt"].strip(),
                 tuple(id_map[dep] for dep in dependencies),

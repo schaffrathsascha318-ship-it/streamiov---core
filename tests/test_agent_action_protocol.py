@@ -27,7 +27,7 @@ class SequenceProvider:
 
     def generate(self, *, system: str, messages: list[dict[str, str]]) -> ModelReply:
         self.calls += 1
-        self.messages.append(messages)
+        self.messages.append([dict(message) for message in messages])
         if not self.responses:
             raise AssertionError("Unexpected extra model request.")
         return ModelReply(self.responses.pop(0), "test", "fixture")
@@ -62,6 +62,26 @@ class SpecialistActionProtocolTests(unittest.TestCase):
                 self.assertTrue({"format_retries", "final_result", "in_flight_action_index", "checkpoint_version"} <= columns)
                 self.assertEqual(db.execute("SELECT COUNT(*) FROM agent_checkpoints").fetchone()[0], 1)
 
+    def test_successful_tool_evidence_survives_checkpoint_reload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory, "checkpoints.sqlite3")
+            task = "inspect and resume"
+            store = AgentCheckpointStore(database)
+            state = {
+                "messages": [{"role": "user", "content": task}],
+                "pending_actions": [],
+                "next_action_index": 0,
+                "results": [],
+                "successful_actions": [{"tool": "list_files", "result": "README.md"}],
+                "format_retries": 0,
+                "final_result": None,
+                "in_flight_action_index": None,
+                "checkpoint_version": 1,
+            }
+            store.save("evidence", task, "research", state)
+            resumed = store.load("evidence", task, "research")
+            self.assertEqual(resumed["successful_actions"], state["successful_actions"])
+
     def test_interrupted_action_is_not_replayed_and_checkpoint_recovers_through_inspection(self):
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory, "checkpoints.sqlite3")
@@ -74,12 +94,17 @@ class SpecialistActionProtocolTests(unittest.TestCase):
                 "final_result": None, "in_flight_action_index": 0, "checkpoint_version": 1,
             }
             store.save("crash", task, "code", state)
-            provider = SequenceProvider('{"final":"Inspected the workspace; no file was created."}')
+            provider = SequenceProvider('{"tool":"list_files","arguments":{"path":"."}}', '{"final":"Inspected the workspace; no file was created."}')
             agent = DevelopmentAgent(provider, directory, specialist="code", checkpoint_db=database)
             result = agent.run(task, checkpoint_id="crash")
             self.assertIn("Inspected the workspace", result)
-            self.assertEqual(provider.calls, 1)
-            recovery = provider.messages[0][-1]["content"]
+            self.assertEqual(provider.calls, 2)
+            recovery = next(
+                message["content"]
+                for call in provider.messages
+                for message in call
+                if "CRASH RECOVERY" in message["content"]
+            )
             self.assertIn("CRASH RECOVERY", recovery)
             self.assertIn("UNKNOWN", recovery)
             self.assertIn("NEVER replay", recovery)
@@ -126,6 +151,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="code")
             result = agent.run("Create created.txt with the word safe.")
+            self.assertIn("created", result)
             self.assertEqual(result, "created")
             self.assertEqual(Path(directory, "ai", "created.py").read_text(encoding="utf-8"), "safe")
         self.assertEqual(provider.calls, 2)
@@ -133,14 +159,20 @@ class SpecialistActionProtocolTests(unittest.TestCase):
     def test_schema_invalid_action_is_corrected_without_execution(self):
         provider = SequenceProvider(
             '{"tool":"write_file","arguments":{"path":"blocked.txt","content":"bad","extra":"no"}}',
+            '{"tool":"list_files","arguments":{"path":"."}}',
             '{"final":"no action executed"}',
         )
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="code")
-            self.assertEqual(agent.run("Do not create blocked.txt."), "no action executed")
+            self.assertIn("no action executed", agent.run("Do not create blocked.txt."))
             self.assertFalse(Path(directory, "blocked.txt").exists())
-        self.assertEqual(provider.calls, 2)
-        correction = provider.messages[1][-1]["content"]
+        self.assertEqual(provider.calls, 3)
+        correction = next(
+            message["content"]
+            for call in provider.messages
+            for message in call
+            if "FORMAT CORRECTION:" in message["content"]
+        )
         self.assertIn("allowed keys are ['content', 'path']", correction)
         self.assertIn("unexpected keys are ['extra']", correction)
 
@@ -149,13 +181,37 @@ class SpecialistActionProtocolTests(unittest.TestCase):
             "tool": "read_file",
             "arguments": {"path": "README.md", "offset": "400", "length": "150"},
         })
-        provider = SequenceProvider(invalid, '{"final":"corrected"}')
+        provider = SequenceProvider(invalid, '{"tool":"list_files","arguments":{"path":"."}}', '{"final":"corrected"}')
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="code")
-            self.assertEqual(agent.run("Read the README safely."), "corrected")
-        diagnostic = provider.messages[1][-1]["content"]
+            self.assertIn("corrected", agent.run("Read the README safely."))
+        diagnostic = next(
+            message["content"]
+            for call in provider.messages
+            for message in call
+            if "FORMAT CORRECTION:" in message["content"]
+        )
         self.assertIn("allowed keys are ['path']", diagnostic)
         self.assertIn("unexpected keys are ['length', 'offset']", diagnostic)
+
+    def test_final_without_successful_tool_evidence_is_rejected(self):
+        provider = SequenceProvider('{"final":"I am done"}')
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="research")
+            with self.assertRaisesRegex(AgentError, "without at least one successfully executed project tool"):
+                agent.run("Research the existing project state.")
+
+    def test_successful_read_only_inspection_counts_as_research_evidence(self):
+        provider = SequenceProvider('{"tool":"list_files","arguments":{"path":"."}}', '{"final":"Inspected the project."}')
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory, "agent-checkpoints.sqlite3")
+            agent = DevelopmentAgent(provider, directory, specialist="research", checkpoint_db=database)
+            result = agent.run("Inspect the project.", checkpoint_id="research-inspection")
+            self.assertEqual(result, "Inspected the project.")
+            evidence = AgentCheckpointStore(database).load(
+                "research-inspection", "Inspect the project.", "research"
+            )["successful_actions"]
+            self.assertEqual([item["tool"] for item in evidence], ["list_files"])
 
     def test_malformed_replies_have_bounded_corrections_per_run(self):
         provider = SequenceProvider("not json", "still not json", "still invalid", "invalid again")
@@ -180,16 +236,23 @@ class SpecialistActionProtocolTests(unittest.TestCase):
                 {"tool": "write_file", "arguments": {"path": "must-not-exist.txt", "content": "unsafe partial batch"}},
                 {"tool": "write_file", "arguments": {"path": "also-invalid.txt", "content": "x", "unexpected": "field"}},
             ]),
+            '{"tool":"list_files","arguments":{"path":"."}}',
             '{"final":"rejected the entire batch before execution"}',
         )
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="code")
             result = agent.run("Do not create either file; reject malformed action batches atomically.")
-            self.assertEqual(result, "rejected the entire batch before execution")
+            self.assertIn("rejected the entire batch before execution", result)
             self.assertFalse(Path(directory, "must-not-exist.txt").exists())
             self.assertFalse(Path(directory, "also-invalid.txt").exists())
-        self.assertEqual(provider.calls, 2)
-        self.assertIn("unexpected keys are ['unexpected']", provider.messages[1][-1]["content"])
+        self.assertEqual(provider.calls, 3)
+        correction = next(
+            message["content"]
+            for call in provider.messages
+            for message in call
+            if "FORMAT CORRECTION:" in message["content"]
+        )
+        self.assertIn("unexpected keys are ['unexpected']", correction)
 
     def test_mixed_final_and_tool_actions_are_rejected_before_execution(self):
         provider = SequenceProvider(
@@ -197,13 +260,14 @@ class SpecialistActionProtocolTests(unittest.TestCase):
                 {"tool": "write_file", "arguments": {"path": "must-not-exist.txt", "content": "x"}},
                 {"final": "must not complete a mixed batch"},
             ]),
+            '{"tool":"list_files","arguments":{"path":"."}}',
             '{"final":"mixed batch rejected"}',
         )
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="code")
-            self.assertEqual(agent.run("Reject a mixed final/action response."), "mixed batch rejected")
+            self.assertIn("mixed batch rejected", agent.run("Reject a mixed final/action response."))
             self.assertFalse(Path(directory, "must-not-exist.txt").exists())
-        self.assertEqual(provider.calls, 2)
+        self.assertEqual(provider.calls, 3)
 
 
 if __name__ == "__main__":

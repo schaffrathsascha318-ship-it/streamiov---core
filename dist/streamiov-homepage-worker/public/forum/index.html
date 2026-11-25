@@ -30,7 +30,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 button.secondary{background:#223248;color:var(--text)}
 .status{padding:12px;border-radius:9px;background:#111d2a;color:var(--muted);margin-top:18px}
 .status.error{background:#2a141a;color:var(--danger)}
-.meta{font-size:13px;color:#8995a7}
+ .meta{font-size:13px;color:#8995a7}
+ .meta button{padding:4px 8px;margin-left:6px;font-size:12px}
 .badge{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;background:#223248;color:var(--muted);font-size:12px;vertical-align:middle}
 .replies{margin-top:18px;border-top:1px solid var(--line);padding-top:18px}
 .reply{background:#0a1220;border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:10px}
@@ -76,6 +77,10 @@ footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
       <p class="meta" id="compose-help">Beiträge werden mit deinem angemeldeten Kontonamen veröffentlicht.</p>
     </aside>
   </div>
+  <section class="panel" id="history-panel" aria-labelledby="history-heading" hidden style="margin-top:20px">
+    <h2 id="history-heading">Beiträge eines Nutzers</h2>
+    <div id="history"></div>
+  </section>
 </main>
 <footer>© 2026 Streamiov · <a href="/datenschutz">Datenschutz</a> · <a href="/impressum">Impressum</a></footer>
 <script>
@@ -88,6 +93,8 @@ footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
   const composeNote=document.getElementById("compose-note");
   const composeHelp=document.getElementById("compose-help");
   const sessionBox=document.getElementById("session");
+  const historyPanel=document.getElementById("history-panel");
+  const historyList=document.getElementById("history");
   let currentUser=null;
   let activeThreadId=null;
 
@@ -126,6 +133,53 @@ footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
     }
     if(response.status===404)return data.error||"Dieser Eintrag wurde nicht gefunden.";
     return data.error||fallback;
+  }
+
+  async function submitReport(targetKind,targetId){
+    if(!currentUser){setStatus("Bitte melde dich an, um einen Beitrag zu melden.",true);return;}
+    const reasons=["spam","harassment","offtopic","other"];
+    const reason=window.prompt("Warum möchtest du diesen Beitrag melden?\nspam / harassment / offtopic / other","spam");
+    if(reason===null)return;
+    if(!reasons.includes(reason)){setStatus("Dieser Meldegrund ist nicht gültig.",true);return;}
+    const details=window.prompt("Optional: kurze Beschreibung (höchstens 500 Zeichen)","")||"";
+    try{
+      const response=await fetch("/api/forum/reports",{
+        method:"POST",
+        credentials:"same-origin",
+        headers:{"Content-Type":"application/json",Accept:"application/json"},
+        body:JSON.stringify({target_kind:targetKind,target_id:targetId,reason:reason,details:details})
+      });
+      const data=await readJson(response);
+      if(!response.ok)throw new Error(errorText(response,data,"Die Meldung konnte nicht gespeichert werden."));
+      setStatus("Meldung gespeichert. Die Moderation prüft den Beitrag.");
+    }catch(error){
+      setStatus(error.message||"Die Meldung konnte nicht gespeichert werden.",true);
+    }
+  }
+
+  async function openHistory(userId){
+    if(!/^[a-f0-9]{32}$/.test(userId))return;
+    try{
+      const response=await fetch("/api/forum/users/"+encodeURIComponent(userId)+"/posts",{
+        credentials:"same-origin",headers:{Accept:"application/json"}
+      });
+      const data=await readJson(response);
+      if(!response.ok)throw new Error(errorText(response,data,"Die Beiträge konnten nicht geladen werden."));
+      historyPanel.hidden=false;
+      historyList.replaceChildren();
+      historyList.append(element("p","meta","Sichtbare Beiträge: "+(data.posts||[]).length));
+      (data.posts||[]).forEach(function(post){
+        const entry=element("article","reply");
+        entry.append(element("p","meta",(post.kind==="thread"?"Thema: "+post.title:"Antwort: "+(post.excerpt||""))+" · "+formatTime(post.created_at)));
+        historyList.append(entry);
+      });
+      const close=element("button","secondary","Nutzerbeiträge schließen");
+      close.type="button";
+      close.addEventListener("click",function(){historyPanel.hidden=true;});
+      historyList.append(close);
+    }catch(error){
+      setStatus(error.message||"Die Beiträge konnten nicht geladen werden.",true);
+    }
   }
 
   function renderSession(){
@@ -186,6 +240,16 @@ footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
       const meta=element("p","meta","Von "+(thread.author||"Community")
         +" · "+formatTime(thread.created_at)
         +" · Antworten: "+(thread.reply_count||0));
+      const historyButton=element("button","secondary","Beiträge");
+      historyButton.type="button";
+      historyButton.addEventListener("click",function(){openHistory(thread.author_user_id||"");});
+      meta.append(historyButton);
+      if(currentUser){
+        const reportButton=element("button","secondary","Melden");
+        reportButton.type="button";
+        reportButton.addEventListener("click",function(){submitReport("thread",thread.id);});
+        meta.append(reportButton);
+      }
       article.append(heading,body,meta);
       list.append(article);
     });
@@ -199,7 +263,18 @@ footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
     if(thread.locked)heading.append(element("span","badge","gesperrt"));
     article.append(heading);
     article.append(element("p","body-text",thread.body||""));
-    article.append(element("p","meta","Von "+(thread.author||"Community")+" · "+formatTime(thread.created_at)));
+    const detailMeta=element("p","meta","Von "+(thread.author||"Community")+" · "+formatTime(thread.created_at));
+    const detailHistory=element("button","secondary","Beiträge");
+    detailHistory.type="button";
+    detailHistory.addEventListener("click",function(){openHistory(thread.author_user_id||"");});
+    detailMeta.append(detailHistory);
+    if(currentUser){
+      const detailReport=element("button","secondary","Melden");
+      detailReport.type="button";
+      detailReport.addEventListener("click",function(){submitReport("thread",thread.id);});
+      detailMeta.append(detailReport);
+    }
+    article.append(detailMeta);
 
     const replies=element("div","replies");
     const replyList=Array.isArray(thread.replies)?thread.replies:[];
@@ -210,7 +285,18 @@ footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
     replyList.forEach(function(reply){
       const box=element("div","reply");
       box.append(element("p",null,reply.body||""));
-      box.append(element("p","meta","Von "+(reply.author||"Community")+" · "+formatTime(reply.created_at)));
+      const replyMeta=element("p","meta","Von "+(reply.author||"Community")+" · "+formatTime(reply.created_at));
+      const replyHistory=element("button","secondary","Beiträge");
+      replyHistory.type="button";
+      replyHistory.addEventListener("click",function(){openHistory(reply.author_user_id||"");});
+      replyMeta.append(replyHistory);
+      if(currentUser){
+        const replyReport=element("button","secondary","Melden");
+        replyReport.type="button";
+        replyReport.addEventListener("click",function(){submitReport("reply",reply.id);});
+        replyMeta.append(replyReport);
+      }
+      box.append(replyMeta);
       replies.append(box);
     });
 

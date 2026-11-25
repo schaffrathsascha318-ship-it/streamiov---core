@@ -33,6 +33,7 @@ class AgentCheckpointStore:
                     final_result TEXT NOT NULL DEFAULT '',
                     in_flight_action_index INTEGER,
                     checkpoint_version INTEGER NOT NULL DEFAULT 1,
+                    successful_actions_json TEXT NOT NULL DEFAULT '[]',
                     updated_at REAL NOT NULL
                 )
             """)
@@ -45,13 +46,15 @@ class AgentCheckpointStore:
                 db.execute("ALTER TABLE agent_checkpoints ADD COLUMN in_flight_action_index INTEGER")
             if "checkpoint_version" not in columns:
                 db.execute("ALTER TABLE agent_checkpoints ADD COLUMN checkpoint_version INTEGER NOT NULL DEFAULT 0")
+            if "successful_actions_json" not in columns:
+                db.execute("ALTER TABLE agent_checkpoints ADD COLUMN successful_actions_json TEXT NOT NULL DEFAULT '[]'")
 
     def load(self, checkpoint_id: str, task: str, specialist: str) -> dict | None:
         stable_task = task.split("\n\nPREVIOUS ATTEMPT FAILURE (untrusted diagnostic context):", 1)[0]
         digest = hashlib.sha256(stable_task.encode("utf-8")).hexdigest()
         with closing(sqlite3.connect(self.path)) as db, db:
             row = db.execute(
-                "SELECT task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries,final_result,in_flight_action_index,checkpoint_version "
+                "SELECT task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries,final_result,in_flight_action_index,checkpoint_version,successful_actions_json "
                 "FROM agent_checkpoints WHERE checkpoint_id=?", (checkpoint_id,)
             ).fetchone()
         if row is None:
@@ -68,6 +71,7 @@ class AgentCheckpointStore:
                 "final_result": row[7] or None,
                 "in_flight_action_index": row[8],
                 "checkpoint_version": row[9],
+                "successful_actions": json.loads(row[10] or "[]"),
             }
         except (TypeError, json.JSONDecodeError) as exc:
             raise AgentError("Persisted agent checkpoint is corrupt; refusing to guess.") from exc
@@ -82,13 +86,14 @@ class AgentCheckpointStore:
             int(state.get("next_action_index", 0)),
             json.dumps(state.get("results", []), ensure_ascii=False),
             int(state.get("format_retries", 0)), state.get("final_result") or "",
-            state.get("in_flight_action_index"), 1, time.time(),
+            state.get("in_flight_action_index"), 1,
+            json.dumps(state.get("successful_actions", []), ensure_ascii=False), time.time(),
         )
         with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("""
                 INSERT INTO agent_checkpoints
-                (checkpoint_id,task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries,final_result,in_flight_action_index,checkpoint_version,updated_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                (checkpoint_id,task_hash,specialist,messages_json,pending_actions_json,next_action_index,results_json,format_retries,final_result,in_flight_action_index,checkpoint_version,successful_actions_json,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
                 ON CONFLICT(checkpoint_id) DO UPDATE SET
                     messages_json=excluded.messages_json,
                     pending_actions_json=excluded.pending_actions_json,
@@ -98,6 +103,7 @@ class AgentCheckpointStore:
                     final_result=excluded.final_result,
                     in_flight_action_index=excluded.in_flight_action_index,
                     checkpoint_version=excluded.checkpoint_version,
+                    successful_actions_json=excluded.successful_actions_json,
                     updated_at=excluded.updated_at
             """, payload)
 
@@ -313,6 +319,7 @@ class DevelopmentAgent:
         checkpoint_db: str | Path | None = None,
         allow_self_modification: bool = False,
         full_project_development: bool = False,
+        task_id: str | None = None,
     ) -> None:
         # max_steps is accepted only for backward compatibility. A mission task must
         # not be abandoned because it consumed an arbitrary number of model/tool turns.
@@ -328,6 +335,7 @@ class DevelopmentAgent:
             allow_game_checks=self.allow_game_checks,
             allow_self_modification=allow_self_modification,
             full_project_development=full_project_development,
+            task_id=task_id,
         )
         self.max_steps = None  # no per-task turn ceiling
         self.checkpoints = AgentCheckpointStore(checkpoint_db) if checkpoint_db else None
@@ -363,6 +371,7 @@ class DevelopmentAgent:
                 "pending_actions": [],
                 "next_action_index": 0,
                 "results": [],
+                "successful_actions": [],
                 "format_retries": 0,
                 "final_result": None,
                 "in_flight_action_index": None,
@@ -468,6 +477,11 @@ class DevelopmentAgent:
                         marker = "[tool output truncated at 12,000 characters]\n"
                         result = marker + result[:MAX_TOOL_RESULT_CHARS - len(marker)]
                     results.append(f"ACTION {index + 1} ({tool}):\n{result}")
+                    if not result.lstrip().startswith("TOOL_ERROR:"):
+                        state.setdefault("successful_actions", []).append({
+                            "tool": tool,
+                            "result": result[:1000],
+                        })
                     state["next_action_index"] = index + 1
                     state["in_flight_action_index"] = None
                     # Result, cursor advancement, and marker removal are saved together.
@@ -526,9 +540,21 @@ class DevelopmentAgent:
             state["format_retries"] = 0
             if any("final" in action for action in actions):
                 check_cancelled()
-                state["final_result"] = actions[0]["final"]
+                evidence = state.get("successful_actions", [])
+                if not isinstance(evidence, list) or not evidence:
+                    raise AgentError(
+                        "Refusing to report task success without at least one successfully executed project tool. "
+                        "Inspect the project and perform or verify a concrete action before returning final."
+                    )
+                final_result = actions[0]["final"].strip()
+                if not final_result:
+                    raise AgentError("Final result must not be empty.")
+                # Keep the public result stable; evidence remains structured in the
+                # durable checkpoint for audit and recovery instead of being appended
+                # to user-facing task text.
+                state["final_result"] = final_result
                 persist()
-                return actions[0]["final"]
+                return state["final_result"]
             state["pending_actions"] = actions
             state["next_action_index"] = 0
             state["results"] = []

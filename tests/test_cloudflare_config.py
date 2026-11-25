@@ -1,4 +1,5 @@
 import importlib.util
+import re
 import unittest
 from pathlib import Path
 
@@ -19,6 +20,20 @@ class CloudflareConfigTests(unittest.TestCase):
         result = load_verifier().verify()
         self.assertTrue(result["ok"], "\n".join(result["errors"]))
         self.assertGreaterEqual(len(result["checks"]), 5)
+
+    def test_production_deployment_is_manual_only_and_requires_confirmation(self):
+        workflow = (ROOT / ".github" / "workflows" / "cloudflare-deploy.yml").read_text(encoding="utf-8")
+        self.assertIn("workflow_dispatch:", workflow)
+        self.assertNotRegex(workflow, r"(?m)^  push:")
+        self.assertNotRegex(workflow, r"(?m)^  pull_request:")
+        for job_name in ("verify", "deploy-homepage", "deploy-ai-worker"):
+            match = re.search(rf"(?ms)^  {job_name}:.*?(?=^  [A-Za-z0-9_-]+:|\Z)", workflow)
+            self.assertIsNotNone(match, f"missing Cloudflare job: {job_name}")
+            block = match.group(0)
+            self.assertIn("github.event_name == 'workflow_dispatch'", block)
+            self.assertIn("inputs.confirm == true", block)
+            if job_name != "verify":
+                self.assertIn("needs.verify.result == 'success'", block)
 
     def test_download_page_accepts_direct_assets_from_streamiov_releases(self):
         verifier = load_verifier()

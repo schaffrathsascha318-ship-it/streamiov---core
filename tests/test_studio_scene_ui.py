@@ -46,9 +46,10 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn('id="mixerMusic"', self.ui)
         self.assertIn('id="mixerMusicMute"', self.ui)
         self.assertIn("musicMediaSource=broadcastAudioContext.createMediaElementSource(musicPlayerAudio)", self.ui)
-        self.assertIn("musicMediaSource.connect(musicChannelGain).connect(broadcastMasterGain)", self.ui)
-        self.assertIn('musicChannelGain.gain.setTargetAtTime(musicMuted?0:mixerValue("mixerMusic")', self.ui)
-        self.assertIn("broadcastMasterGain.connect(broadcastAudioDestination)", self.ui)
+        self.assertIn("musicMediaSource.connect(musicChannelGain);", self.ui)
+        self.assertIn("musicChannelGain.connect(musicBridgeDestination);", self.ui)
+        self.assertIn('studioAudioMixer.connect("music",musicBridgeDestination.stream,{gain:1,routes:effectiveAuxRoutes("music")})', self.ui)
+        self.assertIn('musicChannelGain.gain.setTargetAtTime(musicMuted?0:mixerValue("mixerMusic")*(duckingActive?0.25:1)', self.ui)
         self.assertIn("musicPlayerAudio.src=track.url", self.ui)
         self.assertIn("Keep the AudioContext and the single MediaElementAudioSourceNode alive.", self.ui)
         self.assertIn("const musicQueue=[];", self.ui)
@@ -165,10 +166,10 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
                 )[0]
                 self.assertNotIn("missingPythonModules", handler)
         self.assertIn("repository_capability_inventory", self.main)
-        self.assertIn("foundation_only", self.main)
-        self.assertIn("partial_stream_mix", self.main)
+        self.assertIn("live_stream_verified: false", self.main)
+        self.assertIn("local_four_bus_engine", self.main)
         self.assertIn("local_file_stream_mix", self.main)
-        self.assertIn("not_implemented", self.main)
+        self.assertIn("not_connected", self.main)
         self.assertNotIn("missingPythonModules", self.main)
         self.assertNotIn("notBundledResult", self.main)
         self.assertIn("resolveFfmpegExecutable", self.main)
@@ -204,7 +205,11 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
     def test_download_page_marks_unreleased_broadcast_feature_accurately(self):
         download = (ROOT / "dist" / "streamiov-homepage-worker" / "public" / "download" / "index.html").read_text(encoding="utf-8")
         self.assertIn("Regie-Oberfläche enthalten, Encoder noch extern.", download)
-        self.assertIn("FFmpeg mit libx264, AAC und RTMP-Unterstützung", download)
+        if "FFmpeg mit libx264, AAC und RTMP-Unterstützung" not in download:
+            # The desktop-download-only page uses the newer, equally explicit
+            # wording for the separately required FFmpeg runtime.
+            self.assertIn("benötigt FFmpeg noch separat", download)
+            self.assertIn("Veröffentlichung bleibt bis zum vollständigen GPL-Quellcodepaket gesperrt", download)
 
 
     def test_regie_exposes_real_camera_and_microphone_capture_controls(self):
@@ -250,14 +255,15 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
             self.assertIn(f'id="{element_id}"', self.ui)
         self.assertIn("<b>Musik</b><div class=\"meter\">", self.ui)
         self.assertNotIn("<b>Spiel</b><div class=\"meter\">", self.ui)
-        self.assertNotIn("<b>Alerts</b><div class=\"meter\">", self.ui)
+        self.assertIn("<b>Alerts</b><div class=\"meter\">", self.ui)
 
     def test_audio_mixer_gains_are_applied_to_the_stream_mix(self):
-        self.assertIn("broadcastTrackGains.push({kind,source,gain:volume})", self.ui)
-        self.assertIn("broadcastMasterGain.connect(broadcastAudioDestination)", self.ui)
-        self.assertIn("source.connect(volume).connect(broadcastMasterGain)", self.ui)
-        self.assertIn("entry.gain.gain.setTargetAtTime(target,now,0.02)", self.ui)
-        self.assertIn("broadcastMasterGain.gain.setTargetAtTime(mixerValue(\"mixerMaster\"),now,0.02)", self.ui)
+        self.assertIn('studioAudioMixer.setGain("microphone",Number($("audioMicGain").value)/100*mixerValue("mixerMic"))', self.ui)
+        self.assertIn('studioAudioMixer.setGain("system",Number($("audioSystemGain").value)/100*mixerValue("mixerSystem"))', self.ui)
+        self.assertIn('studioAudioMixer.connect("music",musicBridgeDestination.stream,{gain:1,routes:effectiveAuxRoutes("music")})', self.ui)
+        self.assertIn('studioAudioMixer.setMuted("music",musicMuted)', self.ui)
+        self.assertIn("if(ttsChannelGain)ttsChannelGain.gain.setTargetAtTime(mixerValue(\"mixerTts\"),now,0.02)", self.ui)
+        self.assertIn("if(alertToneGain)alertToneGain.gain.setTargetAtTime(mixerValue(\"mixerAlert\"),now,0.02)", self.ui)
         self.assertIn("localStorage.setItem(mixerStorageKey", self.ui)
 
     def test_privacy_shield_module_is_local_and_honest_about_its_limits(self):

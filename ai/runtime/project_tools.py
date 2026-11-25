@@ -1,11 +1,16 @@
 """Constrained project tools: safe file access and fixed test commands only."""
 from __future__ import annotations
 import os
+import hashlib
+import json
+import stat
 import shutil
 import subprocess
 import sys
 import time
 import tempfile
+import threading
+from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
 class ToolError(RuntimeError):
@@ -39,6 +44,140 @@ TEST_COMMANDS = {
 MAX_FILE_BYTES = 200_000
 MAX_LIST_ENTRIES = 100
 
+# Thread locks protect instances in one process; OS file locks extend the
+# same guarantee to separate processes sharing this checkout on the same host.
+# Lock files live outside the repository and are released by the OS on process exit.
+_PATH_LOCKS_GUARD = threading.Lock()
+_PATH_LOCKS: dict[str, threading.RLock] = {}
+_LOCK_TIMEOUT_SECONDS = 300
+
+try:
+    import fcntl as _fcntl
+except ImportError:  # Windows
+    _fcntl = None
+try:
+    import msvcrt as _msvcrt
+except ImportError:  # POSIX
+    _msvcrt = None
+
+
+def _process_lock_path(key: str) -> Path:
+    user_scope = str(getattr(os, "getuid", lambda: os.environ.get("USERNAME", "default"))())
+    scope = hashlib.sha256(user_scope.encode("utf-8")).hexdigest()[:16]
+    root = Path(tempfile.gettempdir()) / ("streamiov-path-locks-" + scope)
+    if root.is_symlink():
+        raise ToolError("Cross-process lock directory must not be a symlink.")
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if root.is_symlink() or not root.is_dir():
+        raise ToolError("Cross-process lock directory is unsafe.")
+    try:
+        os.chmod(root, 0o700)
+    except OSError:
+        pass
+    digest = hashlib.sha256(os.path.normcase(key).encode("utf-8")).hexdigest()
+    return root / (digest + ".lock")
+
+
+def _acquire_process_lock(descriptor: int) -> None:
+    deadline = time.monotonic() + _LOCK_TIMEOUT_SECONDS
+    if _fcntl is not None:
+        while True:
+            try:
+                _fcntl.flock(descriptor, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+                return
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise ToolError("Timed out waiting for another process to release this file.")
+                time.sleep(0.05)
+    elif _msvcrt is not None:
+        if os.fstat(descriptor).st_size == 0:
+            os.write(descriptor, b"\\0")
+        while True:
+            try:
+                os.lseek(descriptor, 0, os.SEEK_SET)
+                _msvcrt.locking(descriptor, _msvcrt.LK_NBLCK, 1)
+                return
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise ToolError("Timed out waiting for another process to release this file.")
+                time.sleep(0.05)
+    else:
+        raise ToolError("No supported OS file-lock provider is available; refusing an unlocked write.")
+
+
+def _release_process_lock(descriptor: int) -> None:
+    if _fcntl is not None:
+        _fcntl.flock(descriptor, _fcntl.LOCK_UN)
+    elif _msvcrt is not None:
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        _msvcrt.locking(descriptor, _msvcrt.LK_UNLCK, 1)
+
+
+@contextmanager
+def _locked_path(path: Path, *, owner: dict | None = None):
+    key = str(path.resolve(strict=False))
+    with _PATH_LOCKS_GUARD:
+        lock = _PATH_LOCKS.setdefault(key, threading.RLock())
+    with lock:
+        lock_path = _process_lock_path(key)
+        flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+        if lock_path.is_symlink():
+            raise ToolError("Cross-process lock file must not be a symlink.")
+        try:
+            descriptor = os.open(lock_path, flags, 0o600)
+        except OSError as exc:
+            raise ToolError("Could not open a safe cross-process file lock.") from exc
+        acquired = False
+        try:
+            path_info = lock_path.lstat()
+            file_info = os.fstat(descriptor)
+            if (not stat.S_ISREG(path_info.st_mode) or not stat.S_ISREG(file_info.st_mode)
+                    or (path_info.st_dev, path_info.st_ino) != (file_info.st_dev, file_info.st_ino)):
+                raise ToolError("Cross-process lock is not a stable regular file.")
+            try:
+                os.chmod(lock_path, 0o600)
+            except OSError:
+                pass
+            _acquire_process_lock(descriptor)
+            acquired = True
+            metadata = {
+                "pid": os.getpid(),
+                "task_id": str((owner or {}).get("task_id") or "process:" + str(os.getpid()))[:128],
+                "path_sha256": hashlib.sha256(key.encode("utf-8")).hexdigest(),
+                "acquired_at": time.time(),
+            }
+            encoded = json.dumps(metadata, sort_keys=True).encode("utf-8")
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            os.ftruncate(descriptor, 0)
+            os.write(descriptor, encoded)
+            os.fsync(descriptor)
+            yield
+        finally:
+            try:
+                if acquired:
+                    _release_process_lock(descriptor)
+            finally:
+                os.close(descriptor)
+
+
+def _atomic_replace_text(target: Path, content: str) -> None:
+    """Replace a file atomically in its own directory; never expose partial text."""
+    descriptor, temporary = tempfile.mkstemp(prefix=".streamiov-write-", dir=target.parent)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if target.exists():
+            os.chmod(temporary, target.stat().st_mode & 0o777)
+        os.replace(temporary, target)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+
+
 class ProjectTools:
     def __init__(
         self,
@@ -48,7 +187,11 @@ class ProjectTools:
         allow_game_checks: bool = False,
         allow_self_modification: bool = False,
         full_project_development: bool = False,
+        task_id: str | None = None,
     ) -> None:
+        if task_id is not None and (not isinstance(task_id, str) or not task_id.strip() or len(task_id) > 128 or "\\x00" in task_id):
+            raise ToolError("Task ID must be 1–128 characters.")
+        self.task_id = task_id.strip() if task_id else "process:" + str(os.getpid())
         self.root = Path(root).resolve()
         self.writable_prefixes = ("*",) if full_project_development else writable_prefixes
         self.allow_game_checks = allow_game_checks
@@ -136,41 +279,62 @@ class ProjectTools:
 
     def read_file(self, path: str) -> str:
         target = self._resolve(path)
-        if not target.is_file():
-            raise ToolError("Requested file does not exist or is not a regular file.")
-        if target.stat().st_size > MAX_FILE_BYTES:
-            raise ToolError("File exceeds the 200 KB read limit.")
-        return target.read_text(encoding="utf-8")
+        with _locked_path(target, owner={"task_id": self.task_id}):
+            target = self._resolve(path)
+            if not target.is_file():
+                raise ToolError("Requested file does not exist or is not a regular file.")
+            if target.stat().st_size > MAX_FILE_BYTES:
+                raise ToolError("File exceeds the 200 KB read limit.")
+            return target.read_text(encoding="utf-8")
 
     def write_file(self, path: str, content: str) -> str:
         target, normalized = self._writable_target(path)
         if not isinstance(content, str) or len(content.encode("utf-8")) > 100_000:
             raise ToolError("Content must be text no larger than 100 KB.")
-        if target.exists():
-            raise ToolError("Refusing to overwrite an existing file; use an exact-match edit or submit a focused patch through review.")
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
+        with _locked_path(target, owner={"task_id": self.task_id}):
+            target, normalized = self._writable_target(path)
+            if target.exists():
+                raise ToolError("Refusing to overwrite an existing file; use an exact-match edit or submit a focused patch through review.")
+            descriptor, temporary = tempfile.mkstemp(prefix=".streamiov-create-", dir=target.parent)
+            try:
+                with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as stream:
+                    stream.write(content)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                # Hard-link creation is atomic and fails rather than replacing a
+                # file created by another task after the existence check.
+                os.link(temporary, target)
+            except FileExistsError:
+                raise ToolError("Another task created this path concurrently; no file was overwritten.")
+            finally:
+                try:
+                    os.unlink(temporary)
+                except FileNotFoundError:
+                    pass
         return f"Created {normalized} ({len(content)} characters)."
 
     def replace_text(self, path: str, old_text: str, new_text: str) -> str:
-        """Replace one exact, unique text range in an allowed existing file."""
+        """Apply one exact edit under a shared path lock and atomically publish it."""
         target, normalized = self._writable_target(path)
-        if not target.is_file():
-            raise ToolError("Exact-match edits require an existing regular file.")
         if not isinstance(old_text, str) or not old_text:
             raise ToolError("old_text must be a non-empty string.")
         if not isinstance(new_text, str) or old_text == new_text:
             raise ToolError("new_text must be text different from old_text.")
-        if target.stat().st_size > MAX_FILE_BYTES:
-            raise ToolError("File exceeds the 200 KB edit limit.")
-        original = target.read_text(encoding="utf-8")
-        matches = original.count(old_text)
-        if matches != 1:
-            raise ToolError(f"Exact-match edit requires one occurrence; found {matches}. No change made.")
-        updated = original.replace(old_text, new_text, 1)
-        if len(updated.encode("utf-8")) > MAX_FILE_BYTES:
-            raise ToolError("Edited file would exceed the 200 KB limit.")
-        target.write_text(updated, encoding="utf-8")
+        with _locked_path(target, owner={"task_id": self.task_id}):
+            target, normalized = self._writable_target(path)
+            if not target.is_file():
+                raise ToolError("Exact-match edits require an existing regular file.")
+            if target.stat().st_size > MAX_FILE_BYTES:
+                raise ToolError("File exceeds the 200 KB edit limit.")
+            original = target.read_text(encoding="utf-8")
+            matches = original.count(old_text)
+            if matches != 1:
+                raise ToolError(f"Exact-match edit requires one occurrence; found {matches}. No change made.")
+            updated = original.replace(old_text, new_text, 1)
+            if len(updated.encode("utf-8")) > MAX_FILE_BYTES:
+                raise ToolError("Edited file would exceed the 200 KB limit.")
+            _atomic_replace_text(target, updated)
         return f"Updated {normalized}: one exact match replaced."
 
     def run_python(self, path: str) -> str:

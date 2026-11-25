@@ -1,19 +1,11 @@
-name: Deploy Cloudflare (verified homepage pushes; AI Worker manual)
+# Deployment is intentionally manual-only. No push may publish production before final acceptance.
+name: Deploy Cloudflare (manual owner-approved release only)
 
-# Verified changes to the public homepage are deployed from main.
-# The production environment protection remains active; AI Worker deployment stays manually owner-approved.
+# Production deployment is held until the complete Streamiov project passes final acceptance.
+# Both homepage and AI Worker deployments require an explicit manual workflow_dispatch confirmation.
 # This workflow never creates accounts, provisions paid resources, or changes OAuth.
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "dist/streamiov-homepage-worker/**"
-      - "scripts/build-mobile-pwa.py"
-      - "scripts/verify-cloudflare-config.py"
-      - "scripts/test-mobile-pwa.py"
-      - ".github/workflows/cloudflare-deploy.yml"
   workflow_dispatch:
     inputs:
       target:
@@ -40,7 +32,7 @@ permissions:
 
 jobs:
   verify:
-    if: github.event_name == 'push' || inputs.confirm == true
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm == true
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -58,11 +50,10 @@ jobs:
           bash -n scripts/deploy-streamiov-ai-worker.sh
           python scripts/verify-cloudflare-config.py
           node --test tests/test_cloudflare_ai_worker.mjs
-          python scripts/test-mobile-pwa.py
 
   deploy-homepage:
     needs: verify
-    if: needs.verify.result == 'success' && (github.event_name == 'push' || (inputs.confirm == true && (inputs.target == 'homepage' || inputs.target == 'both')))
+    if: needs.verify.result == 'success' && github.event_name == 'workflow_dispatch' && inputs.confirm == true && (inputs.target == 'homepage' || inputs.target == 'both')
     runs-on: ubuntu-24.04
     environment: production
     env:
@@ -74,9 +65,6 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-
-      - name: Build the current mobile PWA into the public site
-        run: python scripts/build-mobile-pwa.py
 
       - uses: actions/setup-node@v4
         with:

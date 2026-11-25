@@ -171,6 +171,7 @@ def main() -> int:
                 checkpoint_db=database,
                 full_project_development=True,
             ),
+            max_concurrent_workers=int(os.environ.get("STREAMIOV_MAX_CONCURRENT_WORKERS", "4")),
         )
         stop_event = threading.Event()
         if number == 0 or os.environ.get("STREAMIOV_PROJECT_SUPERVISOR") == "true":

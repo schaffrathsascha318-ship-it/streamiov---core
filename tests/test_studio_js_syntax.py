@@ -19,7 +19,8 @@ DOWNLOADS = ROOT / "dist" / "streamiov-homepage-worker" / "public" / "downloads"
 class StudioJavaScriptSyntaxTests(unittest.TestCase):
     def test_electron_main_and_preload_parse(self):
         for filename in ("main.js", "preload.js", "media-pipeline.js",
-                         "engine/privacy-shield.js", "engine/scene-engine.js"):
+                         "engine/privacy-shield.js", "engine/device-capabilities.js",
+                         "engine/scene-engine.js"):
             with self.subTest(filename=filename):
                 result = subprocess.run(
                     ["node", "--check", str(STUDIO / filename)],
@@ -60,7 +61,20 @@ class StudioJavaScriptSyntaxTests(unittest.TestCase):
                 checked += 1
         self.assertGreater(checked, 0, "No inline JavaScript was checked")
 
-
+    def test_program_output_inline_script_parses(self):
+        html = (STUDIO / "program-output.html").read_text(encoding="utf-8")
+        scripts = re.findall(r"<script[^>]*>(.*?)</script>", html, flags=re.IGNORECASE | re.DOTALL)
+        self.assertEqual(len(scripts), 1)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "program-output-inline.js"
+            path.write_text(scripts[0], encoding="utf-8")
+            result = subprocess.run(
+                ["node", "--check", str(path)],
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
 
 
 class HomepageDownloadPageTests(unittest.TestCase):
@@ -134,7 +148,7 @@ class HomepageDownloadPageTests(unittest.TestCase):
         self.assertIn(f"{total} Bytes", html)
         self.assertIn(archive_hash.group(1), html)
         self.assertIn('href="/downloads/SHA256SUMS.txt"', html)
-        self.assertIn("inzwischen zusätzlich in Studio 1.0.2 enthalten", html)
+        self.assertIn("inzwischen zusätzlich in Studio 1.0.4 enthalten", html)
         self.assertIn("Release-Signatur", html)
         self.assertIn("/downloads/STREAMIOV-RELEASE-KEY.pub", html)
         self.assertIn("/downloads/SHA256SUMS.txt.sig", html)
@@ -143,7 +157,7 @@ class HomepageDownloadPageTests(unittest.TestCase):
     def test_promo_page_uses_real_media_and_states_the_limits(self):
         public = ROOT / "dist" / "streamiov-homepage-worker" / "public"
         html = (public / "promo" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("StreamioV Studio 1.0.2", html)
+        self.assertIn("StreamioV Studio 1.0.4", html)
         self.assertIn("Ctrl+Shift+P", html)
         self.assertIn("stoppt weder den Encoder noch eine laufende Aufnahme", html)
         self.assertIn("keine Plattform-Privatsphäre", html)
@@ -161,6 +175,17 @@ class HomepageDownloadPageTests(unittest.TestCase):
                 path = public / "promo" / "media" / asset
                 self.assertTrue(path.is_file(), f"missing real promo asset: {asset}")
                 self.assertGreater(path.stat().st_size, 10_000)
+
+    def test_public_site_has_no_browser_app_or_pwa_product(self):
+        public = ROOT / "dist" / "streamiov-homepage-worker" / "public"
+        self.assertFalse((public / "app").exists())
+        for page in ("index.html", "download/index.html", "promo/index.html", "studio/index.html", "forum/index.html"):
+            with self.subTest(page=page):
+                markup = (public / page).read_text(encoding="utf-8")
+                self.assertNotIn('href="/app/"', markup)
+                self.assertNotIn("serviceWorker.register", markup)
+        studio = (public / "studio" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("/download/#installer", studio)
 
     def test_source_snapshot_builder_is_reproducible_and_excludes_private_artifacts(self):
         script = (ROOT / "scripts" / "build-source-snapshot.py").read_text(encoding="utf-8")

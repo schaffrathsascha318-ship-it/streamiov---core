@@ -16,6 +16,50 @@ const platformOutputRegistry = new PlatformOutputRegistry();
 const { execFile, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
 const execFileAsync = promisify(execFile);
+
+function synthesizeWindowsSpeech({ text, outputFile, speed, amplitude }) {
+  return new Promise((resolve, reject) => {
+    const script = [
+      "$ErrorActionPreference = 'Stop'",
+      "$payload = [Console]::In.ReadToEnd() | ConvertFrom-Json",
+      "$speaker = New-Object System.Speech.Synthesis.SpeechSynthesizer",
+      "$germanVoice = $speaker.GetInstalledVoices() | Where-Object { $_.VoiceInfo.Culture.Name -like 'de-*' } | Select-Object -First 1",
+      "if (-not $germanVoice) { throw 'Keine deutsche Windows-Systemstimme installiert.' }",
+      "$speaker.SelectVoice($germanVoice.VoiceInfo.Name)",
+      "$speaker.Rate = [int]$payload.rate",
+      "$speaker.Volume = [int]$payload.volume",
+      "$speaker.SetOutputToWaveFile($env:STREAMIOV_TTS_OUTPUT)",
+      "$speaker.Speak([string]$payload.text)",
+      "$speaker.Dispose()"
+    ].join("; ");
+    const child = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script], {
+      windowsHide: true,
+      env: { ...process.env, STREAMIOV_TTS_OUTPUT: outputFile },
+      stdio: ['pipe', 'ignore', 'pipe']
+    });
+    let stderr = '';
+    let settled = false;
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) reject(error); else resolve();
+    };
+    const timer = setTimeout(() => {
+      child.kill();
+      finish(new Error('Windows-Sprachausgabe hat das Zeitlimit überschritten.'));
+    }, 60000);
+    child.stderr.on('data', chunk => { stderr = (stderr + chunk.toString()).slice(-4000); });
+    child.stdin.on('error', finish);
+    child.once('error', finish);
+    child.once('close', code => {
+      if (code === 0) finish();
+      else finish(new Error(stderr.trim() || 'Windows-Systemsprachausgabe fehlgeschlagen.'));
+    });
+    const rate = Math.max(-10, Math.min(10, Math.round((speed - 175) / 12.5)));
+    child.stdin.end(JSON.stringify({ text, rate, volume: Math.max(0, Math.min(100, amplitude)) }));
+  });
+}
 const studioUrl = pathToFileURL(path.join(__dirname, 'regie-v2.html')).href;
 let liveStreamProcess = null;
 let liveStreamState = 'offline';
@@ -229,8 +273,30 @@ ipcMain.handle('studio:chat-action', async (event, payload = {}) => {
     const text = typeof payload.text === 'string' ? payload.text.trim() : '';
     if (!text || text.length > 1000) return { ok: false, error: 'TTS-Text muss 1–1000 Zeichen lang sein.' };
     if (streamiovChatState.tts !== 'online') return { ok: false, error: 'TTS ist ausgeschaltet.' };
-    try { await execFileAsync('espeak-ng', ['-v', 'de', text], { timeout: 60000, windowsHide: true }); }
-    catch (error) { return { ok: false, error: error.code === 'ENOENT' ? 'espeak-ng ist auf diesem Gerät nicht verfügbar.' : 'Sprachausgabe fehlgeschlagen: ' + (error.message || 'unbekannter Fehler'), tts_audio_verified: false }; }
+    const speed = Number(payload.speed ?? 175);
+    const amplitude = Number(payload.amplitude ?? 100);
+    if (!Number.isInteger(speed) || speed < 80 || speed > 300) return { ok: false, error: 'TTS-Geschwindigkeit muss zwischen 80 und 300 Wörtern pro Minute liegen.' };
+    if (!Number.isInteger(amplitude) || amplitude < 0 || amplitude > 100) return { ok: false, error: 'TTS-Sprachlautstärke muss zwischen 0 und 100 liegen.' };
+    const outputFile = path.join(os.tmpdir(), 'streamiov-tts-' + randomUUID() + '.wav');
+    try {
+      try {
+        await execFileAsync('espeak-ng', ['-v', 'de', '-s', String(speed), '-a', String(amplitude), '-w', outputFile, text], { timeout: 60000, windowsHide: true });
+      } catch (error) {
+        if (process.platform !== 'win32' || error.code !== 'ENOENT') throw error;
+        await synthesizeWindowsSpeech({ text, outputFile, speed, amplitude });
+      }
+      const audio = await fs.readFile(outputFile);
+      if (!audio.length || audio.length > 8 * 1024 * 1024) return { ok: false, error: 'TTS-Audiodatei ist leer oder überschreitet das lokale Größenlimit.' };
+      return {
+        ok: true, chat: streamiovChatState.chat, tts: streamiovChatState.tts,
+        audio_base64: audio.toString('base64'), audio_mime: 'audio/wav',
+        tts_audio_verified: false
+      };
+    } catch (error) {
+      return { ok: false, error: error.code === 'ENOENT' ? 'espeak-ng ist auf diesem Gerät nicht verfügbar.' : 'Sprachausgabe fehlgeschlagen: ' + (error.message || 'unbekannter Fehler'), tts_audio_verified: false };
+    } finally {
+      await fs.unlink(outputFile).catch(() => {});
+    }
   } else { return { ok: false, error: 'Unbekannte Chat-Aktion.' }; }
   const snapshot = streamiovChatHub.snapshot();
   return { ok: true, chat: streamiovChatState.chat, tts: streamiovChatState.tts, message_count: snapshot.messageCount, messages: snapshot.messages, connected_adapters: snapshot.connectedAdapters, external_platform_connected: snapshot.connectedAdapters.length > 0, tts_audio_verified: false };
@@ -805,11 +871,11 @@ ipcMain.handle('studio:get-module-status', async (event) => {
       { id: 'synthetic-av-test', status: 'dependency_gated', note: 'Lokaler Test mit installierten GStreamer-Komponenten.' },
       { id: 'compositor', status: 'not_implemented' },
       { id: 'production-encoder', status: 'not_implemented' },
-      { id: 'audio-mixer-routing', status: 'partial_stream_mix', note: 'Mikrofon, Systemton und lokale Musikdateien werden über Web Audio in einen gemeinsamen Stream-Master gemischt; getrennte physische Ausgabebusse und weitere Quellen fehlen.' },
+      { id: 'audio-mixer-routing', status: 'local_four_bus_engine', note: 'Mikrofon, Bildschirm-Systemton, lokaler Musikplayer, Soundboard-Pads, deutsches TTS und manuelle Alert-Töne werden über getrennte Stream-, Monitor-, Kopfhörer- und Kommunikationsbusse geroutet. Jeder Ausgang besitzt einen Limiter; ein plattformneutraler Geräteadapter übernimmt Geräteinventar, Mikrofonöffnung, Ausgabeverbindung und Hot-plug-Beobachtung. Mikrofon bietet Hochpass, optionalen Sprachkompressor, Noise Gate/Expander mit Hysterese, Pan, Solo und konfigurierbare OS-Echo-/Rauschunterdrückung sowie automatische Pegelregelung. Live-RMS-/Peak-Meter zeigen Quellen- und Stream-Ausgangspegel samt Clipping-Hinweis. Der Stream-Bus speist den lokalen MediaRecorder/Encoder-Eingang. Spiel-/Fensterton wird über den ausgewählten Capture-Track aufgenommen, sofern Windows/Electron einen Loopback-Audiotrack liefert; separate App-Audio-Kanäle, Voice-Räume und automatische Plattform-Event-Zuordnung für Alerts sind noch nicht angebunden. TTS nutzt espeak-ng, wenn vorhanden, und unter Windows zusätzlich die native System.Speech-Fallback-Ausgabe. Physische Geräteausgabe und LIVE-Übertragung sind nicht hardwareverifiziert.' },
       { id: 'tiktok-live-output', status: 'oauth_and_live_verification_pending' },
       { id: 'chat-events', status: 'not_connected' },
       { id: 'gift-events', status: 'not_connected' },
-      { id: 'music-mixing', status: 'local_file_stream_mix', note: 'Lokale Musikdatei ist eine eigenständige Web-Audio-Quelle mit Fader und Mute im Stream-Mix; automatische Playlist-Warteschlange und Gerätebus-Routing fehlen.' }
+      { id: 'music-mixing', status: 'local_file_stream_mix', note: 'Lokale Musikdatei und Sitzung-Queue werden über eine eigene Web-Audio-Quelle in Stream- und Monitor-Bus geroutet; Fader und Mute bleiben unabhängig. Ein rechtlich freigegebener Musik-Katalog und automatische Playlist-Synchronisierung sind noch nicht vollständig umgesetzt.' }
     ]
   };
 

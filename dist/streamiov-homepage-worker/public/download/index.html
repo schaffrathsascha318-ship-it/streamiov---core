@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#080b12">
-<meta name="description" content="Alle StreamioV-Downloads an einem Ort: Studio-Installer, Quellcode-Snapshot, Web-Regie/PWA und checksumierte Spiel-Prototypen – mit ehrlichen Systemvoraussetzungen.">
+<meta name="description" content="Alle StreamioV-Downloads an einem Ort: installierbare Studio-Anwendungen, Quellcode-Snapshot und checksumierte Spiel-Prototypen – mit ehrlichem Projektstand. Keine Web-App, keine PWA.">
 <title>StreamioV – Alle Downloads</title>
 <script src="/download/combine.js" defer></script>
 <style>
@@ -67,12 +67,12 @@
       <div class="wrap">
         <span class="eyebrow"><i aria-hidden="true"></i> Alle Downloads an einem Ort</span>
         <h1>Herunterladen.<br><span>Prüfen. Ehrlich starten.</span></h1>
-        <p class="lead">Hier findest du die öffentlich bereitgestellten Studio-Installationswege und die Web-Regie. Wähle das passende Paket für dein Gerät und beachte die jeweiligen Systemvoraussetzungen.</p>
+        <p class="lead">Hier liegen die vorhandenen Studio-Installer, der aktuelle Quellcode-Snapshot und fünf checksumierte Spiel-Prototypen. Jede Karte nennt, was gebaut, was getestet und was noch nicht verifiziert ist. Eine Browser- oder PWA-Version wird nicht angeboten.</p>
         <div class="quick" aria-label="Schnellzugriff">
           <a href="#installer">Studio-Installer</a>
-          
-          <a href="#pwa">Handy &amp; Chromebook</a>
-          <a href="#spiele">Spiel-Downloads</a>
+          <a href="#quellcode">Quellcode-Snapshot</a>
+          <a href="#mobile">Handy &amp; Chromebook</a>
+          <a href="#spiele">Spiel-Prototypen</a>
           <a href="#konto">Konto &amp; Forum</a>
           
         </div>
@@ -111,67 +111,110 @@
     <section id="installer">
       <div class="wrap">
         <div class="section-head">
-          <div class="kicker">StreamioV Studio · Version 1.0.2</div>
+          <div class="kicker">StreamioV Studio · Version 1.0.4</div>
           <h2>Desktop-Installer</h2>
-          <p>Studio 1.0.2 enthält die Electron-Regie mit Szenen-/Quellenmodell, Vorschau, Programmausgabe, lokalem Audio-Mixer, RTMP-Ziel und der Schutzregie. Die Linux-x64-DEB wurde auf Inhalt und SHA-256 geprüft; ein vollständiger Erststart- und Funktionstest auf jedem Zielgerät steht weiterhin aus. Regie-Oberfläche enthalten, Encoder noch extern. FFmpeg mit libx264, AAC und RTMP-Unterstützung ist noch extern bereitzustellen.</p>
+          <p>Studio 1.0.4 enthält die Electron-Regie mit Szenen-/Quellenmodell, Vorschau, Programmausgabe, lokalem Audio-Mixer, RTMP-Ziel und der Schutzregie. Die Linux-x64-DEB wurde auf Inhalt und SHA-256 geprüft; ein vollständiger Erststart- und Funktionstest auf jedem Zielgerät steht weiterhin aus.</p>
         </div>
         <div class="grid">
           <article class="card">
             <h3>Windows x64</h3>
-            <span class="meta">Version 1.0.2 · .exe · ca. 120 MB</span>
+            <span class="meta">Version 1.0.4 · .exe · ca. 120 MB</span>
             <p>NSIS-Installer für übliche 64-Bit-Windows-PCs.</p>
-            <a class="download-main" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.2/Streamiov.Studio.Setup.1.0.2-x64.exe">Windows-Installer herunterladen</a>
+            <a class="download-main" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.4/Streamiov.Studio.Setup.1.0.4-x64.exe">Windows-Installer herunterladen</a>
             <span class="tag tag-work">Gebaut · Gerätetest offen</span>
           </article>
           <article class="card">
             <h3>Windows ARM64</h3>
-            <span class="meta">Version 1.0.2 · .exe · ca. 115 MB</span>
+            <span class="meta">Version 1.0.4 · .exe · ca. 115 MB</span>
             <p>NSIS-Installer für Windows-on-ARM-Geräte.</p>
-            <a class="download-main" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.2/Streamiov.Studio.Setup.1.0.2-arm64.exe">ARM64-Installer herunterladen</a>
+            <a class="download-main" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.4/Streamiov.Studio.Setup.1.0.4-arm64.exe">ARM64-Installer herunterladen</a>
             <span class="tag tag-work">Gebaut · Gerätetest offen</span>
           </article>
           <article class="card">
             <h3>Linux x64</h3>
-            <span class="meta">Version 1.0.2 · AppImage / DEB</span>
+            <span class="meta">Version 1.0.4 · AppImage / DEB</span>
             <p>Für übliche 64-Bit-PCs mit Linux. Die DEB wurde zusätzlich auf Inhalt und Prüfsumme geprüft.</p>
-            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.2/Streamiov.Studio-1.0.2-x64.AppImage">AppImage</a>
-            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.2/streamiov-studio_1.0.2_amd64.deb">DEB</a>
-            <span class="tag tag-ready">Gebaut · Prüfsumme im Release</span>
+            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.4/Streamiov.Studio-1.0.4-x64.AppImage">AppImage</a>
+            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.4/streamiov-studio_1.0.4_amd64.deb">DEB</a>
+            <span class="tag tag-ready">DEB-Inhalt geprüft</span>
           </article>
           <article class="card">
             <h3>Linux ARM64</h3>
-            <span class="meta">Version 1.0.2 · AppImage / DEB</span>
+            <span class="meta">Version 1.0.4 · AppImage / DEB</span>
             <p>Für kompatible ARM64-Linux-Systeme, inklusive Chromebooks mit Crostini.</p>
-            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.2/Streamiov.Studio-1.0.2-arm64.AppImage">ARM64-AppImage</a>
-            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.2/streamiov-studio_1.0.2_arm64.deb">ARM64-DEB</a>
+            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.4/Streamiov.Studio-1.0.4-arm64.AppImage">ARM64-AppImage</a>
+            <a class="download" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.4/streamiov-studio_1.0.4_arm64.deb">ARM64-DEB</a>
             <span class="tag tag-work">Gebaut · Gerätetest offen</span>
           </article>
         </div>
-        <p><small>Alle Dateien, Prüfsummen und Versionshinweise: <a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/tag/studio-v1.0.2">GitHub-Release studio-v1.0.2 öffnen</a>. Der Installer ist kein Beweis für einen funktionierenden Livestream oder für Unterstützung jeder Kamera, Capture-Karte und jedes Betriebssystems. ChromeOS/Crostini nutzt die Linux-DEB-Pakete.</small></p>
+        <p><small>Alle Dateien, Prüfsummen und Versionshinweise: <a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/tag/studio-v1.0.4">GitHub-Release studio-v1.0.4 öffnen</a>. Der Installer ist kein Beweis für einen funktionierenden Livestream oder für Unterstützung jeder Kamera, Capture-Karte und jedes Betriebssystems. ChromeOS/Crostini nutzt die Linux-DEB-Pakete.</small></p>
       </div>
     </section>
 
-    
+    <section id="quellcode">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Quellcode-Snapshot 2026-11-03</div>
+          <h2>Aktueller Quellstand, klar als Quellpaket markiert.</h2>
+          <p>Das ZIP enthält den aktuellen Quellcode ohne <code>node_modules</code>, ohne gebaute Binärdateien und ohne Zugangsdaten. Es ist <strong>kein Installer</strong>; die Schutzregie ist inzwischen zusätzlich in Studio 1.0.4 enthalten. Zum Starten sind Node.js und die im README genannten Systemwerkzeuge erforderlich.</p>
+        </div>
+        <button class="download-button" id="studio-one-click" type="button">Quellcode-Snapshot als ZIP herunterladen</button>
+        <strong id="studio-progress" aria-live="polite">Bereit · 0 %</strong>
+        <span id="studio-status" role="status" aria-live="polite">Nach dem Klick Speicherort auswählen. Die sieben Teile werden nacheinander geladen und auf Größe sowie SHA-256 geprüft.</span>
+        <details>
+          <summary>Alternative: sieben Teile manuell herunterladen</summary>
+          <div>
+            <p>Alle sieben Dateien herunterladen und in einem gemeinsamen Ordner speichern. Unter Linux/ChromeOS im Ordner ausführen:</p>
+            <pre><code>cat streamiov-studio-part-*.bin &gt; streamiov-studio-source-20261103.zip
+sha256sum streamiov-studio-source-20261103.zip</code></pre>
+            <p>Unter Windows in der Eingabeaufforderung:</p>
+            <pre><code>copy /b streamiov-studio-part-00.bin+streamiov-studio-part-01.bin+streamiov-studio-part-02.bin+streamiov-studio-part-03.bin+streamiov-studio-part-04.bin+streamiov-studio-part-05.bin+streamiov-studio-part-06.bin streamiov-studio-source-20261103.zip</code></pre>
+            <ul>
+              <li><a href="/downloads/streamiov-studio-part-00.bin">Teil 1 von 7</a></li>
+              <li><a href="/downloads/streamiov-studio-part-01.bin">Teil 2 von 7</a></li>
+              <li><a href="/downloads/streamiov-studio-part-02.bin">Teil 3 von 7</a></li>
+              <li><a href="/downloads/streamiov-studio-part-03.bin">Teil 4 von 7</a></li>
+              <li><a href="/downloads/streamiov-studio-part-04.bin">Teil 5 von 7</a></li>
+              <li><a href="/downloads/streamiov-studio-part-05.bin">Teil 6 von 7</a></li>
+              <li><a href="/downloads/streamiov-studio-part-06.bin">Teil 7 von 7</a></li>
+            </ul>
+            <small>Gesamtgröße: 605.774 Bytes. SHA-256 des zusammengefügten ZIPs: <code>94776cba9af77eaff61149c6ceb810a27033de164decd332c1e9868026c4ffae</code>. Prüfsummen aller Teile: <a href="/downloads/SHA256SUMS.txt">SHA256SUMS.txt</a>. Nach dem Zusammenfügen ZIP-Datei vor der Nutzung entpacken und prüfen.</small>
+          </div>
+        </details>
+        <details>
+          <summary>Release-Signatur prüfen (Ed25519, kostenlos, ohne Zertifikatskauf)</summary>
+          <div>
+            <p>Die Prüfsummen-Dateien sind mit einem projekt-eigenen Ed25519-Schlüssel signiert. Das ist <strong>keine</strong> Windows-/macOS-Code-Signatur und ersetzt keine Prüfung durch eine Zertifizierungsstelle; SmartScreen- oder Gatekeeper-Vertrauen wird nicht behauptet. Es beweist, dass die Prüfsummen mit dem veröffentlichten Projektschlüssel übereinstimmen.</p>
+            <ul>
+              <li><a href="/downloads/STREAMIOV-RELEASE-KEY.pub">Öffentlicher Schlüssel</a> · Fingerabdruck <code>5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc</code></li>
+              <li><a href="/downloads/SHA256SUMS.txt.sig">Signatur für SHA256SUMS.txt</a></li>
+              <li><a href="/downloads/SHA256SUMS-games.txt.sig">Signatur für SHA256SUMS-games.txt</a></li>
+            </ul>
+            <pre><code>node scripts/release-signing.mjs verify-release --dir &lt;ordner-mit-den-pruefsummen&gt;</code></pre>
+            <small>Der Fingerabdruck ist der SHA-256 des öffentlichen Schlüssels. Vergleiche ihn über einen zweiten Kanal, bevor du ihm vertraust. Stimmt er nicht, stammt die Datei nicht von dieser Quelle.</small>
+          </div>
+        </details>
+      </div>
+    </section>
 
-    <section id="pwa">
+    <section id="mobile">
       <div class="wrap">
         <div class="section-head">
           <div class="kicker">Handy, Tablet &amp; Chromebook</div>
-          <h2>Web-Regie als installierbare PWA.</h2>
-          <p>Die gemeinsame Web-Regie lässt sich in unterstützten Browsern zum Startbildschirm hinzufügen und passt sich an Touch-Bedienung und kleine Displays an. Es gibt keinen APK- oder App-Store-Installer.</p>
+          <h2>Eigenständige Anwendungen statt Web-Ersatz.</h2>
+          <p>Für Android, iPhone und iPad entstehen eigenständige Steuerungs- und Begleit-Anwendungen. ChromeOS erhält eine installierbare Anwendung, soweit die jeweilige Umgebung das unterstützt. Eine Web-App oder PWA wird nicht als Ersatz angeboten.</p>
         </div>
         <div class="grid">
           <article class="card">
             <h3>Android / iPhone / iPad</h3>
-            <p>Im Browser öffnen und über das Browsermenü installieren. Die PWA kann lokale Kamera-/Mikrofonvorschau und – sofern der Browser es unterstützt – Bildschirmfreigabe nutzen. Ein verbundener Streamiov-Core, Streamstart/RTMP, TikTok-/Twitch-LIVE, Push und Hintergrundbetrieb sind in der PWA noch nicht als verfügbar verifiziert.</p>
-            <a class="download-main" href="/app/">STREAMIOV auf dem Handy öffnen</a>
-            <span class="tag tag-work">PWA vorbereitet · Gerätetest offen</span>
+            <p>Die mobile Anwendung verbindet sich sicher mit dem zentralen StreamioV Core und nutzt gemeinsame Konten, Einstellungen und Synchronisierung. Installierbare Builds und echte Gerätetests stehen noch aus.</p>
+            <span class="tag tag-work">Build offen · Gerätetest offen</span>
           </article>
           <article class="card">
             <h3>Chromebook / ChromeOS</h3>
-            <p>Die PWA ist der empfohlene Einstieg im Chrome-Browser. Die Crostini-DEB-Pakete bleiben ein zusätzlicher, geräteabhängiger Desktop-Weg. Kamera-, Mikrofon-, GPU- und Encoding-Unterstützung sind auf realen ARM- und x64-Chromebooks nicht verifiziert.</p>
-            <a class="download-main" href="/app/">Web-Regie auf Chromebook öffnen</a>
-            <span class="tag tag-work">PWA vorbereitet · Gerätetest offen</span>
+            <p>Eine installierbare ChromeOS-Anwendung ist das Ziel, soweit die Umgebung sie unterstützt. Die vorhandenen Crostini-DEB-Pakete sind Linux-Desktop-Pakete und keine PWA; Kamera-, Mikrofon-, GPU- und Encoding-Verhalten ist auf realen Geräten nicht verifiziert.</p>
+            <a class="download-main" href="#installer">Linux-DEB für Crostini ansehen</a>
+            <span class="tag tag-work">Gerätetest offen</span>
           </article>
         </div>
       </div>
@@ -208,12 +251,41 @@
     </section>
 
     <section id="streaming">
-  <div class="wrap">
-    <div class="section-head"><div class="kicker">Streaming</div><h2>Deine Regie, deine Plattformen.</h2><p>Für einen LIVE-Stream benötigst du eine unterstützte Plattformverbindung, passende Geräte und eine kompatible Encoder-Konfiguration. Prüfe vor dem Start die Hinweise deiner Plattform und die Ausstattung deines Geräts.</p></div>
-  </div>
-</section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Streaming-Funktion</div>
+          <h2>Regie-Oberfläche enthalten, Encoder noch extern.</h2>
+          <p>Die Installer enthalten Kamera-, Bildschirm- und Mikrofonauswahl sowie ein RTMP-Ziel. Studio 1.0.4 enthält den Szenen-/Quellen-Editor mit gemeinsamem Vorschau-, Programm- und Stream-Renderer sowie der Schutzregie: Ein Hotkey schaltet das Programm auf PAUSE und den lokalen Mikrofon-Mix auf 0 %, beim Aufheben werden beide Werte wiederhergestellt. Für eine echte Live-Ausgabe muss FFmpeg mit libx264, AAC und RTMP-Unterstützung auf dem Computer installiert sein; der Encoder ist noch nicht Teil der Installer.</p>
+        </div>
+        <div class="notice"><strong>Kein Live-Nachweis:</strong> Eine erfolgreiche RTMP-Verbindung ersetzt keine Anmeldung bei TikTok, YouTube, Twitch oder einem anderen Dienst. Ein Encoder-Start beweist nicht, dass ein Dienst den Stream empfangen oder veröffentlicht hat. Offizielle Plattform-Anmeldungen und TikTok-Geschenke bleiben von einer Freigabe durch TikTok abhängig.</div>
+        <div class="notice"><strong>Grenze der Schutzregie:</strong> Sie stoppt weder den Encoder noch eine laufende Aufnahme und garantiert keine Plattform-Privatsphäre. Sie schaltet nur die Programmszene und den lokalen Mikrofon-Mix; Plattform- und Aufnahme-Privatsphäre müssen separat geprüft werden.</div>
+      </div>
+    </section>
 
-    
+    <section id="pruefung">
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Prüfstatus</div>
+          <h2>Was hier belegt ist – und was nicht.</h2>
+          <p>Die Unterscheidung ist Absicht: Ein grüner Build, ein vorhandenes ZIP oder eine getestete Oberfläche ist kein Nachweis für echte Hardware, einen Livestream oder eine Plattformfreigabe.</p>
+        </div>
+        <table>
+          <thead><tr><th>Bereich</th><th>Stand</th><th>Beleg / offene Grenze</th></tr></thead>
+          <tbody>
+            <tr><td>Studio-Installer</td><td>Version 1.0.4 gebaut und veröffentlicht</td><td>Windows x64/ARM64 und Linux x64/ARM64 mit SHA256SUMS.txt. Linux-x64-DEB heruntergeladen, Prüfsumme geprüft und Schutzregie im Paket nachgewiesen; Erststart auf echter Hardware weiter offen.</td></tr>
+            <tr><td>Schutzregie / Privacy Shield</td><td>In Installern · Engine getestet</td><td>Programm auf PAUSE und lokaler Mikrofon-Mix auf 0 % per Hotkey, inklusive exakter Wiederherstellung. Stoppt keinen Encoder und garantiert keine Plattform-Privatsphäre.</td></tr>
+            <tr><td>Quellcode-Snapshot</td><td>Sieben Teile mit SHA-256</td><td>Quellpaket, kein Installer; Größe und Prüfsummen werden vor dem Speichern geprüft.</td></tr>
+            <tr><td>Mobile Anwendungen / ChromeOS</td><td>Eigenständige Apps gefordert, Builds offen</td><td>Android, iOS und ChromeOS erhalten keine Web-App oder PWA als Ersatz. Installierbare Builds und Gerätetests stehen aus; ChromeOS nutzt vorerst die Linux-DEB unter Crostini.</td></tr>
+            <tr><td>Spiel-Prototypen</td><td>Fünf checksumierte ZIPs</td><td>Automatisierte Quelltests vorhanden; menschliche Spielbarkeit, Barrierefreiheit, Rechte und Zielgeräte offen.</td></tr>
+            <tr><td>Forum / Konto</td><td>Lokal verifiziert</td><td>Öffentliches Lesen, sitzungsgebundenes Schreiben, Rate-Limits und Moderation; kein öffentlicher Community-Rollout.</td></tr>
+            <tr><td>KI-Spezialisten</td><td>Rollen, Queue und Cloudflare-Inferenz verifiziert</td><td>11 Rollen und die Task-Queue sind lokal getestet; der deployte Cloudflare-Worker beantwortete am 3.11.2026 eine Mini-Inferenz. Lokale Ollama-Inferenz bleibt auf dieser Maschine nicht verfügbar.</td></tr>
+            <tr><td>TikTok</td><td>Extern blockiert</td><td>App-Review, genehmigte Scopes und offizielle Geschenk-Funktionen fehlen; keine Freigabe wird behauptet.</td></tr>
+            <tr><td>Livestream</td><td>Extern blockiert</td><td>Ein realer, von einem Dienst empfangener und veröffentlichter Stream ist nicht nachgewiesen.</td></tr>
+            <tr><td>Code-Signierung / Hosting / Recht</td><td>Extern blockiert</td><td>Zertifikate, öffentlich erreichbarer Host mit Vertrauenszertifikat und vollständige Rechtsprüfung stehen aus.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <section id="hinweise">
       <div class="wrap">

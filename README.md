@@ -8,13 +8,13 @@ StreamioV bleibt dauerhaft kostenlos: keine Abos, Pro-Stufen, Werbung, Verkäufe
 
 ## Current state
 
-The desktop shell is an Electron app in `dist/streamiov-studio-app/`. Its build workflow targets Windows 11 x64 and Linux x64/ARM64. **StreamioV Studio 1.0.1** was published on 2026-11-03. The Studio includes local camera and microphone previews, a persistent scene and source model, system diagnostics, and a synthetic audio/video encoding check. It also includes the **Schutzregie / Privacy Shield**: `Ctrl+Shift+P` switches the program to PAUSE and the local microphone mix to 0 %, then restores both values when deactivated. It is local and free, but it does not stop the encoder or recording and does not guarantee platform-side privacy. The published 1.0.1 installers and the Web-Regie/PWA contain the shield.
+The desktop shell is an Electron app in `dist/streamiov-studio-app/`. Its build workflow targets Windows x64/ARM64, Linux x64/ARM64, and ChromeOS x64/ARM64 via Crostini; macOS, Android, and iOS need their own installable applications. There is no browser studio and no PWA substitute. **StreamioV Studio 1.0.1** was published on 2026-11-03. The Studio includes local camera and microphone previews, a persistent scene and source model, system diagnostics, and a synthetic audio/video encoding check. It also includes the **Schutzregie / Privacy Shield**: `Ctrl+Shift+P` switches the program to PAUSE and the local microphone mix to 0 %, then restores both values when deactivated. It is local and free, but it does not stop the encoder or recording and does not guarantee platform-side privacy. The installable Studio applications contain the shield.
 
 The current Studio is an early foundation, not a finished live-streaming product. Its platform selector saves a preference but does not sign in to a service. The chat and TTS controls are local demonstrations; gift and alert buttons trigger local, free canvas effects only. Scenes now have a real source list (camera, screen, title card, text) with position, visibility, layer order, and a background colour. The preview monitor, program monitor, and stream encoder use the same canvas renderer, so a user-created layout is what the stream output draws. The media check uses generated test signals, not a creator's full live setup.
 
 The broadcast path encodes the current program scene, including camera, screen, title-card, and text sources, and mixes the chosen microphone/system audio mode to a user-provided RTMP/RTMPS destination. Windows may provide system audio from the selected screen. It currently requires FFmpeg to be installed on the computer with the `libx264` video encoder, AAC audio encoder, and RTMP/RTMPS protocols. FFmpeg is not yet bundled in the downloadable installers. Official platform sign-in is not implemented. Do not treat an RTMP encoder starting as proof that a streaming service received or published the broadcast.
 
-The download page is maintained at `dist/streamiov-homepage-worker/public/download/index.html`. It centralizes the Studio 1.0.1 installers for Windows x64/ARM64 and Linux x64/ARM64, the newer source snapshot (checksummed, but not an installer), the Web-Regie/PWA, account/forum links, and five checksummed game prototypes. The promo page at `dist/streamiov-homepage-worker/public/promo/index.html` contains real screenshots and a frame-captured Schutzregie demo, ready-to-copy social text, and the same honest limits. The prototypes are development builds, not releases. A successful installer build does not by itself prove that the app can stream or that it works on every device.
+The download page is maintained at `dist/streamiov-homepage-worker/public/download/index.html`. It centralizes the Studio installers for Windows x64/ARM64 and Linux x64/ARM64, the newer source snapshot (checksummed, but not an installer), the status of native mobile and ChromeOS applications, account/forum links, and five checksummed game prototypes. No web app or PWA is offered. The promo page at `dist/streamiov-homepage-worker/public/promo/index.html` contains real screenshots and a frame-captured Schutzregie demo, ready-to-copy social text, and the same honest limits. The prototypes are development builds, not releases. A successful installer build does not by itself prove that the app can stream or that it works on every device.
 
 The packaged Electron app does not include the optional Python `modules/` tree. Features that need it report `not_bundled` with a clear explanation instead of failing with an import error. The same guard applies in a repository checkout when those optional modules are absent; if they are present, the handlers use them.
 
@@ -106,7 +106,7 @@ Jason reads the mission database at `.streamiov/ai-missions.sqlite3` and the spe
 ## Projektbereiche
 
 - **Studio:** Electron-Desktop-Regie und Geräte-/Medienintegration.
-- **Mobile und Chromebook:** gemeinsame installierbare Web-Regie/PWA unter `/app/`.
+- **Mobile und Chromebook:** eigenständige installierbare Anwendungen für Android, iPhone/iPad und ChromeOS, soweit die Plattform es unterstützt; keine Web-App und keine PWA als Ersatz.
 - **Core:** Plattformdienste, sichere Konten und Cloud-Anbindung.
 - **Geschenke:** STREAMIOV-native Geschenklogik und getrennte Ledger-Basis.
 - **Spiele:** eigenständige Spielebibliothek und kontrollierte Veröffentlichungen.
@@ -115,7 +115,7 @@ Jason reads the mission database at `.streamiov/ai-missions.sqlite3` and the spe
 
 Ein grüner Build beweist nur, dass der Build erfolgreich war. Er beweist nicht automatisch, dass ein Paket auf echter Hardware installiert wurde, dass Mediengeräte funktionieren oder dass ein Live-Stream produktiv läuft. Solche Abnahmen werden separat dokumentiert.
 
-Eine installierbare PWA ist keine native Android-APK oder iOS-App. Ein TikTok-Sandbox-OAuth-Test ist keine echte TikTok-Autorisierung. Ein Geschenk-Ledger ist keine Zahlungsanbieter- oder Auszahlungslösung.
+Eine PWA ist keine native Android-APK, iOS-App oder Desktop-Anwendung und wird nicht als Ersatz angeboten. Ein TikTok-Sandbox-OAuth-Test ist keine echte TikTok-Autorisierung. Ein Geschenk-Ledger ist keine Zahlungsanbieter- oder Auszahlungslösung.
 
 Keine Zugangsdaten, Tokens oder privaten Schlüssel in Issues, Commits oder Chatnachrichten einfügen.
 

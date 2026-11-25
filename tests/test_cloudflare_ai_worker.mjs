@@ -213,6 +213,133 @@ test("pauses instead of falling back to paid inference when daily quota is exhau
   assert.match(body.error.message, /free daily AI allocation/);
 });
 
+
+test("prefers the authenticated self-hosted model before Workers AI", async () => {
+  const originalFetch = globalThis.fetch;
+  let receivedUrl = "";
+  let receivedAuthorization = "";
+  let receivedPayload;
+  let workersAiCalled = false;
+  globalThis.fetch = async (url, options) => {
+    receivedUrl = String(url);
+    receivedAuthorization = options.headers.authorization;
+    receivedPayload = JSON.parse(options.body);
+    return new Response(JSON.stringify({
+      choices: [{ message: { role: "assistant", content: "SELF-HOSTED-OK" } }]
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const response = await worker.fetch(
+      chatRequest({ model: MODEL, messages: [{ role: "user", content: "Build Streamiov" }] }),
+      env({
+        STREAMIOV_SELF_HOSTED_MODEL_URL: "https://model.example.com",
+        STREAMIOV_SELF_HOSTED_MODEL_TOKEN: TOKEN,
+        STREAMIOV_SELF_HOSTED_MODEL: "qwen2.5-coder:7b",
+        AI: { run: async () => { workersAiCalled = true; return { response: "fallback" }; } }
+      })
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.choices[0].message.content, "SELF-HOSTED-OK");
+    assert.equal(receivedUrl, "https://model.example.com/v1/chat/completions");
+    assert.equal(receivedAuthorization, `Bearer ${TOKEN}`);
+    assert.equal(receivedPayload.model, "qwen2.5-coder:7b");
+    assert.equal(workersAiCalled, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("falls back to the existing Workers AI binding when self-hosted inference is unavailable", async () => {
+  const originalFetch = globalThis.fetch;
+  let workersAiCalled = false;
+  globalThis.fetch = async () => new Response("unavailable", { status: 503 });
+  try {
+    const response = await worker.fetch(
+      chatRequest({ model: MODEL, messages: [{ role: "user", content: "Fallback test" }] }),
+      env({
+        STREAMIOV_SELF_HOSTED_MODEL_URL: "https://model.example.com",
+        STREAMIOV_SELF_HOSTED_MODEL_TOKEN: TOKEN,
+        STREAMIOV_SELF_HOSTED_MODEL: "qwen2.5-coder:7b",
+        AI: { run: async () => { workersAiCalled = true; return { response: "WORKERS-AI-FALLBACK" }; } }
+      })
+    );
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.choices[0].message.content, "WORKERS-AI-FALLBACK");
+    assert.equal(workersAiCalled, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("health reports self-hosted model as active when it is ready", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    ok: true, model: "qwen2.5-coder:7b"
+  }), { status: 200, headers: { "content-type": "application/json" } });
+  try {
+    const response = await worker.fetch(
+      new Request(base + "/health", { headers: authHeaders() }),
+      env({
+        STREAMIOV_SELF_HOSTED_MODEL_URL: "https://model.example.com",
+        STREAMIOV_SELF_HOSTED_MODEL_TOKEN: TOKEN,
+        STREAMIOV_SELF_HOSTED_MODEL: "qwen2.5-coder:7b"
+      })
+    );
+    const body = await response.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.active_provider, "self-hosted-openai-compatible");
+    assert.equal(body.providers[0].ready, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("rejects an invalid self-hosted endpoint configuration and uses no remote request", async () => {
+  const originalFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = async () => { called = true; throw new Error("must not be called"); };
+  try {
+    const response = await worker.fetch(
+      chatRequest({ messages: [{ role: "user", content: "Safe fallback" }] }),
+      env({
+        STREAMIOV_SELF_HOSTED_MODEL_URL: "http://model.example.com",
+        STREAMIOV_SELF_HOSTED_MODEL_TOKEN: TOKEN,
+        AI: { run: async () => ({ response: "WORKERS-AI-SAFE" }) }
+      })
+    );
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).choices[0].message.content, "WORKERS-AI-SAFE");
+    assert.equal(called, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+test("rejects loopback and IP-literal self-hosted model endpoints", async () => {
+  const originalFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = async () => { called = true; throw new Error("must not be called"); };
+  try {
+    for (const endpoint of ["https://127.0.0.1", "https://192.168.1.10", "https://localhost"]) {
+      const response = await worker.fetch(
+        chatRequest({ messages: [{ role: "user", content: "No SSRF" }] }),
+        env({
+          STREAMIOV_SELF_HOSTED_MODEL_URL: endpoint,
+          STREAMIOV_SELF_HOSTED_MODEL_TOKEN: TOKEN,
+          AI: { run: async () => ({ response: "SAFE" }) }
+        })
+      );
+      assert.equal(response.status, 200);
+    }
+    assert.equal(called, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("unknown routes and unavailable AI bindings fail closed", async () => {
   const notFound = await worker.fetch(
     new Request(base + "/anything", { headers: authHeaders() }),

@@ -107,6 +107,8 @@ class TaskOrchestrator:
                 output = self.agent_factory(task.specialist).run(task.prompt)
                 if not isinstance(output, str):
                     raise TypeError("Specialist agent returned a non-text result.")
+                if not output.strip():
+                    raise ValueError("Specialist agent returned an empty result; refusing to mark the task successful.")
                 results[task.task_id] = TaskResult(task.task_id, task.specialist, "succeeded", result=output)
             except Exception as exc:
                 results[task.task_id] = TaskResult(
