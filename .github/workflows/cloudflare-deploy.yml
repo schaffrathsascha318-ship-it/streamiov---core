@@ -50,7 +50,6 @@ jobs:
           bash -n scripts/deploy-streamiov-ai-worker.sh
           python scripts/verify-cloudflare-config.py
           node --test tests/test_cloudflare_ai_worker.mjs
-          python scripts/test-mobile-pwa.py
 
   deploy-homepage:
     needs: verify
@@ -66,9 +65,6 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-
-      - name: Build the current mobile PWA into the public site
-        run: python scripts/build-mobile-pwa.py
 
       - uses: actions/setup-node@v4
         with:

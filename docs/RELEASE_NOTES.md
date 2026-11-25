@@ -1,61 +1,43 @@
-# StreamioV Studio 1.0.2
+# StreamioV Studio 1.0.4
 
-**Schutzregie / Privacy Shield ist jetzt in den Installern enthalten.**
+**Nur installierbare Anwendungen. Kein Browser-Studio und keine PWA als Ersatz.**
 
-## Plattform- und PWA-Erweiterung 1.0.2
+## Enthalten
 
-- Windows ARM64 wird als eigener NSIS-Build erzeugt und in den Release-Pfad aufgenommen; Windows x64 bleibt die primäre Desktop-Plattform.
-- Die mobile Web-Regie wird im Release-Workflow aus der kanonischen Regie generiert, validiert und als HTTPS-hostbares PWA-Bundle paketiert.
-- Browser außerhalb der Electron-Desktop-App können Bildschirmfreigabe über die native `getDisplayMedia`-Auswahl des Browsers anfordern.
-- Windows-, Linux- und ChromeOS-Builds werden für die vorgesehenen x64-/ARM64-Ziele getrennt erstellt.
+- Windows x64 und Windows ARM64 als NSIS-Installer
+- Linux x64 und Linux ARM64 als AppImage und DEB
+- ChromeOS x64/ARM64 über die Linux-DEB-Pakete unter Crostini, soweit die Umgebung sie unterstützt
+- `SHA256SUMS.txt` für alle in diesem Release veröffentlichten Dateien
 
-**Wichtig:** Ein erfolgreich gebautes Paket beweist noch keinen Hardwaretest. Die PWA kann lokale Browser-Medienfunktionen nutzen, hat aber keinen Electron-Core-Bridge-Zugriff und bestätigt keinen echten Streamstart. Native Android-/iOS-Apps, reale Hardwareabnahmen und produktive LIVE-Verbindungen bleiben separat offen.
+Für macOS, Android, iPhone und iPad sind in diesem Release keine installierbaren Anwendungen enthalten. Eine Web-App oder PWA wird nicht als Ersatz angeboten; diese Ziele bleiben offen, bis eigene Builds und Gerätetests vorliegen.
 
-## Neu
+## Verbesserungen seit 1.0.1
 
-- **Schutzregie:** `Ctrl+Shift+P` oder der Button in der Übergangssteuerung schaltet das Programm sofort auf die eingebaute PAUSE-Szene und den lokalen Mikrofon-Mix auf 0 %.
-- Beim Aufheben werden die vorherige Programmszene und der exakte Mikrofonpegel wiederhergestellt.
-- Der Mikrofonregler ist während der Schutzregie gesperrt; TAKE ist gesperrt, solange die Schutzregie aktiv ist.
-- Der Zustand wird lokal gespeichert und nach einem Neustart sicher wiederhergestellt.
-- Die Web-Regie/PWA enthält die Schutzregie ebenfalls; dort bleiben Szenen- und Medienfunktionen ohne verbundenen Core als lokale Demo gekennzeichnet.
-- Die Szenen-Engine kann die Programmszene direkt wechseln, ohne die Vorschau zu verändern.
+- **Schutzregie / Privacy Shield:** `Ctrl+Shift+P` oder der Button in der Übergangssteuerung schaltet das Programm sofort auf die eingebaute PAUSE-Szene und den lokalen Mikrofon-Mix auf 0 %. Beim Aufheben werden die vorherige Programmszene und der exakte Mikrofonpegel wiederhergestellt. Der Mikrofonregler bleibt während der Schutzregie gesperrt; TAKE ist gesperrt.
+- **Gerätefähigkeiten:** Die Regie zeigt einen schreibgeschützten Bericht zu API-Verfügbarkeit und Layoutdichte. API-Vorhandensein oder `navigator.userAgent` werden nicht als geprüfte Gerätefähigkeit ausgegeben.
+- **Programmausgabe:** Ein separates Fenster zeichnet die gespeicherte Szene auf einer lokalen 1280×720-Canvas. Der Status lautet ausdrücklich `LOKALE CANVAS · NOCH KEIN LIVE-VIDEO`; Kamera und Bildschirm sind dort Platzhalter.
+- **Chief-Retry-Diagnose:** Fehlermeldungen aus Wiederholungen bleiben über Checkpoints erhalten und werden als nicht vertrauenswürdige Referenz genau einmal injiziert.
+- **SQLite-Zustand:** `/healthz` und `/api/v1/status` melden beschädigte oder veraltete Stores als `degraded` statt Erfolg zu behaupten. Legacy-Forenspalten werden vor der Indexerzeugung migriert.
+- **Native-only-Kurs:** Die generierte Browser-Regie, ihr Manifest, Service Worker und die zugehörigen Build-/Testskripte wurden entfernt. Die öffentliche Seite ist nur Informations- und Downloadseite.
 
-## Ehrliche Grenze
+## Ehrliche Grenzen
 
 Die Schutzregie stoppt **weder den Encoder noch eine laufende Aufnahme** und garantiert **keine Plattform-Privatsphäre**. Sie schaltet ausschließlich die Programmszene und den lokalen Mikrofon-Mix. Plattform- und Aufnahme-Privatsphäre müssen separat geprüft werden.
 
-## Enthaltene Downloads
+Ein erfolgreicher Build ist kein Nachweis für eine funktionierende Live-Ausgabe. FFmpeg mit `libx264`, AAC und RTMP/RTMPS muss weiterhin separat installiert sein. Ein RTMP-Start beweist nicht, dass ein Dienst den Stream empfangen oder veröffentlicht hat.
 
-- Windows x64 und Windows ARM64 (NSIS)
-- Linux x64 und Linux ARM64 (AppImage und DEB)
-- `SHA256SUMS.txt` für alle veröffentlichten Dateien
+Erststart und Funktion auf echter Windows-, Linux-, Chromebook- und ARM-Hardware sind nicht vollständig geprüft. Kamera-, Bildschirm-, Mikrofon-, GPU- und Encoding-Verhalten bleiben geräteabhängig. Ein real von einem Streamingdienst empfangener und veröffentlichter Livestream ist nicht nachgewiesen. TikTok-App-Review, genehmigte Scopes und offizielle Geschenk-Funktionen fehlen; es wird keine Freigabe behauptet.
 
-ChromeOS/Crostini nutzt die Linux-DEB-Pakete. Die Web-Regie steht zusätzlich als PWA unter `https://streamiov.pages.dev/app/` bereit.
-
-## Release-Signatur ohne Zertifikatskauf
+## Signatur ohne Zertifikatskauf
 
 - Die Prüfsummen (`SHA256SUMS.txt`, `SHA256SUMS-games.txt`) sind mit einem projekt-eigenen Ed25519-Schlüssel signiert. Öffentlicher Schlüssel, Signaturdateien und Fingerabdruck liegen im Download-Bereich.
-- Prüfen mit `node scripts/release-signing.mjs verify-release`; nach jeder Änderung an einer Datei schlägt die Prüfung fehl.
+- Prüfen mit `node scripts/release-signing.mjs verify-release`; nach jeder Änderung an einer geprüften Datei schlägt die Prüfung fehl.
 - Das ist eine Integritäts- und Herkunftssignatur, **keine** Windows-/macOS-Code-Signatur. SmartScreen-/Gatekeeper-Vertrauen bräuchte ein kostenpflichtiges Zertifikat einer Zertifizierungsstelle und wird nicht behauptet oder automatisch gekauft.
 
 ## Dauerhaft kostenlos
 
 StreamioV bleibt ein kostenloses Angebot für alle: **keine Abos, keine Pro-Stufen, keine Werbung, keine Verkäufe und keine Zahlungspflicht**. Es gibt keine künstlichen Bezahlschranken und keinen automatischen kostenpflichtigen Fallback. Internet, Strom, Geräte und externe Plattformen haben eigene Bedingungen und können außerhalb StreamioVs Kosten verursachen.
 
-## Promo und Quellcode
-
-- Die Promo-Seite unter `https://streamiov.pages.dev/promo/` zeigt echte Screenshots der laufenden Web-Regie, einen kurzen Clip der Schutzregie und vorbereitete Social-Texte.
-- Der Quellcode-Snapshot wird mit `scripts/build-source-snapshot.py` reproduzierbar aus den Repository-Quellen gebaut, in sieben größen- und SHA-256-geprüfte Teile zerlegt und im Download-Hub verlinkt. Ein erneuter Lauf auf demselben Commit erzeugt byte-identische Teile samt Prüfsummen.
-- Der Snapshot enthält keine Zugangsdaten, Produktionsdatenbanken, Installer, Caches, binären Download-Artefakte oder generierten Download-Metadaten (Teile, Prüfsummen, `combine.js`, Download-Seite).
-
-## Noch extern blockiert
-
-- Ein real von einem Streamingdienst empfangener und veröffentlichter Livestream ist nicht nachgewiesen.
-- TikTok-App-Review, genehmigte Scopes und offizielle Geschenk-Funktionen fehlen; es wird keine Freigabe behauptet.
-- Erststart und Funktion auf echter Windows-, Linux-, Chromebook- und ARM-Hardware sind nicht vollständig geprüft.
-- Code-Signierung/Notarisierung, eine eigene Domain und die vollständige Rechtsprüfung stehen aus.
-- FFmpeg mit `libx264`, AAC und RTMP/RTMPS wird weiterhin separat auf dem Computer benötigt; es ist nicht gebündelt.
-
 ## Quellcode
 
-Der aktuelle Quellcode-Snapshot liegt auf dem Download-Hub unter `https://streamiov.pages.dev/download/`.
+Der Quellcode-Snapshot wird mit `scripts/build-source-snapshot.py` reproduzierbar aus den Repository-Quellen gebaut, in größen- und SHA-256-geprüfte Teile zerlegt und im Download-Hub verlinkt. Er ist kein Installer und enthält keine Zugangsdaten, Produktionsdatenbanken, Installer, Caches oder binären Download-Artefakte. Der aktuelle Stand liegt unter `https://streamiov.pages.dev/download/`.

@@ -192,13 +192,20 @@ def verify() -> dict[str, Any]:
             "download/index.html",
             "forum/index.html",
             "account/index.html",
-            "app/index.html",
+            "studio/index.html",
             "assets/streamiov-wordmark.svg",
             "assets/streamiov-symbol.svg",
         ):
             if not (HOMEPAGE_PUBLIC / required).is_file():
                 errors.append(f"homepage public file is missing: {required}")
-        checks.append("homepage asset tree contains the public entry points")
+        for forbidden in ("app/index.html", "app/manifest.webmanifest", "app/sw.js"):
+            if (HOMEPAGE_PUBLIC / forbidden).exists():
+                errors.append(f"homepage public tree still contains a browser app artifact: {forbidden}")
+        for page in ("index.html", "download/index.html", "promo/index.html", "studio/index.html"):
+            markup = (HOMEPAGE_PUBLIC / page).read_text(encoding="utf-8")
+            if 'href="/app/"' in markup or "serviceWorker.register" in markup:
+                errors.append(f"homepage page still links to a browser app: {page}")
+        checks.append("homepage asset tree contains the public entry points and no browser app")
 
     if ai:
         if ai.get("name") != "streamiov-ai-worker":
