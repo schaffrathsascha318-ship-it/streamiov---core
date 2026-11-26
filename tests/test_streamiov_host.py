@@ -1,15 +1,56 @@
 import re
 import tempfile
 import json
+import os
 import threading
 import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from host.server import DEFAULT_SITE_ROOT, Handler, StreamioVHTTPServer, resolve_public_file, validate_tls_settings
+from host.server import DEFAULT_SITE_ROOT, Handler, StreamioVHTTPServer, close_voice_signalling_room, resolve_public_file, validate_tls_settings
 from host.data_store import DEFAULT_RAW_DATA_ROOT
+
+
+class VoiceSignallingRevocationTests(unittest.TestCase):
+    @patch("host.server.build_opener")
+    def test_core_posts_owner_token_to_https_worker_without_redirects(self, build_opener_mock):
+        response = MagicMock()
+        response.status = 200
+        response.read.return_value = b'{"ok":true,"closed":true}'
+        opener = MagicMock()
+        opener.open.return_value.__enter__.return_value = response
+        build_opener_mock.return_value = opener
+        room_id = "a" * 32
+        with patch.dict(os.environ, {"STREAMIOV_VOICE_SIGNALING_URL": "https://voice.example"}):
+            self.assertTrue(close_voice_signalling_room(room_id, "short-lived-owner-token"))
+        request = opener.open.call_args.args[0]
+        self.assertEqual(request.full_url, f"https://voice.example/v1/voice/rooms/{room_id}/close")
+        self.assertEqual(request.get_method(), "POST")
+        self.assertEqual(request.get_header("Authorization"), "Bearer short-lived-owner-token")
+        self.assertEqual(opener.open.call_args.kwargs["timeout"], 5)
+        self.assertEqual(len(build_opener_mock.call_args.args), 1)
+
+    def test_core_refuses_insecure_or_non_origin_signalling_urls(self):
+        room_id = "b" * 32
+        for origin in (
+            "http://voice.example", "https://voice.example/path",
+            "https://user:pass@voice.example", "https://voice.example?token=leak",
+        ):
+            with self.subTest(origin=origin), patch.dict(os.environ, {"STREAMIOV_VOICE_SIGNALING_URL": origin}):
+                self.assertFalse(close_voice_signalling_room(room_id, "owner-token"))
+
+    @patch("host.server.build_opener")
+    def test_core_fails_closed_when_worker_does_not_confirm_room_closure(self, build_opener_mock):
+        response = MagicMock()
+        response.status = 200
+        response.read.return_value = b'{"ok":true,"closed":false}'
+        opener = MagicMock()
+        opener.open.return_value.__enter__.return_value = response
+        build_opener_mock.return_value = opener
+        with patch.dict(os.environ, {"STREAMIOV_VOICE_SIGNALING_URL": "https://voice.example"}):
+            self.assertFalse(close_voice_signalling_room("c" * 32, "owner-token"))
 
 
 class HostStaticPathTests(unittest.TestCase):

@@ -11,6 +11,7 @@ import getpass
 import json
 import mimetypes
 import os
+import re
 from pathlib import Path
 import ipaddress
 import ssl
@@ -21,6 +22,8 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from http.cookies import SimpleCookie
 from urllib.parse import unquote, urlsplit
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 
 VERSION = "0.1.0"
@@ -44,6 +47,49 @@ if str(PROJECT_ROOT) not in sys.path:
 from host.auth import AuthError, AuthStore, RequestRateLimiter
 from host.data_store import DataStore
 from host.forum import ForumError, ForumStore
+from host.voice import VoiceError, VoiceRoomStore, voice_ice_configuration
+
+
+class _NoVoiceRedirect(HTTPRedirectHandler):
+    def redirect_request(self, request, file_pointer, code, message, headers, new_url):
+        # Never forward the short-lived owner bearer token to a redirect target.
+        return None
+
+
+def close_voice_signalling_room(room_id: str, bearer_token: str) -> bool:
+    """Close a room's signalling Durable Object without following redirects."""
+    raw_origin = os.environ.get("STREAMIOV_VOICE_SIGNALING_URL", "").strip()
+    try:
+        parsed = urlsplit(raw_origin)
+        port = parsed.port
+    except ValueError:
+        return False
+    if (
+        parsed.scheme != "https" or not parsed.hostname
+        or parsed.username is not None or parsed.password is not None
+        or parsed.path not in ("", "/") or parsed.query or parsed.fragment
+        or port not in (None, 443)
+        or not isinstance(room_id, str) or not re.fullmatch(r"[a-f0-9]{32}", room_id)
+        or not isinstance(bearer_token, str) or not bearer_token
+    ):
+        return False
+    request = Request(
+        raw_origin.rstrip("/") + f"/v1/voice/rooms/{room_id}/close",
+        data=b"{}",
+        headers={"Authorization": "Bearer " + bearer_token, "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with build_opener(_NoVoiceRedirect()).open(request, timeout=5) as response:
+            if response.status != 200:
+                return False
+            payload = response.read(4097)
+        if len(payload) > 4096:
+            return False
+        result = json.loads(payload.decode("utf-8"))
+        return isinstance(result, dict) and result.get("ok") is True and result.get("closed") is True
+    except (HTTPError, URLError, TimeoutError, OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        return False
 
 
 def local_ai_status() -> dict:
@@ -157,7 +203,9 @@ class StreamioVHTTPServer(ThreadingHTTPServer):
         self.auth_store = AuthStore(data_dir)
         self.data_store = DataStore(data_dir, raw_data_root)
         self.forum_store = ForumStore(data_dir)
+        self.voice_store = VoiceRoomStore(data_dir)
         self.auth_limiter = RequestRateLimiter()
+        self.voice_limiter = RequestRateLimiter(limit=60, window_seconds=60)
         self.forum_thread_limiter = RequestRateLimiter(limit=5, window_seconds=600)
         self.forum_reply_limiter = RequestRateLimiter(limit=20, window_seconds=600)
         self.auth_work_slots = threading.BoundedSemaphore(4)
@@ -426,6 +474,125 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, payload)
         return True
 
+    def _voice_request(self, path: str) -> bool:
+        """Authenticated room management; reusable voice JWTs never reach the renderer."""
+        prefix = "/api/v1/voice/"
+        if not path.startswith(prefix):
+            return False
+        if self.command != "POST":
+            self._json(405, {"error": "method_not_allowed"})
+            return True
+        if not self._request_origin_allowed() and not self._studio_client_request():
+            self._json(403, {"error": "request_origin_not_allowed"})
+            return True
+        user = self.server.auth_store.user_for_token(self._auth_cookie_token())
+        if user is None:
+            self._json(401, {"error": "authentication_required"})
+            return True
+        if not self.server.voice_limiter.allow("voice", self._client_address()):
+            self._json_with_headers(429, {"error": "too_many_attempts"}, (("Retry-After", "60"),))
+            return True
+        try:
+            payload = self._read_json_object(max_bytes=4096)
+        except AuthError as exc:
+            self._json(400, {"error": str(exc)})
+            return True
+
+        if path in {prefix + "rooms", prefix + "join", prefix + "token"} and len(os.environ.get("STREAMIOV_VOICE_SIGNING_KEY", "").encode("utf-8")) < 32:
+            self._json(503, {"error": "voice_signing_key_not_configured"})
+            return True
+
+        if path == prefix + "rooms":
+            if set(payload) != {"name"}:
+                self._json(400, {"error": "Request must contain only name."})
+                return True
+            try:
+                room = self.server.voice_store.create_room(user.user_id, payload["name"])
+                token = self.server.voice_store.issue_member_token(user.user_id, room["room_id"])
+            except VoiceError as exc:
+                self._json(503 if "Signaturschlüssel" in str(exc) else 400, {"error": str(exc)})
+                return True
+            self._json(201, {"ok": True, "room": {
+                **room, **token, **voice_ice_configuration(user.user_id),
+                "signalling_url": os.environ.get("STREAMIOV_VOICE_SIGNALING_URL", ""),
+                "media_recording": False,
+            }})
+            return True
+
+        if path == prefix + "join":
+            if set(payload) != {"invite_code"}:
+                self._json(400, {"error": "Request must contain only invite_code."})
+                return True
+            try:
+                room = self.server.voice_store.join(user.user_id, payload["invite_code"])
+                token = self.server.voice_store.issue_member_token(user.user_id, room["room_id"])
+            except VoiceError as exc:
+                self._json(503 if "Signaturschlüssel" in str(exc) else 400, {"error": str(exc)})
+                return True
+            self._json(200, {"ok": True, "room": {
+                **room, **token, **voice_ice_configuration(user.user_id),
+                "signalling_url": os.environ.get("STREAMIOV_VOICE_SIGNALING_URL", ""),
+                "media_recording": False,
+            }})
+            return True
+
+        if path == prefix + "token":
+            if set(payload) != {"room_id"} or not isinstance(payload["room_id"], str):
+                self._json(400, {"error": "Request must contain only room_id."})
+                return True
+            try:
+                token = self.server.voice_store.issue_member_token(user.user_id, payload["room_id"])
+            except VoiceError as exc:
+                self._json(503 if "Signaturschlüssel" in str(exc) else 403, {"error": str(exc)})
+                return True
+            self._json(200, {"ok": True, "room": {
+                **token, **voice_ice_configuration(user.user_id),
+                "signalling_url": os.environ.get("STREAMIOV_VOICE_SIGNALING_URL", ""),
+                "media_recording": False,
+            }})
+            return True
+
+        parts = path[len(prefix):].split("/")
+        if len(parts) == 2 and parts[0] and len(parts[0]) == 32 and all(ch in "0123456789abcdef" for ch in parts[0]):
+            room_id, action = parts
+            if action == "invites":
+                if set(payload) - {"role", "ttl", "max_uses"}:
+                    self._json(400, {"error": "Unbekannte Einladungsfelder."})
+                    return True
+                try:
+                    invite = self.server.voice_store.create_invite(
+                        user.user_id, room_id,
+                        role=payload.get("role", "guest"),
+                        ttl=payload.get("ttl", 3600),
+                        max_uses=payload.get("max_uses", 1),
+                    )
+                except VoiceError as exc:
+                    self._json(403 if "Raumeigentümer" in str(exc) else 400, {"error": str(exc)})
+                    return True
+                self._json(201, {"ok": True, "invite": invite, "room_id": room_id})
+                return True
+            if action == "close":
+                if payload != {"confirm": True}:
+                    self._json(400, {"error": "Room close requires confirm=true."})
+                    return True
+                try:
+                    owner_token = self.server.voice_store.issue_member_token(user.user_id, room_id).get("token")
+                except VoiceError:
+                    owner_token = None
+                if not self.server.voice_store.close_room(user.user_id, room_id):
+                    self._json(403, {"error": "room_not_found_or_owner_required"})
+                    return True
+                signalling_revoked = bool(
+                    owner_token and close_voice_signalling_room(room_id, owner_token)
+                )
+                self._json(200, {
+                    "ok": True, "closed": True, "room_id": room_id,
+                    "signalling_revoked": signalling_revoked,
+                })
+                return True
+        self._json(404, {"error": "not_found"})
+        return True
+
     def _forum_request(self, path: str) -> bool:
         """Public forum reads; authenticated, same-origin, rate-limited writes."""
         if path != "/api/forum/threads" and not path.startswith("/api/forum/threads/"):
@@ -547,6 +714,9 @@ class Handler(BaseHTTPRequestHandler):
                 "ai_execution_ready": False,
                 "ai_task_endpoint_ready": False,
                 "platform_integrations_ready": False,
+                "voice_token_issuer_ready": len(os.environ.get("STREAMIOV_VOICE_SIGNING_KEY", "").encode("utf-8")) >= 32,
+                "voice_signalling_url_configured": bool(os.environ.get("STREAMIOV_VOICE_SIGNALING_URL")),
+                "voice_turn_configured": bool(os.environ.get("STREAMIOV_TURN_URLS")) and len(os.environ.get("STREAMIOV_TURN_SHARED_SECRET", "").encode("utf-8")) >= 32,
             })
             return
         if path == "/api/v1/ai/status":
@@ -573,6 +743,8 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == "/api/v1/ai/tasks":
             self._ai_task_request()
+            return
+        if self._voice_request(path):
             return
         if self._forum_request(path):
             return

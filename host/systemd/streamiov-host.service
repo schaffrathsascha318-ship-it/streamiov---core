@@ -7,6 +7,7 @@ Type=simple
 User=streamiov
 Group=streamiov
 WorkingDirectory=/opt/streamiov
+EnvironmentFile=-/etc/streamiov/voice.env
 StateDirectory=streamiov-host
 StateDirectoryMode=0700
 ExecStart=/usr/bin/python3 /opt/streamiov/host/server.py --host 127.0.0.1 --port 8765 --site-root /opt/streamiov/dist/streamiov-homepage-worker/public --data-dir /var/lib/streamiov-host --trust-loopback-proxy
