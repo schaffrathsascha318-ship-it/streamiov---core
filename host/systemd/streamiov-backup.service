@@ -1,0 +1,24 @@
+[Unit]
+Description=Encrypted Streamiov host database backup
+After=local-fs.target
+
+[Service]
+Type=oneshot
+TimeoutStartSec=30min
+TimeoutStopSec=30s
+User=streamiov
+Group=streamiov
+WorkingDirectory=/opt/streamiov
+EnvironmentFile=-/etc/streamiov/backup.env
+Environment=STREAMIOV_DATA_DIR=/var/lib/streamiov-host
+ExecStart=/usr/bin/python3 -m host.backup create
+ExecStartPost=/usr/bin/python3 -m host.backup prune --keep-days 30
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/backups/streamiov /var/lib/streamiov-host
+RestrictAddressFamilies=AF_UNIX
+MemoryMax=256M
+TasksMax=8
+UMask=0077

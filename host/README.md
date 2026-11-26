@@ -56,3 +56,10 @@ The software has no license or service fee and downloads no dependencies. It sta
 ## Current stage
 
 This is a static site and local account/health bootstrap, not the final StreamioV application server. The AI task route is a fail-closed placeholder, not an executor. The raw-data catalog is read-only and seeded from repository JSON; it is not a platform gifts/music integration. The community forum is a real authenticated local write surface with operator moderation, but it is not a public-community rollout. The next gates are secure host installation on owner-controlled hardware, remote deployment review, public account signup/recovery policies, forum abuse/reporting and data-retention policy, a real local AI task executor, and measured uptime on the selected machine. No OAuth credentials or tokens are read or modified by this bootstrap.
+
+
+## Encrypted host backups
+
+The private Linux host can create consistent encrypted snapshots of its SQLite stores with `python3 -m host.backup create`. The tool uses SQLite's online backup API, a manifest with SHA-256 hashes, and age public-key encryption. It never opens legacy `data/db/*.sqlite3` files and never overwrites live databases during restore.
+
+The daily systemd timer is defined in `host/systemd/streamiov-backup.timer`; setup, owner key handling, verification, retention and isolated restore staging are documented in [docs/operations/host-backups.md](../docs/operations/host-backups.md). The backup host receives only the age public recipient. Keep the private age identity offline. Newly encrypted backups remain pending until the owner decrypts and verifies them; retention never deletes the last verified backup.
