@@ -39,6 +39,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install bubblewrap for sandboxed specialist tests
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap
       - name: Check Cloudflare deployment script syntax
         run: bash -n scripts/deploy-streamiov-ai-worker.sh
       - name: Check AI Chief service scripts syntax

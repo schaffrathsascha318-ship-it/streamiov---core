@@ -30,7 +30,7 @@ const DOWNLOADS = path.join(ROOT, "dist/streamiov-homepage-worker/public/downloa
 const DEFAULT_KEY = path.join(os.homedir(), ".config/streamiov/release-signing.key");
 const DEFAULT_PUB = path.join(DOWNLOADS, "STREAMIOV-RELEASE-KEY.pub");
 const MANIFESTS = ["SHA256SUMS.txt", "SHA256SUMS-games.txt"];
-const EXPECTED_KEY_FINGERPRINT = "5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc";
+const EXPECTED_RELEASE_FINGERPRINT = "5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc";
 
 function fail(message) {
   console.error(`FEHLER: ${message}`);
@@ -90,8 +90,8 @@ function fingerprint(publicKey) {
 
 function assertTrustedFingerprint(publicKey, allowRotation, context) {
   const actual = fingerprint(publicKey);
-  if (actual !== EXPECTED_KEY_FINGERPRINT && !allowRotation) {
-    fail(`${context}: Fingerprint ${actual} entspricht nicht dem verankerten Release-Key ${EXPECTED_KEY_FINGERPRINT}`);
+  if (actual !== EXPECTED_RELEASE_FINGERPRINT && !allowRotation) {
+    fail(`${context}: Fingerprint ${actual} entspricht nicht dem verankerten Release-Key ${EXPECTED_RELEASE_FINGERPRINT}`);
   }
   return actual;
 }
@@ -147,7 +147,7 @@ function keygen(args) {
     privateKey: keyPath,
     publicKey: pubPath,
     fingerprint: actualFingerprint,
-    matchesPinnedKey: actualFingerprint === EXPECTED_KEY_FINGERPRINT,
+    matchesPinnedKey: actualFingerprint === EXPECTED_RELEASE_FINGERPRINT,
     note: "Privaten Schlüssel sichern. Er gehört nicht ins Repository und darf nicht veröffentlicht werden.",
   }, null, 2));
 }
@@ -173,7 +173,7 @@ function signRelease(args) {
     ok: true,
     publicKey: pubPath,
     fingerprint: actualFingerprint,
-    matchesPinnedKey: actualFingerprint === EXPECTED_KEY_FINGERPRINT,
+    matchesPinnedKey: actualFingerprint === EXPECTED_RELEASE_FINGERPRINT,
     signed,
   }, null, 2));
 }
@@ -181,12 +181,12 @@ function signRelease(args) {
 function verifyRelease(args) {
   const publicKey = readPublicKey(path.resolve(args.pub || DEFAULT_PUB));
   const actualFingerprint = fingerprint(publicKey);
-  const fingerprintOk = actualFingerprint === EXPECTED_KEY_FINGERPRINT || Boolean(args.allowKeyRotation);
+  const fingerprintOk = actualFingerprint === EXPECTED_RELEASE_FINGERPRINT || Boolean(args.allowKeyRotation);
   const downloads = path.resolve(args.dir || DOWNLOADS);
   const checks = [{
     check: "key-fingerprint",
     ok: fingerprintOk,
-    expected: EXPECTED_KEY_FINGERPRINT,
+    expected: EXPECTED_RELEASE_FINGERPRINT,
     actual: actualFingerprint
   }];
   let ok = fingerprintOk;
