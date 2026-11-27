@@ -30,6 +30,8 @@ jobs:
   unittest:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      STREAMIOV_TEST_ALLOW_HOST_NETWORK: "1"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -39,6 +41,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install bubblewrap for sandboxed specialist tests
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap
       - name: Check Cloudflare deployment script syntax
         run: bash -n scripts/deploy-streamiov-ai-worker.sh
       - name: Check AI Chief service scripts syntax
@@ -55,8 +59,18 @@ jobs:
           python - <<'PY'
           from ai.specialists import SPECIALISTS, specialist_names
           names = specialist_names()
-          assert len(names) == 11, names
+          required = {
+              "code", "studio", "music", "tts", "events", "homepage", "server",
+              "research", "game", "gifts", "testing", "ai_chief", "ai_architect",
+              "ai_developer", "ai_code_agent", "ai_repair_agent", "ai_testing_agent",
+              "ai_design_agent", "ai_studio_agent", "ai_audio_agent", "ai_music_agent",
+              "ai_games_agent", "ai_mobile_agent", "ai_gifts_agent", "ai_integration_agent",
+              "ai_security_agent", "ai_release_agent", "ai_support_agent",
+          }
+          assert required.issubset(set(names)), sorted(required.difference(names))
           assert set(names) == set(SPECIALISTS)
+          from ai.core.planner import PLAN_SYSTEM
+          assert all(name in PLAN_SYSTEM for name in names)
           for name in names:
               role = SPECIALISTS[name]
               assert role.title.strip() and role.mission.strip()

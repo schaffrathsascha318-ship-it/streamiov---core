@@ -269,6 +269,198 @@ class SpecialistActionProtocolTests(unittest.TestCase):
             self.assertFalse(Path(directory, "must-not-exist.txt").exists())
         self.assertEqual(provider.calls, 3)
 
+    def test_final_verification_appends_observed_test_evidence_and_blocks_writes(self):
+        from unittest.mock import patch
+
+        provider = SequenceProvider(
+            '{"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}',
+            '{"tool":"write_file","arguments":{"path":"unsafe.py","content":"x"}}',
+            '{"verdict":"passed","evidence":["observed test output"],"findings":[]}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="testing")
+            with patch.object(agent.tools, "run_tests", return_value="exit_code=0\nOK"):
+                result = agent.run("STREAMIOV_FINAL_VERIFICATION: inspect the project")
+            payload = json.loads(result)
+            self.assertEqual(set(payload), {"verdict", "evidence", "findings", "tool_evidence"})
+            self.assertTrue(any(
+                item["tool"] == "run_tests" and "exit_code=0" in item["result"]
+                for item in payload["tool_evidence"]
+            ))
+            self.assertFalse(Path(directory, "unsafe.py").exists())
+
+    def test_final_verification_cannot_pass_without_observed_test_success(self):
+        from unittest.mock import patch
+
+        provider = SequenceProvider(
+            '{"tool":"list_files","arguments":{"path":"."}}',
+            '{"verdict":"passed","evidence":["inspected"],"findings":[]}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="testing")
+            with patch.object(agent.tools, "list_files", return_value="README.md"):
+                with self.assertRaisesRegex(AgentError, "observed successful test command output"):
+                    agent.run("STREAMIOV_FINAL_VERIFICATION: inspect the project")
+
+    def test_repair_prompt_mentioning_verification_can_still_edit_files(self):
+        provider = SequenceProvider(
+            '{"tool":"write_file","arguments":{"path":"repaired.txt","content":"fixed"}}',
+            '{"final":"repair applied"}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="repair")
+            result = agent.run(
+                "STREAMIOV_VERIFICATION_REPAIR: Repair the failure. "
+                "Findings quote STREAMIOV_FINAL_VERIFICATION: inspect the project"
+            )
+            self.assertIn("repair applied", result)
+            self.assertEqual(Path(directory, "repaired.txt").read_text(encoding="utf-8"), "fixed")
+
+    def test_final_verification_can_use_observed_game_checks_evidence(self):
+        from unittest.mock import patch
+
+        provider = SequenceProvider(
+            '{"tool":"run_game_checks","arguments":{}}',
+            '{"verdict":"passed","evidence":["game checks passed"],"findings":[]}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="testing")
+            with patch.object(agent.tools, "run_game_checks", return_value="exit_code=0\naudit ok") as checks:
+                result = agent.run("STREAMIOV_FINAL_VERIFICATION: verify game work")
+            checks.assert_called_once_with()
+            payload = json.loads(result)
+            self.assertEqual(payload["verdict"], "passed")
+            self.assertTrue(any(
+                item["tool"] == "run_game_checks" and "exit_code=0" in item["result"]
+                for item in payload["tool_evidence"]
+            ))
+
+    def test_ai_games_agent_can_use_game_checks_outside_verification(self):
+        from unittest.mock import patch
+
+        provider = SequenceProvider(
+            '{"tool":"run_game_checks","arguments":{}}',
+            '{"final":"game checks observed"}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="ai_games_agent")
+            with patch.object(agent.tools, "run_game_checks", return_value="exit_code=0\naudit ok") as checks:
+                result = agent.run("Inspect the game package")
+            checks.assert_called_once_with()
+            self.assertIn("game checks observed", result)
+
+    def test_testing_role_outside_verification_cannot_run_game_checks(self):
+        from unittest.mock import patch
+
+        provider = SequenceProvider(
+            '{"tool":"list_files","arguments":{"path":"."}}',
+            '{"tool":"run_game_checks","arguments":{}}',
+            '{"final":"inspection complete"}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="testing")
+            with patch.object(agent.tools, "list_files", return_value="README.md"), \
+                 patch.object(agent.tools, "run_game_checks", return_value="exit_code=0") as checks:
+                agent.run("Inspect the project")
+            checks.assert_not_called()
+            tool_output = "\n".join(
+                message["content"]
+                for call in provider.messages
+                for message in call
+                if message["role"] == "user"
+            )
+            self.assertIn("run_game_checks tool is restricted", tool_output)
+
+    def test_verification_ignores_model_supplied_tool_evidence(self):
+        from unittest.mock import patch
+
+        provider = SequenceProvider(
+            '{"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}',
+            '{"verdict":"passed","evidence":["observed"],"findings":[],'
+            '"tool_evidence":[{"tool":"write_file","result":"exit_code=0"}]}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="testing")
+            with patch.object(agent.tools, "run_tests", return_value="exit_code=0\nOK"):
+                result = agent.run("STREAMIOV_FINAL_VERIFICATION: inspect the project")
+            evidence = json.loads(result)["tool_evidence"]
+            self.assertEqual([item["tool"] for item in evidence], ["run_tests"])
+            self.assertIn("exit_code=0", evidence[0]["result"])
+
+
+    def test_final_verification_report_without_tool_runs_observed_baseline_test(self):
+        from unittest.mock import patch
+
+        report = '{"verdict":"passed","evidence":["baseline test observed"],"findings":[]}'
+        provider = SequenceProvider(report, report)
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="testing")
+            with patch.object(agent.tools, "run_tests", return_value="exit_code=0\nOK") as tests:
+                result = agent.run("STREAMIOV_FINAL_VERIFICATION: inspect the project")
+            tests.assert_called_once_with("python -m unittest discover -s tests")
+            payload = json.loads(result)
+            self.assertEqual(payload["verdict"], "passed")
+            self.assertTrue(any(
+                item["tool"] == "run_tests" and "exit_code=0" in item["result"]
+                for item in payload["tool_evidence"]
+            ))
+
+    def test_final_verification_baseline_failure_cannot_be_reported_as_passed(self):
+        from unittest.mock import patch
+
+        report = '{"verdict":"passed","evidence":["claimed"],"findings":[]}'
+        provider = SequenceProvider(report, report)
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="testing")
+            with patch.object(agent.tools, "run_tests", return_value="exit_code=1\nFAILED"):
+                with self.assertRaisesRegex(AgentError, "observed successful test command output"):
+                    agent.run("STREAMIOV_FINAL_VERIFICATION: inspect the project")
+
+    def test_final_verification_rejects_failed_exit_code_with_success_substring(self):
+        from unittest.mock import patch
+
+        provider = SequenceProvider(
+            '{"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}',
+            '{"verdict":"passed","evidence":["claimed"],"findings":[]}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="testing")
+            with patch.object(agent.tools, "run_tests", return_value="exit_code=1\nFAILED; expected exit_code=0"):
+                with self.assertRaisesRegex(AgentError, "observed successful test command output"):
+                    agent.run("STREAMIOV_FINAL_VERIFICATION: inspect the project")
+
+    def test_retry_diagnostic_is_persisted_once_across_checkpoint_resume(self):
+        task = "Verify the project"
+        diagnostic = (
+            task
+            + "\n\nPREVIOUS ATTEMPT FAILURE (untrusted diagnostic context):\n"
+            + "previous verifier returned a report without observed tool output"
+        )
+        provider = SequenceProvider(
+            '{"tool":"list_files","arguments":{"path":"."}}',
+            '{"final":"Inspected and verified."}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory, "checkpoints.sqlite3")
+            agent = DevelopmentAgent(provider, directory, specialist="research", checkpoint_db=database)
+            agent.run(diagnostic, checkpoint_id="retry-diagnostic")
+            resumed = DevelopmentAgent(
+                SequenceProvider(), directory, specialist="research", checkpoint_db=database
+            )
+            self.assertEqual(
+                resumed.run(diagnostic, checkpoint_id="retry-diagnostic"),
+                "Inspected and verified.",
+            )
+            messages = AgentCheckpointStore(database).load(
+                "retry-diagnostic", diagnostic, "research"
+            )["messages"]
+            notices = [
+                message["content"] for message in messages
+                if "RESUMED RETRY DIAGNOSTIC" in message["content"]
+            ]
+            self.assertEqual(len(notices), 1)
+            self.assertIn("without observed tool output", notices[0])
+
 
 if __name__ == "__main__":
     unittest.main()

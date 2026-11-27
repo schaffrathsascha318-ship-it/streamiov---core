@@ -122,6 +122,6 @@ STREAMIOV NET gilt nicht als betriebsbereit, bis mindestens Folgendes nachgewies
 
 ## 9. Offene technische Prüfungen
 
-Die bestehende Statusdokumentation vom 2026-11-03 nennt unter anderem die noch nicht produktiv verifizierte Core-API, einen AI-Auftrags-Endpunkt im Fail-Closed-Platzhalterzustand, nicht abgenommenen Remote-Speicher und fehlende Restore-Nachweise. Diese Punkte müssen anhand des aktuellen Quellstands erneut geprüft werden, bevor Implementierungsentscheidungen getroffen werden.
+Die Statusdokumentation vom 2026-11-03 nannte eine nicht produktiv verifizierte Core-API, einen AI-Auftrags-Endpunkt im Fail-Closed-Platzhalterzustand, nicht abgenommenen Remote-Speicher und fehlende Restore-Nachweise. Der aktuelle Quellstand zeigt dauerhaft gespeicherte, eigenerbezogene AI-Aufträge mit weiterhin nur lesender lokaler Inferenz, lokale OAuth-Routen mit dauerhaftem Rate-Limit sowie geprüfte lokale Backup-/Restore-Ketten; Produktions- und Remote-Abnahmen fehlen weiterhin. Diese Punkte müssen vor Implementierungsentscheidungen gegen die jeweils aktuelle Quelle und den aktuellen Status geprüft werden.
 
 **Wichtig:** Dieses Dokument legt das Ziel fest. Es behauptet nicht, dass die beschriebenen Dienste bereits implementiert, deployed oder abgenommen sind.

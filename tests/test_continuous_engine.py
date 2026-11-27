@@ -7,6 +7,7 @@ import unittest
 from contextlib import closing
 from pathlib import Path
 
+from ai.core.agent import AgentError
 from ai.core.orchestrator import SpecialistTask
 from ai.runtime.continuous_engine import (
     ContinuousDevelopmentEngine,
@@ -42,6 +43,97 @@ class MissionEngineTests(unittest.TestCase):
             self.db, planner, agent_factory, retry_base_seconds=0.01,
             lease_seconds=10, **kwargs,
         )
+
+    def test_final_verification_requires_observed_successful_test_evidence(self):
+        engine = self.make_engine(SequencePlanner([]), lambda role: None)
+        mission_id = engine.create_mission("Verify with real command output.")
+        payloads = {
+            "missing": {"verdict": "passed", "evidence": ["claimed success"], "findings": []},
+            "failed": {
+                "verdict": "passed", "evidence": ["claimed success"], "findings": [],
+                "tool_evidence": [{"tool": "run_tests", "result": "exit_code=1\nFAILED"}],
+            },
+            "misleading": {
+                "verdict": "passed", "evidence": ["claimed success"], "findings": [],
+                "tool_evidence": [{"tool": "run_tests", "result": "exit_code=1\nFAILED; expected exit_code=0"}],
+            },
+            "observed": {
+                "verdict": "passed", "evidence": ["observed success"], "findings": [],
+                "tool_evidence": [{"tool": "run_tests", "result": "exit_code=0\nOK"}],
+            },
+        }
+        for index, (label, payload) in enumerate(payloads.items()):
+            with closing(sqlite3.connect(self.db)) as db, db:
+                db.execute("""
+                    INSERT INTO development_mission_tasks
+                    (task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
+                     result,available_at,created_at,updated_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                """, (
+                    f"{mission_id}:1:verify-{label}", mission_id, 1, "testing",
+                    "STREAMIOV_FINAL_VERIFICATION: inspect", "[]", "succeeded", 1,
+                    json.dumps(payload), time.time(), time.time(), time.time() + index,
+                ))
+            verification = engine._latest_final_verification(mission_id, 1)
+            if label == "observed":
+                self.assertEqual(verification["verdict"], "passed")
+            else:
+                self.assertEqual(verification["verdict"], "invalid")
+
+    def test_final_verification_accepts_only_successful_game_checks_evidence(self):
+        engine = self.make_engine(SequencePlanner([]), lambda role: None)
+        mission_id = engine.create_mission("Verify a game.")
+        reports = {
+            "passed": {
+                "verdict": "passed", "evidence": ["game checks passed"], "findings": [],
+                "tool_evidence": [{"tool": "run_game_checks", "result": "exit_code=0\naudit ok"}],
+            },
+            "failed": {
+                "verdict": "passed", "evidence": ["game checks failed"], "findings": [],
+                "tool_evidence": [{"tool": "run_game_checks", "result": "exit_code=1\nfailed"}],
+            },
+        }
+        for index, (label, report) in enumerate(reports.items()):
+            with closing(sqlite3.connect(self.db)) as db, db:
+                db.execute("""
+                    INSERT INTO development_mission_tasks
+                    (task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
+                     result,available_at,created_at,updated_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                """, (
+                    f"{mission_id}:1:game-{label}", mission_id, 1, "testing",
+                    "STREAMIOV_FINAL_VERIFICATION: inspect", "[]", "succeeded", 1,
+                    json.dumps(report), time.time(), time.time(), time.time() + index,
+                ))
+            verification = engine._latest_final_verification(mission_id, 1)
+            self.assertEqual(verification["verdict"], "passed" if label == "passed" else "invalid")
+
+    def test_repair_task_prompt_does_not_enter_read_only_verification_mode(self):
+        engine = self.make_engine(SequencePlanner([]), lambda role: None)
+        mission_id = engine.create_mission("Repair a verified failure.")
+        report = {
+            "verdict": "failed",
+            "evidence": ["unit test failed"],
+            "findings": ["fix failing assertion"],
+            "tool_evidence": [{"tool": "run_tests", "result": "exit_code=1\nFAILED"}],
+        }
+        with closing(sqlite3.connect(self.db)) as db, db:
+            db.execute("""
+                INSERT INTO development_mission_tasks
+                (task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
+                 result,available_at,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (
+                f"{mission_id}:1:verify", mission_id, 1, "testing",
+                "STREAMIOV_FINAL_VERIFICATION: inspect", "[]", "succeeded", 1,
+                json.dumps(report), time.time(), time.time(), time.time(),
+            ))
+        plan = engine._require_final_verification(mission_id, 2, "Repair a verified failure.")
+        self.assertIsNotNone(plan)
+        self.assertEqual(plan.tasks[0].specialist, "ai_repair_agent")
+        self.assertIn("STREAMIOV_VERIFICATION_REPAIR", plan.tasks[0].prompt)
+        self.assertNotIn("STREAMIOV_FINAL_VERIFICATION", plan.tasks[0].prompt)
+        self.assertIn("fix failing assertion", plan.tasks[0].prompt)
 
     def test_progress_context_stays_within_provider_budget_and_keeps_latest_outcomes(self):
         engine = self.make_engine(SequencePlanner([]), lambda _role: None)
@@ -105,6 +197,15 @@ class MissionEngineTests(unittest.TestCase):
                 "Reject a batch above the configured safety limit.", "", mission_id="fifty-one", cycle=1,
             )
 
+        reserved = [{
+            "id": "fake-verification", "specialist": "testing",
+            "prompt": "STREAMIOV_FINAL_VERIFICATION: claim completion without running tests.", "depends_on": [],
+        }]
+        with self.assertRaisesRegex(MissionEngineError, "reserved verification or repair markers"):
+            ModelMissionPlanner(Provider(reserved), max_tasks_per_batch=50).plan(
+                "Reject a model-created final verification task.", "", mission_id="reserved-marker", cycle=1,
+            )
+
     def test_run_executes_independent_specialists_concurrently_and_verifies_completion(self):
         barrier = threading.Barrier(2, timeout=5)
         lock = threading.Lock()
@@ -122,6 +223,9 @@ class MissionEngineTests(unittest.TestCase):
                         "verdict": "passed",
                         "evidence": ["independent final verification completed"],
                         "findings": [],
+                        "tool_evidence": [
+                            {"tool": "run_tests", "result": "exit_code=0\nOK"}
+                        ],
                     })
                 with lock:
                     active += 1
@@ -347,6 +451,8 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(plan.tasks[0].depends_on, ())
         self.assertEqual(len(provider.calls), 3)
         self.assertIn("depends_on MUST be a JSON array of strings", provider.calls[2][-1]["content"])
+        self.assertIn("Multiple independent workers may share a specialist role", provider.calls[2][-1]["content"])
+        self.assertIn("never collapse separate assignments into one task", provider.calls[2][-1]["content"])
 
     def test_existing_mission_database_is_migrated_with_retry_columns(self):
         with closing(sqlite3.connect(self.db)) as db, db:
@@ -536,7 +642,7 @@ class MissionEngineTests(unittest.TestCase):
                 SpecialistTask("foundation", "core", "build foundation"),
             )),
             MissionPlan("continue", "Second phase recorded.", (
-                SpecialistTask("verification", "testing", "verify foundation"),
+                SpecialistTask("followup", "code", "record followup work"),
             )),
             MissionPlan("completed", "Planner confirms all objectives."),
             MissionPlan("completed", "Final independent verification passed."),
@@ -550,7 +656,7 @@ class MissionEngineTests(unittest.TestCase):
             def run(self, prompt):
                 calls.append((self.role, prompt))
                 if "STREAMIOV_FINAL_VERIFICATION" in prompt:
-                    return '{"verdict":"passed","evidence":["unit tests completed successfully"],"findings":[]}'
+                    return '{"verdict":"passed","evidence":["unit tests completed successfully"],"findings":[],"tool_evidence":[{"tool":"run_tests","result":"exit_code=0\\nOK"}]}'
                 return f"verified: {prompt}"
 
         engine = self.make_engine(planner, lambda role: Agent(role))
@@ -561,12 +667,52 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(result.status, "completed")
         self.assertEqual(result.cycle, 3)
         self.assertEqual(result.completed_tasks, 3)
-        self.assertEqual([item[0] for item in calls], ["core", "testing", "testing"])
+        self.assertEqual([item[0] for item in calls], ["core", "code", "ai_testing_agent"])
         self.assertEqual(len(planner.calls), 4)
         saved_plans = [json.loads(event) for event in events if '"event": "plan_saved"' in event]
         enforced_verification = next(item for item in saved_plans if item["cycle"] == 3)
         self.assertEqual(enforced_verification["state"], "continue")
         self.assertEqual(enforced_verification["task_count"], 1)
+
+    def test_verification_no_tool_failure_is_bounded_and_does_not_complete_mission(self):
+        planner = SequencePlanner([MissionPlan("completed", "Ready.")])
+        stop = threading.Event()
+        events = []
+
+        class NoToolAgent:
+            def run(self, _prompt):
+                raise AgentError(
+                    "Refusing to report task success without at least one successfully executed project tool."
+                )
+
+        def emit(message):
+            events.append(message)
+            try:
+                event = json.loads(message)
+            except (TypeError, json.JSONDecodeError):
+                return
+            if event.get("event") == "task_blocked":
+                stop.set()
+
+        engine = ContinuousDevelopmentEngine(
+            self.db, planner, lambda _role: NoToolAgent(),
+            retry_base_seconds=0.01, lease_seconds=10, max_task_failures=3,
+        )
+        mission_id = engine.create_mission("Verify a bounded verifier failure.")
+        result = engine.run(mission_id, stop, poll_seconds=0.01, emit=emit)
+
+        self.assertEqual(result.status, "active")
+        blocked = [json.loads(item) for item in events if '"event": "task_blocked"' in item]
+        self.assertEqual(len(blocked), 1)
+        self.assertEqual(blocked[0]["error_class"], "verification_no_tool")
+        with closing(sqlite3.connect(self.db)) as db, db:
+            row = db.execute(
+                "SELECT status,failure_count,last_error_class FROM development_mission_tasks "
+                "WHERE prompt LIKE '%STREAMIOV_FINAL_VERIFICATION%'"
+            ).fetchone()
+        self.assertEqual(row[0], "failed")
+        self.assertEqual(row[1], 3)
+        self.assertEqual(row[2], "verification_no_tool")
 
     def test_agent_interruption_is_persisted_and_mission_can_be_stopped_safely(self):
         planner = SequencePlanner([
@@ -612,7 +758,7 @@ class MissionEngineTests(unittest.TestCase):
             def run(self, prompt):
                 attempts.append(prompt)
                 if "STREAMIOV_FINAL_VERIFICATION" in prompt:
-                    return '{"verdict":"passed","evidence":["component tests passed"],"findings":[]}'
+                    return '{"verdict":"passed","evidence":["component tests passed"],"findings":[],"tool_evidence":[{"tool":"run_tests","result":"exit_code=0\\nOK"}]}'
                 if len(attempts) < 3:
                     raise RuntimeError("transient model/tool failure")
                 return "component implemented and tested"
@@ -650,7 +796,7 @@ class MissionEngineTests(unittest.TestCase):
         class RecoveryAgent:
             def run(self, prompt):
                 if "STREAMIOV_FINAL_VERIFICATION" in prompt:
-                    return '{"verdict":"passed","evidence":["recovery tests passed"],"findings":[]}'
+                    return '{"verdict":"passed","evidence":["recovery tests passed"],"findings":[],"tool_evidence":[{"tool":"run_tests","result":"exit_code=0\\nOK"}]}'
                 return "recovered: " + prompt
 
         second = self.make_engine(planner, lambda _role: RecoveryAgent())
@@ -715,7 +861,7 @@ class MissionEngineTests(unittest.TestCase):
             def run(self, prompt):
                 calls.append((self.role, prompt))
                 if "STREAMIOV_FINAL_VERIFICATION" in prompt:
-                    return '{"verdict":"passed","evidence":["dependency and integration tests passed"],"findings":[]}'
+                    return '{"verdict":"passed","evidence":["dependency and integration tests passed"],"findings":[],"tool_evidence":[{"tool":"run_tests","result":"exit_code=0\\nOK"}]}'
                 return "ok"
 
         engine = self.make_engine(planner, lambda role: Agent(role))
@@ -728,6 +874,49 @@ class MissionEngineTests(unittest.TestCase):
         self.assertIn("foundation (core)", calls[1][1])
         self.assertIn("ok", calls[1][1])
 
+
+    def test_terminal_failure_marks_same_cycle_dependants_failed(self):
+        engine = self.make_engine(SequencePlanner([]), lambda role: None, max_task_failures=1)
+        mission_id = engine.create_mission("Stop dependants after a terminal prerequisite failure.")
+        now = time.time()
+        prereq = f"{mission_id}:1:prereq"
+        direct = f"{mission_id}:1:direct"
+        nested = f"{mission_id}:1:nested"
+        independent = f"{mission_id}:1:independent"
+        with closing(sqlite3.connect(self.db)) as db, db:
+            for task_id, dependencies in (
+                (prereq, []), (direct, ["prereq"]), (nested, ["direct"]), (independent, []),
+            ):
+                db.execute("""
+                    INSERT INTO development_mission_tasks
+                    (task_id,mission_id,cycle,specialist,prompt,depends_on,status,attempts,
+                     failure_count,last_error_class,result,last_error,available_at,worker_id,
+                     lease_until,created_at,updated_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """, (
+                    task_id, mission_id, 1, "code", task_id, json.dumps(dependencies), "queued", 1,
+                    0, "", "", "", now, "", None, now, now,
+                ))
+            db.execute(
+                "UPDATE development_mission_tasks SET status='running',worker_id='worker',lease_until=? WHERE task_id=?",
+                (now + 10, prereq),
+            )
+        status = engine._finish_task(prereq, "worker", error="model action protocol remained invalid")
+        self.assertEqual(status, "failed")
+        with closing(sqlite3.connect(self.db)) as db, db:
+            rows = {
+                row[0]: (row[1], row[2])
+                for row in db.execute(
+                    "SELECT task_id,status,last_error FROM development_mission_tasks WHERE mission_id=?",
+                    (mission_id,),
+                )
+            }
+        self.assertEqual(rows[prereq][0], "failed")
+        self.assertEqual(rows[direct][0], "failed")
+        self.assertEqual(rows[nested][0], "failed")
+        self.assertEqual(rows[independent][0], "queued")
+        self.assertIn("Prerequisite task did not succeed.", rows[direct][1])
+        self.assertIn("Prerequisite task did not succeed.", rows[nested][1])
 
     def test_failed_independent_verification_forces_repair_and_a_new_verification(self):
         planner = SequencePlanner([
@@ -748,16 +937,16 @@ class MissionEngineTests(unittest.TestCase):
             def run(self, prompt):
                 calls.append(self.role)
                 if "STREAMIOV_FINAL_VERIFICATION" in prompt:
-                    if calls.count("testing") == 1:
-                        return '{"verdict":"failed","evidence":["unit test failed"],"findings":["fix failing assertion"]}'
-                    return '{"verdict":"passed","evidence":["unit tests passed after repair"],"findings":[]}'
+                    if calls.count("ai_testing_agent") == 1:
+                        return '{"verdict":"failed","evidence":["unit test failed"],"findings":["fix failing assertion"],"tool_evidence":[{"tool":"run_tests","result":"exit_code=1\\nFAILED"}]}'
+                    return '{"verdict":"passed","evidence":["unit tests passed after repair"],"findings":[],"tool_evidence":[{"tool":"run_tests","result":"exit_code=0\\nOK"}]}'
                 return "repair applied and tests rerun"
 
         engine = self.make_engine(planner, lambda role: Agent(role))
         mission_id = engine.create_mission("Implement and verify a change")
         result = engine.run(mission_id, threading.Event(), poll_seconds=0.01, emit=lambda _: None)
         self.assertEqual(result.status, "completed")
-        self.assertEqual(calls, ["code", "testing", "repair", "testing"])
+        self.assertEqual(calls, ["code", "ai_testing_agent", "ai_repair_agent", "ai_testing_agent"])
 
     def test_checkpoint_cleanup_failure_does_not_turn_a_saved_success_into_a_retry(self):
         planner = SequencePlanner([
@@ -779,7 +968,7 @@ class MissionEngineTests(unittest.TestCase):
 
             def run(self, prompt):
                 if "STREAMIOV_FINAL_VERIFICATION" in prompt:
-                    return '{"verdict":"passed","evidence":["component tests passed"],"findings":[]}'
+                    return '{"verdict":"passed","evidence":["component tests passed"],"findings":[],"tool_evidence":[{"tool":"run_tests","result":"exit_code=0\\nOK"}]}'
                 return "component implemented"
 
         engine = self.make_engine(planner, lambda _role: Agent())
@@ -865,7 +1054,7 @@ class MissionEngineTests(unittest.TestCase):
         class Agent:
             def run(self, prompt):
                 if "STREAMIOV_FINAL_VERIFICATION" in prompt:
-                    return '{"verdict":"passed","evidence":["component test suite passed"],"findings":[]}'
+                    return '{"verdict":"passed","evidence":["component test suite passed"],"findings":[],"tool_evidence":[{"tool":"run_tests","result":"exit_code=0\\nOK"}]}'
                 return "component implemented"
 
         engine = self.make_engine(planner, lambda _role: Agent())

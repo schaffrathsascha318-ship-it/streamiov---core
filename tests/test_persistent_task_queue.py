@@ -56,7 +56,7 @@ class PersistentTaskQueueTests(unittest.TestCase):
         self.assertEqual(self.queue.fail("retry", "worker", "again"), "failed")
 
     def test_worker_lease_must_match(self):
-        self.queue.enqueue_plan([SpecialistTask("leased", "testing", "run checks")])
+        self.queue.enqueue_plan([SpecialistTask("leased", "code", "run checks")])
         self.queue.claim_next("worker-a")
         with self.assertRaises(TaskQueueError):
             self.queue.complete("leased", "worker-b", "not allowed")
@@ -97,7 +97,7 @@ class PersistentTaskQueueTests(unittest.TestCase):
 
     def test_worker_records_failure_and_uses_retry_budget(self):
         from ai.runtime.task_queue import SpecialistWorker
-        self.queue.enqueue_plan([SpecialistTask("work", "testing", "run test")], max_attempts=2)
+        self.queue.enqueue_plan([SpecialistTask("work", "code", "run test")], max_attempts=2)
         class Agent:
             def run(self, _prompt):
                 raise RuntimeError("test failed")
@@ -112,9 +112,9 @@ class PersistentTaskQueueTests(unittest.TestCase):
 
     def test_expired_lease_cannot_be_renewed_completed_or_failed(self):
         self.queue.enqueue_plan([
-            SpecialistTask("heartbeat", "testing", "heartbeat"),
-            SpecialistTask("complete", "testing", "complete"),
-            SpecialistTask("fail", "testing", "fail"),
+            SpecialistTask("heartbeat", "code", "heartbeat"),
+            SpecialistTask("complete", "code", "complete"),
+            SpecialistTask("fail", "code", "fail"),
         ])
         claimed = [self.queue.claim_next("worker") for _ in range(3)]
         self.assertEqual([task.task_id for task in claimed], ["heartbeat", "complete", "fail"])
@@ -193,7 +193,7 @@ class PersistentTaskQueueTests(unittest.TestCase):
         import threading
         from ai.runtime.task_queue import SpecialistWorker
 
-        self.queue.enqueue_plan([SpecialistTask("lease-loss", "testing", "wait for lease cancellation")])
+        self.queue.enqueue_plan([SpecialistTask("lease-loss", "code", "wait for lease cancellation")])
         observed = {}
 
         def lose_lease(_task_id, _worker_id, **_kwargs):
@@ -221,7 +221,7 @@ class PersistentTaskQueueTests(unittest.TestCase):
     def test_worker_renews_lease_during_a_long_running_agent_call(self):
         import time
         from ai.runtime.task_queue import SpecialistWorker
-        self.queue.enqueue_plan([SpecialistTask("long", "testing", "long test")])
+        self.queue.enqueue_plan([SpecialistTask("long", "code", "long test")])
         calls = []
         original_heartbeat = self.queue.heartbeat
         def record_heartbeat(*args, **kwargs):

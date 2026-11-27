@@ -5,7 +5,7 @@ const STATES = Object.freeze(['offline', 'authorizing', 'ready', 'connecting', '
 const TRANSITIONS = Object.freeze({
   offline: ['authorizing'],
   authorizing: ['offline', 'ready', 'error'],
-  ready: ['offline', 'connecting', 'authorizing', 'error'],
+  ready: ['offline', 'connecting', 'authorizing', 'error', 'live'],
   connecting: ['ready', 'live', 'reconnecting', 'offline', 'error'],
   live: ['reconnecting', 'offline', 'error'],
   reconnecting: ['connecting', 'live', 'offline', 'error'],

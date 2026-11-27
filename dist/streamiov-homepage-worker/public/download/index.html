@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#080b12">
-<meta name="description" content="Alle StreamioV-Downloads an einem Ort: installierbare Studio-Anwendungen, Quellcode-Snapshot und checksumierte Spiel-Prototypen – mit ehrlichem Projektstand. Keine Web-App, keine PWA.">
+<meta name="description" content="Alle StreamioV-Downloads an einem Ort: installierbare Studio-Anwendungen, Quellcode-Snapshot und Spiel-Prototyp-Archive – mit ehrlichem Projektstand und signierten Prüfsummen-Dateien. Keine Web-App, keine PWA.">
 <title>StreamioV – Alle Downloads</title>
 <script src="/download/combine.js" defer></script>
 <style>
@@ -42,12 +42,17 @@
   .ok{border-left-color:var(--mint);background:#0b1715;color:#c5e7dd}.ok strong{color:#a9ffe1}
   .tag{display:inline-flex;margin-top:12px;padding:4px 9px;border:1px solid #37455c;border-radius:999px;color:#b8c5da;font-size:11px;font-weight:750;letter-spacing:.04em;text-transform:uppercase}
   .tag-ready{border-color:#327765;color:#8df1ce}.tag-work{border-color:#76603b;color:#ffd28c}.tag-blocked{border-color:#7b4650;color:#ffb2be}
+  .game-catalog{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .game-shot{display:flex;align-items:center;justify-content:center;min-height:132px;margin:0 0 14px;border:1px dashed #37506c;border-radius:11px;background:linear-gradient(135deg,#0a1320,#131a31);color:#9fb4cc;font-size:12px;text-align:center;padding:12px}
+  .game-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:0 0 12px;color:#9fb4cc;font-size:12px}
+  .game-facts span{padding:6px 8px;border:1px solid #26354a;border-radius:8px;background:#0a1019}
+  .game-checksum{margin:8px 0 0;padding:8px 9px;border:1px solid #2b3a50;border-radius:8px;background:#080d15;color:#9fb4cc;font-size:11px;overflow-wrap:anywhere}
   details{margin-top:18px;border:1px solid var(--line);border-radius:12px;background:#0b111b}summary{padding:14px 16px;cursor:pointer;color:#dbe5f4;font-weight:750}
   details>div{padding:0 16px 16px}pre{overflow:auto;padding:12px;border:1px solid #26354a;border-radius:9px;background:#070b12;color:#c8d8ea;font-size:12px;line-height:1.55}
   ul{margin:12px 0 0;padding-left:20px;color:#b9c6d8}li{margin:5px 0}
   table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:10px 12px;border-bottom:1px solid #223046;text-align:left;vertical-align:top}th{color:#cfe0f4;font-size:12px;text-transform:uppercase;letter-spacing:.06em}td{color:#aebbd0}
   footer{padding:32px 0 46px;border-top:1px solid #1c2636;background:#06080e}.footer-row{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}.footer-brand{display:flex;align-items:center;gap:11px;color:#94a2b7;font-size:13px}.footer-brand img{width:30px;height:30px}footer nav{display:flex;gap:15px;flex-wrap:wrap}footer nav a{color:#aab7ca;text-decoration:none;font-size:13px}
-  @media(max-width:850px){.nav{align-items:flex-start;padding:14px 0;flex-direction:column;gap:12px}.links{justify-content:flex-start;gap:10px 16px}.grid,.grid-3{grid-template-columns:1fr}.hero{padding:44px 0 28px}}
+  @media(max-width:850px){.nav{align-items:flex-start;padding:14px 0;flex-direction:column;gap:12px}.links{justify-content:flex-start;gap:10px 16px}.grid,.grid-3,.game-catalog,.game-facts{grid-template-columns:1fr}.hero{padding:44px 0 28px}}
   @media(max-width:620px){.wrap{width:min(var(--max),calc(100% - 28px))}.brand img{width:158px}.links a{font-size:13px}.links .nav-cta{padding:7px 11px}section{padding:36px 0}.footer-row{align-items:flex-start;flex-direction:column}}
   @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
 </style>
@@ -67,7 +72,7 @@
       <div class="wrap">
         <span class="eyebrow"><i aria-hidden="true"></i> Alle Downloads an einem Ort</span>
         <h1>Herunterladen.<br><span>Prüfen. Ehrlich starten.</span></h1>
-        <p class="lead">Hier liegen die vorhandenen Studio-Installer, der aktuelle Quellcode-Snapshot und fünf checksumierte Spiel-Prototypen. Jede Karte nennt, was gebaut, was getestet und was noch nicht verifiziert ist. Eine Browser- oder PWA-Version wird nicht angeboten.</p>
+        <p class="lead">Hier liegen die vorhandenen Studio-Installer, der Quellcode-Snapshot vom 03.11.2026 und die Spiel-Prototyp-Archive. Die SHA-256-Prüfsummen-Dateien sind mit dem Projekt-Ed25519-Schlüssel signiert, nicht die ZIP-Dateien selbst. Eigene Spiele werden ausschließlich auf dieser Seite bereitgestellt; das Studio startet und lädt keine Spiele. Jede Karte nennt Laufzeit, Version, Prüfsumme und was noch nicht verifiziert ist. Eine Browser- oder PWA-Version wird nicht angeboten.</p>
         <div class="quick" aria-label="Schnellzugriff">
           <a href="#installer">Studio-Installer</a>
           <a href="#quellcode">Quellcode-Snapshot</a>
@@ -89,9 +94,9 @@
           <p>SHA-256 des zusammengefügten ZIPs: <code>94776cba9af77eaff61149c6ceb810a27033de164decd332c1e9868026c4ffae</code></p>
         </div>
         <article class="card">
-          <button id="studio-one-click" class="download-button" type="button">Quellcode-Snapshot herunterladen</button>
-          <span id="studio-status" role="status" aria-live="polite">Der Download prüft Größe, ZIP-Kennung und SHA-256, bevor er als vollständig gemeldet wird.</span>
-          <span id="studio-progress">Bereit · 0 %</span>
+          <button id="source-snapshot-download" data-studio-download data-studio-status="source-snapshot-status" data-studio-progress="source-snapshot-progress" class="download-button" type="button">Quellcode-Snapshot herunterladen</button>
+          <span id="source-snapshot-status" role="status" aria-live="polite">Der Download prüft Größe, ZIP-Kennung und SHA-256, bevor er als vollständig gemeldet wird.</span>
+          <span id="source-snapshot-progress">Bereit · 0 %</span>
           <p>Falls dein Browser den direkten Dateizugriff nicht unterstützt, lade alle sieben Teile herunter und füge sie in der angegebenen Reihenfolge zusammen:</p>
           <p>
             <a href="/downloads/streamiov-studio-part-00.bin">Teil 1</a> ·
@@ -155,12 +160,12 @@
       <div class="wrap">
         <div class="section-head">
           <div class="kicker">Quellcode-Snapshot 2026-11-03</div>
-          <h2>Aktueller Quellstand, klar als Quellpaket markiert.</h2>
-          <p>Das ZIP enthält den aktuellen Quellcode ohne <code>node_modules</code>, ohne gebaute Binärdateien und ohne Zugangsdaten. Es ist <strong>kein Installer</strong>; die Schutzregie ist inzwischen zusätzlich in Studio 1.0.4 enthalten. Zum Starten sind Node.js und die im README genannten Systemwerkzeuge erforderlich.</p>
+          <h2>Quellstand vom 03.11.2026, klar als Quellpaket markiert.</h2>
+          <p>Das ZIP enthält den Quellcode Stand 03.11.2026 ohne <code>node_modules</code>, ohne gebaute Binärdateien und ohne Zugangsdaten. Es ist <strong>kein Installer</strong>; die Schutzregie ist inzwischen zusätzlich in Studio 1.0.4 enthalten. Zum Starten sind Node.js und die im README genannten Systemwerkzeuge erforderlich.</p>
         </div>
-        <button class="download-button" id="studio-one-click" type="button">Quellcode-Snapshot als ZIP herunterladen</button>
-        <strong id="studio-progress" aria-live="polite">Bereit · 0 %</strong>
-        <span id="studio-status" role="status" aria-live="polite">Nach dem Klick Speicherort auswählen. Die sieben Teile werden nacheinander geladen und auf Größe sowie SHA-256 geprüft.</span>
+        <button class="download-button" id="quellcode-download" data-studio-download data-studio-status="quellcode-status" data-studio-progress="quellcode-progress" type="button">Quellcode-Snapshot als ZIP herunterladen</button>
+        <strong id="quellcode-progress" aria-live="polite">Bereit · 0 %</strong>
+        <span id="quellcode-status" role="status" aria-live="polite">Nach dem Klick Speicherort auswählen. Die sieben Teile werden nacheinander geladen und auf Größe sowie SHA-256 geprüft.</span>
         <details>
           <summary>Alternative: sieben Teile manuell herunterladen</summary>
           <div>
@@ -184,7 +189,7 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
         <details>
           <summary>Release-Signatur prüfen (Ed25519, kostenlos, ohne Zertifikatskauf)</summary>
           <div>
-            <p>Die Prüfsummen-Dateien sind mit einem projekt-eigenen Ed25519-Schlüssel signiert. Das ist <strong>keine</strong> Windows-/macOS-Code-Signatur und ersetzt keine Prüfung durch eine Zertifizierungsstelle; SmartScreen- oder Gatekeeper-Vertrauen wird nicht behauptet. Es beweist, dass die Prüfsummen mit dem veröffentlichten Projektschlüssel übereinstimmen.</p>
+            <p>Die Prüfsummen-Dateien sind mit einem projekt-eigenen Ed25519-Schlüssel signiert. Das ist <strong>keine</strong> Windows-/macOS-Code-Signatur und ersetzt keine Prüfung durch eine Zertifizierungsstelle; SmartScreen- oder Gatekeeper-Vertrauen wird nicht behauptet. Es beweist, dass die Prüfsummen mit dem veröffentlichten Projektschlüssel übereinstimmen. Die ZIP-Dateien selbst sind nicht signiert; geprüft wird zuerst die Prüfsummen-Datei, dann der Hash der heruntergeladenen Datei.</p>
             <ul>
               <li><a href="/downloads/STREAMIOV-RELEASE-KEY.pub">Öffentlicher Schlüssel</a> · Fingerabdruck <code>5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc</code></li>
               <li><a href="/downloads/SHA256SUMS.txt.sig">Signatur für SHA256SUMS.txt</a></li>
@@ -221,10 +226,85 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
     </section>
 
     <section id="spiele">
-  <div class="wrap">
-    <div class="section-head"><div class="kicker">Spiele</div><h2>Eigene Spiele für die Community.</h2><p>StreamioV-Spiele werden hier erst angeboten, wenn sie als fertige öffentliche Downloads freigegeben sind. Bis dahin findest du im Download-Hub ausschließlich die veröffentlichten Studio-Pakete und Installationswege.</p></div>
-  </div>
-</section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="kicker">Eigene Spiele · offizielle Downloads</div>
+          <h2>Spiele gibt es hier – nicht im Studio.</h2>
+          <p>Diese Seite ist die einzige Stelle für StreamioV-Spiele: Präsentation, Beschreibung, unterstützte Betriebssysteme, Laufzeit, Version, Update-Status und Prüfsummen. Das Studio analysiert laufende Spiele, Gameplay, Highlights, Replays und Assistenz; es enthält keine Spiele-Galerie, keine Downloads und keinen Spielstart. Vier Prototyp-Archive enthalten HTML/JavaScript und werden nach dem Entpacken über <code>index.html</code> in einem aktuellen Browser geöffnet; Star Defender benötigt Python 3 und Tkinter. Die fünf Archive sind Prototyp-Pakete mit veröffentlichten SHA-256-Werten, keine Installer und ohne automatischen Update-Kanal; eine Browser-Spielplattform gibt es nicht. Screenshots sind noch nicht öffentlich freigegeben; es werden keine stellvertretenden Bilder als Screenshots ausgegeben.</p>
+        </div>
+        <div class="game-catalog">
+          <article class="card">
+            <h3>Echo Grid</h3>
+            <figure class="game-shot">Screenshot nicht veröffentlicht · Echo Grid</figure>
+            <span class="meta">Muster- und Gedächtnisspiel mit wachsender Neon-Sequenz.</span>
+            <div class="game-facts">
+              <span>Version 0.1.0</span><span>Stand 2026-11-03</span>
+              <span>OS: Windows, macOS, Linux, ChromeOS (Browser erforderlich)</span><span>Laufzeit: Browser-Archiv (HTML/JavaScript)</span><span>Update: kein Kanal</span>
+            </div>
+            <a class="download-main" href="/downloads/streamiov-echo-grid-0.1.0-prototype.zip">Prototyp-Paket herunterladen</a>
+            <code class="game-checksum">SHA-256 5893f354fe47786e94c6b0f7349f7dc13f9497ce98bb972990a6d49d402b5fef</code>
+            <span class="tag tag-work">Prototyp · kein Installer</span>
+          </article>
+          <article class="card">
+            <h3>Neon Relay</h3>
+            <figure class="game-shot">Screenshot nicht veröffentlicht · Neon Relay</figure>
+            <span class="meta">Schnelles Neon-Arcade-Spiel: Energie sammeln und Störfeldern ausweichen.</span>
+            <div class="game-facts">
+              <span>Version 0.1.0</span><span>Stand 2026-11-03</span>
+              <span>OS: Windows, macOS, Linux, ChromeOS (Browser erforderlich)</span><span>Laufzeit: Browser-Archiv (HTML/JavaScript)</span><span>Update: kein Kanal</span>
+            </div>
+            <a class="download-main" href="/downloads/streamiov-neon-relay-0.1.0-prototype.zip">Prototyp-Paket herunterladen</a>
+            <code class="game-checksum">SHA-256 48a625a42e6783ba7cecea40bd63120451c247960a012aad3d9ec2605bb7488c</code>
+            <span class="tag tag-work">Prototyp · kein Installer</span>
+          </article>
+          <article class="card">
+            <h3>Pulse Defender</h3>
+            <figure class="game-shot">Screenshot nicht veröffentlicht · Pulse Defender</figure>
+            <span class="meta">Neon-Shooter: Kern gegen fallende Drohnen verteidigen.</span>
+            <div class="game-facts">
+              <span>Version 0.1.0</span><span>Stand 2026-11-03</span>
+              <span>OS: Windows, macOS, Linux, ChromeOS (Browser erforderlich)</span><span>Laufzeit: Browser-Archiv (HTML/JavaScript)</span><span>Update: kein Kanal</span>
+            </div>
+            <a class="download-main" href="/downloads/streamiov-pulse-defender-0.1.0-prototype.zip">Prototyp-Paket herunterladen</a>
+            <code class="game-checksum">SHA-256 072e69aac56193776bec589d065cbb442e3ea8b5cad314545d14dae86d071cb0</code>
+            <span class="tag tag-work">Prototyp · kein Installer</span>
+          </article>
+          <article class="card">
+            <h3>Signal Weave</h3>
+            <figure class="game-shot">Screenshot nicht veröffentlicht · Signal Weave</figure>
+            <span class="meta">Räumliches Logikspiel: Leitungen drehen und den Impuls zum Ziel führen.</span>
+            <div class="game-facts">
+              <span>Version 0.1.0</span><span>Stand 2026-11-03</span>
+              <span>OS: Windows, macOS, Linux, ChromeOS (Browser erforderlich)</span><span>Laufzeit: Browser-Archiv (HTML/JavaScript)</span><span>Update: kein Kanal</span>
+            </div>
+            <a class="download-main" href="/downloads/streamiov-signal-weave-0.1.0-prototype.zip">Prototyp-Paket herunterladen</a>
+            <code class="game-checksum">SHA-256 bd34424269507e2cd76abe0d736a1705a77161919d80784e5808ed69a20e59b0</code>
+            <span class="tag tag-work">Prototyp · kein Installer</span>
+          </article>
+          <article class="card">
+            <h3>Star Defender</h3>
+            <figure class="game-shot">Screenshot nicht veröffentlicht · Star Defender</figure>
+            <span class="meta">Offline-Arcade-Game mit Python 3 und Tkinter.</span>
+            <div class="game-facts">
+              <span>Version 0.2.0</span><span>Stand 2026-11-03</span>
+              <span>OS: Windows, Linux (Python 3 + Tkinter)</span><span>Laufzeit: Python 3 + Tkinter (Windows/Linux)</span><span>Update: manuell</span>
+            </div>
+            <a class="download-main" href="/downloads/streamiov-star-defender-0.2.0-prototype.zip">Prototyp-Paket herunterladen</a>
+            <code class="game-checksum">SHA-256 37ce93121ec4f48eb79a775d3580e43b0dce2c41112565d028e31d62c5a6c35f</code>
+            <span class="tag tag-work">Prototyp · kein Installer</span>
+          </article>
+        </div>
+        <details>
+          <summary>Gesamte Spiele-Prüfsummen und Signatur prüfen</summary>
+          <div>
+            <p>Die Datei <a href="/downloads/SHA256SUMS-games.txt">SHA256SUMS-games.txt</a> enthält alle fünf SHA-256-Werte. Die zugehörige Ed25519-Signatur ist <a href="/downloads/SHA256SUMS-games.txt.sig">SHA256SUMS-games.txt.sig</a>; der öffentliche Schlüssel und der Fingerabdruck stehen weiter oben im Abschnitt zur Release-Signatur.</p>
+            <pre><code>sha256sum -c SHA256SUMS-games.txt
+node scripts/release-signing.mjs verify-release --dir &lt;ordner-mit-den-pruefsummen&gt;</code></pre>
+            <small>Ein erfolgreicher Hash belegt nur die Unversehrtheit der heruntergeladenen Datei; die Ed25519-Signatur gilt der Prüfsummen-Datei, nicht den ZIPs. Für diese Prototypen gibt es keine Installer und keinen automatischen Update-Kanal; Screenshots sind noch nicht veröffentlicht.</small>
+          </div>
+        </details>
+      </div>
+    </section>
 
 <section id="konto">
       <div class="wrap">
@@ -236,7 +316,7 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
         <div class="grid">
           <article class="card">
             <h3>Community-Forum</h3>
-            <p>Threads und Antworten werden in einer separaten <code>forum.sqlite3</code> gespeichert. Moderation erfolgt über die Host-CLI; Soft-Deletes und gesperrte Threads sind vorhanden. Abuse-Reporting, Spam-Erkennung und eine dokumentierte Aufbewahrungsrichtlinie fehlen noch.</p>
+            <p>Threads und Antworten werden in einer separaten <code>forum.sqlite3</code> gespeichert. Abuse-Reporting, hinweisgebende Spam-Signale, Moderator-Warteschlange, Soft-Deletes und gesperrte Threads sind lokal implementiert und geprüft. Eine Aufbewahrungsrichtlinie und E-Mail-Benachrichtigungen stehen noch aus; Spam-Signale ersetzen keine menschliche Prüfung.</p>
             <a class="download-main" href="/forum/">Forum öffnen</a>
             <span class="tag tag-ready">Lokal verifiziert · kein öffentlicher Rollout</span>
           </article>
@@ -255,10 +335,10 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
         <div class="section-head">
           <div class="kicker">Streaming-Funktion</div>
           <h2>Regie-Oberfläche enthalten, Encoder noch extern.</h2>
-          <p>Die Installer enthalten Kamera-, Bildschirm- und Mikrofonauswahl sowie ein RTMP-Ziel. Studio 1.0.4 enthält den Szenen-/Quellen-Editor mit gemeinsamem Vorschau-, Programm- und Stream-Renderer sowie der Schutzregie: Ein Hotkey schaltet das Programm auf PAUSE und den lokalen Mikrofon-Mix auf 0 %, beim Aufheben werden beide Werte wiederhergestellt. Für eine echte Live-Ausgabe muss FFmpeg mit libx264, AAC und RTMP-Unterstützung auf dem Computer installiert sein; der Encoder ist noch nicht Teil der Installer.</p>
+          <p>Die Installer enthalten Kamera-, Bildschirm- und Mikrofonauswahl sowie ein RTMP-Ziel. Studio 1.0.4 enthält den Szenen-/Quellen-Editor mit gemeinsamem Vorschau-, Programm- und Stream-Renderer sowie der Schutzregie: Ein Hotkey fordert bei aktivem Stream den Stopp des lokalen Encoders und einer aktiven lokalen Aufzeichnung an, schaltet das Programm auf PAUSE und den lokalen Mikrofon-Mix auf 0 %. Beim Aufheben werden nur Szene und Mikrofonpegel wiederhergestellt; der Broadcast startet nicht automatisch neu. Für eine echte Live-Ausgabe muss FFmpeg mit libx264, AAC und RTMP-Unterstützung auf dem Computer installiert sein; der Encoder ist noch nicht Teil der Installer.</p>
         </div>
         <div class="notice"><strong>Kein Live-Nachweis:</strong> Eine erfolgreiche RTMP-Verbindung ersetzt keine Anmeldung bei TikTok, YouTube, Twitch oder einem anderen Dienst. Ein Encoder-Start beweist nicht, dass ein Dienst den Stream empfangen oder veröffentlicht hat. Offizielle Plattform-Anmeldungen und TikTok-Geschenke bleiben von einer Freigabe durch TikTok abhängig.</div>
-        <div class="notice"><strong>Grenze der Schutzregie:</strong> Sie stoppt weder den Encoder noch eine laufende Aufnahme und garantiert keine Plattform-Privatsphäre. Sie schaltet nur die Programmszene und den lokalen Mikrofon-Mix; Plattform- und Aufnahme-Privatsphäre müssen separat geprüft werden.</div>
+        <div class="notice"><strong>Grenze der Schutzregie:</strong> Sie fordert den Stopp des lokalen Encoders und einer aktiven lokalen Aufzeichnung an und protokolliert das Ergebnis; ein fehlgeschlagener Stopp muss manuell geprüft werden. Sie startet danach nichts automatisch wieder und garantiert keine Plattform-Privatsphäre. Plattformseitige Erfassung bleibt außerhalb der Reichweite der lokalen Schutzregie.</div>
       </div>
     </section>
 
@@ -273,12 +353,12 @@ sha256sum streamiov-studio-source-20261103.zip</code></pre>
           <thead><tr><th>Bereich</th><th>Stand</th><th>Beleg / offene Grenze</th></tr></thead>
           <tbody>
             <tr><td>Studio-Installer</td><td>Version 1.0.4 gebaut und veröffentlicht</td><td>Windows x64/ARM64 und Linux x64/ARM64 mit SHA256SUMS.txt. Linux-x64-DEB heruntergeladen, Prüfsumme geprüft und Schutzregie im Paket nachgewiesen; Erststart auf echter Hardware weiter offen.</td></tr>
-            <tr><td>Schutzregie / Privacy Shield</td><td>In Installern · Engine getestet</td><td>Programm auf PAUSE und lokaler Mikrofon-Mix auf 0 % per Hotkey, inklusive exakter Wiederherstellung. Stoppt keinen Encoder und garantiert keine Plattform-Privatsphäre.</td></tr>
+            <tr><td>Schutzregie / Privacy Shield</td><td>In Installern · Engine getestet</td><td>Stoppt bei aktivem Stream lokal Encoder und Aufzeichnung, setzt Programm auf PAUSE und Mikrofon-Mix auf 0 %; beim Aufheben werden nur Szene und Mikrofon wiederhergestellt. Plattform-Privatsphäre bleibt nicht garantiert.</td></tr>
             <tr><td>Quellcode-Snapshot</td><td>Sieben Teile mit SHA-256</td><td>Quellpaket, kein Installer; Größe und Prüfsummen werden vor dem Speichern geprüft.</td></tr>
             <tr><td>Mobile Anwendungen / ChromeOS</td><td>Eigenständige Apps gefordert, Builds offen</td><td>Android, iOS und ChromeOS erhalten keine Web-App oder PWA als Ersatz. Installierbare Builds und Gerätetests stehen aus; ChromeOS nutzt vorerst die Linux-DEB unter Crostini.</td></tr>
-            <tr><td>Spiel-Prototypen</td><td>Fünf checksumierte ZIPs</td><td>Automatisierte Quelltests vorhanden; menschliche Spielbarkeit, Barrierefreiheit, Rechte und Zielgeräte offen.</td></tr>
+            <tr><td>Spiel-Prototypen</td><td>Fünf Prototyp-Archive mit SHA-256</td><td>Die Prüfsummen-Datei ist Ed25519-signiert, die ZIPs selbst nicht; automatisierte Quelltests vorhanden, menschliche Spielbarkeit, Barrierefreiheit, Rechte und Zielgeräte offen.</td></tr>
             <tr><td>Forum / Konto</td><td>Lokal verifiziert</td><td>Öffentliches Lesen, sitzungsgebundenes Schreiben, Rate-Limits und Moderation; kein öffentlicher Community-Rollout.</td></tr>
-            <tr><td>KI-Spezialisten</td><td>Rollen, Queue und Cloudflare-Inferenz verifiziert</td><td>11 Rollen und die Task-Queue sind lokal getestet; der deployte Cloudflare-Worker beantwortete am 3.11.2026 eine Mini-Inferenz. Lokale Ollama-Inferenz bleibt auf dieser Maschine nicht verfügbar.</td></tr>
+            <tr><td>KI-Spezialisten / Wunschbox</td><td>Rollen, Queue, Auftrags-API und Cloudflare-Inferenz lokal verifiziert</td><td>28 Rollen, die Task-Queue, die Wunschbox mit LIVE-Rechte-Gate und der Gaming-Übergabepfad sind lokal getestet; der deployte Cloudflare-Worker beantwortete am 3.11.2026 eine Mini-Inferenz. Lokale Ollama-Inferenz und echte Plattform-Chats bleiben offen.</td></tr>
             <tr><td>TikTok</td><td>Extern blockiert</td><td>App-Review, genehmigte Scopes und offizielle Geschenk-Funktionen fehlen; keine Freigabe wird behauptet.</td></tr>
             <tr><td>Livestream</td><td>Extern blockiert</td><td>Ein realer, von einem Dienst empfangener und veröffentlichter Stream ist nicht nachgewiesen.</td></tr>
             <tr><td>Code-Signierung / Hosting / Recht</td><td>Extern blockiert</td><td>Zertifikate, öffentlich erreichbarer Host mit Vertrauenszertifikat und vollständige Rechtsprüfung stehen aus.</td></tr>

@@ -8,9 +8,10 @@ test('shield starts inactive and documents its honest limits', () => {
   const state = shield.snapshot();
   assert.equal(state.active, false);
   assert.equal(state.pauseSceneId, DEFAULT_PAUSE_SCENE_ID);
-  assert.equal(state.scope, 'program-scene-and-local-mic-mix');
-  assert.equal(state.stopsEncoder, false);
-  assert.equal(state.stopsRecording, false);
+  assert.equal(state.scope, 'program-scene-local-mic-mix-and-local-output-stop-requests');
+  assert.equal(state.stopsEncoder, true);
+  assert.equal(state.stopsRecording, true);
+  assert.equal(state.autoResumesOutputs, false);
   assert.equal(state.guaranteesPlatformPrivacy, false);
 });
 
@@ -19,6 +20,7 @@ test('activate remembers program scene and mic level and targets pause plus mute
   const result = shield.activate({ programSceneId: 'gameplay', micPercent: 75 });
   assert.equal(result.changed, true);
   assert.equal(result.reason, 'activated');
+  assert.equal(result.requestsOutputStops, true);
   assert.deepEqual(result.target, { programSceneId: 'pause', micPercent: 0 });
   assert.deepEqual(result.restore, { programSceneId: 'gameplay', micPercent: 75 });
   assert.equal(shield.snapshot().active, true);
@@ -31,19 +33,24 @@ test('activating twice never overwrites the original restore values', () => {
   const second = shield.activate({ programSceneId: 'ending', micPercent: 99 });
   assert.equal(second.changed, false);
   assert.equal(second.reason, 'already-active');
+  assert.equal(second.requestsOutputStops, true);
   assert.deepEqual(second.restore, { programSceneId: 'live', micPercent: 42 });
   assert.equal(shield.snapshot().activationCount, 1);
 });
 
-test('deactivate returns the saved values and clears the shield', () => {
+test('deactivate restores only scene and mic and never resumes stopped outputs', () => {
   const shield = new PrivacyShield();
   shield.activate({ programSceneId: 'gameplay', micPercent: 63 });
   const result = shield.deactivate();
   assert.equal(result.changed, true);
+  assert.equal(result.resumesOutputs, false);
   assert.deepEqual(result.restore, { programSceneId: 'gameplay', micPercent: 63 });
   assert.equal(result.state.active, false);
+  assert.equal(result.state.autoResumesOutputs, false);
   assert.equal(result.state.restoreState, null);
-  assert.equal(shield.deactivate().changed, false);
+  const repeat = shield.deactivate();
+  assert.equal(repeat.changed, false);
+  assert.equal(repeat.resumesOutputs, false);
 });
 
 test('restore is an explicit alias for deactivation', () => {
@@ -51,6 +58,7 @@ test('restore is an explicit alias for deactivation', () => {
   shield.activate({ programSceneId: 'live', micPercent: 12 });
   const result = shield.restore();
   assert.equal(result.changed, true);
+  assert.equal(result.resumesOutputs, false);
   assert.deepEqual(result.restore, { programSceneId: 'live', micPercent: 12 });
   assert.equal(shield.snapshot().active, false);
 });

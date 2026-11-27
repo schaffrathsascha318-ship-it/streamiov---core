@@ -6,8 +6,9 @@ function fixture(extra={}) {
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"st-oauth-"));
  const store=new EncryptedTokenStore({filePath:path.join(dir,"sandbox.json"),encryptionKey:key,environment:"sandbox"});
  const calls=[];
- const oauth=new TikTokOAuth({environment:"sandbox",clientKey:"sandbox-key",clientSecret:"sandbox-secret",redirectUri:"http://127.0.0.1:3455/callback",store,clock:extra.clock||Date.now,
- fetch:extra.fetch || (async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>({access_token:"access-secret",refresh_token:"refresh-secret",expires_in:3600,scope:"user.info.basic",open_id:"test"})};})});
+  const oauth=new TikTokOAuth({environment:"sandbox",clientKey:"sandbox-key",clientSecret:"sandbox-secret",redirectUri:"http://127.0.0.1:3455/callback",store,clock:extra.clock||Date.now,env:extra.env||{},
+  fetch:extra.fetch || (async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>({access_token:"access-secret",refresh_token:"refresh-secret",expires_in:3600,scope:"user.info.basic",open_id:"test"})};})});
+
  return {oauth,store,calls,dir};
 }
 test("sandbox and production redirect validation",()=>{
@@ -97,7 +98,31 @@ test("callback validates returned scopes and token grants",async()=>{
  assert.equal(result.status,"connected");
 });
 test("callback rejects malformed provider fields without reflecting provider text",async()=>{
- const {oauth}=fixture();
- await assert.rejects(()=>oauth.callback({error:"access_denied",error_description:"User denied access"}),err=>err.message==="provider_authorization_error" && !err.message.includes("User denied"));
- const a=oauth.createAuthorizationUrl(); await assert.rejects(()=>oauth.callback({code:"c",state:a.state,scopes:["user.info.basic"]}),/oauth_scopes_invalid/);
+  const {oauth}=fixture();
+  await assert.rejects(()=>oauth.callback({error:"access_denied",error_description:"User denied access"}),err=>err.message==="provider_authorization_error" && !err.message.includes("User denied"));
+  const a=oauth.createAuthorizationUrl(); await assert.rejects(()=>oauth.callback({code:"c",state:a.state,scopes:["user.info.basic"]}),/oauth_scopes_invalid/);
+});
+test("LIVE ingest credentials accept only validated RTMP destinations",async()=>{
+  const {oauth}=fixture({env:{STREAMIOV_TIKTOK_RTMP_URL:"rtmps://push.tiktok.example/live",STREAMIOV_TIKTOK_STREAM_KEY:"key-123?sign=a&exp=1"}});
+  const credentials=await oauth.getStreamCredentials();
+  assert.equal(credentials.platform,"tiktok");
+  assert.equal(credentials.ingestUrl,"rtmps://push.tiktok.example/live");
+  assert.equal(credentials.streamKey,"key-123?sign=a&exp=1");
+  const unsafe=fixture({env:{STREAMIOV_TIKTOK_RTMP_URL:"rtmp://user:secret@push.tiktok.example/live",STREAMIOV_TIKTOK_STREAM_KEY:"key"}});
+  await assert.rejects(()=>unsafe.oauth.getStreamCredentials(),/tiktok_live_ingest_invalid/);
+});
+test("LIVE status is confirmed only through an approved authenticated endpoint",async()=>{
+  const calls=[];
+  const {oauth,store}=fixture({env:{STREAMIOV_TIKTOK_LIVE_STATUS_API_URL:"https://api.example.test/live"},fetch:async(url,options)=>{
+    calls.push({url,options});
+    return {ok:true,json:async()=>({live:true,room_id:"room-42",viewer_count:12,title:"Test-LIVE"})};
+  }});
+  store.save({access_token:"access-secret",refresh_token:"refresh-secret",expires_at:Date.now()+3600000,scope:"user.info.basic",open_id:"test"});
+  const status=await oauth.getLiveStatus();
+  assert.equal(status.live,true);
+  assert.equal(status.confirmationId,"room-42");
+  assert.equal(status.viewerCount,12);
+  assert.match(calls[0].options.headers.Authorization,/^Bearer access-secret$/);
+  const unconfigured=fixture();
+  assert.deepEqual(await unconfigured.oauth.getLiveStatus(),{platform:"tiktok",live:false,unavailable:true,reason:"tiktok_live_status_api_not_configured"});
 });

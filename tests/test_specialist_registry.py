@@ -20,17 +20,26 @@ class FakeProvider:
         return Reply(next(self.responses))
 
 
+REQUIRED_AGENTS = {
+    "ai_chief", "ai_architect", "ai_developer", "ai_code_agent", "ai_repair_agent",
+    "ai_testing_agent", "ai_design_agent", "ai_studio_agent", "ai_audio_agent",
+    "ai_music_agent", "ai_games_agent", "ai_mobile_agent", "ai_gifts_agent",
+    "ai_integration_agent", "ai_security_agent", "ai_release_agent", "ai_support_agent",
+}
+
+
 class SpecialistRegistryTests(unittest.TestCase):
     def test_all_required_specialist_roles_are_registered(self):
         expected = {"code", "studio", "music", "tts", "events", "homepage", "server", "research", "game", "gifts", "testing"}
-        self.assertEqual(set(specialist_names()), expected)
+        self.assertTrue(expected.issubset(set(specialist_names())))
+        self.assertTrue(REQUIRED_AGENTS.issubset(set(specialist_names())))
 
-    def test_eleven_specialists_have_distinct_product_responsibilities(self):
+    def test_registered_specialists_have_distinct_product_responsibilities(self):
         from ai.specialists import SPECIALISTS
 
         missions = [definition.mission for definition in SPECIALISTS.values()]
-        self.assertEqual(len(missions), 11)
-        self.assertEqual(len(set(missions)), 11)
+        self.assertEqual(len(missions), len(SPECIALISTS))
+        self.assertEqual(len(set(missions)), len(SPECIALISTS))
         expected_topics = {
             "code": "software implementation",
             "studio": "independently managed TikTok LIVE and Twitch LIVE outputs",
@@ -47,6 +56,28 @@ class SpecialistRegistryTests(unittest.TestCase):
         for key, phrase in expected_topics.items():
             with self.subTest(specialist=key):
                 self.assertIn(phrase.lower(), SPECIALISTS[key].mission.lower())
+        required_phrases = {
+            "ai_chief": "Coordinate the complete",
+            "ai_architect": "Own architecture",
+            "ai_developer": "Own cross-cutting implementation",
+            "ai_code_agent": "Own concrete source changes",
+            "ai_repair_agent": "Own diagnosis and repair",
+            "ai_testing_agent": "Own independent test execution",
+            "ai_design_agent": "Own visual and interaction design",
+            "ai_studio_agent": "Own native Studio",
+            "ai_audio_agent": "Own audio capture",
+            "ai_music_agent": "Own music libraries",
+            "ai_games_agent": "Own original downloadable",
+            "ai_mobile_agent": "Own honest mobile",
+            "ai_gifts_agent": "Own original Streamiov gift",
+            "ai_integration_agent": "Own safe integration",
+            "ai_security_agent": "Own security review",
+            "ai_release_agent": "Own native release preparation",
+            "ai_support_agent": "Own user-facing documentation",
+        }
+        for key, phrase in required_phrases.items():
+            with self.subTest(specialist=key):
+                self.assertIn(phrase.lower(), SPECIALISTS[key].mission.lower())
 
     def test_unknown_specialist_is_rejected(self):
         with self.assertRaises(ValueError):
@@ -58,12 +89,11 @@ class SpecialistRegistryTests(unittest.TestCase):
         from ai.__main__ import build_parser
 
         names = specialist_names()
-        self.assertEqual(len(names), 11)
         self.assertEqual(set(names), set(SPECIALISTS))
+        self.assertTrue(REQUIRED_AGENTS.issubset(set(names)))
         parser_names = set(build_parser()._option_string_actions["--specialist"].choices)
         self.assertEqual(parser_names, set(names))
         self.assertEqual(PROJECT_WRITE_SCOPE, ("*",))
-        self.assertEqual(len(names), 11)
         for name in names:
             definition = SPECIALISTS[name]
             self.assertTrue(definition.title.strip())

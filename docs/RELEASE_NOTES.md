@@ -13,7 +13,7 @@ Für macOS, Android, iPhone und iPad sind in diesem Release keine installierbare
 
 ## Verbesserungen seit 1.0.1
 
-- **Schutzregie / Privacy Shield:** `Ctrl+Shift+P` oder der Button in der Übergangssteuerung schaltet das Programm sofort auf die eingebaute PAUSE-Szene und den lokalen Mikrofon-Mix auf 0 %. Beim Aufheben werden die vorherige Programmszene und der exakte Mikrofonpegel wiederhergestellt. Der Mikrofonregler bleibt während der Schutzregie gesperrt; TAKE ist gesperrt.
+- **Schutzregie / Privacy Shield:** `Ctrl+Shift+P` oder der Button in der Übergangssteuerung fordert bei aktivem Stream den Stopp des lokalen Encoders und einer aktiven lokalen Aufzeichnung an, schaltet das Programm auf die eingebaute PAUSE-Szene und den lokalen Mikrofon-Mix auf 0 %. Beim Aufheben werden nur die vorherige Programmszene und der exakte Mikrofonpegel wiederhergestellt; der Broadcast startet nicht automatisch neu. Ein fehlgeschlagener Stopp wird protokolliert und muss manuell geprüft werden. Der Mikrofonregler bleibt während der Schutzregie gesperrt; TAKE ist gesperrt.
 - **Gerätefähigkeiten:** Die Regie zeigt einen schreibgeschützten Bericht zu API-Verfügbarkeit und Layoutdichte. API-Vorhandensein oder `navigator.userAgent` werden nicht als geprüfte Gerätefähigkeit ausgegeben.
 - **Programmausgabe:** Ein separates Fenster zeichnet die gespeicherte Szene auf einer lokalen 1280×720-Canvas. Der Status lautet ausdrücklich `LOKALE CANVAS · NOCH KEIN LIVE-VIDEO`; Kamera und Bildschirm sind dort Platzhalter.
 - **Chief-Retry-Diagnose:** Fehlermeldungen aus Wiederholungen bleiben über Checkpoints erhalten und werden als nicht vertrauenswürdige Referenz genau einmal injiziert.
@@ -22,7 +22,7 @@ Für macOS, Android, iPhone und iPad sind in diesem Release keine installierbare
 
 ## Ehrliche Grenzen
 
-Die Schutzregie stoppt **weder den Encoder noch eine laufende Aufnahme** und garantiert **keine Plattform-Privatsphäre**. Sie schaltet ausschließlich die Programmszene und den lokalen Mikrofon-Mix. Plattform- und Aufnahme-Privatsphäre müssen separat geprüft werden.
+Die Schutzregie fordert den Stopp des lokalen Encoders und einer aktiven lokalen Aufzeichnung an und protokolliert das Ergebnis; ein fehlgeschlagener Stopp ist **kein** bestätigter Stopp. Sie startet danach nichts automatisch wieder und garantiert **keine Plattform-Privatsphäre**. Plattformseitige Erfassung bleibt außerhalb der Reichweite der lokalen Schutzregie.
 
 Ein erfolgreicher Build ist kein Nachweis für eine funktionierende Live-Ausgabe. FFmpeg mit `libx264`, AAC und RTMP/RTMPS muss weiterhin separat installiert sein. Ein RTMP-Start beweist nicht, dass ein Dienst den Stream empfangen oder veröffentlicht hat.
 
@@ -34,10 +34,14 @@ Erststart und Funktion auf echter Windows-, Linux-, Chromebook- und ARM-Hardware
 - Prüfen mit `node scripts/release-signing.mjs verify-release`; nach jeder Änderung an einer geprüften Datei schlägt die Prüfung fehl.
 - Das ist eine Integritäts- und Herkunftssignatur, **keine** Windows-/macOS-Code-Signatur. SmartScreen-/Gatekeeper-Vertrauen bräuchte ein kostenpflichtiges Zertifikat einer Zertifizierungsstelle und wird nicht behauptet oder automatisch gekauft.
 
+## Klarstellung der Download-Texte
+
+Homepage und Download-Hub bezeichnen die Spiel-Prototypen jetzt als Prototyp-Archive mit signierten Prüfsummen-Dateien statt als signierte ZIPs. Vier Archive sind Browser-Archive (HTML/JavaScript), eines benötigt Python 3 und Tkinter; der Quellcode-Snapshot ist vom 03.11.2026. Ein Installer oder ein automatischer Update-Kanal für die Spiele wird nicht behauptet.
+
 ## Dauerhaft kostenlos
 
 StreamioV bleibt ein kostenloses Angebot für alle: **keine Abos, keine Pro-Stufen, keine Werbung, keine Verkäufe und keine Zahlungspflicht**. Es gibt keine künstlichen Bezahlschranken und keinen automatischen kostenpflichtigen Fallback. Internet, Strom, Geräte und externe Plattformen haben eigene Bedingungen und können außerhalb StreamioVs Kosten verursachen.
 
 ## Quellcode
 
-Der Quellcode-Snapshot wird mit `scripts/build-source-snapshot.py` reproduzierbar aus den Repository-Quellen gebaut, in größen- und SHA-256-geprüfte Teile zerlegt und im Download-Hub verlinkt. Er ist kein Installer und enthält keine Zugangsdaten, Produktionsdatenbanken, Installer, Caches oder binären Download-Artefakte. Der aktuelle Stand liegt unter `https://streamiov.pages.dev/download/`.
+Der Quellcode-Snapshot wird mit `scripts/build-source-snapshot.py` reproduzierbar aus den Repository-Quellen gebaut, in größen- und SHA-256-geprüfte Teile zerlegt und im Download-Hub verlinkt. Er ist kein Installer und enthält keine Zugangsdaten, Produktionsdatenbanken, Installer, Caches oder binären Download-Artefakte. Der Quellcode-Snapshot vom 03.11.2026 liegt unter `https://streamiov.pages.dev/download/`.

@@ -1,6 +1,7 @@
 """Run Node's parser against the Electron entry points and inline Regie scripts."""
 from pathlib import Path
 import hashlib
+import importlib.util
 import io
 import re
 import shutil
@@ -20,7 +21,8 @@ class StudioJavaScriptSyntaxTests(unittest.TestCase):
     def test_electron_main_and_preload_parse(self):
         for filename in ("main.js", "preload.js", "media-pipeline.js",
                          "engine/privacy-shield.js", "engine/device-capabilities.js",
-                         "engine/scene-engine.js"):
+                         "engine/scene-engine.js", "engine/app-updater.js",
+                         "engine/media-asset-store.js", "program-output-preload.js"):
             with self.subTest(filename=filename):
                 result = subprocess.run(
                     ["node", "--check", str(STUDIO / filename)],
@@ -82,13 +84,43 @@ class HomepageDownloadPageTests(unittest.TestCase):
         html = (HOMEPAGE / "index.html").read_text(encoding="utf-8")
         script = (HOMEPAGE / "combine.js").read_text(encoding="utf-8")
         self.assertIn('<script src="/download/combine.js" defer></script>', html)
-        self.assertIn('id="studio-one-click"', html)
-        self.assertIn('id="studio-status"', html)
-        self.assertIn('id="studio-progress"', html)
+        self.assertEqual(html.count("data-studio-download"), 2)
+        for element_id in ("source-snapshot-download", "source-snapshot-status",
+                           "source-snapshot-progress", "quellcode-download",
+                           "quellcode-status", "quellcode-progress"):
+            with self.subTest(element_id=element_id):
+                self.assertIn(f'id="{element_id}"', html)
         for index in range(7):
             filename = f"streamiov-studio-part-{index:02d}.bin"
             self.assertIn(f'href="/downloads/{filename}"', html)
             self.assertIn(f'name: "{filename}"', script)
+
+    def test_download_page_has_unique_ids_and_wires_both_snapshot_buttons(self):
+        html = (HOMEPAGE / "index.html").read_text(encoding="utf-8")
+        script = (HOMEPAGE / "combine.js").read_text(encoding="utf-8")
+        ids = re.findall(r'\bid="([^"]+)"', html)
+        self.assertEqual(sorted({item for item in ids if ids.count(item) > 1}), [])
+        self.assertIn('document.querySelectorAll("[data-studio-download]")', script)
+        self.assertIn("button.dataset.studioStatus", script)
+        self.assertIn("button.dataset.studioProgress", script)
+        self.assertNotIn("fünf checksumierte Spiel-Prototypen", html)
+
+    def test_source_snapshot_metadata_update_rewrites_both_download_blocks(self):
+        spec = importlib.util.spec_from_file_location(
+            "streamiov_source_snapshot", ROOT / "scripts" / "build-source-snapshot.py"
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as directory:
+            module.ROOT = Path(directory)
+            target = Path(directory) / "dist/streamiov-homepage-worker/public/download/index.html"
+            target.parent.mkdir(parents=True)
+            target.write_text((HOMEPAGE / "index.html").read_text(encoding="utf-8"), encoding="utf-8")
+            digest = "b" * 64
+            module.update_download_page([{"bytes": 1234}], digest)
+            updated = target.read_text(encoding="utf-8")
+        self.assertEqual(updated.count("Gesamtgröße: 1.234 Bytes"), 2)
+        self.assertEqual(updated.count(f"<code>{digest}</code>"), 2)
 
     def test_download_combiner_uses_exact_part_sizes_and_validates_zip(self):
         script = (HOMEPAGE / "combine.js").read_text(encoding="utf-8")
@@ -135,6 +167,9 @@ class HomepageDownloadPageTests(unittest.TestCase):
         self.assertIn("crypto.subtle.digest", script)
         self.assertIn("SHA-256-Prüfsumme", script)
         self.assertIn("await writable.abort()", script)
+        self.assertNotIn("hashUnavailable", script)
+        self.assertIn("SHA-256 ist in diesem Browser nicht verfügbar", script)
+        self.assertNotIn("Die SHA-256-Prüfung ist in diesem Browser", script)
 
     def test_download_page_documents_the_source_snapshot_and_checksums(self):
         html = (HOMEPAGE / "index.html").read_text(encoding="utf-8")
@@ -159,7 +194,7 @@ class HomepageDownloadPageTests(unittest.TestCase):
         html = (public / "promo" / "index.html").read_text(encoding="utf-8")
         self.assertIn("StreamioV Studio 1.0.4", html)
         self.assertIn("Ctrl+Shift+P", html)
-        self.assertIn("stoppt weder den Encoder noch eine laufende Aufnahme", html)
+        self.assertIn("Stopp des lokalen Encoders", html)
         self.assertIn("keine Plattform-Privatsphäre", html)
         self.assertIn("regie-schutzregie-demo.webm", html)
         self.assertIn("data-copy", html)
@@ -204,6 +239,72 @@ class HomepageDownloadPageTests(unittest.TestCase):
         self.assertIn("def sign_downloads", script)
         self.assertIn("sign-release", script)
         self.assertIn("SIGNING_KEY", script)
+
+    def test_installer_start_update_and_error_chain_stays_honest(self):
+        main = (STUDIO / "main.js").read_text(encoding="utf-8")
+        package = (STUDIO / "package.json").read_text(encoding="utf-8")
+        html = (HOMEPAGE / "index.html").read_text(encoding="utf-8")
+        combiner = (HOMEPAGE / "combine.js").read_text(encoding="utf-8")
+        updater = (STUDIO / "engine" / "app-updater.js").read_text(encoding="utf-8")
+        for source, text in (("main.js", main), ("package.json", package),
+                             ("download/index.html", html), ("download/combine.js", combiner),
+                             ("engine/app-updater.js", updater)):
+            with self.subTest(source=source):
+                self.assertNotIn("electron-updater", text)
+                self.assertNotIn("autoUpdater", text)
+                self.assertNotIn("latest.yml", text)
+        self.assertIn("/downloads/SHA256SUMS.txt.sig", html)
+        self.assertIn("Release-Signatur prüfen", html)
+        self.assertIn("keine</strong> Windows-/macOS-Code-Signatur", html)
+        self.assertIn("isZipSignature(signature)", combiner)
+        self.assertIn("await writable.abort()", combiner)
+
+    def test_pinned_update_chain_is_wired_without_renderer_controlled_targets(self):
+        main = (STUDIO / "main.js").read_text(encoding="utf-8")
+        preload = (STUDIO / "preload.js").read_text(encoding="utf-8")
+        regie = (STUDIO / "regie-v2.html").read_text(encoding="utf-8")
+        updater = (STUDIO / "engine" / "app-updater.js").read_text(encoding="utf-8")
+        generator = (ROOT / "scripts" / "build-studio-update-manifest.mjs").read_text(encoding="utf-8")
+        for channel in ("studio:update-status", "studio:update-check", "studio:update-prepare",
+                        "studio:update-install", "studio:update-clear-error",
+                        "studio:update-open-release"):
+            with self.subTest(channel=channel):
+                self.assertIn(channel, main)
+                self.assertIn(channel, preload)
+        self.assertIn("isTrustedStudioSender(event)", main)
+        self.assertIn("isUpdateAllowed: () => !liveOutputManager.isActive() && liveStreamState === 'offline'", main)
+        self.assertIn("data-tool=\"Update\"", regie)
+        self.assertIn("renderUpdateTool", regie)
+        self.assertIn("crypto.verify(null", updater)
+        self.assertIn("sha256_mismatch", updater)
+        self.assertIn("cleanupStaged", updater)
+        self.assertIn("releaseAssetUrl", updater)
+        self.assertIn("streamiov-studio-update-v1", generator)
+        self.assertIn("createPrivateKey", generator)
+        self.assertNotIn("ipcRenderer.invoke('studio:update-check',", preload)
+
+    def test_stream_destinations_are_derived_only_from_platform_oauth_credentials(self):
+        main = (STUDIO / "main.js").read_text(encoding="utf-8")
+        preload = (STUDIO / "preload.js").read_text(encoding="utf-8")
+        regie = (STUDIO / "regie-v2.html").read_text(encoding="utf-8")
+        self.assertNotIn("payload.destination", main)
+        self.assertNotIn("payload.destination", preload)
+        self.assertIn("options.platforms", main)
+        self.assertIn("resolveOutputCredentials", main)
+        self.assertIn("getTwitchOAuth().getStreamCredentials()", main)
+        self.assertIn("getTikTokOAuth().getStreamCredentials()", main)
+        self.assertIn("normalizeTwitchDestination(credentials)", main)
+        self.assertIn("ingest.hostname !== 'live.twitch.tv'", main)
+        self.assertIn("platforms: Array.isArray(payload?.platforms)", preload)
+        call = re.search(r"startStream\(\{(.*?)\}\);", regie, flags=re.S)
+        self.assertIsNotNone(call)
+        self.assertNotIn("destination", call.group(1))
+        self.assertIn("platforms,", call.group(1))
+        self.assertIn("ipcMain.handle('studio:get-stream-status'", main)
+        self.assertIn("getStreamStatus: () => ipcRenderer.invoke('studio:get-stream-status')", preload)
+        self.assertIn("async function syncStreamState()", regie)
+        self.assertIn("if(state?.active)return stopBroadcast(true,true);", regie)
+        self.assertNotIn("liveButton.onclick=()=>broadcastRecorder?stopBroadcast():startBroadcast();", regie)
 
 if __name__ == "__main__":
     unittest.main()

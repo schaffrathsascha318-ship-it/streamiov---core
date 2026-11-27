@@ -86,6 +86,33 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
             for call in calls
         ))
 
+    def test_agent_factory_forwards_task_id_to_project_tool_leases(self):
+        tree = ast.parse(RUNNER.read_text(encoding="utf-8"))
+        calls = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "DevelopmentAgent"
+        ]
+        self.assertTrue(any(
+            any(
+                keyword.arg == "task_id"
+                and isinstance(keyword.value, ast.Name)
+                and keyword.value.id == "task_id"
+                for keyword in call.keywords
+            )
+            for call in calls
+        ))
+        lambdas = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Lambda)
+            and any(argument.arg == "role" for argument in node.args.args)
+        ]
+        self.assertTrue(any(
+            any(argument.arg == "task_id" for argument in node.args.args)
+            for node in lambdas
+        ))
+
     def test_mission_runner_exports_checkpoint_counts_for_auditable_status(self):
         source = (ROOT / "scripts" / "autonomous" / "run_issue.py").read_text(encoding="utf-8")
         for field in ("status", "mission_id", "cycle", "pending_tasks", "running_tasks", "completed_tasks", "failed_tasks", "attempts"):

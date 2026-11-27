@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ai.management.jason import JasonProjectAdministrator, JasonAdministrationError
 from ai.__main__ import main
+from ai.specialists import specialist_names
 
 
 class JasonProjectAdministratorTests(unittest.TestCase):
@@ -27,7 +28,7 @@ class JasonProjectAdministratorTests(unittest.TestCase):
         ).snapshot()
         self.assertEqual(snapshot["administrator"], "Jason")
         self.assertEqual(snapshot["technical_owner"], "AI Chief")
-        self.assertEqual(snapshot["specialist_count"], 11)
+        self.assertEqual(snapshot["specialist_count"], len(specialist_names()))
         self.assertTrue(next(area for area in snapshot["project_areas"] if area["name"] == "ai")["present"])
         self.assertFalse(snapshot["missions"]["available"])
         self.assertFalse(snapshot["specialist_queue"]["available"])
@@ -114,7 +115,7 @@ class JasonProjectAdministratorTests(unittest.TestCase):
         self.assertEqual(code, 0)
         payload = json.loads(output.getvalue())
         self.assertEqual(payload["administrator"], "Jason")
-        self.assertEqual(payload["specialist_count"], 11)
+        self.assertEqual(payload["specialist_count"], len(specialist_names()))
         self.assertEqual(payload["missions"]["database"], str(self.missions))
 
 

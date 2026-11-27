@@ -5,7 +5,16 @@ const SCENE_VERSION = 2;
 const MAX_SCENES = 100;
 const MAX_SOURCES = 30;
 const DEFAULT_BACKGROUND = '#10151e';
-const SOURCE_TYPES = Object.freeze(['camera', 'screen', 'title', 'text']);
+const SOURCE_TYPES = Object.freeze(['camera', 'screen', 'window', 'title', 'text', 'image', 'video', 'audio', 'color']);
+const SOURCE_SETTINGS = Object.freeze({
+  camera: Object.freeze(['deviceId', 'width', 'height', 'fps', 'audioEnabled']),
+  screen: Object.freeze(['sourceId', 'width', 'height', 'fps']),
+  window: Object.freeze(['sourceId', 'width', 'height', 'fps']),
+  image: Object.freeze(['assetId', 'loop']),
+  video: Object.freeze(['assetId', 'loop', 'volume', 'muted']),
+  audio: Object.freeze(['assetId', 'loop', 'volume', 'muted']),
+  color: Object.freeze(['color'])
+});
 const DEFAULT_SCENES = Object.freeze([
   Object.freeze({ id: 'starting-soon', name: 'STARTING SOON', kind: 'built-in' }),
   Object.freeze({ id: 'live', name: 'LIVE', kind: 'built-in' }),
@@ -20,13 +29,56 @@ const clamp = (value, min, max, fallback) => {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
 };
+const validOpaqueId = value => typeof value === 'string' && value.length > 0 && value.length <= 512 && !/[\u0000-\u001f\u007f]/.test(value);
+const validColor = value => typeof value === 'string' && /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(value);
+const validWidth = value => Number.isInteger(value) && value >= 320 && value <= 3840;
+const validHeight = value => Number.isInteger(value) && value >= 180 && value <= 2160;
+const validFps = value => Number.isInteger(value) && value >= 15 && value <= 60;
+
+function cleanSourceSettings(type, raw) {
+  if (raw === undefined || raw === null) return undefined;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const allowed = SOURCE_SETTINGS[type] || [];
+  if (Object.keys(raw).some(key => !allowed.includes(key))) return null;
+  const settings = {};
+  for (const key of allowed) {
+    if (!Object.prototype.hasOwnProperty.call(raw, key)) continue;
+    const value = raw[key];
+    if (key === 'deviceId' || key === 'sourceId' || key === 'assetId') {
+      if (!validOpaqueId(value)) return null;
+      settings[key] = value;
+    } else if (key === 'loop' || key === 'muted' || key === 'audioEnabled') {
+      if (typeof value !== 'boolean') return null;
+      settings[key] = value;
+    } else if (key === 'volume') {
+      const volume = Number(value);
+      if (!Number.isFinite(volume) || volume < 0 || volume > 1) return null;
+      settings[key] = volume;
+    } else if (key === 'width') {
+      if (!validWidth(value)) return null;
+      settings[key] = value;
+    } else if (key === 'height') {
+      if (!validHeight(value)) return null;
+      settings[key] = value;
+    } else if (key === 'fps') {
+      if (!validFps(value)) return null;
+      settings[key] = value;
+    } else if (key === 'color') {
+      if (!validColor(value)) return null;
+      settings[key] = value.toLowerCase();
+    }
+  }
+  return settings;
+}
 
 function cleanSource(raw, index) {
   if (!raw || typeof raw !== 'object' || !SOURCE_TYPES.includes(raw.type)) return null;
   const id = validId(raw.id) ? raw.id : randomUUID();
   const name = typeof raw.name === 'string' ? raw.name.trim().slice(0, 60) : '';
   const text = typeof raw.text === 'string' ? raw.text.slice(0, 200) : '';
-  return {
+  const settings = cleanSourceSettings(raw.type, raw.settings);
+  if (settings === null) return null;
+  const source = {
     id,
     type: raw.type,
     name: name || raw.type,
@@ -38,6 +90,8 @@ function cleanSource(raw, index) {
     z: Math.trunc(clamp(raw.z, 0, 100, index)),
     visible: raw.visible !== false
   };
+  if (settings && Object.keys(settings).length) source.settings = settings;
+  return source;
 }
 
 function defaultSources(sceneId, sceneName) {
@@ -206,16 +260,10 @@ class StudioSceneEngine {
     const source = scene.sources.find(item => item.id === sourceId);
     if (!source) return { ok: false, error: 'Quelle wurde nicht gefunden.' };
     const safe = patch && typeof patch === 'object' ? patch : {};
-    if (typeof safe.name === 'string' && safe.name.trim()) source.name = safe.name.trim().slice(0, 60);
-    if (typeof safe.text === 'string') source.text = safe.text.slice(0, 200);
-    for (const key of ['x', 'y', 'w', 'h', 'z']) {
-      if (safe[key] !== undefined) {
-        source[key] = key === 'z'
-          ? Math.trunc(clamp(safe[key], 0, 100, source[key]))
-          : clamp(safe[key], key === 'w' || key === 'h' ? 0.05 : 0, key === 'w' || key === 'h' ? 1 : 0.95, source[key]);
-      }
-    }
-    if (safe.visible !== undefined) source.visible = safe.visible !== false;
+    const candidate = cleanSource({ ...source, ...safe, id: source.id }, source.z);
+    if (!candidate) return { ok: false, error: 'Ungültige Quellenänderung.' };
+    Object.assign(source, candidate);
+    if (!candidate.settings) delete source.settings;
     return this._result();
   }
   removeSource(sourceId) {
@@ -258,7 +306,10 @@ class StudioSceneEngine {
       version: SCENE_VERSION,
       scenes: this.scenes.map(scene => ({
         ...scene,
-        sources: scene.sources.map(source => ({ ...source }))
+        sources: scene.sources.map(source => ({
+          ...source,
+          ...(source.settings ? { settings: { ...source.settings } } : {})
+        }))
       })),
       previewSceneId: this.previewSceneId,
       programSceneId: this.programSceneId,

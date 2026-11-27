@@ -44,6 +44,51 @@ test('LIVE confirmation requires both a connection and active output', () => {
   assert.equal(engine.setOutputStatus({ connected: false, outputActive: true }).liveConfirmed, false);
   assert.equal(engine.setOutputStatus({ connected: true, outputActive: true }).liveConfirmed, true);
 });
+test('scene sources preserve validated settings for capture and media runtimes', () => {
+  const engine = new StudioSceneEngine();
+  engine.createScene('Runtime');
+  const added = engine.addSource({ type: 'image', name: 'Logo', settings: { assetId: 'asset-1', loop: true }, x: 0.1, y: 0.2, w: 0.3, h: 0.25 });
+  assert.equal(added.ok, true);
+  const scene = added.state.scenes.find(item => item.id === added.state.previewSceneId);
+  const source = scene.sources.find(item => item.type === 'image');
+  assert.deepEqual(source.settings, { assetId: 'asset-1', loop: true });
+  const snapshot = engine.snapshot();
+  snapshot.scenes.find(item => item.id === scene.id).sources.find(item => item.id === source.id).settings.assetId = 'tampered';
+  assert.equal(engine.snapshot().scenes.find(item => item.id === scene.id).sources.find(item => item.id === source.id).settings.assetId, 'asset-1');
+  assert.equal(engine.addSource({ type: 'video', settings: { assetId: '' } }).ok, false);
+  const updated = engine.updateSource(source.id, { type: 'video', settings: { assetId: 'asset-2', loop: false, volume: 0.5 } });
+  assert.equal(updated.ok, true);
+  const changed = updated.state.scenes.find(item => item.id === scene.id).sources.find(item => item.id === source.id);
+  assert.equal(changed.type, 'video');
+  assert.deepEqual(changed.settings, { assetId: 'asset-2', loop: false, volume: 0.5 });
+});
+test('capture sources persist real device constraints and audio routing choices', () => {
+  const engine = new StudioSceneEngine();
+  engine.createScene('Capture');
+  const camera = engine.addSource({
+    type: 'camera', name: 'Main Camera',
+    settings: { deviceId: 'camera-1', width: 1920, height: 1080, fps: 30, audioEnabled: true }
+  });
+  assert.equal(camera.ok, true);
+  const cameraSource = camera.state.scenes.find(item => item.id === camera.state.previewSceneId)
+    .sources.find(item => item.type === 'camera');
+  assert.deepEqual(cameraSource.settings, {
+    deviceId: 'camera-1', width: 1920, height: 1080, fps: 30, audioEnabled: true
+  });
+  const screen = engine.addSource({
+    type: 'screen', name: 'Display', settings: { sourceId: 'screen:1:0', width: 1280, height: 720, fps: 60 }
+  });
+  assert.equal(screen.ok, true);
+  const audioFile = engine.addSource({
+    type: 'audio', name: 'Clip', settings: { assetId: 'asset-audio', loop: true, volume: 0.4, muted: true }
+  });
+  assert.equal(audioFile.ok, true);
+  const audioSource = audioFile.state.scenes.find(item => item.id === audioFile.state.previewSceneId)
+    .sources.find(item => item.type === 'audio');
+  assert.deepEqual(audioSource.settings, { assetId: 'asset-audio', loop: true, volume: 0.4, muted: true });
+  assert.equal(engine.addSource({ type: 'camera', settings: { width: 9999 } }).ok, false);
+  assert.equal(engine.addSource({ type: 'camera', settings: { fps: 5 } }).ok, false);
+});
 test('saved scene data is sanitized and snapshots do not leak mutable state', () => {
   const engine = new StudioSceneEngine({ scenes: [
     { id: 'good', name: 'Good', kind: 'custom' },

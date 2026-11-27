@@ -8,9 +8,12 @@ binding, custom domain, or live deployment exists.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -29,6 +32,7 @@ CHECKS_WORKFLOW = ROOT / ".github" / "workflows" / "cloudflare-checks.yml"
 DOWNLOAD_PAGE = HOMEPAGE_PUBLIC / "download" / "index.html"
 DOWNLOADS = HOMEPAGE_PUBLIC / "downloads"
 PINNED_MODEL = "@cf/zai-org/glm-4.7-flash"
+EXPECTED_RELEASE_FINGERPRINT = "5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc"
 
 
 def strip_jsonc_comments(text: str) -> str:
@@ -70,6 +74,45 @@ def strip_jsonc_comments(text: str) -> str:
         output.append(char)
         index += 1
     return "".join(output)
+
+
+def release_key_fingerprint(path: Path) -> str | None:
+    match = re.search(
+        r"-----BEGIN PUBLIC KEY-----\s*(.+?)\s*-----END PUBLIC KEY-----",
+        path.read_text(encoding="utf-8"),
+        flags=re.S,
+    )
+    if not match:
+        return None
+    der = base64.b64decode("".join(match.group(1).split()), validate=True)
+    return hashlib.sha256(der).hexdigest()
+
+
+def verify_release_signatures(downloads: Path = DOWNLOADS) -> tuple[bool, str]:
+    actual_fingerprint = release_key_fingerprint(downloads / "STREAMIOV-RELEASE-KEY.pub")
+    if actual_fingerprint != EXPECTED_RELEASE_FINGERPRINT:
+        return False, f"key-fingerprint: {actual_fingerprint} does not match pinned trust anchor"
+    node = shutil.which("node")
+    if not node:
+        return False, "node is required for release signature verification"
+    result = subprocess.run(
+        [node, str(ROOT / "scripts" / "release-signing.mjs"), "verify-release", "--dir", str(downloads)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if result.returncode == 0:
+        return True, "ok"
+    try:
+        report = json.loads(result.stdout)
+        failed = [item["check"] for item in report.get("checks", []) if not item.get("ok")]
+        if failed:
+            return False, "failed checks: " + ", ".join(failed)
+    except (ValueError, TypeError, KeyError):
+        pass
+    detail = (result.stderr or result.stdout).strip().splitlines()
+    return False, detail[0] if detail else "release verification failed"
 
 
 def load_jsonc(path: Path) -> dict[str, Any]:
@@ -312,6 +355,28 @@ def verify() -> dict[str, Any]:
             f"download page links {len(local_targets)} local files and "
             f"{len(release_targets)} approved GitHub release assets"
         )
+
+        release_key = DOWNLOADS / "STREAMIOV-RELEASE-KEY.pub"
+        if not release_key.is_file():
+            errors.append("published release key is missing")
+        else:
+            actual_fingerprint = release_key_fingerprint(release_key)
+            if actual_fingerprint != EXPECTED_RELEASE_FINGERPRINT:
+                errors.append(
+                    f"published release key fingerprint {actual_fingerprint} does not match pinned fingerprint"
+                )
+            checks.append("published release key matches the pinned trust anchor")
+
+        signed_ok, signed_detail = verify_release_signatures(DOWNLOADS)
+        if not signed_ok:
+            errors.append(f"release signature verification failed: {signed_detail}")
+        checks.append("release signatures and checksums verify against the pinned trust anchor")
+
+        if sorted(DOWNLOADS.glob("*-prototype.zip")):
+            for filename in ("SHA256SUMS-games.txt", "SHA256SUMS-games.txt.sig"):
+                if not (DOWNLOADS / filename).is_file():
+                    errors.append(f"game prototype downloads are missing signed manifest file: {filename}")
+            checks.append("game prototype downloads have a signed checksum manifest")
 
         if (DOWNLOADS / "streamiov-studio-part-00.bin").is_file():
             sums = (DOWNLOADS / "SHA256SUMS.txt").read_text(encoding="utf-8")

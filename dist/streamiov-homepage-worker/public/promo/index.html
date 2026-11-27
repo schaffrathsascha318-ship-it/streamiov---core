@@ -115,16 +115,16 @@
             <div class="section-head">
               <div class="kicker">So funktioniert es</div>
               <h2>Drei Schritte, keine Cloud.</h2>
-              <p>Die Schutzregie ist eine lokale Zustandsmaschine. Sie merkt sich die aktive Programmszene und den Mikrofonpegel, schaltet beides sicher um und stellt exakt diesen Zustand wieder her.</p>
+              <p>Die Schutzregie ist eine lokale Zustandsmaschine. Sie merkt sich die aktive Programmszene und den Mikrofonpegel, fordert bei aktivem Stream den Stopp der lokalen Ausgaben an, schaltet PAUSE und Mikrofon-Mix auf 0 % und stellt beim Aufheben nur Szene und Mikrofonpegel wieder her.</p>
             </div>
             <ol class="steps">
               <li><b>Auslösen</b>Mit <code>Ctrl+Shift+P</code> oder dem Button „SCHUTZREGIE“.</li>
-              <li><b>Sofort schützen</b>Programm wechselt auf die eingebaute PAUSE-Szene, der lokale Mikrofon-Mix geht auf 0 %. TAKE und Mikrofonregler sind gesperrt.</li>
-              <li><b>Sauber zurück</b>Beim Aufheben kehren die vorherige Programmszene und der exakte Mikrofonpegel zurück. Der Zustand überlebt auch einen Neustart.</li>
+              <li><b>Sofort schützen</b>Aktiver lokaler Encoder und eine aktive lokale Aufzeichnung werden gestoppt und protokolliert. Programm wechselt auf die eingebaute PAUSE-Szene, der lokale Mikrofon-Mix geht auf 0 %. TAKE und Mikrofonregler sind gesperrt.</li>
+              <li><b>Sauber zurück</b>Beim Aufheben kehren die vorherige Programmszene und der exakte Mikrofonpegel zurück. Stream und Aufzeichnung starten nicht automatisch wieder; der Zustand überlebt auch einen Neustart.</li>
             </ol>
           </div>
           <aside>
-            <div class="notice red"><strong>Ehrliche Grenze:</strong> Die Schutzregie stoppt weder den Encoder noch eine laufende Aufnahme und garantiert keine Plattform-Privatsphäre. Sie schaltet ausschließlich die Programmszene und den lokalen Mikrofon-Mix. Plattform- und Aufnahme-Privatsphäre müssen separat geprüft werden.</div>
+            <div class="notice red"><strong>Ehrliche Grenze:</strong> Die Schutzregie fordert den Stopp des lokalen Encoders und einer aktiven lokalen Aufzeichnung an und protokolliert das Ergebnis; ein fehlgeschlagener Stopp muss manuell geprüft werden. Sie startet nichts automatisch wieder und garantiert keine Plattform-Privatsphäre. Plattformseitige Erfassung bleibt außerhalb der Reichweite der lokalen Schutzregie.</div>
             <div class="notice" style="margin-top:14px"><strong>Warum das zählt:</strong> Ein Notfall-Hotkey ist nur dann nützlich, wenn er den vorherigen Zustand nicht zerstört. Genau das ist hier lokal und automatisiert getestet – ohne Cloud, Konto oder zusätzliche Kosten.</div>
           </aside>
         </div>
@@ -138,7 +138,7 @@
           <h2>Eine Regie, die aufräumt, statt nur zu verstecken.</h2>
         </div>
         <div class="cards">
-          <article class="card"><h3>Schutzregie / Privacy Shield</h3><p>Hotkey, PAUSE-Szene, Mikrofon-Mix 0 %, Sperren, exakte Wiederherstellung und lokale Persistenz. In den installierbaren Studio-Anwendungen enthalten.</p><span class="tag tag-ready">In 1.0.4 · 7 Engine-Tests</span></article>
+          <article class="card"><h3>Schutzregie / Privacy Shield</h3><p>Hotkey, lokaler Stopp von Encoder und Aufzeichnung, PAUSE-Szene, Mikrofon-Mix 0 %, Sperren, Wiederherstellung von Szene und Mikrofon sowie lokale Persistenz. In den installierbaren Studio-Anwendungen enthalten.</p><span class="tag tag-ready">In 1.0.4 · 7 Engine-Tests</span></article>
           <article class="card"><h3>Szenen und Programm</h3><p>Programmszene direkt wechseln, ohne die Vorschau zu verändern. TAKE bleibt gesperrt, solange die Schutzregie aktiv ist.</p><span class="tag tag-ready">Engine getestet</span></article>
           <article class="card"><h3>Native Zielanwendungen</h3><p>Windows, macOS, Linux, ChromeOS, Android, iPhone und iPad erhalten eigenständige installierbare Anwendungen. Eine Browser- oder PWA-Version ersetzt sie nicht.</p><span class="tag tag-work">Plattformen einzeln prüfen</span></article>
           <article class="card"><h3>Kostenlos und lokal</h3><p>Kein Abo, kein bezahlter KI- oder Cloud-Zwang. Die Schutzregie benötigt weder Konto noch Netzwerk und läuft vollständig auf dem Gerät.</p><span class="tag tag-ready">Ohne Zusatzkosten</span></article>
@@ -191,19 +191,19 @@ StreamioV Studio 1.0.4 → streamiov.pages.dev/promo/
 
 In diesem kurzen Demo-Clip seht ihr die Schutzregie in der installierten Studio-App:
 1. Szene LIVE und TAKE.
-2. Ctrl+Shift+P: Programm auf PAUSE, lokaler Mikrofon-Mix auf 0 %.
-3. Schutzregie aufheben: vorherige Szene und exakter Mikrofonpegel sind zurück.
+2. Ctrl+Shift+P: lokaler Encoder und aktive Aufzeichnung werden gestoppt, Programm auf PAUSE, lokaler Mikrofon-Mix auf 0 %.
+3. Schutzregie aufheben: vorherige Szene und exakter Mikrofonpegel sind zurück; Stream und Aufzeichnung starten nicht automatisch neu.
 
-Wichtig: Die Schutzregie stoppt weder den Encoder noch eine laufende Aufnahme und garantiert keine Plattform-Privatsphäre. Sie schaltet die Programmszene und den lokalen Mikrofon-Mix.
+Wichtig: Die Schutzregie garantiert keine Plattform-Privatsphäre. Ein fehlgeschlagener Stopp wird protokolliert und muss manuell geprüft werden.
 
 Download: https://streamiov.pages.dev/download/
 Keine Web-App und keine PWA: nur installierbare Anwendungen.
 Projektstand: https://streamiov.pages.dev/promo/#status</pre><button class="copy" data-copy="copy-youtube" type="button">Text kopieren</button></article>
           <article><h3>Kurzer Community-Post</h3><pre id="copy-forum">Ich habe StreamioV Studio 1.0.4 gebaut: eine kostenlose, installierbare Regie mit Szenen und einer Schutzregie.
 
-Die Idee: Wenn spontan etwas passiert, drückt man Ctrl+Shift+P. Das Programm geht auf PAUSE, das lokale Mikrofon auf 0 %. Danach kommt exakt der vorherige Zustand zurück.
+Die Idee: Wenn spontan etwas passiert, drückt man Ctrl+Shift+P. Lokaler Encoder und eine aktive Aufzeichnung werden gestoppt, das Programm geht auf PAUSE, das lokale Mikrofon auf 0 %. Danach kommen nur Szene und Mikrofonpegel zurück.
 
-Das ist kein Encoder-Stopp und keine Plattform-Garantie – nur Programmszene und lokaler Mikrofon-Mix. Aber genau dieser Teil ist lokal getestet und ohne Cloud nutzbar.
+Das ist keine Plattform-Garantie; ein fehlgeschlagener Stopp muss manuell geprüft werden. Der lokale Teil ist Automatisierung ohne Cloud.
 
 Feedback und Grenzen: https://streamiov.pages.dev/promo/</pre><button class="copy" data-copy="copy-forum" type="button">Text kopieren</button></article>
         </div>
@@ -221,7 +221,7 @@ Feedback und Grenzen: https://streamiov.pages.dev/promo/</pre><button class="cop
           <thead><tr><th>Bereich</th><th>Stand</th><th>Beleg / offene Grenze</th></tr></thead>
           <tbody>
             <tr><td>Studio 1.0.4</td><td>Gebaut und veröffentlicht</td><td>Release <code>studio-v1.0.4</code> mit Windows x64/ARM64, Linux x64/ARM64, SHA256SUMS.txt. Linux-x64-DEB heruntergeladen, Prüfsumme geprüft, Schutzregie im Paket nachgewiesen.</td></tr>
-            <tr><td>Schutzregie</td><td>In Installern · Engine getestet</td><td>7 Engine-Tests und Python-Regressionstests für lokale Szene → PAUSE → Wiederherstellung. Stoppt keinen Encoder und garantiert keine Plattform-Privatsphäre.</td></tr>
+            <tr><td>Schutzregie</td><td>In Installern · Engine getestet</td><td>7 Engine-Tests und Python-Regressionstests für lokalen Stopp von Encoder/Aufzeichnung, Szene → PAUSE → Wiederherstellung von Szene und Mikrofon. Kein automatisches Wiederholen, keine Plattform-Garantie.</td></tr>
             <tr><td>Native Mobile-/ChromeOS-Apps</td><td>Gefordert, Builds offen</td><td>Keine Web-App oder PWA als Ersatz. Eigenständige Anwendungen und Gerätetests stehen für Android, iOS und ChromeOS noch aus.</td></tr>
             <tr><td>Quellcode-Snapshot</td><td>Sieben Teile mit SHA-256</td><td>Quellpaket, kein Installer. Enthält keine Zugangsdaten, keine Produktionsdatenbank und keine gebauten Installer.</td></tr>
             <tr><td>Geräte</td><td>Extern offen</td><td>Erststart und Funktion auf echter Windows-, Linux-, Chromebook- und ARM-Hardware sind nicht vollständig geprüft.</td></tr>

@@ -40,8 +40,11 @@ with sqlite3.connect(database) as db:
 
 stop = threading.Event()
 try:
-    print("READY", flush=True)
-    runner.run_with_signal_handlers(lambda: stop.wait(30), stop)
+    def run_after_handlers_are_installed():
+        print("READY", flush=True)
+        return stop.wait(30)
+
+    runner.run_with_signal_handlers(run_after_handlers_are_installed, stop)
     with sqlite3.connect(database) as db:
         db.execute("INSERT INTO shutdown_state VALUES ('stopped')")
 finally:

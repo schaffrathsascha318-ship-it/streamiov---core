@@ -38,6 +38,12 @@ button.secondary{background:#223248;color:var(--text)}
 .reply p{margin:6px 0 0;color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere}
 .body-text{white-space:pre-wrap;overflow-wrap:anywhere}
 .session{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:14px}
+.inline-form{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+.inline-form label,.decision-controls label{display:block;margin-top:8px;font-size:13px;color:var(--muted)}
+.inline-form select,.decision-controls select{margin:6px 0 12px;padding:10px;border:1px solid #344155;border-radius:9px;background:#080b12;color:var(--text);font:inherit;width:100%}
+.inline-form textarea,.decision-controls textarea{min-height:80px}
+.decision-controls{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.decision-controls textarea{margin-bottom:10px}
 footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
 @media(max-width:700px){.layout{grid-template-columns:1fr}main{padding-inline:15px}}
 </style>
@@ -58,6 +64,23 @@ footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
   <p>Ideen teilen, Fragen stellen und gemeinsam Streamiov weiterentwickeln. Lesen ist für alle möglich; zum Schreiben brauchst du ein lokales Streamiov-Konto.</p>
   <div id="session" class="session" aria-live="polite"></div>
   <div id="status" class="status" role="status" aria-live="polite">Verbindung zum Forum wird geprüft …</div>
+  <section class="panel" id="report-panel" aria-labelledby="report-heading" hidden style="margin-top:20px">
+    <h2 id="report-heading">Beitrag melden</h2>
+    <p id="report-target" class="meta"></p>
+    <form id="report-form" class="inline-form">
+      <label for="report-reason">Meldegrund</label>
+      <select id="report-reason" name="reason">
+        <option value="spam">Spam</option>
+        <option value="harassment">Belästigung</option>
+        <option value="offtopic">Offtopic</option>
+        <option value="other">Anderes</option>
+      </select>
+      <label for="report-detail">Kurze Beschreibung (optional, höchstens 500 Zeichen)</label>
+      <textarea id="report-detail" name="detail" maxlength="500"></textarea>
+      <button id="report-submit" type="submit">Meldung senden</button>
+      <button id="report-cancel" type="button" class="secondary">Abbrechen</button>
+    </form>
+  </section>
   <div class="layout">
     <section aria-labelledby="threads-heading">
       <h2 id="threads-heading">Diskussionen</h2>
@@ -81,6 +104,23 @@ footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
     <h2 id="history-heading">Beiträge eines Nutzers</h2>
     <div id="history"></div>
   </section>
+  <section class="panel" id="notifications-panel" aria-labelledby="notifications-heading" hidden style="margin-top:20px">
+    <h2 id="notifications-heading">Benachrichtigungen</h2>
+    <p class="meta">Ergebnisse zu deinen Meldungen.</p>
+    <div id="notifications"></div>
+  </section>
+  <section class="panel" id="moderation-panel" aria-labelledby="moderation-heading" hidden style="margin-top:20px">
+    <h2 id="moderation-heading">Moderation</h2>
+    <p id="moderation-note" class="meta"></p>
+    <label for="report-status-filter" class="meta">Status filtern</label>
+    <select id="report-status-filter" aria-label="Meldungen nach Status filtern">
+      <option value="all">Alle</option>
+      <option value="open">Offen</option>
+      <option value="resolved">Gelöst</option>
+      <option value="dismissed">Verworfen</option>
+    </select>
+    <div id="moderation-list"></div>
+  </section>
 </main>
 <footer>© 2026 Streamiov · <a href="/datenschutz">Datenschutz</a> · <a href="/impressum">Impressum</a></footer>
 <script>
@@ -95,8 +135,24 @@ footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
   const sessionBox=document.getElementById("session");
   const historyPanel=document.getElementById("history-panel");
   const historyList=document.getElementById("history");
+  const moderationPanel=document.getElementById("moderation-panel");
+  const moderationNote=document.getElementById("moderation-note");
+  const moderationList=document.getElementById("moderation-list");
+  const reportStatusFilter=document.getElementById("report-status-filter");
+  const reportPanel=document.getElementById("report-panel");
+  const reportTarget=document.getElementById("report-target");
+  const reportForm=document.getElementById("report-form");
+  const reportReason=document.getElementById("report-reason");
+  const reportDetail=document.getElementById("report-detail");
+  const reportCancel=document.getElementById("report-cancel");
+  const notificationsPanel=document.getElementById("notifications-panel");
+  const notificationsList=document.getElementById("notifications");
+  const reportsUrl="/api/forum/reports";
   let currentUser=null;
+  let isModerator=false;
   let activeThreadId=null;
+  let pendingReport=null;
+  let decisionControls={};
 
   function setStatus(text,isError){
     statusBox.textContent=text;
@@ -135,27 +191,59 @@ footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
     return data.error||fallback;
   }
 
-  async function submitReport(targetKind,targetId){
+  function submitReport(targetKind,targetId){
     if(!currentUser){setStatus("Bitte melde dich an, um einen Beitrag zu melden.",true);return;}
+    pendingReport={kind:targetKind,id:targetId};
+    reportReason.value="spam";
+    reportDetail.value="";
+    reportTarget.textContent="Bitte wähle einen Grund für "+(targetKind==="thread"?"dieses Thema":"diese Antwort")+".";
+    reportPanel.hidden=false;
+    reportPanel.scrollIntoView({block:"nearest"});
+  }
+
+  reportCancel.addEventListener("click",function(){
+    pendingReport=null;
+    reportPanel.hidden=true;
+  });
+
+  reportForm.addEventListener("submit",async function(event){
+    event.preventDefault();
+    if(!currentUser||!pendingReport){
+      setStatus("Bitte melde dich an, um einen Beitrag zu melden.",true);
+      return;
+    }
     const reasons=["spam","harassment","offtopic","other"];
-    const reason=window.prompt("Warum möchtest du diesen Beitrag melden?\nspam / harassment / offtopic / other","spam");
-    if(reason===null)return;
+    const reason=reportReason.value;
+    const details=reportDetail.value||"";
     if(!reasons.includes(reason)){setStatus("Dieser Meldegrund ist nicht gültig.",true);return;}
-    const details=window.prompt("Optional: kurze Beschreibung (höchstens 500 Zeichen)","")||"";
+    const targetKind=pendingReport.kind;
+    const targetId=pendingReport.id;
+    const submitButton=document.getElementById("report-submit");
+    submitButton.disabled=true;
     try{
-      const response=await fetch("/api/forum/reports",{
+      const response=await fetch(reportsUrl,{
         method:"POST",
         credentials:"same-origin",
         headers:{"Content-Type":"application/json",Accept:"application/json"},
-        body:JSON.stringify({target_kind:targetKind,target_id:targetId,reason:reason,details:details})
+        body:JSON.stringify({
+          reason:reason,detail:details,
+          thread_id:targetKind==="thread"?targetId:null,
+          reply_id:targetKind==="reply"?targetId:null
+        })
       });
       const data=await readJson(response);
       if(!response.ok)throw new Error(errorText(response,data,"Die Meldung konnte nicht gespeichert werden."));
+      pendingReport=null;
+      reportPanel.hidden=true;
+      reportForm.reset();
       setStatus("Meldung gespeichert. Die Moderation prüft den Beitrag.");
+      await loadReports();
     }catch(error){
       setStatus(error.message||"Die Meldung konnte nicht gespeichert werden.",true);
+    }finally{
+      submitButton.disabled=false;
     }
-  }
+  });
 
   async function openHistory(userId){
     if(!/^[a-f0-9]{32}$/.test(userId))return;
@@ -182,6 +270,167 @@ footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
     }
   }
 
+  async function loadNotifications(){
+    if(!currentUser){notificationsPanel.hidden=true;return;}
+    try{
+      const response=await fetch("/api/forum/notifications",{
+        credentials:"same-origin",headers:{Accept:"application/json"}
+      });
+      if(response.status===404||response.status===403){notificationsPanel.hidden=true;return;}
+      const data=await readJson(response);
+      if(!response.ok)throw new Error(errorText(response,data,"Die Benachrichtigungen konnten nicht geladen werden."));
+      const notes=Array.isArray(data.notifications)?data.notifications:[];
+      notificationsPanel.hidden=false;
+      notificationsList.replaceChildren();
+      if(notes.length===0){
+        notificationsList.append(element("p","meta","Aktuell liegen keine Benachrichtigungen vor."));
+        return;
+      }
+      notes.forEach(function(note){
+        const entry=element("article","reply");
+        entry.append(element("p",null,note.message||""));
+        entry.append(element("p","meta",formatTime(note.created_at)+(note.unread?" · ungelesen":" · gelesen")));
+        if(note.unread){
+          const mark=element("button","secondary","Als gelesen markieren");
+          mark.type="button";
+          mark.addEventListener("click",function(){markNotificationRead(note.id);});
+          entry.append(mark);
+        }
+        notificationsList.append(entry);
+      });
+    }catch(error){
+      notificationsPanel.hidden=false;
+      notificationsList.replaceChildren(element("p","meta",error.message||"Die Benachrichtigungen konnten nicht geladen werden."));
+      setStatus(error.message||"Die Benachrichtigungen konnten nicht geladen werden.",true);
+    }
+  }
+
+  async function markNotificationRead(notificationId){
+    try{
+      const response=await fetch("/api/forum/notifications/"+encodeURIComponent(notificationId)+"/read",{
+        method:"POST",credentials:"same-origin",headers:{Accept:"application/json"}
+      });
+      if(response.status===404){await loadNotifications();return;}
+      const data=await readJson(response);
+      if(!response.ok)throw new Error(errorText(response,data,"Die Benachrichtigung konnte nicht aktualisiert werden."));
+      setStatus("Benachrichtigung als gelesen markiert.");
+      await loadNotifications();
+    }catch(error){
+      setStatus(error.message||"Die Benachrichtigung konnte nicht aktualisiert werden.",true);
+    }
+  }
+
+  async function resolveReport(reportId,status){
+    const controls=decisionControls[reportId]||{};
+    const contentAction=controls.action?controls.action.value:"none";
+    const note=controls.note?controls.note.value:"";
+    try{
+      let response=await fetch("/api/forum/reports/"+encodeURIComponent(reportId)+"/decide",{
+        method:"POST",
+        credentials:"same-origin",
+        headers:{"Content-Type":"application/json",Accept:"application/json"},
+        body:JSON.stringify({decision:status,content_action:contentAction,note:note})
+      });
+      if(response.status===404){
+        response=await fetch("/api/forum/reports/"+encodeURIComponent(reportId)+"/resolve",{
+          method:"POST",
+          credentials:"same-origin",
+          headers:{"Content-Type":"application/json",Accept:"application/json"},
+          body:JSON.stringify({status:status})
+        });
+      }
+      const data=await readJson(response);
+      if(!response.ok)throw new Error(errorText(response,data,"Die Meldung konnte nicht aktualisiert werden."));
+      setStatus(status==="resolved"?"Meldung als gelöst markiert.":"Meldung verworfen.");
+      delete decisionControls[reportId];
+      await loadReports();
+      await loadNotifications();
+    }catch(error){
+      setStatus(error.message||"Die Meldung konnte nicht aktualisiert werden.",true);
+    }
+  }
+
+  async function loadReports(){
+    if(!isModerator){moderationPanel.hidden=true;return;}
+    const filter=reportStatusFilter.value;
+    const query=filter==="all"?"":"?status="+encodeURIComponent(filter);
+    try{
+      const response=await fetch(reportsUrl+query,{
+        credentials:"same-origin",headers:{Accept:"application/json"}
+      });
+      const data=await readJson(response);
+      if(!response.ok)throw new Error(errorText(response,data,"Die Meldungen konnten nicht geladen werden."));
+      moderationPanel.hidden=false;
+      moderationList.replaceChildren();
+      decisionControls={};
+      const reports=Array.isArray(data.reports)?data.reports:[];
+      moderationNote.textContent="Meldungen ("+filter+"): "+reports.length;
+      if(reports.length===0){
+        moderationList.append(element("p","meta","Aktuell liegen keine Meldungen vor."));
+        return;
+      }
+      reports.forEach(function(report){
+        const box=element("article","reply");
+        const label=report.kind==="reply"?"Antwort auf ":"Thema: ";
+        box.append(element("p",null,label+(report.target_title||"Ohne Titel")+" · "+report.reason+" · "+formatTime(report.created_at)));
+        const preview=report.target_preview||report.target_body||"";
+        if(preview)box.append(element("p","body-text",preview));
+        box.append(element("p","meta","Von "+(report.target_author||"Unbekannt")));
+        const flags=Array.isArray(report.target_spam_flags)?report.target_spam_flags:[];
+        if(flags.length)box.append(element("p","meta","Spam-Hinweise: "+flags.join(", ")));
+        if(report.target_permalink){
+          const link=element("a",null,"Zum Beitrag");
+          link.href=report.target_permalink;
+          const linkLine=element("p","meta");
+          linkLine.append(link);
+          box.append(linkLine);
+        }
+        if(report.detail)box.append(element("p","meta","Hinweis: "+report.detail));
+        box.append(element("p","meta","Status: "+report.status+(report.resolver?" · bearbeitet von "+report.resolver:"")));
+        if(report.status==="open"){
+          const actionSelect=document.createElement("select");
+          const choices=[["none","Keine Aktion"],["delete","Beitrag löschen"]];
+          if(report.kind!=="reply"){
+            choices.push(["lock","Thema sperren"],["unlock","Thema entsperren"]);
+          }
+          choices.forEach(function(choice){
+            const option=document.createElement("option");
+            option.value=choice[0];
+            option.textContent=choice[1];
+            actionSelect.append(option);
+          });
+          const noteArea=document.createElement("textarea");
+          noteArea.maxLength=500;
+          noteArea.placeholder="Notiz für das Moderationsprotokoll (optional)";
+          const controls=element("div","decision-controls");
+          const actionLabel=element("label","meta","Inhaltsaktion");
+          actionLabel.htmlFor="decision-action-"+report.id;
+          actionSelect.id=actionLabel.htmlFor;
+          const noteLabel=element("label","meta","Notiz");
+          noteLabel.htmlFor="decision-note-"+report.id;
+          noteArea.id=noteLabel.htmlFor;
+          controls.append(actionLabel,actionSelect,noteLabel,noteArea);
+          decisionControls[report.id]={action:actionSelect,note:noteArea};
+          const resolve=element("button","secondary","Gelöst");
+          resolve.type="button";
+          resolve.addEventListener("click",function(){resolveReport(report.id,"resolved");});
+          const dismiss=element("button","secondary","Verworfen");
+          dismiss.type="button";
+          dismiss.addEventListener("click",function(){resolveReport(report.id,"dismissed");});
+          controls.append(resolve,dismiss);
+          box.append(controls);
+        }
+        moderationList.append(box);
+      });
+    }catch(error){
+      moderationPanel.hidden=false;
+      moderationList.replaceChildren(element("p","meta",error.message||"Die Meldungen konnten nicht geladen werden."));
+      setStatus(error.message||"Die Meldungen konnten nicht geladen werden.",true);
+    }
+  }
+
+  reportStatusFilter.addEventListener("change",function(){loadReports();});
+
   function renderSession(){
     sessionBox.replaceChildren();
     if(currentUser){
@@ -194,6 +443,11 @@ footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
           const response=await fetch("/api/v1/auth/logout",{method:"POST",credentials:"same-origin",headers:{Accept:"application/json"}});
           if(!response.ok)throw new Error();
           currentUser=null;
+          isModerator=false;
+          pendingReport=null;
+          reportPanel.hidden=true;
+          moderationPanel.hidden=true;
+          notificationsPanel.hidden=true;
           renderSession();
           updateCompose();
           setStatus("Du bist abgemeldet. Lesen ist weiterhin möglich.");
@@ -393,11 +647,13 @@ footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
       }else{
         currentUser=null;
       }
-    }catch(_){
-      currentUser=null;
-    }
-    renderSession();
+     }catch(_){
+       currentUser=null;
+     }
+     isModerator=Boolean(currentUser&&currentUser.is_forum_moderator);
+     renderSession();
     updateCompose();
+    await loadNotifications();
   }
 
   form.addEventListener("submit",async function(event){
@@ -429,7 +685,8 @@ footer{padding:24px 6%;border-top:1px solid var(--line);color:#8995a7}
   (async function start(){
     await loadSession();
     await loadThreads();
-    const match=/^#t=([a-f0-9]{32})$/.exec(location.hash);
+    await loadReports();
+    const match=/^#t=([a-f0-9]{32})(?:&r=([a-f0-9]{32}))?$/.exec(location.hash);
     if(match)await openThread(match[1],true);
   })();
 })();

@@ -8,7 +8,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Literal, Protocol
 
-from ai.specialists.registry import get_specialist
+from ai.specialists.registry import (
+    FINAL_VERIFICATION_PREFIX,
+    FINAL_VERIFICATION_ROLES,
+    VERIFICATION_REPAIR_MARKER,
+    VERIFICATION_REPAIR_ROLES,
+    get_specialist,
+)
 
 
 class AgentLike(Protocol):
@@ -64,7 +70,17 @@ class TaskOrchestrator:
                 raise TaskPlanError(f"Duplicate task ID: {task.task_id}")
             if not isinstance(task.prompt, str) or not task.prompt.strip() or len(task.prompt) > 8000:
                 raise TaskPlanError(f"Task {task.task_id} needs a prompt of 1–8000 characters.")
-            get_specialist(task.specialist)
+            role = get_specialist(task.specialist)
+            verification_role = role.key in FINAL_VERIFICATION_ROLES or task.specialist in FINAL_VERIFICATION_ROLES
+            repair_role = role.key in VERIFICATION_REPAIR_ROLES or task.specialist in VERIFICATION_REPAIR_ROLES
+            if verification_role and not task.prompt.startswith(FINAL_VERIFICATION_PREFIX):
+                raise TaskPlanError(
+                    f"Task {task.task_id} uses a verification role and must carry the reserved final-verification marker."
+                )
+            if repair_role and VERIFICATION_REPAIR_MARKER not in task.prompt:
+                raise TaskPlanError(
+                    f"Task {task.task_id} uses a repair role and must carry the reserved verification-repair marker."
+                )
             if not isinstance(task.depends_on, tuple) or any(not isinstance(dep, str) for dep in task.depends_on):
                 raise TaskPlanError(f"Task {task.task_id} dependencies must be a tuple of task IDs.")
             if task.task_id in task.depends_on or len(set(task.depends_on)) != len(task.depends_on):

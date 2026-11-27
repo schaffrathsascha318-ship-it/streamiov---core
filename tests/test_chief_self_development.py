@@ -64,6 +64,12 @@ class ChiefSelfDevelopmentTests(unittest.TestCase):
         protected = (
             ".github/workflows/checks.yml",
             "scripts/autonomous/run_issue.py",
+            "scripts/ai/run-chief-mission.sh",
+            "infrastructure/cloudflare/streamiov-ai-worker/src/index.ts",
+            "host/auth.py",
+            "scripts/release-signing.mjs",
+            "scripts/build-ffmpeg-source-bundle.py",
+            "Dockerfile",
             "wrangler.toml",
             "config/client_secret.json",
             "keys/signing.pem",

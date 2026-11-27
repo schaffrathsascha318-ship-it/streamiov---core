@@ -68,7 +68,7 @@ def build_task(issue: dict, project_root: Path) -> str:
     prefix = (
         (
             "Continue the STREAMIOV AI Chief Developer mission. Work autonomously across "
-            "the complete project using the eleven distinct specialist workstreams. "
+            "the complete project using the registered specialist workstreams. "
             "Prioritize reliable AI Chief operation and the complete Streamiov roadmap. "
             if number == 0 or os.environ.get("STREAMIOV_PROJECT_SUPERVISOR") == "true"
             else "Implement and continuously verify this owner-approved STREAMIOV development request. "
@@ -164,12 +164,13 @@ def main() -> int:
         engine = ContinuousDevelopmentEngine(
             database,
             ModelMissionPlanner(provider),
-            lambda role: DevelopmentAgent(
+            lambda role, task_id=None: DevelopmentAgent(
                 provider=provider,
                 project_root=REPOSITORY_ROOT,
                 specialist=role,
                 checkpoint_db=database,
                 full_project_development=True,
+                task_id=task_id,
             ),
             max_concurrent_workers=int(os.environ.get("STREAMIOV_MAX_CONCURRENT_WORKERS", "4")),
         )

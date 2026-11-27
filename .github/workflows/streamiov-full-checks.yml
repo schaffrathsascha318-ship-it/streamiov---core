@@ -16,11 +16,15 @@ jobs:
   python-tests:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      STREAMIOV_TEST_ALLOW_HOST_NETWORK: "1"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      - name: Install bubblewrap for sandboxed specialist tests
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap
       - name: Run complete Python test suite
         run: python -m unittest discover -s tests -p 'test_*.py' -v
 

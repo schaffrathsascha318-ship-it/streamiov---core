@@ -61,10 +61,10 @@
     return toHex(await crypto.subtle.digest("SHA-256", buffer));
   }
 
-  async function downloadStudio() {
-    const button = document.getElementById("studio-one-click");
-    const status = document.getElementById("studio-status");
-    const progress = document.getElementById("studio-progress");
+  async function downloadStudio(button) {
+    const status = document.getElementById(button.dataset.studioStatus);
+    const progress = document.getElementById(button.dataset.studioProgress);
+    if (!status || !progress) return;
 
     if (!("showSaveFilePicker" in window)) {
       status.textContent =
@@ -90,8 +90,8 @@
 
       let downloaded = 0;
       let hashVerified = 0;
-      let hashUnavailable = false;
       const signature = [];
+      const archiveChunks = [];
 
       for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
@@ -119,6 +119,7 @@
           }
 
           chunks.push(chunk);
+          archiveChunks.push(chunk);
           await writable.write(chunk);
           partBytes += chunk.byteLength;
           downloaded += chunk.byteLength;
@@ -135,7 +136,9 @@
 
         const actualHash = await sha256Hex(chunks);
         if (actualHash === null) {
-          hashUnavailable = true;
+          throw new Error(
+            "SHA-256 ist in diesem Browser nicht verfügbar. Die ZIP wurde nicht gespeichert."
+          );
         } else if (actualHash !== part.sha256) {
           throw new Error(
             `Teil ${i + 1} hat eine falsche SHA-256-Prüfsumme. ZIP wurde nicht gespeichert.`
@@ -151,20 +154,31 @@
       if (!isZipSignature(signature)) {
         throw new Error("Die zusammengesetzte Datei hat keine gültige ZIP-Kennung. Download abgebrochen.");
       }
+      if (hashVerified !== parts.length) {
+        throw new Error("Nicht alle SHA-256-Prüfsummen konnten verifiziert werden.");
+      }
+
+      const archiveSha256 = await sha256Hex(archiveChunks);
+      if (archiveSha256 === null) {
+        throw new Error(
+          "SHA-256 des zusammengesetzten Archivs konnte nicht berechnet werden. ZIP wurde nicht gespeichert."
+        );
+      }
+      if (archiveSha256 !== expectedArchiveSha256) {
+        throw new Error(
+          `SHA-256 des zusammengesetzten Archivs stimmt nicht: ${archiveSha256} statt ${expectedArchiveSha256}. ` +
+          "ZIP wurde nicht gespeichert."
+        );
+      }
 
       await writable.close();
       writable = null;
       progress.textContent = "100 %";
 
-      if (hashVerified === parts.length) {
-        status.textContent =
-          `Download vollständig. Größe, ZIP-Kennung und alle ${parts.length} SHA-256-Prüfsummen stimmen. ` +
-          `Archiv-SHA-256: ${expectedArchiveSha256}. Bitte ZIP vor der Installation entpacken und prüfen.`;
-      } else if (hashUnavailable) {
-        status.textContent =
-          "Download vollständig. Größe und ZIP-Kennung stimmen. Die SHA-256-Prüfung ist in diesem Browser " +
-          "nicht verfügbar; vergleiche die Datei bitte mit SHA256SUMS.txt.";
-      }
+      status.textContent =
+        `Download vollständig. Größe (${totalSize.toLocaleString("de-DE")} Bytes), ZIP-Kennung, ` +
+        `alle ${parts.length} SHA-256-Prüfsummen der Teile und die SHA-256-Prüfsumme des zusammengesetzten Archivs sind verifiziert. ` +
+        `Archiv-SHA-256: ${archiveSha256}. Bitte ZIP vor der Installation entpacken und prüfen.`;
     } catch (error) {
       if (writable) {
         try {
@@ -181,7 +195,8 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    const button = document.getElementById("studio-one-click");
-    if (button) button.addEventListener("click", downloadStudio);
+    document.querySelectorAll("[data-studio-download]").forEach(button => {
+      button.addEventListener("click", () => downloadStudio(button));
+    });
   });
 })();

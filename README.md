@@ -8,7 +8,7 @@ StreamioV bleibt dauerhaft kostenlos: keine Abos, Pro-Stufen, Werbung, Verkäufe
 
 ## Current state
 
-The desktop shell is an Electron app in `dist/streamiov-studio-app/`. Its build workflow targets Windows x64/ARM64, Linux x64/ARM64, and ChromeOS x64/ARM64 via Crostini; macOS, Android, and iOS need their own installable applications. There is no browser studio and no PWA substitute. **StreamioV Studio 1.0.1** was published on 2026-11-03. The Studio includes local camera and microphone previews, a persistent scene and source model, system diagnostics, and a synthetic audio/video encoding check. It also includes the **Schutzregie / Privacy Shield**: `Ctrl+Shift+P` switches the program to PAUSE and the local microphone mix to 0 %, then restores both values when deactivated. It is local and free, but it does not stop the encoder or recording and does not guarantee platform-side privacy. The installable Studio applications contain the shield.
+The desktop shell is an Electron app in `dist/streamiov-studio-app/`. Its build workflow targets Windows x64/ARM64, Linux x64/ARM64, and ChromeOS x64/ARM64 via Crostini; macOS, Android, and iOS need their own installable applications. There is no browser studio and no PWA substitute. **StreamioV Studio 1.0.1** was published on 2026-11-03. The Studio includes local camera and microphone previews, a persistent scene and source model, system diagnostics, and a synthetic audio/video encoding check. It also includes the **Schutzregie / Privacy Shield**: `Ctrl+Shift+P` requests a stop of the active local encoder and recording, switches the program to PAUSE and the local microphone mix to 0 %, then restores only the scene and microphone values when deactivated. The broadcast is not resumed automatically; a failed stop must be checked manually and platform-side privacy is not guaranteed. The installable Studio applications contain the shield.
 
 The current Studio is an early foundation, not a finished live-streaming product. Its platform selector saves a preference but does not sign in to a service. The chat and TTS controls are local demonstrations; gift and alert buttons trigger local, free canvas effects only. Scenes now have a real source list (camera, screen, title card, text) with position, visibility, layer order, and a background colour. The preview monitor, program monitor, and stream encoder use the same canvas renderer, so a user-created layout is what the stream output draws. The media check uses generated test signals, not a creator's full live setup.
 
@@ -16,7 +16,7 @@ The broadcast path encodes the current program scene, including camera, screen, 
 
 The download page is maintained at `dist/streamiov-homepage-worker/public/download/index.html`. It centralizes the Studio installers for Windows x64/ARM64 and Linux x64/ARM64, the newer source snapshot (checksummed, but not an installer), the status of native mobile and ChromeOS applications, account/forum links, and five checksummed game prototypes. No web app or PWA is offered. The promo page at `dist/streamiov-homepage-worker/public/promo/index.html` contains real screenshots and a frame-captured Schutzregie demo, ready-to-copy social text, and the same honest limits. The prototypes are development builds, not releases. A successful installer build does not by itself prove that the app can stream or that it works on every device.
 
-The packaged Electron app does not include the optional Python `modules/` tree. Features that need it report `not_bundled` with a clear explanation instead of failing with an import error. The same guard applies in a repository checkout when those optional modules are absent; if they are present, the handlers use them.
+The packaged Electron app does not include the optional Python `modules/` tree. Studio does not invoke it: affected capability handlers report `not_implemented` or `dependency_gated` with a clear explanation instead of failing with an import error or claiming a working native pipeline.
 
 The local host also builds a **read-only catalog** from the JSON files under `data/` (`game_actions/`, `music/`, `overlays/`, `stickers/`, and game preparation specs). It stores that catalog in its own SQLite database under the host data directory and never opens the legacy `data/db/*.sqlite3` account databases. The Studio gift, game, and music panels load this catalog from the host. The catalog contains 18 free StreamioV gift previews, 2 locally registered test games, 3 test actions, 1 test playlist, and 5 local template specifications. It contains no TikTok gift IDs, no purchased gifts, and no platform credentials.
 
@@ -99,7 +99,7 @@ Jason reads the mission database at `.streamiov/ai-missions.sqlite3` and the spe
 - `dist/streamiov-homepage-worker/public/` — public site, including the download page.
 - `data/` — raw JSON seed data for gifts, games, music, overlays, stickers, and game preparation. `data/db/` contains legacy account databases and is never imported by the catalog.
 - `host/data_store.py` — read-only SQLite catalog seeded from `data/` JSON; separate from the account database.
-- `modules/`, `core/`, `services/`, and `app/` — supporting streaming, device, platform, and service code. Some optional Python modules are incomplete or absent; Studio degrades to `not_bundled` rather than pretending they work.
+- `modules/`, `core/`, `services/`, and `app/` — supporting streaming, device, platform, and service code. Some optional Python modules are incomplete or absent; Studio reports the affected capability as `not_implemented` or `dependency_gated` rather than pretending it works.
 - `ai/` and `infrastructure/cloudflare/streamiov-ai-worker/` — AI agent foundation and optional model worker.
 - `tests/` — automated checks and media pipeline smoke test.
 
@@ -109,7 +109,7 @@ Jason reads the mission database at `.streamiov/ai-missions.sqlite3` and the spe
 - **Mobile und Chromebook:** eigenständige installierbare Anwendungen für Android, iPhone/iPad und ChromeOS, soweit die Plattform es unterstützt; keine Web-App und keine PWA als Ersatz.
 - **Core:** Plattformdienste, sichere Konten und Cloud-Anbindung.
 - **Geschenke:** STREAMIOV-native Geschenklogik und getrennte Ledger-Basis.
-- **Spiele:** eigenständige Spielebibliothek und kontrollierte Veröffentlichungen.
+- **Spiele:** Download und Präsentation ausschließlich auf der offiziellen Homepage; Studio mit automatischer Prozesserkennung, Gameplay-Bildanalyse, Situationserkennung, lokaler Gaming-KI, Statistiken, Fortschritt, Highlight-/Replay-Markierung, Replay-Import, Sprachbefehlen und Chat-/LIVE-Integration; keine Browser-Spiele, keine Spiele-Galerie oder Spiele-Downloads im Studio.
 
 ## Verbindliche Statusregeln
 

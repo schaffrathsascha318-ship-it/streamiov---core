@@ -1,5 +1,9 @@
 {
   "enabled": true,
-  "requests": [],
-  "temporary_history": true
+  "storage": "host/wishbox.sqlite3",
+  "endpoint": "/api/v1/wishbox/orders",
+  "temporary_history": false,
+  "music_requires_live_rights": true,
+  "game_handoff_agent": "gaming",
+  "requests": []
 }

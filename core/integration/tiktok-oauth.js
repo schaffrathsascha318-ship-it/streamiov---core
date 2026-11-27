@@ -52,6 +52,7 @@ class TikTokOAuth {
     this.environment = need(o.environment, "environment");
     const prefix = this.environment === "sandbox" ? "STREAMIOV_TIKTOK_SANDBOX" : "STREAMIOV_TIKTOK_PRODUCTION";
     const env = o.env || process.env;
+    this.env = env;
     this.clientKey = need(o.clientKey || env[prefix+"_CLIENT_KEY"], "client_key");
     this.clientSecret = need(o.clientSecret || env[prefix+"_CLIENT_SECRET"], "client_secret");
     this.redirectUri = validateRedirectUri(o.redirectUri || env[prefix+"_REDIRECT_URI"], this.environment);
@@ -117,6 +118,57 @@ class TikTokOAuth {
   status() {
     const t=this.store.load(); if (!t) return {status:"not_connected",environment:this.environment,scopes:this.scopes};
     return {status:t.expires_at<=this.clock()?"token_expired":"connected",environment:this.environment,scopes:String(t.scope||"").split(/[ ,]+/).filter(Boolean),expiresAt:new Date(t.expires_at).toISOString(),refreshAvailable:Boolean(t.refresh_token),openIdPresent:Boolean(t.open_id)};
+  }
+  normalizeStreamCredentials(rtmpUrl, streamKey) {
+    if (typeof rtmpUrl !== "string" || typeof streamKey !== "string") throw new Error("tiktok_live_ingest_invalid");
+    const url = new URL(rtmpUrl.trim());
+    if (!["rtmp:", "rtmps:"].includes(url.protocol) || !url.hostname || !url.pathname || url.username || url.password || url.hash) throw new Error("tiktok_live_ingest_invalid");
+    const key = streamKey.trim();
+    if (!key || key.length > 512 || /[\r\n]/.test(key)) throw new Error("tiktok_live_ingest_invalid");
+    const base = url.toString().replace(/\/$/, "");
+    return Object.freeze({ platform: "tiktok", ingestUrl: base, streamKey: key });
+  }
+  async authorizedJsonRequest(endpoint) {
+    const url = new URL(endpoint);
+    if (!["https:", "http:"].includes(url.protocol)) throw new Error("tiktok_live_api_url_invalid");
+    if (url.protocol === "http:" && !["127.0.0.1", "localhost"].includes(url.hostname)) throw new Error("tiktok_live_api_url_invalid");
+    if (url.username || url.password) throw new Error("tiktok_live_api_url_invalid");
+    const token = this.store.load();
+    if (!token || !token.access_token) throw new Error("tiktok_account_not_connected");
+    if (token.expires_at <= this.clock()) throw new Error("tiktok_token_expired");
+    const response = await this.fetch(url.toString(), { headers: { Authorization: "Bearer " + token.access_token, "Cache-Control": "no-store" } });
+    if (!response.ok) throw new Error("tiktok_live_api_request_failed");
+    return response.json();
+  }
+  async getStreamCredentials() {
+    const configuredUrl = this.env.STREAMIOV_TIKTOK_RTMP_URL;
+    const configuredKey = this.env.STREAMIOV_TIKTOK_STREAM_KEY;
+    if (configuredUrl || configuredKey) {
+      if (!configuredUrl || !configuredKey) throw new Error("tiktok_live_ingest_incomplete");
+      return this.normalizeStreamCredentials(configuredUrl, configuredKey);
+    }
+    const endpoint = this.env.STREAMIOV_TIKTOK_LIVE_CREDENTIALS_API_URL;
+    if (!endpoint) throw new Error("tiktok_live_ingest_not_available");
+    const data = await this.authorizedJsonRequest(endpoint);
+    return this.normalizeStreamCredentials(data.rtmp_url || data.rtmpUrl, data.stream_key || data.streamKey);
+  }
+  async getLiveStatus() {
+    const endpoint = this.env.STREAMIOV_TIKTOK_LIVE_STATUS_API_URL;
+    if (!endpoint) return Object.freeze({ platform: "tiktok", live: false, unavailable: true, reason: "tiktok_live_status_api_not_configured" });
+    try {
+      const data = await this.authorizedJsonRequest(endpoint);
+      const live = data.live === true || data.status === "live" || data.is_live === true;
+      const confirmationId = data.room_id || data.roomId || data.stream_id || data.streamId;
+      return Object.freeze({
+        platform: "tiktok",
+        live: Boolean(live && typeof confirmationId === "string" && confirmationId.trim()),
+        confirmationId: typeof confirmationId === "string" ? confirmationId.trim().slice(0, 200) : null,
+        title: typeof data.title === "string" ? data.title.slice(0, 200) : null,
+        viewerCount: Number.isFinite(Number(data.viewer_count ?? data.viewerCount)) ? Number(data.viewer_count ?? data.viewerCount) : null
+      });
+    } catch {
+      return Object.freeze({ platform: "tiktok", live: false, unavailable: true });
+    }
   }
 }
 module.exports={TikTokOAuth,EncryptedTokenStore,validateRedirectUri};

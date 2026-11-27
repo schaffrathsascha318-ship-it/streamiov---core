@@ -137,46 +137,47 @@ class ProjectToolTests(unittest.TestCase):
         (self.root / "ai").mkdir()
         (self.root / "ai/existing.py").write_text("safe")
         with self.assertRaises(ToolError): self.tools.write_file("ai/existing.py", "overwrite")
-    def test_run_python_executes_through_setpriv_and_reports_output(self):
+    def test_run_python_executes_through_read_only_bubblewrap_and_reports_output(self):
         import subprocess
         (self.root / "ai").mkdir()
         script = self.root / "ai" / "check.py"
         script.write_text("print('python-ready')\n", encoding="utf-8")
-        completed = subprocess.CompletedProcess(["setpriv"], 0, "python-ready", "")
-        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/setpriv" if name == "setpriv" else None), \
+        completed = subprocess.CompletedProcess(["bwrap"], 0, "python-ready", "")
+        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/bwrap" if name == "bwrap" else None), \
              patch("ai.runtime.project_tools.subprocess.run", return_value=completed) as run:
             output = self.tools.run_python("ai/check.py")
         self.assertIn("exit_code=0", output)
         self.assertIn("python-ready", output)
         self.assertEqual(run.call_count, 1)
-        self.assertEqual(run.call_args.args[0][0], "/usr/bin/setpriv")
+        command = run.call_args.args[0]
+        self.assertEqual(command[0], "/usr/bin/bwrap")
+        self.assertIn("--ro-bind", command)
+        self.assertNotIn("--read-only", command)
+
 
     def test_run_python_reports_nonzero_exit_code_from_sandbox(self):
         import subprocess
         (self.root / "ai").mkdir()
         script = self.root / "ai" / "failing.py"
         script.write_text("raise SystemExit(7)\n", encoding="utf-8")
-        completed = subprocess.CompletedProcess(["setpriv"], 7, "", "script failed")
-        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/setpriv" if name == "setpriv" else None), \
+        completed = subprocess.CompletedProcess(["bwrap"], 7, "", "script failed")
+        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/bwrap" if name == "bwrap" else None), \
              patch("ai.runtime.project_tools.subprocess.run", return_value=completed):
             output = self.tools.run_python("ai/failing.py")
         self.assertIn("exit_code=7", output)
         self.assertIn("script failed", output)
 
-    def test_run_python_falls_back_to_bubblewrap_after_setpriv_permission_failure(self):
+    def test_run_python_does_not_use_setpriv_without_a_read_only_bind(self):
         import subprocess
         (self.root / "ai").mkdir()
         script = self.root / "ai" / "check.py"
-        script.write_text("print('sandboxed')\n", encoding="utf-8")
-        denied = subprocess.CompletedProcess(["setpriv"], 127, "", "setresuid failed: Operation not permitted")
-        sandboxed = subprocess.CompletedProcess(["bwrap"], 0, "sandboxed", "")
-        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: f"/usr/bin/{name}" if name in {"setpriv", "bwrap"} else None), \
-             patch("ai.runtime.project_tools.subprocess.run", side_effect=[denied, sandboxed]) as run:
-            output = self.tools.run_python("ai/check.py")
-        self.assertIn("exit_code=0", output)
-        self.assertIn("sandboxed", output)
-        self.assertEqual(run.call_count, 2)
-        self.assertEqual(run.call_args_list[1].args[0][0], "/usr/bin/bwrap")
+        script.write_text("print('must-not-run')\n", encoding="utf-8")
+        completed = subprocess.CompletedProcess(["setpriv"], 0, "unsafe", "")
+        with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/setpriv" if name == "setpriv" else None), \
+             patch("ai.runtime.project_tools.subprocess.run", return_value=completed) as run:
+            with self.assertRaisesRegex(ToolError, "requires bubblewrap"):
+                self.tools.run_python("ai/check.py")
+        run.assert_not_called()
 
     def test_run_python_fails_closed_when_no_sandbox_backend_exists(self):
         (self.root / "ai").mkdir()
@@ -188,25 +189,22 @@ class ProjectToolTests(unittest.TestCase):
                 self.tools.run_python("ai/check.py")
         run.assert_not_called()
 
-    def test_run_python_fails_closed_when_setpriv_fails_and_bubblewrap_is_missing(self):
-        import subprocess
+    def test_run_python_fails_closed_when_setpriv_exists_but_bubblewrap_is_missing(self):
         (self.root / "ai").mkdir()
         script = self.root / "ai" / "check.py"
         script.write_text("print('must-not-run')\n", encoding="utf-8")
-        denied = subprocess.CompletedProcess(["setpriv"], 127, "", "setresuid failed: Operation not permitted")
         with patch("ai.runtime.project_tools.shutil.which", side_effect=lambda name: "/usr/bin/setpriv" if name == "setpriv" else None), \
-             patch("ai.runtime.project_tools.subprocess.run", return_value=denied) as run:
-            with self.assertRaisesRegex(ToolError, "setpriv failed and bubblewrap is unavailable"):
+             patch("ai.runtime.project_tools.subprocess.run") as run:
+            with self.assertRaisesRegex(ToolError, "requires bubblewrap"):
                 self.tools.run_python("ai/check.py")
-        self.assertEqual(run.call_count, 1)
-        self.assertNotEqual(run.call_args.args[0][0], __import__("sys").executable)
+        run.assert_not_called()
 
     def test_run_python_drops_privileges_and_cannot_write_workspace(self):
         import shutil
         if os.environ.get("CI") == "true":
             self.skipTest("CI runner does not permit UID changes; privilege-drop is tested on supported local Linux hosts.")
-        if shutil.which("setpriv") is None:
-            self.skipTest("Linux setpriv is unavailable.")
+        if shutil.which("bwrap") is None:
+            self.skipTest("Linux bubblewrap is unavailable.")
         (self.root / "ai").mkdir()
         os.chmod(self.root, 0o755)
         protected = self.root / "protected.txt"

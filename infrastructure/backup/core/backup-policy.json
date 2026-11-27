@@ -4,6 +4,13 @@
   "component": "backup",
   "backup_required": true,
   "restore_test_required": true,
-  "status": "IMPLEMENTED_STRUCTURE",
+  "status": "IMPLEMENTED_LOCALLY",
+  "schedule": {
+    "enabled": true,
+    "interval_minutes": 60,
+    "keep": 3,
+    "backup_root": "backups"
+  },
+  "schedule_status": "LOCAL_SCHEDULE_IMPLEMENTED",
   "production_status": "NOT_VERIFIED"
 }
