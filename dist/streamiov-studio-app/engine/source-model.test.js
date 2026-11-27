@@ -94,6 +94,29 @@ test('persists only type-specific camera, audio and desktop capture settings', (
   assert.deepEqual(restored.snapshot(), model.snapshot());
 });
 
+test('persists camera audio opt-in and media file volume settings', () => {
+  const model = new StudioSourceModel();
+  const camera = model.add({
+    id: 'camera-audio', type: 'camera', name: 'Kamera mit Ton',
+    settings: { deviceId: 'camera-device', width: 1920, height: 1080, fps: 30, audioEnabled: true }
+  });
+  assert.equal(camera.ok, true);
+  assert.deepEqual(camera.source.settings, {
+    deviceId: 'camera-device', width: 1920, height: 1080, fps: 30, audioEnabled: true
+  });
+  const clip = model.add({
+    id: 'clip', type: 'video', name: 'Clip',
+    settings: { assetId: 'asset-1', loop: true, volume: 0.25, muted: false }
+  });
+  assert.equal(clip.ok, true);
+  assert.deepEqual(clip.source.settings, { assetId: 'asset-1', loop: true, volume: 0.25, muted: false });
+  const fileAudio = model.add({
+    id: 'file-audio', type: 'audio', name: 'Audiodatei',
+    settings: { assetId: 'asset-2', volume: 0.75 }
+  });
+  assert.equal(fileAudio.ok, true);
+  assert.deepEqual(fileAudio.source.settings, { assetId: 'asset-2', volume: 0.75 });
+});
 test('rejects invalid and cross-type source settings instead of persisting arbitrary fields', () => {
   const model = new StudioSourceModel();
   assert.equal(model.add({

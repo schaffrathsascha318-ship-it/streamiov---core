@@ -73,6 +73,15 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
             source,
         )
 
+    def test_legacy_platform_artifact_is_restored_and_migrated_to_the_stable_key(self):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn('artifact_names=("$artifact_name")', source)
+        self.assertIn('artifact_names+=("streamiov-ai-missions-223")', source)
+        self.assertIn('for candidate_name in "${artifact_names[@]}"; do', source)
+        self.assertIn("--name \"$candidate_name\"", source)
+        self.assertIn("Restored legacy encrypted mission state", source)
+        self.assertIn("will migrate it to $artifact_name", source)
+
     def test_runner_slice_success_is_not_reported_as_mission_completion(self):
         source = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("Summarize mission status separately from runner status", source)

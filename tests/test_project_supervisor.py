@@ -113,6 +113,23 @@ class ProjectSupervisorTests(unittest.TestCase):
         self.assertEqual(engine.created, [(active_id, engine.created[0][1])])
         self.assertEqual(engine.runs, [active_id, active_id])
 
+    def test_repeated_active_snapshots_resume_same_mission_without_creating_another(self):
+        engine = FakeMissionEngine([("active", False), ("active", True)])
+        supervisor = self.make_supervisor(engine)
+        supervisor.configure("Resume an unfinished Streamiov mission.")
+
+        supervisor.run(threading.Event(), poll_seconds=0.01, emit=lambda _message: None)
+
+        self.assertEqual(len(engine.created), 1)
+        first_mission = engine.created[0][0]
+        self.assertEqual(engine.runs, [first_mission, first_mission])
+        with supervisor._connect() as db:
+            row = db.execute(
+                "SELECT active_mission_id,completed_missions FROM development_supervisors"
+            ).fetchone()
+        self.assertEqual(row["active_mission_id"], first_mission)
+        self.assertEqual(row["completed_missions"], 0)
+
     def test_configure_if_missing_preserves_restored_project_goal(self):
         engine = FakeMissionEngine([])
         supervisor = self.make_supervisor(engine)

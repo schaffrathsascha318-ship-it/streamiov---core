@@ -32,7 +32,10 @@ class StreamiovChatHub {
       text,
       createdAt: createdAt.toISOString(),
       receivedAt: new Date().toISOString(),
-      kind: String(message.kind || 'message').slice(0, 40)
+      kind: String(message.kind || 'message').slice(0, 40),
+      roles: Array.isArray(message.roles) ? message.roles.slice(0, 10).map(role => String(role).slice(0, 40)) : [],
+      badges: String(message.badges || '').slice(0, 400),
+      platform_user_id: String(message.platform_user_id || '').slice(0, 80)
     });
     if (this.messages.some(item => item.source === normalized.source && item.id === normalized.id)) {
       return { accepted: false, duplicate: true, message: normalized };

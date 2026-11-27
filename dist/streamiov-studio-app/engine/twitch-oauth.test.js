@@ -53,8 +53,70 @@ test('fetches broadcaster stream key automatically and never includes it in stat
   assert.equal(calls.length, 2);
   assert.equal(JSON.stringify(oauth.status()).includes('never-log-this'), false);
 });
+test('getLiveStatus only confirms live streams from Helix evidence', async () => {
+  const calls = [];
+  const { oauth, store } = setup(async (url) => {
+    calls.push(url);
+    if (url.includes('/users')) return { ok: true, json: async () => ({ data: [{ id: '123' }] }) };
+    return { ok: true, json: async () => ({ data: [{ id: 'live-77', type: 'live', title: 'Test-LIVE', viewer_count: 42 }] }) };
+  });
+  store.save({ accessToken: 'a', refreshToken: 'r', expiresAt: Date.now() + 3600000, scopes: [...REQUIRED_SCOPES] });
+  const status = await oauth.getLiveStatus();
+  assert.equal(status.live, true);
+  assert.equal(status.confirmationId, 'live-77');
+  assert.equal(status.viewerCount, 42);
+  assert.equal(calls.length, 2);
+  assert.match(calls[1], /broadcaster_id=123$/);
+});
+test('getLiveStatus stays false when Helix reports no active stream', async () => {
+  const { oauth, store } = setup(async (url) => {
+    if (url.includes('/users')) return { ok: true, json: async () => ({ data: [{ id: '123' }] }) };
+    return { ok: true, json: async () => ({ data: [] }) };
+  });
+  store.save({ accessToken: 'a', refreshToken: 'r', expiresAt: Date.now() + 3600000, scopes: [...REQUIRED_SCOPES] });
+  const status = await oauth.getLiveStatus();
+  assert.equal(status.live, false);
+  assert.equal(status.confirmationId, null);
+});
 test('403 stream key denial is surfaced as permission failure', async () => {
   const { oauth, store } = setup(async () => ({ ok: false, status: 403, json: async () => ({}) }));
   store.save({ accessToken: 'a', refreshToken: 'r', expiresAt: Date.now() + 3600000, scopes: [...REQUIRED_SCOPES] });
   await assert.rejects(oauth.getStreamCredentials(), /twitch_stream_key_access_denied/);
+});
+test('a failed Twitch revoke still clears local tokens and reports the failure', async () => {
+  const { oauth, store } = setup(async () => ({ ok: false, status: 500, json: async () => ({}) }));
+  store.save({ accessToken: 'a', refreshToken: 'r', expiresAt: Date.now() + 3600000, scopes: [...REQUIRED_SCOPES] });
+  const result = await oauth.disconnect();
+  assert.equal(result.status, 'disconnected');
+  assert.equal(result.revoked, false);
+  assert.equal(result.revokeError, 'twitch_token_revoke_failed');
+  assert.equal(store.load(), null);
+});
+test('a rejected Twitch revoke request still clears local tokens', async () => {
+  const { oauth, store } = setup(async () => { throw new Error('network'); });
+  store.save({ accessToken: 'a', refreshToken: 'r', expiresAt: Date.now() + 3600000, scopes: [...REQUIRED_SCOPES] });
+  const result = await oauth.disconnect();
+  assert.equal(result.status, 'disconnected');
+  assert.equal(result.revoked, false);
+  assert.equal(store.load(), null);
+});
+test('concurrent accessToken calls rotate the refresh token only once', async () => {
+  let refreshCalls = 0;
+  const { oauth, store } = setup(async (url, options) => {
+    if (url !== 'https://id.twitch.tv/oauth2/token') throw new Error('unexpected_url');
+    refreshCalls += 1;
+    const body = new URLSearchParams(options.body);
+    assert.equal(body.get('grant_type'), 'refresh_token');
+    assert.equal(body.get('refresh_token'), 'refresh-old');
+    await new Promise(resolve => setTimeout(resolve, 20));
+    return { ok: true, json: async () => ({
+      access_token: 'access-new', refresh_token: 'refresh-new', expires_in: 3600, scope: [...REQUIRED_SCOPES]
+    }) };
+  });
+  store.save({ accessToken: 'access-old', refreshToken: 'refresh-old', expiresAt: Date.now() + 1000, scopes: [...REQUIRED_SCOPES] });
+
+  const tokens = await Promise.all([oauth.accessToken(), oauth.accessToken(), oauth.accessToken()]);
+  assert.deepEqual(tokens, ['access-new', 'access-new', 'access-new']);
+  assert.equal(refreshCalls, 1);
+  assert.equal(store.load().refreshToken, 'refresh-new');
 });

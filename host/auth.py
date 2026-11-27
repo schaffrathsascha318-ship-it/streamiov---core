@@ -246,3 +246,137 @@ class RequestRateLimiter:
                 return False
             attempts.append(current)
             return True
+
+
+class DurableRateLimiter:
+    """SQLite-backed per-action throttle that survives host restarts."""
+
+    database_name = "platform_connections.sqlite3"
+
+    def __init__(self, data_dir: str | Path, *, limit: int = 10,
+                 window_seconds: int = 900, max_keys: int = 4096) -> None:
+        self.limit = limit
+        self.window_seconds = window_seconds
+        self.max_keys = max_keys
+        self.data_dir = Path(data_dir).resolve()
+        self.data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        try:
+            os.chmod(self.data_dir, 0o700)
+        except OSError:
+            pass
+        self.database = self.data_dir / self.database_name
+        self._bucket_key: bytes | None = None
+        self._ensure_schema()
+
+    def _connect(self) -> sqlite3.Connection:
+        db = sqlite3.connect(self.database, timeout=10)
+        db.row_factory = sqlite3.Row
+        db.execute("PRAGMA busy_timeout = 10000")
+        return db
+
+    def _ensure_schema(self) -> None:
+        db = None
+        try:
+            db = self._connect()
+            db.execute("PRAGMA journal_mode = WAL")
+            db.execute("BEGIN IMMEDIATE")
+            db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS oauth_rate_limit_meta (
+                    key TEXT PRIMARY KEY,
+                    value BLOB NOT NULL
+                )
+                """
+            )
+            db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS oauth_rate_limit_attempts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    bucket TEXT NOT NULL,
+                    created_at REAL NOT NULL
+                )
+                """
+            )
+            db.execute(
+                """
+                CREATE INDEX IF NOT EXISTS oauth_rate_limit_attempts_bucket_created
+                ON oauth_rate_limit_attempts(bucket, created_at)
+                """
+            )
+            row = db.execute(
+                "SELECT value FROM oauth_rate_limit_meta WHERE key='bucket_key'"
+            ).fetchone()
+            if row is None:
+                key_material = secrets.token_bytes(32)
+                db.execute(
+                    "INSERT INTO oauth_rate_limit_meta (key, value) VALUES ('bucket_key', ?)",
+                    (key_material,),
+                )
+            else:
+                key_material = bytes(row["value"])
+            db.commit()
+            self._bucket_key = key_material
+        except (OSError, sqlite3.Error, TypeError, ValueError):
+            if db is not None:
+                try:
+                    db.rollback()
+                except sqlite3.Error:
+                    pass
+        finally:
+            if db is not None:
+                db.close()
+
+    def _bucket(self, action: str, address: str) -> str:
+        if self._bucket_key is None:
+            raise ValueError("rate limit bucket key is unavailable")
+        normalized = f"{action[:80]}\0{address[:80]}"
+        return hmac.new(
+            self._bucket_key, normalized.encode("utf-8", "replace"), hashlib.sha256
+        ).hexdigest()
+
+    def allow(self, action: str, address: str, *, now: float | None = None) -> bool:
+        if self._bucket_key is None:
+            return False
+        current = time.time() if now is None else now
+        cutoff = current - self.window_seconds
+        bucket = self._bucket(action, address)
+        db = None
+        try:
+            db = self._connect()
+            db.execute("BEGIN IMMEDIATE")
+            db.execute("DELETE FROM oauth_rate_limit_attempts WHERE created_at < ?", (cutoff,))
+            count = db.execute(
+                """
+                SELECT COUNT(*) FROM oauth_rate_limit_attempts
+                WHERE bucket=? AND created_at >= ?
+                """,
+                (bucket, cutoff),
+            ).fetchone()[0]
+            if count >= self.limit:
+                db.commit()
+                return False
+            known = db.execute(
+                "SELECT 1 FROM oauth_rate_limit_attempts WHERE bucket=? LIMIT 1", (bucket,)
+            ).fetchone()
+            buckets = db.execute(
+                "SELECT COUNT(DISTINCT bucket) FROM oauth_rate_limit_attempts"
+            ).fetchone()[0]
+            if known is None and buckets >= self.max_keys:
+                db.commit()
+                return False
+            db.execute(
+                "INSERT INTO oauth_rate_limit_attempts (bucket, created_at) VALUES (?, ?)",
+                (bucket, current),
+            )
+            db.commit()
+            return True
+        except (OSError, sqlite3.Error, TypeError, ValueError):
+            if db is not None:
+                try:
+                    db.rollback()
+                except sqlite3.Error:
+                    pass
+            return False
+        finally:
+            if db is not None:
+                db.close()

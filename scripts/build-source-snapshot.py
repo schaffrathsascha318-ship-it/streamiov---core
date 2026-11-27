@@ -184,18 +184,16 @@ def update_download_page(part_data: list[dict[str, object]], digest: str) -> Non
         r"Gesamtgröße: [\d.]+ Bytes",
         f"Gesamtgröße: {formatted_total} Bytes",
         html,
-        count=1,
     )
-    if replacements != 1:
-        raise SystemExit("download page: total size not found")
+    if replacements != 2:
+        raise SystemExit(f"download page: expected 2 total size blocks, found {replacements}")
     html, replacements = re.subn(
         r"(SHA-256 des zusammengefügten ZIPs: <code>)[0-9a-f]{64}(</code>)",
         rf"\g<1>{digest}\g<2>",
         html,
-        count=1,
     )
-    if replacements != 1:
-        raise SystemExit("download page: archive hash not found")
+    if replacements != 2:
+        raise SystemExit(f"download page: expected 2 archive hash blocks, found {replacements}")
     target.write_text(html, encoding="utf-8")
 
 

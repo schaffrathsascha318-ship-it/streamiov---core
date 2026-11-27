@@ -15,6 +15,21 @@ at least two signature mechanics, at least three level/challenge beats, controls
 progression, art/audio direction, accessibility, test plan, target platforms,
 and the provenance/licence of every declared third-party component.
 
+## Externally commissioned games
+
+```sh
+python3 -m ai.game_studio.orders path/to/client-order.json --repository-root .
+python3 -m ai.game_studio.orders --summary <order-id> --repository-root .
+```
+
+The order intake asks concrete follow-up questions when requirements are missing,
+rejects non-original concepts, and creates an isolated workspace with client data,
+mission checklist, progress log, and access rules. Each mission can be bound to the
+shared AI Chief task-workspace store with `bind_task_workspace()`. No publication is
+possible until a recorded independent release gate, a rights review, and an explicit
+client approval all exist; even then the order is only marked authorized, never
+published by this module.
+
 ## Honest status boundary
 
 The builder returns `DESIGN_BRIEF_VALIDATED`. It does not generate a playable game

@@ -30,6 +30,7 @@ const DOWNLOADS = path.join(ROOT, "dist/streamiov-homepage-worker/public/downloa
 const DEFAULT_KEY = path.join(os.homedir(), ".config/streamiov/release-signing.key");
 const DEFAULT_PUB = path.join(DOWNLOADS, "STREAMIOV-RELEASE-KEY.pub");
 const MANIFESTS = ["SHA256SUMS.txt", "SHA256SUMS-games.txt"];
+const EXPECTED_KEY_FINGERPRINT = "5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc";
 
 function fail(message) {
   console.error(`FEHLER: ${message}`);
@@ -45,6 +46,8 @@ function parseArgs(argv) {
       if (!value) fail(`${item} benötigt einen Pfad`);
       args[item.slice(2)] = value;
       index += 1;
+    } else if (item === "--allow-key-rotation") {
+      args.allowKeyRotation = true;
     } else if (item === "--help" || item === "-h") {
       args.help = true;
     } else {
@@ -85,6 +88,23 @@ function fingerprint(publicKey) {
   return crypto.createHash("sha256").update(der).digest("hex");
 }
 
+function assertTrustedFingerprint(publicKey, allowRotation, context) {
+  const actual = fingerprint(publicKey);
+  if (actual !== EXPECTED_KEY_FINGERPRINT && !allowRotation) {
+    fail(`${context}: Fingerprint ${actual} entspricht nicht dem verankerten Release-Key ${EXPECTED_KEY_FINGERPRINT}`);
+  }
+  return actual;
+}
+
+function existingPublicKey(pubPath) {
+  if (!fs.existsSync(pubPath)) return null;
+  try {
+    return crypto.createPublicKey(fs.readFileSync(pubPath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
 function signaturePath(file) {
   return `${file}.sig`;
 }
@@ -115,13 +135,19 @@ function keygen(args) {
   }
   fs.mkdirSync(path.dirname(keyPath), { recursive: true, mode: 0o700 });
   const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
+  const actualFingerprint = fingerprint(publicKey);
+  const published = existingPublicKey(pubPath);
+  if (published && fingerprint(published) !== actualFingerprint && !args.allowKeyRotation) {
+    fail(`keygen würde den veröffentlichten Release-Key ersetzen: ${pubPath}`);
+  }
   fs.writeFileSync(keyPath, privateKey.export({ type: "pkcs8", format: "pem" }), { mode: 0o600 });
   fs.writeFileSync(pubPath, publicKey.export({ type: "spki", format: "pem" }), { mode: 0o644 });
   console.log(JSON.stringify({
     ok: true,
     privateKey: keyPath,
     publicKey: pubPath,
-    fingerprint: fingerprint(publicKey),
+    fingerprint: actualFingerprint,
+    matchesPinnedKey: actualFingerprint === EXPECTED_KEY_FINGERPRINT,
     note: "Privaten Schlüssel sichern. Er gehört nicht ins Repository und darf nicht veröffentlicht werden.",
   }, null, 2));
 }
@@ -129,8 +155,13 @@ function keygen(args) {
 function signRelease(args) {
   const privateKey = readKey(path.resolve(args.key || DEFAULT_KEY));
   const publicKey = crypto.createPublicKey(privateKey);
+  const actualFingerprint = assertTrustedFingerprint(publicKey, args.allowKeyRotation, "sign-release");
   const downloads = path.resolve(args.dir || DOWNLOADS);
   const pubPath = path.resolve(args.pub || DEFAULT_PUB);
+  const published = existingPublicKey(pubPath);
+  if (published && fingerprint(published) !== actualFingerprint && !args.allowKeyRotation) {
+    fail(`sign-release würde den veröffentlichten Release-Key ersetzen: ${pubPath}`);
+  }
   fs.mkdirSync(path.dirname(pubPath), { recursive: true });
   fs.writeFileSync(pubPath, publicKey.export({ type: "spki", format: "pem" }), { mode: 0o644 });
   const signed = [];
@@ -141,35 +172,42 @@ function signRelease(args) {
   console.log(JSON.stringify({
     ok: true,
     publicKey: pubPath,
-    fingerprint: fingerprint(publicKey),
+    fingerprint: actualFingerprint,
+    matchesPinnedKey: actualFingerprint === EXPECTED_KEY_FINGERPRINT,
     signed,
   }, null, 2));
 }
 
 function verifyRelease(args) {
   const publicKey = readPublicKey(path.resolve(args.pub || DEFAULT_PUB));
+  const actualFingerprint = fingerprint(publicKey);
+  const fingerprintOk = actualFingerprint === EXPECTED_KEY_FINGERPRINT || Boolean(args.allowKeyRotation);
   const downloads = path.resolve(args.dir || DOWNLOADS);
-  const checks = [];
-  let ok = true;
-  for (const name of MANIFESTS) {
-    const file = path.join(downloads, name);
-    if (!fs.existsSync(file)) continue;
-    const result = verifyFile(file, publicKey);
-    checks.push({ check: `signature:${name}`, ok: result.ok, error: result.error });
+  const checks = [{
+    check: "key-fingerprint",
+    ok: fingerprintOk,
+    expected: EXPECTED_KEY_FINGERPRINT,
+    actual: actualFingerprint
+  }];
+  let ok = fingerprintOk;
+  for (const manifestName of MANIFESTS) {
+    const manifestPath = path.join(downloads, manifestName);
+    if (!fs.existsSync(manifestPath)) {
+      checks.push({ check: `manifest:${manifestName}`, ok: false, error: `fehlt in ${downloads}` });
+      ok = false;
+      continue;
+    }
+    const result = verifyFile(manifestPath, publicKey);
+    checks.push({ check: `signature:${manifestName}`, ok: result.ok, error: result.error });
     ok = ok && result.ok;
-  }
 
-  const sumsPath = path.join(downloads, "SHA256SUMS.txt");
-  const parts = [];
-  if (!fs.existsSync(sumsPath)) {
-    checks.push({ check: "manifest:SHA256SUMS.txt", ok: false, error: `fehlt in ${downloads}` });
-    ok = false;
-  } else {
-    for (const line of fs.readFileSync(sumsPath, "utf8").split(/\r?\n/)) {
+    const manifestText = fs.readFileSync(manifestPath, "utf8");
+    const parts = [];
+    for (const line of manifestText.split(/\r?\n/)) {
       if (!line || line.startsWith("#")) continue;
       const match = /^([0-9a-f]{64})  ([^/\\]+)$/.exec(line);
       if (!match) {
-        checks.push({ check: `manifest:${line}`, ok: false, error: "ungültige Zeile" });
+        checks.push({ check: `manifest:${manifestName}:${line}`, ok: false, error: "ungültige Zeile" });
         ok = false;
         continue;
       }
@@ -180,21 +218,30 @@ function verifyRelease(args) {
       const matches = actual === expected;
       checks.push({ check: `sha256:${name}`, ok: exists && matches, error: !exists ? "Datei fehlt" : matches ? undefined : "Prüfsumme falsch" });
       ok = ok && exists && matches;
-      if (/^streamiov-studio-part-\d{2}\.bin$/.test(name)) parts.push(target);
+      if (manifestName === "SHA256SUMS.txt" && /^streamiov-studio-part-\d{2}\.bin$/.test(name)) parts.push(target);
     }
-    const expectedArchive = /^# assembled archive: ([0-9a-f]{64})/m.exec(fs.readFileSync(sumsPath, "utf8"));
-    if (expectedArchive) {
-      parts.sort();
-      const assembled = crypto.createHash("sha256");
-      for (const part of parts) assembled.update(fs.readFileSync(part));
-      const digest = assembled.digest("hex");
-      const matches = digest === expectedArchive[1];
-      checks.push({ check: "assembled-archive", ok: matches, expected: expectedArchive[1], actual: digest });
-      ok = ok && matches;
+
+    if (manifestName === "SHA256SUMS.txt") {
+      const expectedArchive = /^# assembled archive: ([0-9a-f]{64})/m.exec(manifestText);
+      if (!expectedArchive) {
+        checks.push({ check: "assembled-archive", ok: false, error: "fehlt im Manifest" });
+        ok = false;
+      } else if (parts.length !== 7 || parts.some((part) => !fs.existsSync(part))) {
+        checks.push({ check: "assembled-archive", ok: false, expected: expectedArchive[1], actual: "unvollständige Teile" });
+        ok = false;
+      } else {
+        parts.sort();
+        const assembled = crypto.createHash("sha256");
+        for (const part of parts) assembled.update(fs.readFileSync(part));
+        const digest = assembled.digest("hex");
+        const matches = digest === expectedArchive[1];
+        checks.push({ check: "assembled-archive", ok: matches, expected: expectedArchive[1], actual: digest });
+        ok = ok && matches;
+      }
     }
   }
 
-  console.log(JSON.stringify({ ok, keyFingerprint: fingerprint(publicKey), checks }, null, 2));
+  console.log(JSON.stringify({ ok, keyFingerprint: actualFingerprint, checks }, null, 2));
   process.exit(ok ? 0 : 1);
 }
 
@@ -205,8 +252,9 @@ function usage() {
   sign <datei...> [--key PATH]       Dateien signieren (<datei>.sig)
   verify <datei...> [--pub PATH]     Signaturen prüfen
   sign-release [--key PATH] [--dir PATH]   SHA256SUMS-Dateien signieren
-  verify-release [--pub PATH] [--dir PATH] Signaturen und Prüfsummen prüfen
-  fingerprint [--pub PATH]           Fingerabdruck des öffentlichen Schlüssels
+   verify-release [--pub PATH] [--dir PATH] Signaturen und Prüfsummen prüfen
+   --allow-key-rotation               Nur mit vollständiger Aktualisierung aller verankerten Fingerprints verwenden
+   fingerprint [--pub PATH]           Fingerabdruck des öffentlichen Schlüssels
 
 Privater Schlüssel (Standard): ${DEFAULT_KEY}
 Öffentlicher Schlüssel (Standard): ${DEFAULT_PUB}

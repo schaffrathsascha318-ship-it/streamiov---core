@@ -1,8 +1,9 @@
 'use strict';
 // Schutzregie / Privacy Shield: a local, free state machine for an emergency
-// program scene and microphone mute. It deliberately does not stop the encoder,
-// recording, or any platform-side capture. The renderer applies the returned
-// target/restore values to the scene engine and audio mixer.
+// program scene and microphone mute. On activation the renderer requests a stop
+// of the local encoder output and any active local recording before applying
+// the target values. Deactivation restores only scene and mic; the operator
+// must restart the broadcast manually. Platform-side capture stays out of scope.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
     module.exports = factory();
@@ -62,6 +63,7 @@
           ok: true,
           changed: false,
           reason: 'already-active',
+          requestsOutputStops: true,
           target: this._target(),
           restore: this._copyRestore(),
           state: this.snapshot()
@@ -78,14 +80,16 @@
         ok: true,
         changed: true,
         reason: 'activated',
+        requestsOutputStops: true,
         target: this._target(),
         restore: this._copyRestore(),
         state: this.snapshot()
       };
     }
 
-    // Deactivate and return the exact values that should be restored. The
-    // renderer owns the actual scene/mixer application.
+    // Deactivate and return the exact scene/mic values that should be restored.
+    // The renderer owns the actual application; stopped outputs stay stopped and
+    // the operator restarts the broadcast manually.
     deactivate() {
       if (!this.active) {
         return {
@@ -94,6 +98,7 @@
           reason: 'not-active',
           target: null,
           restore: null,
+          resumesOutputs: false,
           state: this.snapshot()
         };
       }
@@ -107,6 +112,7 @@
         reason: 'deactivated',
         target: null,
         restore,
+        resumesOutputs: false,
         state: this.snapshot()
       };
     }
@@ -127,9 +133,10 @@
         lastActivatedAt: this.lastActivatedAt,
         lastRestoredAt: this.lastRestoredAt,
         target: this.active ? this._target() : null,
-        scope: 'program-scene-and-local-mic-mix',
-        stopsEncoder: false,
-        stopsRecording: false,
+        scope: 'program-scene-local-mic-mix-and-local-output-stop-requests',
+        stopsEncoder: true,
+        stopsRecording: true,
+        autoResumesOutputs: false,
         guaranteesPlatformPrivacy: false
       };
     }

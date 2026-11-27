@@ -239,6 +239,63 @@ class SpecialistTaskQueue:
         finally:
             connection.close()
 
+    def claim_task(self, task_id: str, worker_id: str, *, lease_seconds: int = 300) -> QueuedTask | None:
+        if not isinstance(task_id, str) or not task_id.strip() or len(task_id) > 128:
+            raise TaskQueueError("task_id must contain 1–128 characters.")
+        if not isinstance(worker_id, str) or not worker_id.strip() or len(worker_id) > 128:
+            raise TaskQueueError("worker_id must contain 1–128 characters.")
+        if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or not 10 <= lease_seconds <= 3600:
+            raise TaskQueueError("lease_seconds must be between 10 and 3600.")
+        now = time.time()
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                """
+                UPDATE specialist_tasks
+                SET status='queued', attempts=CASE WHEN attempts>0 THEN attempts-1 ELSE 0 END,
+                    worker_id='', lease_until=NULL,
+                    error='Worker lease expired; resuming from durable checkpoint.',
+                    updated_at=?
+                WHERE task_id=? AND status='running' AND lease_until<=?
+                """,
+                (now, task_id, now),
+            )
+            row = connection.execute(
+                "SELECT * FROM specialist_tasks WHERE task_id=? AND status='queued'", (task_id,)
+            ).fetchone()
+            if row is None:
+                connection.commit()
+                return None
+            dependencies = json.loads(row["depends_on"])
+            if dependencies:
+                placeholders = ",".join("?" for _ in dependencies)
+                states = connection.execute(
+                    f"SELECT status FROM specialist_tasks WHERE task_id IN ({placeholders})",
+                    dependencies,
+                ).fetchall()
+                if len(states) != len(dependencies) or any(item["status"] != "succeeded" for item in states):
+                    connection.commit()
+                    return None
+            cursor = connection.execute(
+                """
+                UPDATE specialist_tasks
+                SET status='running', attempts=attempts+1, worker_id=?, lease_until=?, updated_at=?
+                WHERE task_id=? AND status='queued'
+                """,
+                (worker_id.strip(), now + lease_seconds, now, task_id),
+            )
+            connection.commit()
+            if cursor.rowcount != 1:
+                return None
+            claimed = connection.execute("SELECT * FROM specialist_tasks WHERE task_id=?", (task_id,)).fetchone()
+            return self._row_to_task(claimed)
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
     def heartbeat(self, task_id: str, worker_id: str, *, lease_seconds: int = 300) -> None:
         if not 10 <= lease_seconds <= 3600:
             raise TaskQueueError("lease_seconds must be between 10 and 3600.")
@@ -362,8 +419,14 @@ class SpecialistWorker:
             self._factory_task_id_keyword = False
         self.lease_seconds = lease_seconds
 
-    def run_once(self, stop_event: threading.Event | None = None) -> WorkerExecution | None:
-        task = self.queue.claim_next(self.worker_id, lease_seconds=self.lease_seconds)
+    def run_once(
+        self, stop_event: threading.Event | None = None, *, task_id: str | None = None
+    ) -> WorkerExecution | None:
+        task = (
+            self.queue.claim_task(task_id, self.worker_id, lease_seconds=self.lease_seconds)
+            if task_id is not None
+            else self.queue.claim_next(self.worker_id, lease_seconds=self.lease_seconds)
+        )
         if task is None:
             return None
 

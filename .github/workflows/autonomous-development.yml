@@ -66,7 +66,7 @@ jobs:
           if [[ "$(jq 'length' <<< "$issue_json")" -eq 0 ]]; then
             issue_number=0
             issue_title="STREAMIOV continuous platform development"
-            issue_body="Continue building and verifying the complete Streamiov platform. First make the AI Chief Developer and its eleven distinct specialist workstreams reliable; then advance Core, Studio, own infrastructure, AI platform, games, gifts, creator tools, and all remaining roadmap areas. Continuously identify and implement valuable missing capabilities, reliability improvements, security fixes, tests, documentation, and infrastructure work without waiting for a separate feature request. Maintain an evidence-backed prioritized backlog and continue with the highest-value unblocked work. After independent verification and all required repository checks pass, integrate completed changes automatically. Never expose secrets, weaken central permission enforcement, bypass required checks, or change identity/OAuth boundaries."
+            issue_body="Continue building and verifying the complete Streamiov platform. First make the AI Chief Developer and its registered specialist workstreams reliable; then advance Core, Studio, own infrastructure, AI platform, games, gifts, creator tools, and all remaining roadmap areas. Continuously identify and implement valuable missing capabilities, reliability improvements, security fixes, tests, documentation, and infrastructure work without waiting for a separate feature request. Maintain an evidence-backed prioritized backlog and continue with the highest-value unblocked work. After independent verification and all required repository checks pass, integrate completed changes automatically. Never expose secrets, weaken central permission enforcement, bypass required checks, or change identity/OAuth boundaries."
             issue_json="$(jq -cn --arg title "$issue_title" --arg body "$issue_body" '{number:0,title:$title,body:$body}')"
           else
             issue_number="$(jq -r '.[0].number' <<< "$issue_json")"
@@ -145,23 +145,36 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/streamiov-ai-missions"
           artifact_name="streamiov-ai-missions-${{ steps.pick.outputs.mission_key }}"
+          artifact_names=("$artifact_name")
+          if [[ "${{ steps.pick.outputs.mission_key }}" == "0" ]]; then
+            artifact_names+=("streamiov-ai-missions-223")
+          fi
           run_ids="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/autonomous-development.yml/runs?per_page=30" --jq '.workflow_runs[].id')"
           restored=false
-          while IFS= read -r previous_run; do
-            [[ -z "$previous_run" || "$previous_run" == "$GITHUB_RUN_ID" ]] && continue
-            if gh run download "$previous_run" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir "$RUNNER_TEMP/streamiov-ai-missions" >/dev/null 2>&1; then
-              if [[ ! -f "$RUNNER_TEMP/streamiov-ai-missions/mission-state.enc" ]]; then
-                echo "::error::Mission artifact is missing its encrypted state envelope."
-                exit 1
+          for candidate_name in "${artifact_names[@]}"; do
+            while IFS= read -r previous_run; do
+              [[ -z "$previous_run" || "$previous_run" == "$GITHUB_RUN_ID" ]] && continue
+              if gh run download "$previous_run" --repo "$GITHUB_REPOSITORY" --name "$candidate_name" --dir "$RUNNER_TEMP/streamiov-ai-missions" >/dev/null 2>&1; then
+                if [[ ! -f "$RUNNER_TEMP/streamiov-ai-missions/mission-state.enc" ]]; then
+                  echo "::error::Mission artifact is missing its encrypted state envelope."
+                  exit 1
+                fi
+                node scripts/autonomous/mission-state-crypto.mjs decrypt \
+                  "$RUNNER_TEMP/streamiov-ai-missions/mission-state.enc" \
+                  "$RUNNER_TEMP/streamiov-ai-missions/missions.sqlite3"
+                if [[ "$candidate_name" != "$artifact_name" ]]; then
+                  echo "Restored legacy encrypted mission state from artifact $candidate_name in workflow run $previous_run; the current upload will migrate it to $artifact_name."
+                else
+                  echo "Restored and authenticated encrypted mission state from workflow run $previous_run."
+                fi
+                restored=true
+                break
               fi
-              node scripts/autonomous/mission-state-crypto.mjs decrypt \
-                "$RUNNER_TEMP/streamiov-ai-missions/mission-state.enc" \
-                "$RUNNER_TEMP/streamiov-ai-missions/missions.sqlite3"
-              echo "Restored and authenticated encrypted mission state from workflow run $previous_run."
-              restored=true
+            done <<< "$run_ids"
+            if [[ "$restored" == true ]]; then
               break
             fi
-          done <<< "$run_ids"
+          done
           if [[ "$restored" != true ]]; then
             echo "No prior mission artifact found; this mission will initialize or recover from its first checkpoint."
           fi
@@ -430,7 +443,7 @@ jobs:
           - Mission: ${MISSION_STATUS:-active}
           - Triggered by: ${ISSUE_NUMBER}
           - Independent acceptance checks: ${TESTS_PASSED:-not completed}
-          - Eleven specialist workstreams share distinct responsibilities and coordinate through the persistent mission planner.
+          - Twenty-eight registered specialist roles share distinct responsibilities and coordinate through the persistent mission planner.
           - The mission database and per-agent checkpoints are resumed between execution slices.
           - Changes are preserved on the continuous development branch.
           - All changes remain in a draft pull request for explicit owner review and approval.
@@ -443,7 +456,7 @@ jobs:
           - Mission: ${MISSION_STATUS:-active}
           - Latest request: ${ISSUE_TITLE}
           - Independent acceptance checks: ${TESTS_PASSED:-not completed}
-          - Eleven specialist workstreams share distinct responsibilities and coordinate through the persistent mission planner.
+          - Twenty-eight registered specialist roles share distinct responsibilities and coordinate through the persistent mission planner.
           - The mission database and per-agent checkpoints are resumed between execution slices.
           - Changes are preserved on the continuous development branch.
           - Completed work is eligible for automatic integration only after independent acceptance checks and all required GitHub checks pass.

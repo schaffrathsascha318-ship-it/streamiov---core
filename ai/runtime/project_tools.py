@@ -1,6 +1,7 @@
 """Constrained project tools: safe file access and fixed test commands only."""
 from __future__ import annotations
 import os
+import ctypes
 import hashlib
 import json
 import stat
@@ -25,21 +26,45 @@ PROTECTED_WRITE_PREFIXES = (
     ".github/workflows/",
     ".github/actions/",
     "scripts/autonomous/",
+    "scripts/ai/",
+    "infrastructure/",
 )
 PROTECTED_WRITE_FILES = {
     "ai/__main__.py",
     "ai/core/agent.py",
     "ai/runtime/continuous_engine.py",
     "ai/runtime/project_tools.py",
+    "host/auth.py",
+    "scripts/release-signing.mjs",
+    "scripts/build-ffmpeg-source-bundle.py",
 }
-# These four files define the Chief itself. A persistent mission may edit them
-# only when the owner explicitly starts it in self-development mode. Runner
-# controls, providers, workflows, secrets, and deployment configuration remain
-# protected even in that mode.
-SELF_MODIFIABLE_CORE_FILES = frozenset(PROTECTED_WRITE_FILES)
-PROTECTED_WRITE_NAMES = {"wrangler.jsonc", "wrangler.toml"}
+CHIEF_CORE_FILES = frozenset({
+    "ai/__main__.py",
+    "ai/core/agent.py",
+    "ai/runtime/continuous_engine.py",
+    "ai/runtime/project_tools.py",
+})
+SELF_MODIFIABLE_CORE_FILES = CHIEF_CORE_FILES
+PROTECTED_WRITE_NAMES = {
+    "wrangler.jsonc",
+    "wrangler.toml",
+    "dockerfile",
+    "procfile",
+    "app.yaml",
+    "docker-compose.yml",
+    "docker-compose.yaml",
+    "fly.toml",
+    "netlify.toml",
+    "render.yaml",
+    "vercel.json",
+}
 TEST_COMMANDS = {
     "python -m unittest discover -s tests": [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
+    "python scripts/verify-cloudflare-config.py": [sys.executable, "scripts/verify-cloudflare-config.py"],
+}
+NODE_TEST_COMMANDS = {
+    "node --test tests/test_cloudflare_ai_worker.mjs": ["--test", "tests/test_cloudflare_ai_worker.mjs"],
+    "node scripts/release-signing.mjs verify-release": ["scripts/release-signing.mjs", "verify-release"],
 }
 MAX_FILE_BYTES = 200_000
 MAX_LIST_ENTRIES = 100
@@ -59,6 +84,51 @@ try:
     import msvcrt as _msvcrt
 except ImportError:  # POSIX
     _msvcrt = None
+
+
+def _harden_parent_process() -> None:
+    if not sys.platform.startswith("linux"):
+        return
+    try:
+        libc = ctypes.CDLL(None, use_errno=True)
+        prctl = getattr(libc, "prctl", None)
+        if prctl is None:
+            raise ToolError("Unable to lock down parent process before untrusted execution.")
+        prctl.argtypes = [ctypes.c_int, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong]
+        prctl.restype = ctypes.c_int
+        ctypes.set_errno(0)
+        if prctl(4, 0, 0, 0, 0) != 0:
+            raise ToolError(
+                "Unable to lock down parent process before untrusted execution (errno "
+                + str(ctypes.get_errno()) + ")."
+            )
+    except ToolError:
+        raise
+    except Exception as exc:
+        raise ToolError("Unable to lock down parent process before untrusted execution: " + str(exc)) from exc
+
+
+def _sandboxed_test_command(root: Path, argv: list[str]) -> tuple[list[str], dict[str, str]]:
+    bwrap = shutil.which("bwrap") if os.name == "posix" else None
+    if bwrap is None:
+        raise ToolError(
+            "Safe test execution requires bubblewrap with a read-only host bind; "
+            "unsandboxed test execution is disabled."
+        )
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "HOME": "/tmp",
+        "TMPDIR": "/tmp",
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONPATH": str(root),
+    }
+    command = [
+        bwrap, "--unshare-user", "--unshare-net", "--die-with-parent",
+        "--uid", "65534", "--gid", "65534",
+        "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp",
+        "--chdir", str(root), "--", *argv,
+    ]
+    return command, env
 
 
 def _process_lock_path(key: str) -> Path:
@@ -197,6 +267,12 @@ class ProjectTools:
         self.allow_game_checks = allow_game_checks
         self.allow_self_modification = allow_self_modification or full_project_development
         self.full_project_development = full_project_development
+        self._read_only = False
+        self.workspace_store = None
+        self.workspace_task_id = None
+
+    def set_read_only(self, enabled: bool) -> None:
+        self._read_only = bool(enabled)
 
     def _is_protected_relative(self, relative: str) -> bool:
         rel = PurePosixPath(relative)
@@ -234,6 +310,8 @@ class ProjectTools:
         return candidate
 
     def _writable_target(self, raw: str) -> tuple[Path, str]:
+        if self._read_only:
+            raise ToolError("This verification task is read-only; implementation files must not be edited.")
         target = self._resolve(raw)
         normalized = target.relative_to(self.root).as_posix()
         self_core_write = (
@@ -255,6 +333,32 @@ class ProjectTools:
         ):
             raise ToolError("Write path is outside the configured project scope.")
         return target, normalized
+
+    def _begin_workspace_change(self, relative: str, base_sha256: str, content: str) -> None:
+        if self.workspace_store is None or not self.workspace_task_id:
+            return
+        try:
+            self.workspace_store.begin_change(self.workspace_task_id, relative, base_sha256, content)
+        except Exception as exc:
+            raise ToolError("Workspace change was rejected: " + str(exc)[:500]) from exc
+
+    def _complete_workspace_change(self, relative: str, content: str) -> None:
+        if self.workspace_store is None or not self.workspace_task_id:
+            return
+        digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        try:
+            self.workspace_store.complete_change(self.workspace_task_id, relative, digest)
+        except Exception as exc:
+            raise ToolError("Workspace change could not be persisted: " + str(exc)[:500]) from exc
+
+    def _cancel_workspace_change(self, relative: str, content: str) -> None:
+        if self.workspace_store is None or not self.workspace_task_id:
+            return
+        digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        try:
+            self.workspace_store.cancel_change(self.workspace_task_id, relative, digest)
+        except Exception:
+            pass
 
     def list_files(self, path: str = ".") -> str:
         """List a bounded set of safe immediate children inside the project workspace."""
@@ -296,6 +400,7 @@ class ProjectTools:
             target, normalized = self._writable_target(path)
             if target.exists():
                 raise ToolError("Refusing to overwrite an existing file; use an exact-match edit or submit a focused patch through review.")
+            self._begin_workspace_change(normalized, "", content)
             descriptor, temporary = tempfile.mkstemp(prefix=".streamiov-create-", dir=target.parent)
             try:
                 with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as stream:
@@ -305,8 +410,13 @@ class ProjectTools:
                 # Hard-link creation is atomic and fails rather than replacing a
                 # file created by another task after the existence check.
                 os.link(temporary, target)
+                self._complete_workspace_change(normalized, content)
             except FileExistsError:
+                self._cancel_workspace_change(normalized, content)
                 raise ToolError("Another task created this path concurrently; no file was overwritten.")
+            except Exception:
+                self._cancel_workspace_change(normalized, content)
+                raise
             finally:
                 try:
                     os.unlink(temporary)
@@ -334,66 +444,64 @@ class ProjectTools:
             updated = original.replace(old_text, new_text, 1)
             if len(updated.encode("utf-8")) > MAX_FILE_BYTES:
                 raise ToolError("Edited file would exceed the 200 KB limit.")
-            _atomic_replace_text(target, updated)
+            self._begin_workspace_change(
+                normalized, hashlib.sha256(original.encode("utf-8")).hexdigest(), updated,
+            )
+            try:
+                _atomic_replace_text(target, updated)
+                self._complete_workspace_change(normalized, updated)
+            except Exception:
+                self._cancel_workspace_change(normalized, updated)
+                raise
         return f"Updated {normalized}: one exact match replaced."
 
     def run_python(self, path: str) -> str:
-        """Run project Python in a read-only, unprivileged sandbox."""
+        """Run project Python in a read-only, unprivileged bubblewrap sandbox."""
         target = self._resolve(path)
         if target.suffix.lower() != ".py" or not target.is_file():
             raise ToolError("Python execution requires an existing .py file inside the project workspace.")
         if target.stat().st_size > MAX_FILE_BYTES:
             raise ToolError("Python source exceeds the 200 KB execution limit.")
-        env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": "", "PYTHONIOENCODING": "utf-8"}
-        setpriv = shutil.which("setpriv") if os.name == "posix" else None
         bwrap = shutil.which("bwrap") if os.name == "posix" else None
-        command = [sys.executable, "-I", str(target)]
-        with tempfile.TemporaryDirectory(prefix="streamiov-python-home-") as home:
-            os.chmod(home, 0o755)
-            env["HOME"] = home
-            result = None
-            if setpriv is not None:
-                sandbox_command = [
-                    setpriv, "--reuid=65534", "--regid=65534", "--clear-groups", "--no-new-privs",
-                    "--", *command,
-                ]
-                result = subprocess.run(
-                    sandbox_command, cwd=self.root, capture_output=True, text=True,
-                    timeout=120, check=False, env=env,
-                )
-                # Some container runtimes expose setpriv but prohibit setresuid.
-                # Fall through only for that specific environment failure.
-                if not (result.returncode == 127 and "setresuid failed" in result.stderr):
-                    output = (result.stdout + "\n" + result.stderr).strip()
-                    return f"exit_code={result.returncode}\n{output[-12000:]}"
-            if bwrap is None:
-                raise ToolError(
-                    "Safe Python execution could not establish a sandbox: setpriv failed and bubblewrap is unavailable; "
-                    "unsandboxed execution is disabled."
-                )
-            # Bubblewrap keeps the host filesystem read-only, gives the process
-            # an isolated user namespace and a disposable writable /tmp, and
-            # runs it as an unprivileged UID. There is deliberately no unsafe fallback.
-            # Keep the complete host filesystem read-only. In particular,
-            # do not hide /tmp: test workspaces are commonly created there.
-            sandbox_command = [
-                bwrap, "--unshare-user", "--uid", "65534", "--gid", "65534",
-                "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc",
-                "--chdir", str(self.root), "--", *command,
-            ]
-            sandbox_env = {**env, "HOME": ""}
-            result = subprocess.run(
-                sandbox_command, cwd=self.root, capture_output=True, text=True,
-                timeout=120, check=False, env=sandbox_env,
+        if bwrap is None:
+            raise ToolError(
+                "Safe Python execution requires bubblewrap with a read-only host bind; "
+                "unsandboxed execution is disabled."
             )
+        env = {
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "HOME": "",
+            "PYTHONIOENCODING": "utf-8",
+        }
+        sandbox_command = [
+            bwrap, "--unshare-user", "--unshare-net", "--die-with-parent",
+            "--uid", "65534", "--gid", "65534",
+            "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc",
+            "--chdir", str(self.root), "--", sys.executable, "-I", str(target),
+        ]
+        _harden_parent_process()
+        result = subprocess.run(
+            sandbox_command, cwd=self.root, capture_output=True, text=True,
+            timeout=120, check=False, env=env,
+        )
         output = (result.stdout + "\n" + result.stderr).strip()
         return f"exit_code={result.returncode}\n{output[-12000:]}"
 
     def run_tests(self, command: str) -> str:
+        if not isinstance(command, str):
+            raise ToolError("Test command is not allowlisted.")
         argv = TEST_COMMANDS.get(command)
         if argv is None:
-            raise ToolError("Test command is not allowlisted.")
-        result = subprocess.run(argv, cwd=self.root, capture_output=True, text=True, timeout=180, check=False, env={"PATH": os.environ.get("PATH", ""), "PYTHONPATH": str(self.root)})
+            node_args = NODE_TEST_COMMANDS.get(command)
+            if node_args is None:
+                raise ToolError("Test command is not allowlisted.")
+            node = shutil.which("node")
+            if node is None:
+                raise ToolError("Node.js is required by this allowlisted test command but is not installed.")
+            argv = [node, *node_args]
+        argv, env = _sandboxed_test_command(self.root, argv)
+        _harden_parent_process()
+        result = subprocess.run(argv, cwd=self.root, capture_output=True, text=True, timeout=180, check=False, env=env)
         output = (result.stdout + "\n" + result.stderr).strip()
         return f"exit_code={result.returncode}\n{output[-12000:]}"
 

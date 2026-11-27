@@ -72,6 +72,49 @@ class GamePreflightTests(unittest.TestCase):
             (game / "index.html").write_text("<html><body>unfinished", encoding="utf-8")
             result = validate_game_package(game)
         self.assertIn("entry_html_incomplete", result["errors"])
+    def test_detects_missing_local_stylesheet(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            game = self.make_game(Path(tmp))
+            (game / "index.html").write_text(
+                '<html><head><link rel="stylesheet" href="missing.css"></head>'
+                '<body><script src="game.js"></script></body></html>',
+                encoding="utf-8",
+            )
+            result = validate_game_package(game)
+        self.assertFalse(result["static_valid"])
+        self.assertIn("local_runtime_resource_missing", result["errors"])
+        self.assertEqual(result["checked_local_resource_references"], 2)
+
+    def test_counts_present_local_stylesheet_without_false_release_claim(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            game = self.make_game(Path(tmp))
+            (game / "index.html").write_text(
+                '<html><head><link rel="preload stylesheet" href="theme.css"></head>'
+                '<body><script src="game.js"></script><img src="logo.png"></body></html>',
+                encoding="utf-8",
+            )
+            (game / "theme.css").write_text("body{color:#7c70ff}", encoding="utf-8")
+            (game / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+            result = validate_game_package(game)
+        self.assertTrue(result["static_valid"])
+        self.assertEqual(result["checked_local_resource_references"], 3)
+        self.assertFalse(result["browser_playability_verified"])
+
+    def test_reports_external_stylesheet_and_image_sources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            game = self.make_game(Path(tmp))
+            (game / "index.html").write_text(
+                '<html><head><link rel="stylesheet" href="https://example.invalid/theme.css"></head>'
+                '<body><script src="game.js"></script><embed src="data:image/png;base64,AA=="></body></html>',
+                encoding="utf-8",
+            )
+            result = validate_game_package(game)
+        self.assertTrue(result["static_valid"])
+        self.assertIn("external_runtime_resources_detected", result["warnings"])
+        self.assertEqual(
+            {(item["type"], item["source"].split(":", 1)[0]) for item in result["external_resources"]},
+            {("stylesheet", "https"), ("embed", "data")},
+        )
 
 
 if __name__ == "__main__":

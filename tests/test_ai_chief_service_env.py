@@ -20,6 +20,15 @@ class AIChiefServiceEnvironmentTests(unittest.TestCase):
         }
         self.assertIsNone(validate_environment(env))
 
+    def test_accepts_documented_goal_alias_from_local_service_script(self):
+        env = {
+            "STREAMIOV_AI_PROJECT_GOAL": "Continue verified Streamiov development.",
+            "STREAMIOV_MODEL_PROVIDER": "ollama",
+        }
+        self.assertIsNone(validate_environment(env))
+        script = (ROOT / "scripts" / "ai" / "run-chief-mission.sh").read_text(encoding="utf-8")
+        self.assertIn('"${STREAMIOV_PROJECT_GOAL:-${STREAMIOV_AI_PROJECT_GOAL:', script)
+
     def test_rejects_empty_goal_and_placeholder_token(self):
         env = {
             "STREAMIOV_PROJECT_GOAL": " ",
@@ -59,6 +68,41 @@ class AIChiefServiceEnvironmentTests(unittest.TestCase):
             "STREAMIOV_MODEL": "qwen2.5-coder:7b",
         }
         self.assertIsNone(validate_environment(env))
+
+    def test_accepts_self_hosted_provider_without_cloud_credentials(self):
+        env = {
+            "STREAMIOV_PROJECT_GOAL": "Continue.",
+            "STREAMIOV_MODEL_PROVIDER": "self-hosted-openai-compatible",
+            "STREAMIOV_SELF_HOSTED_MODEL": "qwen2.5-coder:7b",
+            "STREAMIOV_SELF_HOSTED_MODEL_URL": "https://models.internal.example",
+            "STREAMIOV_SELF_HOSTED_MODEL_TOKEN": "x" * 48,
+        }
+        self.assertIsNone(validate_environment(env))
+
+    def test_validates_provider_failover_list(self):
+        base = {"STREAMIOV_PROJECT_GOAL": "Continue."}
+        with self.subTest("valid list"):
+            self.assertIsNone(validate_environment({
+                **base, "STREAMIOV_MODEL_PROVIDERS": "ollama, self-hosted-openai-compatible",
+                "STREAMIOV_SELF_HOSTED_MODEL": "qwen2.5-coder:7b",
+                "STREAMIOV_SELF_HOSTED_MODEL_URL": "https://models.internal.example",
+                "STREAMIOV_SELF_HOSTED_MODEL_TOKEN": "x" * 48,
+            }))
+        for value in ("ollama,,ollama", "ollama,ollama", "paid-api"):
+            with self.subTest(value=value):
+                error = validate_environment({**base, "STREAMIOV_MODEL_PROVIDERS": value})
+                self.assertIn("STREAMIOV_MODEL_PROVIDERS", error)
+
+    def test_rejects_incomplete_self_hosted_configuration(self):
+        env = {
+            "STREAMIOV_PROJECT_GOAL": "Continue.",
+            "STREAMIOV_MODEL_PROVIDER": "self-hosted-openai-compatible",
+        }
+        self.assertIn("STREAMIOV_SELF_HOSTED_MODEL", validate_environment(env))
+        env["STREAMIOV_SELF_HOSTED_MODEL"] = "qwen2.5-coder:7b"
+        self.assertIn("STREAMIOV_SELF_HOSTED_MODEL_TOKEN", validate_environment(env))
+        env["STREAMIOV_SELF_HOSTED_MODEL_TOKEN"] = "x" * 48
+        self.assertIn("STREAMIOV_SELF_HOSTED_MODEL_URL", validate_environment(env))
 
     def test_rejects_unknown_provider(self):
         self.assertIn(

@@ -29,7 +29,7 @@ class QueueCliTests(unittest.TestCase):
             database = str(Path(tmp) / "queue.sqlite3")
             queue = SpecialistTaskQueue(database)
             from ai.core.orchestrator import SpecialistTask
-            queue.enqueue_plan([SpecialistTask("task-1", "testing", "Run the checks")])
+            queue.enqueue_plan([SpecialistTask("task-1", "code", "Run the checks")])
 
             class FakeProvider:
                 def __init__(self):

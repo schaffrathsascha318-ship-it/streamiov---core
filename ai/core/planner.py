@@ -7,29 +7,29 @@ import uuid
 
 from ai.core.orchestrator import SpecialistTask, TaskOrchestrator, TaskPlanError
 from ai.providers.base import ModelProvider
-from ai.specialists.registry import get_specialist
+from ai.specialists.registry import get_specialist, specialist_names, task_prompt_for_specialist
 
 
 MAX_PLAN_CHARS = 16_000
-MAX_PLAN_TASKS = 12
-PLAN_SYSTEM = """You are STREAMIOV Core, the task planner for a specialist development team.
-Break the user's goal into a dependency-aware plan for the eleven distinct STREAMIOV workstreams:
-code, studio, music, tts, events, homepage, server, research, game, gifts, testing.
-The AI Chief is the coordinator and is not one of these eleven specialists. For a broad
-whole-platform mission, create a separate actionable work package for every relevant
-specialist (use all eleven when the goal covers the whole Streamiov platform). Each
-work package must own a different deliverable. Do not assign duplicate or competing
-work to multiple specialists. Keep unrelated work independent so it can be dispatched
-to different agents; add dependencies only for real prerequisites. Use each role's
-documented mission to choose the owner. The Code specialist handles cross-cutting
-implementation not owned by a dedicated workstream; the Testing specialist independently
-verifies completed work. Assign at most one task to each specialist in a plan so
-the eleven agents work on distinct deliverables. If a specialist needs more work,
-put it in a later plan after the current result is available.
+MAX_PLAN_TASKS = 50
+PLAN_SYSTEM = f"""You are STREAMIOV Core, the task planner for a specialist development team.
+Break the user's goal into a dependency-aware plan using only the registered specialists:
+{', '.join(specialist_names())}.
+The AI Chief is the coordinator and never receives a planner task. Use each role's documented
+mission to choose the owner: domain specialists own their product area, code and ai_developer
+handle cross-cutting implementation, and testing verifies completed work independently. For a
+broad whole-platform mission, create separate actionable work packages for the relevant
+specialists, prioritise the highest-value deliverables, and leave additional work for later
+plans. Each task must own a distinct deliverable. Keep unrelated work independent so it can be
+dispatched to different agents; add dependencies only for real prerequisites. Multiple
+independent workers may share a specialist role when their deliverables are distinct and
+non-overlapping; never collapse independent workers into one task. Do not assign the same
+deliverable twice. Put repeated work in a later plan after the current result is available.
 Return exactly one JSON object and no Markdown:
-{"tasks":[{"id":"short-id","specialist":"code","prompt":"focused task","depends_on":[]}]}
-Use 1–12 tasks. Each task must have a unique short id (letters, digits, hyphen, underscore; max 32 chars), one valid specialist, a focused actionable prompt (max 8000 chars), and a list of ids it depends on. Dependencies must refer only to tasks in this plan and must form a directed acyclic graph.
+{{"tasks":[{{"id":"short-id","specialist":"code","prompt":"focused task","depends_on":[]}}]}}
+Use 1–{MAX_PLAN_TASKS} tasks. Each task must have a unique short id (letters, digits, hyphen, underscore; max 32 chars), one valid specialist, a focused actionable prompt (max 8000 chars), and a list of ids it depends on. Dependencies must refer only to tasks in this plan and must form a directed acyclic graph.
 Keep independent work independent. Put prerequisites before dependent tasks where practical.
+For testing and ai_testing_agent tasks, write the plain verification prompt; the runtime adds the reserved final-verification marker and read-only mode itself. For repair and ai_repair_agent tasks, write the plain repair prompt; the runtime adds its reserved repair marker itself. Do not include those markers yourself.
 Do not include credentials, secrets, OAuth tokens, payment actions, production deployments, or requests to bypass platform permissions. Do not invent external capabilities. Assign only work that belongs to the specialist's documented mission. Planning does not authorize external, irreversible, legal, financial, or production actions."""
 
 
@@ -88,24 +88,29 @@ class SpecialistPlanner:
             prompt = item["prompt"]
             if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 8000:
                 raise PlannerError("Every planned task needs a prompt of 1–8000 characters.")
+            try:
+                prepared_prompt = task_prompt_for_specialist(item["specialist"], prompt)
+            except ValueError as exc:
+                raise PlannerError(str(exc)) from exc
             tasks.append(SpecialistTask(
                 task_id=id_map[item["id"]],
                 specialist=item["specialist"],
-                prompt=prompt.strip(),
+                prompt=prepared_prompt,
                 depends_on=tuple(id_map[dep] for dep in dependencies),
             ))
-        assigned_specialists: set[str] = set()
+        assignments: set[tuple[str, str]] = set()
         for task in tasks:
             try:
                 specialist = get_specialist(task.specialist)
             except ValueError as exc:
                 raise PlannerError(str(exc)) from exc
-            if specialist.key in assigned_specialists:
+            signature = (specialist.key, task.prompt.casefold())
+            if signature in assignments:
                 raise PlannerError(
-                    f"Specialist '{specialist.key}' received multiple tasks in one plan; "
-                    "split distinct work across later plans."
+                    f"Specialist '{specialist.key}' received a duplicate assignment in one plan; "
+                    "give each worker a distinct deliverable or defer repeated work."
                 )
-            assigned_specialists.add(specialist.key)
+            assignments.add(signature)
         try:
             TaskOrchestrator(lambda _role: None, max_tasks=self.max_tasks)._validate_and_order(tuple(tasks))
         except (TaskPlanError, ValueError) as exc:

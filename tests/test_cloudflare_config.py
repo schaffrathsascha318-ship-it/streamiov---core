@@ -1,5 +1,9 @@
+import hashlib
 import importlib.util
 import re
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -81,6 +85,60 @@ class CloudflareConfigTests(unittest.TestCase):
         verifier = load_verifier()
         self.assertTrue(verifier._contains_secret_like_key({"vars": {"api_token": "x"}}))
         self.assertFalse(verifier._contains_secret_like_key({"assets": {"directory": "./public"}}))
+
+    def test_offline_verifier_checks_release_signatures(self):
+        verifier = load_verifier()
+        ok, detail = verifier.verify_release_signatures(ROOT / "dist/streamiov-homepage-worker/public/downloads")
+        self.assertTrue(ok, detail)
+
+    def test_offline_verifier_rejects_a_manipulated_part_with_rewritten_checksum(self):
+        verifier = load_verifier()
+        with tempfile.TemporaryDirectory() as tmp:
+            downloads = Path(tmp) / "downloads"
+            shutil.copytree(ROOT / "dist/streamiov-homepage-worker/public/downloads", downloads)
+            part = downloads / "streamiov-studio-part-00.bin"
+            part.write_bytes(part.read_bytes() + b"angriff")
+            digest = hashlib.sha256(part.read_bytes()).hexdigest()
+            sums = downloads / "SHA256SUMS.txt"
+            lines = [
+                f"{digest}  streamiov-studio-part-00.bin" if line.endswith("  streamiov-studio-part-00.bin") else line
+                for line in sums.read_text(encoding="utf-8").splitlines()
+            ]
+            sums.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+            ok, detail = verifier.verify_release_signatures(downloads)
+            self.assertFalse(ok)
+            self.assertIn("signature:SHA256SUMS.txt", detail)
+
+    @unittest.skipUnless(shutil.which("node"), "node is required to generate a test-only key")
+    def test_offline_verifier_rejects_an_unknown_trust_anchor(self):
+        verifier = load_verifier()
+        with tempfile.TemporaryDirectory() as tmp:
+            downloads = Path(tmp) / "downloads"
+            shutil.copytree(ROOT / "dist/streamiov-homepage-worker/public/downloads", downloads)
+            key = Path(tmp) / "test-only.key"
+            attacker_pub = Path(tmp) / "test-only.pub"
+            subprocess.run(
+                [shutil.which("node"), str(ROOT / "scripts/release-signing.mjs"), "keygen",
+                 "--key", str(key), "--pub", str(attacker_pub)],
+                cwd=ROOT, check=True, capture_output=True, text=True, timeout=60,
+            )
+            shutil.copyfile(attacker_pub, downloads / "STREAMIOV-RELEASE-KEY.pub")
+
+            ok, detail = verifier.verify_release_signatures(downloads)
+            self.assertFalse(ok)
+            self.assertIn("key-fingerprint", detail)
+
+    def test_offline_verifier_rejects_missing_game_checksum_manifest(self):
+        verifier = load_verifier()
+        with tempfile.TemporaryDirectory() as tmp:
+            downloads = Path(tmp) / "downloads"
+            shutil.copytree(ROOT / "dist/streamiov-homepage-worker/public/downloads", downloads)
+            (downloads / "SHA256SUMS-games.txt").unlink()
+            (downloads / "SHA256SUMS-games.txt.sig").unlink()
+            ok, detail = verifier.verify_release_signatures(downloads)
+            self.assertFalse(ok)
+            self.assertIn("manifest:SHA256SUMS-games.txt", detail)
 
 
 if __name__ == "__main__":

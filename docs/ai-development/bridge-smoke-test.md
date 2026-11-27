@@ -18,7 +18,7 @@ The bridge processed Issue #116 in this order:
 6. Committed and pushed the change, then created Draft PR #119.
 7. Updated the issue label to `codex-bridge-review`.
 
-GitHub reports PR #119 as open, draft, mergeable, and clean. Secret Scanning completed successfully. The bridge run's `review` result demonstrates that its local path checks and full unittest gate passed; this document does not infer a test count from that result.
+GitHub reports PR #119 as merged on 2026-11-22. It was opened as a draft and mergeable during the bridge run, and Secret Scanning completed successfully. The bridge run's `review` result demonstrates that its local path checks and full unittest gate passed; this document does not infer a test count from that result. The later merge is separate from the bridge smoke test itself.
 
 ## What this verifies
 
@@ -28,4 +28,4 @@ This does not verify other tasks, product runtime behavior, resistance to a comp
 
 ## Remaining review
 
-A human should review the content and merge PR #119 if it is accepted. The original issue #116 is labeled `codex-bridge-review`.
+PR #119 has already been merged, so no merge action remains for it. The original issue #116 is still open and labeled `codex-bridge-review`; the bridge behaviour itself still needs separate human acceptance.

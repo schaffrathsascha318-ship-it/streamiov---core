@@ -1,5 +1,7 @@
 import re
+import sqlite3
 import tempfile
+from contextlib import closing, contextmanager
 import json
 import threading
 import unittest
@@ -8,7 +10,10 @@ from urllib.request import Request, urlopen
 from pathlib import Path
 from unittest.mock import patch
 
-from host.server import DEFAULT_SITE_ROOT, Handler, StreamioVHTTPServer, resolve_public_file, validate_tls_settings
+from host.server import (
+    DEFAULT_SITE_ROOT, Handler, StreamioVHTTPServer,
+    resolve_public_file, run_local_ai_task, validate_tls_settings,
+)
 from host.data_store import DEFAULT_RAW_DATA_ROOT
 
 
@@ -69,7 +74,7 @@ class HostStaticPathTests(unittest.TestCase):
                     f"promo link does not resolve: {target}",
                 )
         self.assertIn("Ctrl+Shift+P", markup)
-        self.assertIn("stoppt weder den Encoder noch eine laufende Aufnahme", markup)
+        self.assertIn("Stopp des lokalen Encoders", markup)
 
     def test_public_site_serves_no_backup_or_secret_files(self):
         patterns = (".bak", ".save", ".before-", ".orig", ".old", ".tmp", ".log")
@@ -285,7 +290,39 @@ class HostStaticPathTests(unittest.TestCase):
                 with self.assertRaises(HTTPError) as error:
                     urlopen(ai_task, timeout=2)
                 self.assertEqual(error.exception.code, 503)
-                self.assertEqual(json.loads(error.exception.read())["error"], "ai_execution_not_ready")
+                failed_task = json.loads(error.exception.read())
+                self.assertEqual(failed_task["error"], "ai_execution_not_ready")
+                self.assertEqual(failed_task["task"]["status"], "failed")
+                self.assertTrue(failed_task["task"]["error"])
+
+                with patch("host.server.run_local_ai_task", return_value={
+                    "ok": True, "answer": "Antwort", "provider": "ollama",
+                    "model": "qwen2.5-coder:7b", "execution": "read_only_local_inference",
+                }):
+                    with urlopen(ai_task, timeout=2) as response:
+                        ai_result = json.loads(response.read())
+                self.assertEqual(response.status, 200)
+                self.assertEqual(ai_result["answer"], "Antwort")
+                self.assertEqual(ai_result["execution"], "read_only_local_inference")
+                task_id = ai_result["task_id"]
+                self.assertEqual(ai_result["task"]["status"], "completed")
+                self.assertEqual(ai_result["task"]["answer"], "Antwort")
+                task_request = Request(base + "/api/v1/ai/tasks/" + task_id, headers={
+                    "Cookie": session_cookie, "X-Streamiov-Client": "studio",
+                })
+                with urlopen(task_request, timeout=2) as response:
+                    stored_task = json.loads(response.read())
+                self.assertEqual(stored_task["task"]["id"], task_id)
+                self.assertEqual(stored_task["task"]["request"], "Testauftrag")
+                listing_request = Request(base + "/api/v1/ai/tasks", headers={
+                    "Cookie": session_cookie, "X-Streamiov-Client": "studio",
+                })
+                with urlopen(listing_request, timeout=2) as response:
+                    listing = json.loads(response.read())
+                self.assertIn(task_id, [task["id"] for task in listing["tasks"]])
+                with self.assertRaises(HTTPError) as error:
+                    urlopen(Request(base + "/api/v1/ai/tasks", method="GET"), timeout=2)
+                self.assertEqual(error.exception.code, 401)
 
                 logout = Request(base + "/api/v1/auth/logout", data=b"", method="POST", headers={
                     "Origin": origin, "X-Forwarded-Proto": "https", "Cookie": session_cookie,
@@ -342,6 +379,9 @@ class HostCatalogApiTests(unittest.TestCase):
         self.assertEqual(status["data_store"]["counts"]["games"], 2)
         self.assertFalse(status["data_store"]["legacy_databases_read"])
         self.assertFalse(status["ai_execution_ready"])
+        self.assertTrue(status["ai_task_endpoint_ready"])
+        self.assertTrue(status["event_ledger_ready"])
+        self.assertEqual(status["event_schema_version"], 1)
         self.assertFalse(status["platform_integrations_ready"])
 
     def test_gift_catalog_is_seeded_from_repository_json(self):
@@ -381,6 +421,146 @@ class HostCatalogApiTests(unittest.TestCase):
         with self.assertRaises(HTTPError) as error:
             urlopen(self.base + "/api/v1/catalog/unknown", timeout=2)
         self.assertEqual(error.exception.code, 404)
+
+
+class LocalAiAssistantTests(unittest.TestCase):
+    def test_read_only_inference_returns_only_the_model_answer(self):
+        from ai.providers.base import ModelReply
+
+        class Provider:
+            def check_ready(self):
+                return {"ready": True, "detail": "ready"}
+
+            def generate(self, *, system, messages):
+                self.system = system
+                self.messages = messages
+                return ModelReply('{"answer":"Nur eine Antwort."}', "ollama", "local-model")
+
+        provider = Provider()
+        with patch("host.server.local_ai_provider", return_value=provider):
+            result = run_local_ai_task("Erkläre den Status.")
+        self.assertEqual(result["answer"], "Nur eine Antwort.")
+        self.assertEqual(result["execution"], "read_only_local_inference")
+        self.assertIn("no tools", provider.system)
+        self.assertEqual(provider.messages, [{"role": "user", "content": "Erkläre den Status."}])
+
+    def test_unready_local_model_is_rejected(self):
+        from ai.providers.local_http import ProviderError
+
+        class Provider:
+            def check_ready(self):
+                return {"ready": False, "detail": "model missing"}
+
+        with patch("host.server.local_ai_provider", return_value=Provider()):
+            with self.assertRaisesRegex(ProviderError, "model missing"):
+                run_local_ai_task("Testauftrag")
+
+
+class HostIntegrityTests(unittest.TestCase):
+    @staticmethod
+    @contextmanager
+    def running_server(root: Path):
+        server = StreamioVHTTPServer(
+            ("127.0.0.1", 0), Handler, root, root / "state", trust_loopback_proxy=True
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            yield server, f"http://127.0.0.1:{server.server_port}"
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    @staticmethod
+    def prepare_root(root: Path) -> None:
+        (root / "index.html").write_text("StreamioV local homepage", encoding="utf-8")
+
+    def test_healthz_and_status_report_real_store_integrity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.prepare_root(root)
+            with self.running_server(root) as (_, base):
+                with urlopen(base + "/healthz", timeout=5) as response:
+                    health = json.loads(response.read())
+                self.assertEqual(response.status, 200)
+                self.assertEqual(health["status"], "ok")
+                self.assertEqual(set(health["stores"]), {"accounts", "forum", "catalog", "ai_tasks", "events", "music_state", "wishbox"})
+                for store in health["stores"].values():
+                    self.assertTrue(store["ok"])
+                with urlopen(base + "/api/v1/status", timeout=5) as response:
+                    status = json.loads(response.read())
+                self.assertTrue(status["auth_ready"])
+                self.assertTrue(status["account_api_ready"])
+                self.assertTrue(status["forum_ready"])
+                self.assertTrue(status["catalog_ready"])
+                self.assertTrue(status["ai_tasks_ready"])
+                self.assertTrue(status["event_ledger_ready"])
+                self.assertEqual(status["stores"], health["stores"])
+
+    def test_corrupt_account_database_degrades_health_and_status(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.prepare_root(root)
+            with self.running_server(root) as (_, base):
+                database = root / "state" / "accounts.sqlite3"
+                database.write_bytes(b"this is not a sqlite database")
+                for suffix in ("-wal", "-shm"):
+                    (root / "state" / f"accounts.sqlite3{suffix}").unlink(missing_ok=True)
+                with self.assertRaises(HTTPError) as error:
+                    urlopen(base + "/healthz", timeout=5)
+                self.assertEqual(error.exception.code, 503)
+                health = json.loads(error.exception.read())
+                self.assertEqual(health["status"], "degraded")
+                self.assertEqual(set(health["stores"]), {"accounts", "forum", "catalog", "ai_tasks", "events", "music_state", "wishbox"})
+                self.assertFalse(health["stores"]["accounts"]["ok"])
+                self.assertIn(
+                    health["stores"]["accounts"]["error"],
+                    ("database_corrupt", "database_unavailable"),
+                )
+                with urlopen(base + "/api/v1/status", timeout=5) as response:
+                    status = json.loads(response.read())
+                self.assertFalse(status["auth_ready"])
+                self.assertFalse(status["account_api_ready"])
+                self.assertFalse(status["stores"]["accounts"]["ok"])
+
+    def test_legacy_forum_schema_is_migrated_before_indexes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.prepare_root(root)
+            state = root / "state"
+            state.mkdir()
+            database = state / "forum.sqlite3"
+            with closing(sqlite3.connect(database)) as db, db:
+                db.executescript("""
+                    CREATE TABLE threads (
+                        thread_id TEXT PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        body TEXT NOT NULL,
+                        author_user_id TEXT NOT NULL,
+                        author_name TEXT NOT NULL,
+                        created_at INTEGER NOT NULL
+                    );
+                    CREATE TABLE replies (
+                        reply_id TEXT PRIMARY KEY,
+                        thread_id TEXT NOT NULL REFERENCES threads(thread_id) ON DELETE CASCADE,
+                        body TEXT NOT NULL,
+                        author_user_id TEXT NOT NULL,
+                        author_name TEXT NOT NULL,
+                        created_at INTEGER NOT NULL
+                    );
+                """)
+            with self.running_server(root) as (_, base):
+                with urlopen(base + "/healthz", timeout=5) as response:
+                    health = json.loads(response.read())
+                self.assertEqual(health["status"], "ok")
+                self.assertTrue(health["stores"]["forum"]["ok"])
+                with closing(sqlite3.connect(database)) as db:
+                    thread_columns = {row[1] for row in db.execute("PRAGMA table_info(threads)")}
+                    reply_columns = {row[1] for row in db.execute("PRAGMA table_info(replies)")}
+                self.assertIn("locked", thread_columns)
+                self.assertIn("deleted", thread_columns)
+                self.assertIn("deleted", reply_columns)
 
 
 if __name__ == "__main__":

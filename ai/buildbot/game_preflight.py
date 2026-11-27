@@ -28,6 +28,12 @@ class _ResourceParser(HTMLParser):
             self.resources.append(("frame", values["src"] or ""))
         elif tag == "object" and values.get("data"):
             self.resources.append(("object", values["data"] or ""))
+        elif tag == "link" and values.get("href"):
+            rel = (values.get("rel") or "").lower().split()
+            if "stylesheet" in rel:
+                self.resources.append(("stylesheet", values["href"] or ""))
+        elif tag in {"img", "embed"} and values.get("src"):
+            self.resources.append((tag, values["src"] or ""))
 
 
 def _safe_local_file(root: Path, raw: str) -> Path | None:

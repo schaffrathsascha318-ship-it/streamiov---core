@@ -27,6 +27,8 @@ Die Host-README beschreibt ausdrücklich, dass:
 - Passwort-Wiederherstellung, E-Mail-Verifikation, Kontolöschung und OAuth-Callback fehlen,
 - der Host vor öffentlicher Kontonutzung zusätzliche Sicherheits-, Datenschutz- und Betriebsabnahmen benötigt.
 
+**Aktualisierung 2026-11-26:** Der AI-Endpunkt ist kein reiner Platzhalter mehr. Er führt weiterhin nur lesende lokale Inferenz aus und bleibt ohne lokales Modell fail-closed, speichert aber dauerhaft eigenerbezogene Aufträge und bietet authentifizierte Listen-/Detailabfragen. Der Host hat echte lokale OAuth-Callback-, Token-Exchange-, Refresh- und Disconnect-Routen mit dauerhaftem, HMAC-gehashtem Rate-Limit; das ist keine Plattformfreigabe. Das Forum hat eine dokumentierte lokale Aufbewahrungsrichtlinie mit Dry-Run- und Anwendungs-CLI. Passwort-Wiederherstellung und E-Mail-Verifikation bleiben offen.
+
 ### Cloudflare-Core-Quelle ist im geprüften Repository nicht auffindbar
 Das Verzeichnis `infrastructure/cloudflare/` enthält auf `main` nur `streamiov-ai-worker/`. Die Homepage-Worker-Konfiguration liegt getrennt unter `dist/streamiov-homepage-worker/` und ist Assets-only. Eine versionierte Core-API-Worker-Implementierung samt Wrangler-Konfiguration ist in diesen geprüften Pfaden nicht vorhanden. Ein separat im Cloudflare-Konto existierender Worker wird damit nicht ausgeschlossen; dessen Quellcode, Bindings und Deployment müssen separat abgeglichen werden.
 
@@ -48,7 +50,7 @@ Diese Schutzmaßnahmen dürfen nicht entfernt werden, nur um Funktionen schnelle
 
 1. **Core-API-Abgleich:** den bereits im Cloudflare-Konto vorhandenen `streamiov-core-api` mit versioniertem Quellcode, Bindings, D1-Schema und Deployment-Historie abgleichen. Keine Secrets auslesen oder anzeigen.
 2. **Ein gemeinsamer Core-Vertrag:** Authentifizierung, Rollen/Berechtigungen, API-Versionen, Fehlerformat und Dienststatus vereinheitlichen.
-3. **Persistente Aufträge:** den AI-Platzhalter durch eine echte, dauerhaft gespeicherte und wiederaufnehmbare Auftragsverarbeitung ersetzen; vorher Queue, Idempotenz und isolierte Runner festlegen.
+3. **Persistente Aufträge:** teilweise erledigt; Aufträge werden dauerhaft und eigenerbezogen gespeichert, aber ohne Werkzeuge und ohne echten lokalen Modellnachweis. Offen bleibt eine wiederaufnehmbare Ausführung mit Queue, Idempotenz und isolierten Runner-Installationen.
 4. **Self-hosted Core-Adapter:** den bestehenden Python-Host nicht verwerfen, sondern als portierbaren lokalen/self-hosted Adapter weiterentwickeln und gegen denselben API-Vertrag testen.
 5. **Unabhängiger Runner:** GitHub Actions als optionalen CI-Adapter behalten, aber eine eigene Runner-Installation auf einem unabhängigen Server ermöglichen.
 6. **Datenportabilität:** Backup/Restore und Host-Migration mit Testdaten nachweisen, bevor Nutzerkonten oder Community-Daten öffentlich erweitert werden.

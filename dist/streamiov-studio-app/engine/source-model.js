@@ -18,13 +18,13 @@ function cleanSettings(type, raw) {
   if (raw === undefined) return undefined;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const allowed = {
-    camera: ['deviceId', 'width', 'height', 'fps'],
-    audio: ['deviceId'],
+    camera: ['deviceId', 'width', 'height', 'fps', 'audioEnabled'],
+    audio: ['deviceId', 'assetId', 'loop', 'volume', 'muted'],
     capture: ['sourceId', 'displayId', 'width', 'height', 'fps'],
     screen: ['sourceId', 'displayId', 'width', 'height', 'fps'],
     window: ['sourceId', 'displayId', 'width', 'height', 'fps'],
     image: ['assetId', 'loop'],
-    video: ['assetId', 'loop'],
+    video: ['assetId', 'loop', 'volume', 'muted'],
     text: ['text', 'fontSize', 'color'],
     color: ['color']
   }[type] || [];
@@ -49,9 +49,13 @@ function cleanSettings(type, raw) {
     } else if (key === 'assetId') {
       if (!validId(value)) return null;
       settings[key] = value;
-    } else if (key === 'loop') {
+    } else if (key === 'loop' || key === 'muted' || key === 'audioEnabled') {
       if (typeof value !== 'boolean') return null;
       settings[key] = value;
+    } else if (key === 'volume') {
+      const volume = Number(value);
+      if (!Number.isFinite(volume) || volume < 0 || volume > 1) return null;
+      settings[key] = volume;
     } else if (key === 'text') {
       if (typeof value !== 'string' || value.length > 500 ||
           /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value)) return null;

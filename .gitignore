@@ -72,6 +72,7 @@ dist/streamiov-studio-app/**/diagnose-*.cjs
 **/release-signing.key
 
 # Runtime state, private request data and historical deployment logs
+/.streamiov/
 /.testdir/
 /logs/
 /storage/

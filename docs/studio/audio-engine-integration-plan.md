@@ -4,25 +4,25 @@ Status: architecture/inventory note; no runtime capability is claimed by this do
 
 ## Verified repository baseline
 
-This plan is based on the currently open Draft PRs and Issues listed below. Their code is **not merged into `main`** unless separately stated. Treat each branch as proposed work and reconcile dependencies before combining changes.
+This plan is based on the PRs and Issues listed below. Their code is **not merged into `main`** unless separately stated. Current GitHub state was checked on 2026-11-26: PR #89 is open, draft, and mergeable; PRs #113, #87, #82, and #81 are open and conflicting. Treat each branch as proposed work and reconcile dependencies before combining changes.
 
 | Work | What the reviewed change currently provides | What it does not prove |
 |---|---|---|
-| PR #113 – independent output contract | Four persisted logical outputs (stream, monitor, headphones, communications), per-output volume/mute/device ID, source route matrix, Electron IPC and UI | No physical output binding, native mixer, real four-output isolation, or encoder feed |
-| PR #89 – source channel controls | Web Audio mixer with stream/monitor MediaStreamDestination buses; real microphone capture, local music/alert files, generated TTS WAV, optional desktop loopback; monitor can use `setSinkId` | No independent physical headphones/communications outputs; no native device lifecycle; no encoder integration or hardware acceptance |
-| PR #87 – microphone mixer | Earlier mixer/source implementation; overlaps the mixer files in PR #89 | Do not merge both implementations independently without reconciling their shared files |
-| PR #82 – compositor/mixer smoke test | GStreamer compositor + audiomixer graph with synthetic test sources; CI can generate WebM test output | Does not connect live capture sources, the Studio mixer, a production encoder, or TikTok LIVE |
-| PR #81 – runtime lifecycle | Lifecycle contract; LIVE depends on a positive output-adapter confirmation | Does not implement capture, mixing, encoding, or transport itself |
+| PR #113 – independent output contract (open draft, conflicting) | Four persisted logical outputs (stream, monitor, headphones, communications), per-output volume/mute/device ID, source route matrix, Electron IPC and UI | No physical output binding, native mixer, real four-output isolation, or encoder feed |
+| PR #89 – source channel controls (open draft, mergeable) | Web Audio mixer with stream/monitor MediaStreamDestination buses; real microphone capture, local music/alert files, generated TTS WAV, optional desktop loopback; monitor can use `setSinkId` | No independent physical headphones/communications outputs; no native device lifecycle; no encoder integration or hardware acceptance |
+| PR #87 – microphone mixer (open, conflicting) | Earlier mixer/source implementation; overlaps the mixer files in PR #89 | Do not merge both implementations independently without reconciling their shared files |
+| PR #82 – compositor/mixer smoke test (open draft, conflicting) | GStreamer compositor + audiomixer graph with synthetic test sources; CI can generate WebM test output | Does not connect live capture sources, the Studio mixer, a production encoder, or TikTok LIVE |
+| PR #81 – runtime lifecycle (open draft, conflicting) | Lifecycle contract; LIVE depends on a positive output-adapter confirmation | Does not implement capture, mixing, encoding, or transport itself |
 | Issue #40 – media pipeline | Defines real capture, compositor, mixer, encoder, RTMP/RTMPS and A/V sync acceptance | Still open; synthetic pipeline is not a production stream |
 | Issue #114 – native audio and STREAMIOV Voice | Defines device handling, buses, processing, voice rooms, security and hardware acceptance | Still open; no verified two-client voice room or hardware acceptance |
 
 ## Integration decision
 
-1. Keep PR #113 as the persisted user-preference contract. Its `configuration_only` and `not_connected` states must remain truthful until a real adapter confirms device opening and active audio flow.
+1. Keep PR #113 as the persisted user-preference contract after its conflicts are resolved. Its `configuration_only` and `not_connected` states must remain truthful until a real adapter confirms device opening and active audio flow.
 2. Reuse the Web Audio channel graph from PR #89 as a local capture/mixing prototype where appropriate. Do not mistake its current `stream` and `monitor` buses for the four independent physical outputs in #113.
 3. Reconcile PR #87 and #89 before merging either: both change `engine/audio-mixer.js`, `main.js`, `preload.js`, and the Regie UI. Select one canonical implementation and preserve tests from both where still relevant.
-4. Keep GStreamer smoke tests from PR #82 as deterministic CI coverage. Add a separate adapter that consumes the actual Stream bus; do not replace synthetic tests with hardware-dependent CI.
-5. Keep #81 as the lifecycle/status authority. Only report `DEVICE_CONNECTED` after opening the selected device, `ROUTING_ACTIVE` after frames are flowing through the intended bus, and `VERIFIED` only after independent loopback/measurement and required integration checks.
+4. Keep GStreamer smoke tests from PR #82 as deterministic CI coverage after rebasing it; its current open branch has conflicts. Add a separate adapter that consumes the actual Stream bus; do not replace synthetic tests with hardware-dependent CI.
+5. Keep #81 as the lifecycle/status authority after rebasing it; its current open branch has conflicts. Only report `DEVICE_CONNECTED` after opening the selected device, `ROUTING_ACTIVE` after frames are flowing through the intended bus, and `VERIFIED` only after independent loopback/measurement and required integration checks.
 
 ## Required engine shape
 
@@ -71,10 +71,10 @@ This plan is based on the currently open Draft PRs and Issues listed below. Thei
 
 ## References
 
-- [PR #113 – output configuration contract](../../pull/113)
-- [PR #89 – source channel controls](../../pull/89)
-- [PR #87 – microphone mixer prototype](../../pull/87)
-- [PR #82 – compositor/mixer smoke test](../../pull/82)
-- [PR #81 – media runtime lifecycle](../../pull/81)
+- [PR #113 – output configuration contract (open draft, conflicting)](../../pull/113)
+- [PR #89 – source channel controls (open draft, mergeable)](../../pull/89)
+- [PR #87 – microphone mixer prototype (open, conflicting)](../../pull/87)
+- [PR #82 – compositor/mixer smoke test (open draft, conflicting)](../../pull/82)
+- [PR #81 – media runtime lifecycle (open draft, conflicting)](../../pull/81)
 - [Issue #40 – real media pipeline](../../issues/40)
 - [Issue #114 – native audio and STREAMIOV Voice](../../issues/114)
