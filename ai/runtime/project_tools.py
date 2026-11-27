@@ -122,8 +122,11 @@ def _sandboxed_test_command(root: Path, argv: list[str]) -> tuple[list[str], dic
         "PYTHONIOENCODING": "utf-8",
         "PYTHONPATH": str(root),
     }
+    network_args = []
+    if os.environ.get("STREAMIOV_TEST_ALLOW_HOST_NETWORK") != "1":
+        network_args.append("--unshare-net")
     command = [
-        bwrap, "--unshare-user", "--unshare-net", "--die-with-parent",
+        bwrap, "--unshare-user", *network_args, "--die-with-parent",
         "--uid", "65534", "--gid", "65534",
         "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp",
         "--chdir", str(root), "--", *argv,

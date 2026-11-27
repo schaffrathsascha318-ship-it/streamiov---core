@@ -51,7 +51,10 @@ class ChiefTestAllowlistTests(unittest.TestCase):
                     argv = run.call_args.args[0]
                     self.assertEqual(argv[0], "/usr/bin/bwrap")
                     self.assertIn("--ro-bind", argv)
-                    self.assertIn("--unshare-net", argv)
+                    self.assertEqual(
+                        "--unshare-net" in argv,
+                        os.environ.get("STREAMIOV_TEST_ALLOW_HOST_NETWORK") != "1",
+                    )
                     fixed = argv[argv.index("--") + 1]
                     self.assertEqual(fixed, "/usr/bin/node" if command.startswith("node ") else sys.executable)
         self.assertEqual(run.call_count, len(ALLOWED_COMMANDS))
