@@ -52,7 +52,7 @@ async function startCore(extraEnv = {}) {
   const base = `http://127.0.0.1:${port}`;
   for (let attempt = 0; attempt < 50; attempt += 1) {
     try {
-      const response = await fetch(`${base}/api/v1/status`, { signal: AbortSignal.timeout(500) });
+      const response = await fetch(`${base}/api/v1/status`, { signal: AbortSignal.timeout(5000) });
       if (response.ok) return { base, stop };
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 100));
