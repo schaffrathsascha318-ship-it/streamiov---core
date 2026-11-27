@@ -62,7 +62,7 @@ async function startCore(extraEnv = {}) {
 }
 
 test('Studio-Status und Rechte-Gate sprechen mit dem echten lokalen Core',
-  { timeout: 30000, skip: PYTHON ? false : 'python3 is required for the Core integration' }, async (t) => {
+  { timeout: 120000, skip: PYTHON ? false : 'python3 is required for the Core integration' }, async (t) => {
     const core = await startCore();
     const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streamiov-integration-core-'));
     t.after(async () => {
@@ -295,7 +295,7 @@ test('Studio-Event-IPC baut vertrauenswürdige v1-Ereignisse und redigiert Gehei
 });
 
 test('Wunschbox-Lebenszyklus läuft im echten Studio gegen den lokalen Core',
-  { timeout: 30000, skip: PYTHON ? false : 'python3 is required for the Core integration' }, async (t) => {
+  { timeout: 120000, skip: PYTHON ? false : 'python3 is required for the Core integration' }, async (t) => {
     const username = 'WishOwner';
     const password = 'a-long-local-password';
     const core = await startCore({

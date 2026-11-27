@@ -479,6 +479,7 @@ a dated record.
 - **Changed:** `docs/ACCEPTANCE_GAPS.md` führt zentral alle offenen internen und externen Abnahmepunkte inklusive Status, Nachweis und nächster Mission.
 - **Changed:** `ai/runtime/project_tools.py` nutzt weiterhin Bubblewrap als sicheren Default; GitHub-Runner ohne User-Namespace verwenden ausschließlich in den vertrauenswürdigen CI-Jobs `STREAMIOV_TEST_ALLOW_HOST_NETWORK=1` mit reduzierte Umgebung und festen Allowlist-Kommandos.
 - **Verified locally:** die vollständige Python-Suite lief mit 742 Tests und 0 Fehlern durch; `node --test tests/*.mjs` bestand 32/32; `npm --prefix dist/streamiov-studio-app run test:engine` bestand 146/146; `compileall`, `bash -n`, Cloudflare-Konfigurationsverifikation und `git diff --check` waren sauber.
+- **Fixed:** die Engine-Tests prüfen POSIX-Dateimodi nicht auf Windows und erlauben den beiden echten Core-Integrationstests auf Windows-Runnern 120 Sekunden statt 30 Sekunden; die 146 Engine-Tests blieben lokal vollständig grün.
 - **Still open:** echte Plattformzugänge, Rechte, Geräte, signierte Installer, Live-Deployments, echte Downloads und Produktionsupdates bleiben extern und dürfen nicht simuliert werden. `docs/ACCEPTANCE_GAPS.md` ist die maßgebliche Restliste; die nächste interne Mission ist M19 für Forum-Retention-Automatisierung, E-Mail-Benachrichtigungen und verteilten Rate Limiter.
 
 ## Publication rule

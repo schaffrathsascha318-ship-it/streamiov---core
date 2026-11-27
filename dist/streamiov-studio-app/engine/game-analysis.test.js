@@ -58,7 +58,9 @@ test('analysis state is persisted with private permissions and rejects unknown o
   analysis.observe({ id: 'puzzle', kind: 'combo', detail: 'Vier Züge' });
   const restored = new GameAnalysis({ filePath: path.join(directory, 'analysis.json'), now: () => 2000 });
   assert.equal(restored.snapshot().games[0].stats.combos, 1);
-  assert.equal(fs.statSync(path.join(directory, 'analysis.json')).mode & 0o777, 0o600);
+  if (process.platform !== 'win32') {
+    assert.equal(fs.statSync(path.join(directory, 'analysis.json')).mode & 0o777, 0o600);
+  }
   assert.throws(() => restored.observe({ id: 'puzzle', kind: 'launch' }), /Unbekannte Gameplay-Beobachtung/);
   fs.rmSync(directory, { recursive: true, force: true });
 });
