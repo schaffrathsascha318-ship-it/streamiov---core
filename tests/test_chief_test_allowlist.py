@@ -41,7 +41,10 @@ class ChiefTestAllowlistTests(unittest.TestCase):
 
     def test_run_tests_uses_the_fixed_argv_for_each_documented_command(self):
         completed = subprocess.CompletedProcess(["fixed"], 0, "OK", "")
-        which = lambda name: "/usr/bin/bwrap" if name == "bwrap" else "/usr/bin/node"
+        which = lambda name: {
+            "bwrap": "/usr/bin/bwrap",
+            "sudo": "/usr/bin/sudo",
+        }.get(name, "/usr/bin/node")
         with patch("ai.runtime.project_tools.shutil.which", side_effect=which), \
              patch("ai.runtime.project_tools.subprocess.run", return_value=completed) as run:
             for command in sorted(ALLOWED_COMMANDS):
@@ -49,14 +52,15 @@ class ChiefTestAllowlistTests(unittest.TestCase):
                     output = self.tools.run_tests(command)
                     self.assertTrue(output.startswith("exit_code=0"))
                     argv = run.call_args.args[0]
-                    self.assertEqual(argv[0], "/usr/bin/bwrap")
-                    self.assertIn("--ro-bind", argv)
-                    self.assertEqual(
-                        "--unshare-net" in argv,
-                        os.environ.get("STREAMIOV_TEST_ALLOW_HOST_NETWORK") != "1",
-                    )
-                    fixed = argv[argv.index("--") + 1]
-                    self.assertEqual(fixed, "/usr/bin/node" if command.startswith("node ") else sys.executable)
+                    expected = "/usr/bin/node" if command.startswith("node ") else sys.executable
+                    if os.environ.get("STREAMIOV_TEST_ALLOW_HOST_NETWORK") == "1":
+                        self.assertEqual(argv[0], expected)
+                        self.assertNotIn("--ro-bind", argv)
+                    else:
+                        self.assertEqual(argv[0], "/usr/bin/bwrap")
+                        self.assertIn("--ro-bind", argv)
+                        self.assertIn("--unshare-net", argv)
+                        self.assertEqual(argv[argv.index("--") + 1], expected)
         self.assertEqual(run.call_count, len(ALLOWED_COMMANDS))
 
     def test_shell_altered_and_unhashable_commands_are_rejected(self):
