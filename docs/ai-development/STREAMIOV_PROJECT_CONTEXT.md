@@ -28,6 +28,14 @@ Status: Current agreed product and engineering constraints
 - Linux, ChromeOS/Chromebook, and mobile usage must remain architectural targets. Do not assume an APK is the only or already-approved mobile delivery route.
 - The intended creator flow is install/download, sign in, connect TikTok, and go live. Do not expose RTMP/server configuration to creators as a normal setup requirement.
 
+## Cloudflare architecture and inventory
+
+- The canonical Cloudflare resource inventory and access-status record is [docs/architecture/cloudflare/RESOURCE_INVENTORY.md](../architecture/cloudflare/RESOURCE_INVENTORY.md).
+- The inventory is evidence-driven: resources blocked by API permissions must be marked inaccessible, never assumed absent.
+- Discovery is read-only. Secret values must never be read or published; record binding names and presence only.
+- Keep Pages as the public homepage/download hub; keep Core/API and AI server-side; keep device/camera/microphone work in the local Studio; TikTok LIVE is the only initial external live-platform adapter.
+- Production changes require a separate reviewed plan, backups/restore evidence, test gates, and rollback steps. No destructive migration, production cutover/deployment, DNS change, credential rotation, billing change, or TikTok OAuth/security change is included in inventory work.
+
 ## Agent collaboration protocol
 
 - ChatGPT coordinates requirements, breaks work into bounded tasks, reviews diffs and test evidence, and makes acceptance recommendations.
@@ -52,3 +60,8 @@ Status: Current agreed product and engineering constraints
 - Do not claim native TikTok gift injection, guaranteed payout behavior, or a 100% creator payout as implemented or platform-approved without current authoritative integration and payment evidence.
 - Do not describe planned, mocked, sandbox-only, or unverified functionality as production-ready.
 - A passing unit-test suite is evidence for those tests only; it is not proof of end-to-end production readiness.
+
+
+## Cloudflare resource inventory (2026-11-23)
+
+The current evidence-labelled resource register is maintained at [docs/architecture/cloudflare/resource-inventory-2026-11-23.md](../architecture/cloudflare/resource-inventory-2026-11-23.md). It separates owner-reported resource names, repository evidence and inventory items blocked by missing Cloudflare read scopes. Unknown resources are not treated as absent. R2 remains excluded.
