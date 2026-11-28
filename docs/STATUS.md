@@ -560,6 +560,12 @@ a dated record.
 - **Verified locally:** die vollständige Python-Suite lief mit `793` Tests und `0` Fehlern durch (`ResourceWarning` als Fehler), `npm run test:engine` bestand `163/163`, der Offline-Cloudflare-Verifier meldete `16/16` Prüfungen und `errors: []`, `verify-release` meldete `16/16` Prüfungen mit gültigem Fingerprint und gültigen Signaturen; `compileall` und `git diff --check` waren sauber.
 - **Fixed:** der CI-Job `FFmpeg corresponding source bundle` installiert jetzt `subversion`, weil der FFmpeg-Quell-Pin `lame@7153` über SVN geholt wird und dem Ubuntu-Runner sonst `svn` fehlte; der Publish-Job blieb dadurch korrekt blockiert statt ein unvollständiges Quellpaket zu veröffentlichen.
 
+## Studio 1.0.4 veröffentlicht (2026-11-28)
+
+- **Observed:** der Push des gemergten PRs `#257` auf `main` startete den Workflow `46109500256`; alle Build-, Test-, Quellpaket- und Publish-Schritte waren erfolgreich. `studio-v1.0.4` ist als nicht-draft, nicht-prerelease Release mit `publishedAt=2026-11-28T05:09:38Z` veröffentlicht.
+- **Published assets:** Windows-x64/ARM64-NSIS, Linux-x64/ARM64-AppImage und DEB, ChromeOS-DEBs, `SHA256SUMS.txt`, `FFMPEG-SOURCE-SHA256SUMS.txt`, `ffmpeg-source-bundle.tar.xz`, `studio-update.json` und `studio-update.json.sig` sind alle `uploaded`.
+- **Verified:** das veröffentlichte `studio-update.json` wurde heruntergeladen und mit `node scripts/release-signing.mjs verify ... --pub dist/streamiov-homepage-worker/public/downloads/STREAMIOV-RELEASE-KEY.pub` gegen den verankerten Key geprüft; Version `1.0.4`, vier Update-Assets und eine gültige Ed25519-Signatur wurden beobachtet. Ein Live-Deployment oder ein Download-/Installationslauf auf echten Zielgeräten wurde nicht durchgeführt.
+
 ## Publication rule
 
 Do not describe a platform as connected, a broadcast as live, or a feature as verified unless the real integration has been exercised. Do not claim TikTok approval, payout values, or device support without evidence.
