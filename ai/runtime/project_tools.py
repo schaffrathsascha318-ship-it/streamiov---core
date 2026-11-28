@@ -1,5 +1,6 @@
 """Constrained project tools: safe file access and fixed test commands only."""
 from __future__ import annotations
+import atexit
 import os
 import ctypes
 import hashlib
@@ -60,6 +61,9 @@ PROTECTED_WRITE_NAMES = {
 }
 TEST_COMMANDS = {
     "python -m unittest discover -s tests": [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
+    "python -W error::ResourceWarning -m unittest discover -s tests": [
+        sys.executable, "-W", "error::ResourceWarning", "-m", "unittest", "discover", "-s", "tests",
+    ],
     "python scripts/verify-cloudflare-config.py": [sys.executable, "scripts/verify-cloudflare-config.py"],
 }
 NODE_TEST_COMMANDS = {
@@ -67,6 +71,9 @@ NODE_TEST_COMMANDS = {
     "node scripts/release-signing.mjs verify-release": ["scripts/release-signing.mjs", "verify-release"],
 }
 MAX_FILE_BYTES = 200_000
+SANDBOX_SCRATCH_ENV = "STREAMIOV_SANDBOX_SCRATCH"
+_sandbox_scratch_lock = threading.Lock()
+_sandbox_scratch_dirs: dict[str, str] = {}
 MAX_LIST_ENTRIES = 100
 
 # Thread locks protect instances in one process; OS file locks extend the
@@ -75,6 +82,26 @@ MAX_LIST_ENTRIES = 100
 _PATH_LOCKS_GUARD = threading.Lock()
 _PATH_LOCKS: dict[str, threading.RLock] = {}
 _LOCK_TIMEOUT_SECONDS = 300
+
+
+def _sandbox_scratch_dir() -> str:
+    inherited = os.environ.get(SANDBOX_SCRATCH_ENV) or os.environ.get("TMPDIR", "")
+    if inherited and Path(inherited).is_dir() and Path(inherited).name.startswith("streamiov-sandbox-"):
+        return inherited
+    with _sandbox_scratch_lock:
+        key = str(os.getpid())
+        scratch = _sandbox_scratch_dirs.get(key)
+        if scratch is None:
+            scratch = tempfile.mkdtemp(prefix="streamiov-sandbox-")
+            os.chmod(scratch, 0o777)
+            _sandbox_scratch_dirs[key] = scratch
+            atexit.register(shutil.rmtree, scratch, True)
+        return scratch
+
+
+_sandbox_scratch = _sandbox_scratch_dir()
+os.environ.setdefault("TMPDIR", _sandbox_scratch)
+tempfile.tempdir = _sandbox_scratch
 
 try:
     import fcntl as _fcntl
@@ -115,10 +142,12 @@ def _sandboxed_test_command(root: Path, argv: list[str]) -> tuple[list[str], dic
             "Safe test execution requires bubblewrap with a read-only host bind; "
             "unsandboxed test execution is disabled."
         )
+    scratch = _sandbox_scratch_dir()
     env = {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-        "HOME": "/tmp",
-        "TMPDIR": "/tmp",
+        "HOME": scratch,
+        "TMPDIR": scratch,
+        SANDBOX_SCRATCH_ENV: scratch,
         "PYTHONIOENCODING": "utf-8",
         "PYTHONPATH": str(root),
     }
@@ -127,7 +156,8 @@ def _sandboxed_test_command(root: Path, argv: list[str]) -> tuple[list[str], dic
     command = [
         bwrap, "--unshare-user", "--unshare-net", "--die-with-parent",
         "--uid", "65534", "--gid", "65534",
-        "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp",
+        "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc",
+        "--tmpfs", "/tmp", "--bind", scratch, scratch,
         "--chdir", str(root), "--", *argv,
     ]
     return command, env
@@ -470,15 +500,19 @@ class ProjectTools:
                 "Safe Python execution requires bubblewrap with a read-only host bind; "
                 "unsandboxed execution is disabled."
             )
+        scratch = _sandbox_scratch_dir()
         env = {
             "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
             "HOME": "",
+            "TMPDIR": scratch,
+            SANDBOX_SCRATCH_ENV: scratch,
             "PYTHONIOENCODING": "utf-8",
         }
         sandbox_command = [
             bwrap, "--unshare-user", "--unshare-net", "--die-with-parent",
             "--uid", "65534", "--gid", "65534",
             "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc",
+            "--tmpfs", "/tmp", "--ro-bind", scratch, scratch,
             "--chdir", str(self.root), "--", sys.executable, "-I", str(target),
         ]
         _harden_parent_process()

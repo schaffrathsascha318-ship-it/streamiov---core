@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path
 from urllib.parse import urlsplit
 
-from ai.providers.local_http import ProviderError
-from ai.providers.self_hosted import _endpoint_url
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+
+from ai.providers.local_http import ProviderError  # noqa: E402
+from ai.providers.self_hosted import _endpoint_url  # noqa: E402
 
 
 PINNED_CLOUDFLARE_MODEL = "@cf/zai-org/glm-4.7-flash"
@@ -76,6 +82,23 @@ def _validate_self_hosted(env: dict[str, str]) -> str | None:
     return None
 
 
+def _validate_recovery(env: dict[str, str]) -> str | None:
+    for name in (
+        "STREAMIOV_PROVIDER_RECOVERY_COOLDOWN_SECONDS",
+        "STREAMIOV_PROVIDER_MAX_COOLDOWN_SECONDS",
+    ):
+        raw = env.get(name, "").strip()
+        if not raw:
+            continue
+        try:
+            value = float(raw)
+        except ValueError:
+            return f"{name} must be a positive number of seconds."
+        if not 0 < value <= 24 * 60 * 60:
+            return f"{name} must be between 1 and 86400 seconds."
+    return None
+
+
 def validate_environment(env: dict[str, str]) -> str | None:
     goal = env.get("STREAMIOV_PROJECT_GOAL", "").strip()
     if not goal:
@@ -86,6 +109,9 @@ def validate_environment(env: dict[str, str]) -> str | None:
     kinds = _configured_provider_kinds(env)
     if isinstance(kinds, str):
         return kinds
+    recovery_error = _validate_recovery(env)
+    if recovery_error:
+        return recovery_error
     model = env.get("STREAMIOV_MODEL", "qwen2.5-coder:7b").strip()
     if not model:
         return "STREAMIOV_MODEL must not be empty."

@@ -333,7 +333,15 @@ class AgentTests(unittest.TestCase):
             second = FinishProvider(['{"final":"Resumed and completed."}'])
             resumed = DevelopmentAgent(second, root, checkpoint_db=checkpoint_db)
             self.assertEqual(resumed.run("Create checkpointed file", checkpoint_id="mission-task-1"), "Resumed and completed.")
-            self.assertIn("ACTION 1 (write_file)", second.messages[-1]["content"])
+            self.assertIn("Created ai/checkpointed.py", second.messages[-1]["content"])
+            self.assertIn(
+                '{"tool":"write_file","arguments":{"path":"ai/checkpointed.py","content":"value = 7\\n"}}',
+                [message["content"] for message in second.messages if message["role"] == "assistant"],
+            )
+            self.assertNotIn(
+                "Previously requested tools",
+                [message["content"] for message in second.messages],
+            )
             self.assertEqual(target.read_text(encoding="utf-8"), "value = 7\n")
             class MustNotRunProvider(FakeProvider):
                 def generate(self, **kwargs):

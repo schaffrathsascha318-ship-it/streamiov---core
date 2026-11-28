@@ -21,7 +21,13 @@ from pathlib import Path
 from typing import Callable, Literal, Protocol
 
 from ai.core.orchestrator import SpecialistTask, TaskOrchestrator, TaskPlanError
-from ai.core.verification_evidence import observed_successful_test
+from ai.core.verification_evidence import (
+    VerificationReportError,
+    observed_interrupted_test,
+    observed_successful_test,
+    validate_verification_report,
+)
+from ai.providers.router import LOCAL_PROVIDER_KINDS, provider_for_role
 from ai.runtime.task_workspaces import TaskWorkspaceError, TaskWorkspaceStore
 from ai.specialists.registry import (
     FINAL_VERIFICATION_MARKER,
@@ -42,17 +48,27 @@ class MissionEngineError(RuntimeError):
 
 DAILY_AI_QUOTA_BACKOFF_SECONDS = 6 * 60 * 60
 MAX_DAILY_AI_QUOTA_BACKOFF_SECONDS = 24 * 60 * 60
+LOCAL_RECOVERY_QUOTA_BACKOFF_SECONDS = 45
+MAX_LOCAL_RECOVERY_QUOTA_BACKOFF_SECONDS = 5 * 60
 MAX_FORMAT_PROTOCOL_FAILURES = 3
 MAX_VERIFICATION_NO_TOOL_FAILURES = 3
 WORKER_TIMEOUT_BACKOFF_SECONDS = 60
 MAX_WORKER_TIMEOUT_BACKOFF_SECONDS = 15 * 60
+PROVIDER_UNAVAILABLE_BACKOFF_SECONDS = 2 * 60
+MAX_PROVIDER_UNAVAILABLE_BACKOFF_SECONDS = 15 * 60
 RUNNER_EARLY_RETURN_BACKOFF_SECONDS = 30
+MAX_BLOCKED_TASKS_BEFORE_REPLAN = 3
+STALL_EVENT_INTERVAL_SECONDS = 60
+LOCAL_RECOVERY_MARKER = "LOCAL_RECOVERY_ELIGIBLE"
 
 
 def _is_daily_ai_quota_error(error: str) -> bool:
+    lowered = error.lower()
     return (
-        "daily_ai_limit_reached" in error
-        or ("daily free allocation" in error.lower() and "429" in error)
+        "daily_ai_limit_reached" in lowered
+        or ("daily free allocation" in lowered and "429" in error)
+        or "failure_class=provider_quota_all" in lowered
+        or "provider recovery cooldown" in lowered
     )
 
 
@@ -63,8 +79,44 @@ def _daily_ai_quota_backoff(failures: int) -> float:
     )
 
 
+def _quota_backoff(failures: int, *, local_recovery_ready: bool) -> float:
+    if not local_recovery_ready:
+        return _daily_ai_quota_backoff(failures)
+    return min(
+        LOCAL_RECOVERY_QUOTA_BACKOFF_SECONDS * (2 ** min(max(failures - 1, 0), 2)),
+        MAX_LOCAL_RECOVERY_QUOTA_BACKOFF_SECONDS,
+    )
+
+
+def _local_provider_ready(provider) -> bool:
+    check = getattr(provider, "check_ready", None)
+    if not callable(check):
+        return False
+    try:
+        report = check()
+    except Exception:
+        return False
+    if not isinstance(report, dict):
+        return False
+    providers = report.get("providers", [])
+    if not isinstance(providers, list):
+        return False
+    return any(
+        isinstance(item, dict)
+        and item.get("ready") is True
+        and item.get("provider") in LOCAL_PROVIDER_KINDS
+        for item in providers
+    )
+
+
 def _classify_task_error(error: str) -> str:
     lowered = error.lower()
+    if "[failure_class=provider_capability]" in lowered:
+        return "provider_capability"
+    if "[failure_class=auth]" in lowered or "rejected its bearer token" in lowered:
+        return "provider_auth"
+    if "[failure_class=provider_unavailable]" in lowered:
+        return "provider_unavailable"
     if _is_daily_ai_quota_error(error):
         return "daily_ai_quota"
     if "timeout" in lowered or "timed out" in lowered or "deadline exceeded" in lowered:
@@ -144,6 +196,8 @@ class ContinuousDevelopmentEngine:
         lease_seconds: int = 300,
         max_task_failures: int = 5,
         max_concurrent_workers: int = 4,
+        provider=None,
+        verification_runner: Callable[[Path], str] | None = None,
     ) -> None:
         if not callable(getattr(planner, "plan", None)):
             raise TypeError("planner must provide plan()")
@@ -184,6 +238,9 @@ class ContinuousDevelopmentEngine:
         self.lease_seconds = lease_seconds
         self.max_task_failures = max_task_failures  # legacy compatibility; not a mission stop limit
         self.max_concurrent_workers = max_concurrent_workers
+        self.provider = provider
+        self.verification_runner = verification_runner
+        self._event_last_emitted: dict[str, float] = {}
         self._initialize()
         self.workspaces = TaskWorkspaceStore(path)
 
@@ -213,6 +270,20 @@ class ContinuousDevelopmentEngine:
             raise
         finally:
             db.close()
+
+    def _emit_throttled(
+        self,
+        emit: Callable[[str], None],
+        key: str,
+        payload: dict,
+        *,
+        interval: float = STALL_EVENT_INTERVAL_SECONDS,
+    ) -> None:
+        now = time.time()
+        if now - self._event_last_emitted.get(key, 0.0) < interval:
+            return
+        self._event_last_emitted[key] = now
+        emit(json.dumps(payload, ensure_ascii=False))
 
     def _initialize(self) -> None:
         with self._connection() as db:
@@ -418,8 +489,55 @@ class ContinuousDevelopmentEngine:
             ).fetchone()
         return row[0] if row and row[0] is not None else None
 
+    def _resolve_blocked_dependencies(self, mission_id: str) -> set[str]:
+        now = time.time()
+        blocked: set[str] = set()
+        with self._transaction() as db:
+            rows = db.execute("""
+                SELECT task_id,mission_id,cycle,depends_on FROM development_mission_tasks
+                WHERE mission_id=? AND status='queued'
+            """, (mission_id,)).fetchall()
+            if not rows:
+                return blocked
+            states = {
+                item["task_id"].rsplit(":", 1)[-1]: item["status"]
+                for item in db.execute(
+                    "SELECT task_id,status FROM development_mission_tasks WHERE mission_id=?",
+                    (mission_id,),
+                ).fetchall()
+            }
+            for row in rows:
+                dependencies = json.loads(row["depends_on"])
+                if not dependencies:
+                    continue
+                missing = [
+                    dep for dep in dependencies
+                    if states.get(dep) not in {"succeeded", "queued", "running"}
+                ]
+                if not missing:
+                    continue
+                reason = "Prerequisite task is missing or did not succeed: " + ", ".join(missing)
+                db.execute("""
+                    UPDATE development_mission_tasks
+                    SET status='failed',last_error_class='dependency_blocked',last_error=?,
+                        worker_id='',lease_until=NULL,updated_at=?
+                    WHERE task_id=? AND status='queued'
+                """, (reason[:4000], now, row["task_id"]))
+                blocked.add(row["task_id"])
+            if blocked:
+                self._fail_dependants(
+                    db, mission_id, None,
+                    blocked | {item.rsplit(":", 2)[-1] for item in blocked},
+                    "Prerequisite task did not succeed.", now,
+                )
+        return blocked
+
+    def _local_recovery_ready(self) -> bool:
+        return _local_provider_ready(self.provider)
+
     def _claim_planning(self, mission_id: str, worker_id: str) -> tuple[str, int] | None:
         now = time.time()
+        self._resolve_blocked_dependencies(mission_id)
         with self._transaction() as db:
             mission = db.execute(
                 "SELECT * FROM development_missions WHERE mission_id=?", (mission_id,)
@@ -435,11 +553,37 @@ class ContinuousDevelopmentEngine:
             # Failure diagnostics are retained on task rows; failures must not strand a mission.
             if mission["planning_retry_at"] is not None and mission["planning_retry_at"] > now:
                 return None
-            active = db.execute("""
+            ready_rows = db.execute("""
+                SELECT task_id,cycle,status,depends_on FROM development_mission_tasks
+                WHERE mission_id=? AND (
+                    status='running'
+                    OR (status='queued' AND available_at<=?)
+                )
+            """, (mission_id, now + RUNNER_EARLY_RETURN_BACKOFF_SECONDS)).fetchall()
+            dependency_states = {}
+            for row in ready_rows:
+                states = dependency_states.get(row["cycle"])
+                if states is None:
+                    states = {
+                        item["task_id"].split(":")[-1]: item["status"]
+                        for item in db.execute(
+                            "SELECT task_id,status FROM development_mission_tasks WHERE mission_id=? AND cycle=?",
+                            (mission_id, row["cycle"]),
+                        ).fetchall()
+                    }
+                    dependency_states[row["cycle"]] = states
+                if row["status"] == "running" or all(
+                    states.get(dependency) == "succeeded"
+                    for dependency in json.loads(row["depends_on"])
+                ):
+                    return None
+            local_recovery_ready = int(self._local_recovery_ready())
+            blocked = db.execute("""
                 SELECT COUNT(*) FROM development_mission_tasks
-                WHERE mission_id=? AND status IN ('queued','running')
-            """, (mission_id,)).fetchone()[0]
-            if active:
+                WHERE mission_id=? AND status='queued' AND available_at>?
+                  AND (?=0 OR last_error_class!='daily_ai_quota')
+            """, (mission_id, now + RUNNER_EARLY_RETURN_BACKOFF_SECONDS, local_recovery_ready)).fetchone()[0]
+            if blocked >= MAX_BLOCKED_TASKS_BEFORE_REPLAN:
                 return None
             if mission["planning_owner"] and mission["planning_lease_until"] and mission["planning_lease_until"] > now:
                 return None
@@ -451,45 +595,34 @@ class ContinuousDevelopmentEngine:
             """, (worker_id, now + self.lease_seconds, now, mission_id))
             return mission["goal"], cycle
 
-    def _latest_final_verification(self, mission_id: str, cycle: int) -> dict | None:
+    def _latest_final_verification_record(self, mission_id: str, cycle: int | None = None) -> dict | None:
         marker = "STREAMIOV_FINAL_VERIFICATION"
         roles = ",".join("?" for _ in FINAL_VERIFICATION_ROLES)
+        params = [mission_id, *FINAL_VERIFICATION_ROLES]
+        where = ""
+        if cycle is not None:
+            where = " AND cycle=?"
+            params.append(cycle)
         with self._connection() as db:
             row = db.execute(f"""
-                SELECT prompt,result FROM development_mission_tasks
-                WHERE mission_id=? AND cycle=? AND specialist IN ({roles}) AND status='succeeded'
-                ORDER BY updated_at DESC LIMIT 1
-            """, (mission_id, cycle, *FINAL_VERIFICATION_ROLES)).fetchone()
-        if row is None or marker not in row["prompt"]:
+                SELECT cycle,prompt,result FROM development_mission_tasks
+                WHERE mission_id=? AND specialist IN ({roles}) AND status='succeeded'{where}
+                ORDER BY cycle DESC, updated_at DESC LIMIT 1
+            """, params).fetchone()
+        if row is None or marker not in (row["prompt"] or ""):
             return None
+        def invalid(reason: str) -> dict:
+            return {"passed": False, "findings": [reason], "tool_evidence": [], "invalid": True}
+
         try:
             payload = json.loads(row["result"])
         except (TypeError, json.JSONDecodeError):
-            return {"verdict": "invalid", "findings": ["Verifier did not return the required JSON report."]}
-        if (
-            not isinstance(payload, dict)
-            or set(payload) != {"verdict", "evidence", "findings", "tool_evidence"}
-            or payload.get("verdict") not in {"passed", "failed"}
-            or not isinstance(payload.get("evidence"), list)
-            or not isinstance(payload.get("findings"), list)
-            or not isinstance(payload.get("tool_evidence"), list)
-            or any(not isinstance(item, str) or not item.strip() for item in payload["evidence"])
-            or any(not isinstance(item, str) or not item.strip() for item in payload["findings"])
-            or any(
-                not isinstance(item, dict)
-                or not isinstance(item.get("tool"), str)
-                or not isinstance(item.get("result"), str)
-                for item in payload["tool_evidence"]
-            )
-        ):
-            return {"verdict": "invalid", "findings": ["Verifier report did not match the required schema."]}
-        if payload["verdict"] == "passed" and not payload["evidence"]:
-            return {"verdict": "invalid", "findings": ["Verifier supplied no concrete evidence."]}
-        if payload["verdict"] == "passed" and payload["findings"]:
-            return {"verdict": "invalid", "findings": ["Verifier cannot pass while unresolved findings remain."]}
-        if payload["verdict"] == "failed" and not payload["findings"]:
-            return {"verdict": "invalid", "findings": ["A failed verifier report must identify concrete findings."]}
-        if payload["verdict"] == "passed":
+            payload = invalid("Verifier did not return the required JSON report.")
+        try:
+            validate_verification_report(payload, stored=True)
+        except VerificationReportError:
+            payload = invalid("Verifier report did not match the required passed/findings schema.")
+        if payload["passed"] is True:
             test_tools = {"run_tests", "run_game_checks"}
             tests = [
                 item for item in payload["tool_evidence"]
@@ -500,15 +633,59 @@ class ContinuousDevelopmentEngine:
                 if item["tool"] in test_tools and not observed_successful_test(item["result"])
             ]
             if not tests:
-                return {"verdict": "invalid", "findings": ["Verifier supplied no observed successful test command output."]}
-            if failed_tests:
-                return {"verdict": "invalid", "findings": ["Verifier cannot pass while a recorded test command failed."]}
-        return payload
+                payload = invalid("Verifier supplied no observed successful test command output.")
+            elif failed_tests:
+                payload = invalid("Verifier cannot pass while a recorded test command failed.")
+        elif any(
+            item.get("tool") in {"run_tests", "run_game_checks"}
+            and observed_interrupted_test(item.get("result"))
+            for item in payload.get("tool_evidence", [])
+            if isinstance(item, dict)
+        ):
+            payload = invalid("Final verification was interrupted before completion; rerun verification.")
+        return {"cycle": row["cycle"], "report": payload}
+
+    def _latest_final_verification(self, mission_id: str, cycle: int) -> dict | None:
+        record = self._latest_final_verification_record(mission_id, cycle)
+        return record["report"] if record else None
+
+    def _latest_verification_repair(self, mission_id: str) -> dict | None:
+        roles = ",".join("?" for _ in VERIFICATION_REPAIR_ROLES)
+        with self._connection() as db:
+            row = db.execute(f"""
+                SELECT cycle,status,prompt,last_error,result FROM development_mission_tasks
+                WHERE mission_id=? AND specialist IN ({roles}) AND status IN ('succeeded','failed')
+                ORDER BY cycle DESC, updated_at DESC LIMIT 1
+            """, (mission_id, *VERIFICATION_REPAIR_ROLES)).fetchone()
+        if row is None or VERIFICATION_REPAIR_MARKER not in (row["prompt"] or ""):
+            return None
+        return dict(row)
+
+    def _skip_superseded_repair_tasks(self, mission_id: str) -> None:
+        roles = ",".join("?" for _ in VERIFICATION_REPAIR_ROLES)
+        now = time.time()
+        params = [
+            "Superseded by a successful independent final verification.",
+            "superseded", now, mission_id,
+            f"%{VERIFICATION_REPAIR_MARKER}%", *VERIFICATION_REPAIR_ROLES,
+        ]
+        with self._transaction() as db:
+            db.execute(f"""
+                UPDATE development_mission_tasks
+                SET status='failed', last_error=?, last_error_class=?,
+                    worker_id='', lease_until=NULL, available_at=0, updated_at=?
+                WHERE mission_id=? AND status IN ('queued','running')
+                  AND prompt LIKE ? AND specialist IN ({roles})
+            """, params)
 
     def _require_final_verification(self, mission_id: str, cycle: int, goal: str) -> MissionPlan | None:
         """Refuse planner-only completion; require a separate testing-role evidence report."""
-        verification = self._latest_final_verification(mission_id, cycle - 1)
-        if verification and verification["verdict"] == "passed":
+        record = self._latest_final_verification_record(mission_id)
+        verification = record["report"] if record else None
+        verification_cycle = record["cycle"] if record else 0
+        repair = self._latest_verification_repair(mission_id)
+        if verification and verification["passed"] is True:
+            self._skip_superseded_repair_tasks(mission_id)
             try:
                 integration = self.workspaces.integrate_latest_candidate(mission_id)
             except TaskWorkspaceError as exc:
@@ -528,16 +705,28 @@ class ContinuousDevelopmentEngine:
                 )
                 return MissionPlan("continue", "Task workspace integration requires explicit repair.", (task,))
             return None
-        if verification and verification["verdict"] == "failed" and verification["findings"]:
+        needs_repair = bool(
+            verification
+            and verification["passed"] is False
+            and not verification.get("invalid")
+            and verification["findings"]
+        )
+        if needs_repair and repair and repair["cycle"] >= verification_cycle and repair["status"] == "succeeded":
+            needs_repair = False
+        if needs_repair:
             findings = json.dumps(verification["findings"], ensure_ascii=False)[:5000]
-            task = SpecialistTask(
-                "repair-after-final-verification",
-                VERIFICATION_REPAIR_ROLE,
+            prompt = (
                 "STREAMIOV_VERIFICATION_REPAIR: Repair the verified failures below in the existing AI Chief development work. "
                 "Inspect the actual source and test output, make targeted safe changes, and run the relevant tests. "
-                "Do not weaken tests or alter production/OAuth/security settings. Findings: " + findings,
+                "Do not weaken tests or alter production/OAuth/security settings. Findings: " + findings
             )
-            summary = "Independent verification found failures; a repair task is required before completion."
+            if repair and repair["status"] == "failed" and repair["cycle"] >= verification_cycle:
+                prompt += " Previous repair failed before completion: " + str(repair["last_error"] or "unknown error")[:2000]
+                task = SpecialistTask("retry-verification-repair", VERIFICATION_REPAIR_ROLE, prompt)
+                summary = "Previous verification repair failed; retrying repair before completion."
+            else:
+                task = SpecialistTask("repair-after-final-verification", VERIFICATION_REPAIR_ROLE, prompt)
+                summary = "Independent verification found failures; a repair task is required before completion."
         else:
             prior = ""
             if verification:
@@ -548,11 +737,12 @@ class ContinuousDevelopmentEngine:
                 "STREAMIOV_FINAL_VERIFICATION: Independently inspect the actual project changes for the original mission. "
                 "Run the relevant automated tests and verify the requested behavior from source and test evidence. "
                 "For game work you may also use the read-only run_game_checks tool. "
-                "Do not edit implementation files. Return exactly one JSON object with the fields verdict, evidence and findings: "
-                '{"verdict":"passed" or "failed","evidence":["specific commands and observed results"],"findings":["specific unresolved defects"]}. '
-                "The tool runtime attaches tool_evidence from the commands you actually ran; never invent command output. "
-                "Use verdict=passed only when the requested work is demonstrably correct and relevant tests pass. "
-                "If anything is incomplete or tests fail, use verdict=failed and list the exact findings."
+                "Do not edit implementation files. Return exactly one JSON object with exactly the fields passed and findings: "
+                '{"passed":true,"findings":[]} or {"passed":false,"findings":["specific unresolved defect"]}. '
+                "Use passed=true only after independent inspection confirms the requested work is demonstrably correct and relevant tests pass; findings must then be an empty array []. "
+                "If anything is incomplete, untested, or failing, use passed=false and list concrete findings. "
+                "Do not ignore, remove, or reword findings to force a pass; after a repair the verification must be run again. "
+                "The tool runtime attaches tool_evidence from the commands you actually ran; never invent command output."
                 + prior + "\nORIGINAL MISSION: " + goal,
             )
             summary = "A separate testing specialist must verify the mission before it can be marked complete."
@@ -800,11 +990,11 @@ class ContinuousDevelopmentEngine:
             try:
                 self.workspaces.mark_candidate_status(
                     task.mission_id, candidate_cycle,
-                    "verified" if payload.get("verdict") == "passed" else "blocked",
+                    "verified" if payload.get("passed") is True else "blocked",
                 )
             except TaskWorkspaceError:
                 pass
-            if payload.get("verdict") == "passed":
+            if payload.get("passed") is True:
                 integration = self.workspaces.integrate_candidate(task.mission_id, candidate_cycle)
                 if not integration["ok"]:
                     raise MissionEngineError(
@@ -897,12 +1087,20 @@ class ContinuousDevelopmentEngine:
                     and FINAL_VERIFICATION_MARKER in (row["prompt"] or "")
                     and failures >= min(self.max_task_failures, MAX_VERIFICATION_NO_TOOL_FAILURES)
                 )
+                local_recovery_ready = self._local_recovery_ready() and error_class in {
+                    "daily_ai_quota", "provider_unavailable", "provider_timeout",
+                }
                 if error_class == "daily_ai_quota":
-                    delay = _daily_ai_quota_backoff(failures)
+                    delay = _quota_backoff(failures, local_recovery_ready=local_recovery_ready)
                 elif error_class == "provider_timeout":
                     delay = min(
                         WORKER_TIMEOUT_BACKOFF_SECONDS * (2 ** min(failures - 1, 4)),
                         MAX_WORKER_TIMEOUT_BACKOFF_SECONDS,
+                    )
+                elif error_class in {"provider_unavailable", "provider_capability", "provider_auth"}:
+                    delay = min(
+                        PROVIDER_UNAVAILABLE_BACKOFF_SECONDS * (2 ** min(failures - 1, 3)),
+                        MAX_PROVIDER_UNAVAILABLE_BACKOFF_SECONDS,
                     )
                 else:
                     delay = min(self.retry_base_seconds * (2 ** min(failures - 1, 6)), 60.0)
@@ -950,6 +1148,12 @@ class ContinuousDevelopmentEngine:
         thread = threading.Thread(target=heartbeat_loop, name="streamiov-mission-lease", daemon=True)
         thread.start()
         prompt = task.prompt
+        local_recovery_eligible = (
+            task.attempts >= 2
+            or _classify_task_error(task.last_error) in {
+                "daily_ai_quota", "provider_unavailable", "provider_timeout",
+            }
+        )
         if task.last_error:
             prompt += "\n\nPREVIOUS ATTEMPT FAILURE (untrusted diagnostic context):\n" + task.last_error
             prompt += "\nAddress the failure safely; inspect actual project state before changing files."
@@ -962,6 +1166,13 @@ class ContinuousDevelopmentEngine:
                 "to a safe isolated step; preserve checkpoints and report what changed in your "
                 "approach. Never weaken tests or bypass safety gates."
             )
+        if local_recovery_eligible:
+            prompt += (
+                "\n\n" + LOCAL_RECOVERY_MARKER +
+                ": A configured free loopback model may be used for this recovery attempt if the "
+                "primary provider is unavailable. Keep the change small, use observed tool output, "
+                "and never weaken verification or safety gates."
+            )
         try:
             if self._agent_factory_accepts_task_id:
                 if self._agent_factory_task_id_keyword:
@@ -970,6 +1181,8 @@ class ContinuousDevelopmentEngine:
                     agent = self.agent_factory(task.specialist, task.task_id)
             else:
                 agent = self.agent_factory(task.specialist)
+            if local_recovery_eligible and hasattr(agent, "provider"):
+                agent.provider = provider_for_role(agent.provider, LOCAL_RECOVERY_MARKER)
             if mission_stop_event is not None and mission_stop_event.is_set():
                 cancel_event.set()
             workspace_info = self._prepare_agent_workspace(agent, task, worker_id)
@@ -978,13 +1191,33 @@ class ContinuousDevelopmentEngine:
                     "event": "task_workspace_bound", "task_id": task.task_id,
                     "specialist": task.specialist, "kind": workspace_info["kind"],
                 }, ensure_ascii=False))
-            run_parameters = inspect.signature(agent.run).parameters
-            run_kwargs = {}
-            if "checkpoint_id" in run_parameters:
-                run_kwargs["checkpoint_id"] = task.task_id
-            if "cancel_event" in run_parameters:
-                run_kwargs["cancel_event"] = cancel_event
-            result = agent.run(prompt, **run_kwargs)
+            if self._is_final_verification_task(task) and self.verification_runner is not None:
+                verification_root = Path(workspace_info["path"]) if workspace_info else Path(
+                    getattr(getattr(agent, "tools", None), "root", ".")
+                )
+                evidence = self.verification_runner(verification_root)
+                if not isinstance(evidence, str) or not evidence.strip():
+                    raise MissionEngineError("Final verification runner returned no observed test output.")
+                if len(evidence) > 6000:
+                    evidence = evidence[:300] + "\n... truncated observed output ...\n" + evidence[-5600:]
+                passed = observed_successful_test(evidence)
+                report = {
+                    "passed": passed,
+                    "findings": [] if passed else [
+                        "Final verification test command failed; observed output: " + evidence[-1200:]
+                    ],
+                    "tool_evidence": [{"tool": "run_tests", "result": evidence}],
+                }
+                validate_verification_report(report, stored=True)
+                result = json.dumps(report, ensure_ascii=False)
+            else:
+                run_parameters = inspect.signature(agent.run).parameters
+                run_kwargs = {}
+                if "checkpoint_id" in run_parameters:
+                    run_kwargs["checkpoint_id"] = task.task_id
+                if "cancel_event" in run_parameters:
+                    run_kwargs["cancel_event"] = cancel_event
+                result = agent.run(prompt, **run_kwargs)
             if cancel_event.is_set():
                 raise MissionEngineError(
                     heartbeat_errors[-1] if heartbeat_errors else
@@ -1063,7 +1296,15 @@ class ContinuousDevelopmentEngine:
             while not stop_event.is_set() or futures:
                 while not stop_event.is_set() and len(futures) < self.max_concurrent_workers:
                     task_worker_id = f"{worker_id}-{uuid.uuid4().hex[:12]}"
-                    task = self._claim_task(mission_id, task_worker_id)
+                    try:
+                        task = self._claim_task(mission_id, task_worker_id)
+                    except Exception as exc:
+                        self._emit_throttled(emit, f"claim:{mission_id}", {
+                            "event": "engine_recovery", "mission_id": mission_id,
+                            "operation": "claim_task",
+                            "error": f"{type(exc).__name__}: {str(exc)[:1000]}",
+                        })
+                        break
                     if task is None:
                         break
                     future = pool.submit(self._execute_task, task, task_worker_id, emit, stop_event)
@@ -1090,31 +1331,52 @@ class ContinuousDevelopmentEngine:
                 if stop_event.is_set():
                     break
 
+                claim = None
                 if snapshot.pending_tasks or snapshot.running_tasks:
-                    if snapshot.running_tasks == 0:
-                        next_available = self._next_queued_task_available_at(mission_id)
-                        retry_delay = (next_available - time.time()) if next_available is not None else 0
-                        if retry_delay > RUNNER_EARLY_RETURN_BACKOFF_SECONDS:
-                            emit(json.dumps({
-                                "event": "mission_waiting_for_retry", "mission_id": mission_id,
-                                "retry_after_seconds": int(retry_delay), "pending_tasks": snapshot.pending_tasks,
-                            }, ensure_ascii=False))
-                            return snapshot
-                    stop_event.wait(poll_seconds)
-                    continue
-
-                claim = self._claim_planning(mission_id, worker_id)
-                if claim is None:
-                    planning_retry_at = self._next_planning_retry_at(mission_id)
-                    retry_delay = (planning_retry_at - time.time()) if planning_retry_at is not None else 0
+                    if snapshot.running_tasks > 0:
+                        stop_event.wait(poll_seconds)
+                        continue
+                    next_available = self._next_queued_task_available_at(mission_id)
+                    retry_delay = (next_available - time.time()) if next_available is not None else 0
                     if retry_delay > RUNNER_EARLY_RETURN_BACKOFF_SECONDS:
-                        emit(json.dumps({
-                            "event": "mission_waiting_for_planning_retry", "mission_id": mission_id,
-                            "retry_after_seconds": int(retry_delay),
-                        }, ensure_ascii=False))
-                        return snapshot
-                    stop_event.wait(poll_seconds)
-                    continue
+                        self._emit_throttled(emit, f"task-backoff:{mission_id}", {
+                            "event": "mission_waiting_for_retry", "mission_id": mission_id,
+                            "retry_after_seconds": int(retry_delay), "pending_tasks": snapshot.pending_tasks,
+                            "supervisor_wait": False,
+                        })
+                    try:
+                        claim = self._claim_planning(mission_id, worker_id)
+                    except Exception as exc:
+                        self._emit_throttled(emit, f"planning-claim:{mission_id}", {
+                            "event": "engine_recovery", "mission_id": mission_id,
+                            "operation": "claim_planning_with_pending_tasks",
+                            "error": f"{type(exc).__name__}: {str(exc)[:1000]}",
+                        })
+                    if claim is None:
+                        stop_event.wait(poll_seconds)
+                        continue
+                else:
+                    try:
+                        claim = self._claim_planning(mission_id, worker_id)
+                    except Exception as exc:
+                        self._emit_throttled(emit, f"planning-claim:{mission_id}", {
+                            "event": "engine_recovery", "mission_id": mission_id,
+                            "operation": "claim_planning",
+                            "error": f"{type(exc).__name__}: {str(exc)[:1000]}",
+                        })
+                        claim = None
+                    if claim is None:
+                        planning_retry_at = self._next_planning_retry_at(mission_id)
+                        retry_delay = (planning_retry_at - time.time()) if planning_retry_at is not None else 0
+                        if retry_delay > RUNNER_EARLY_RETURN_BACKOFF_SECONDS:
+                            self._emit_throttled(emit, f"planning-backoff:{mission_id}", {
+                                "event": "mission_waiting_for_planning_retry", "mission_id": mission_id,
+                                "retry_after_seconds": int(retry_delay),
+                                "supervisor_wait": False,
+                            })
+                            return snapshot
+                        stop_event.wait(poll_seconds)
+                        continue
                 goal, cycle = claim
                 try:
                     progress = self._progress_context(mission_id)
@@ -1135,7 +1397,10 @@ class ContinuousDevelopmentEngine:
                         if row is not None:
                             failures = row["planning_failures"] + 1
                             delay = (
-                                _daily_ai_quota_backoff(failures)
+                                _quota_backoff(
+                                    failures,
+                                    local_recovery_ready=self._local_recovery_ready(),
+                                )
                                 if _is_daily_ai_quota_error(f"{type(exc).__name__}: {exc}")
                                 else min(self.retry_base_seconds * (2 ** min(failures - 1, 6)), 300.0)
                             )

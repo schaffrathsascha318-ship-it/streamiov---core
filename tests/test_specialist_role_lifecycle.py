@@ -27,7 +27,7 @@ class ScriptedProvider:
             replies = [
                 '{"tool":"list_files","arguments":{"path":"."}}',
                 '{"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}',
-                '{"verdict":"passed","evidence":["Observed the allowlisted baseline test command."],"findings":[]}',
+                '{"passed":true,"findings":[]}',
             ]
         else:
             replies = [
@@ -50,7 +50,7 @@ class ScriptedProvider:
 
 class SpecialistRoleLifecycleTests(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1])
+        self.directory = tempfile.TemporaryDirectory()
         self.root = Path(self.directory.name)
         tests_dir = self.root / "tests"
         tests_dir.mkdir()
@@ -108,7 +108,7 @@ class SpecialistRoleLifecycleTests(unittest.TestCase):
                 self.assertTrue(completed.result)
                 if verification:
                     report = json.loads(completed.result)
-                    self.assertEqual(report["verdict"], "passed")
+                    self.assertIs(report["passed"], True)
                     self.assertTrue(any(item.get("tool") == "run_tests" for item in report["tool_evidence"]))
                 else:
                     self.assertEqual(completed.result, f"Observed audit result for {role}.")

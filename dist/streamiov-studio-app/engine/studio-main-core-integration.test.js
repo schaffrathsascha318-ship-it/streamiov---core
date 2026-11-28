@@ -203,6 +203,103 @@ test('Chat, Quellen, Szenen-Take und TTS laufen über die echten Studio-Engines'
   const loaded = await studio.invoke('studio:scene-action', { action: 'load' });
   assert.equal(loaded.state.programSceneId, sceneId);
 
+  const geometrySource = await studio.invoke('studio:scene-action', {
+    action: 'add-source',
+    source: { type: 'text', name: 'Geometry', text: 'G', x: 0.31, y: 0.22, w: 0.44, h: 0.33 }
+  });
+  assert.equal(geometrySource.ok, true, geometrySource);
+  const geometryId = geometrySource.state.scenes.find((scene) => scene.id === sceneId)
+    .sources.find((source) => source.name === 'Geometry').id;
+  const moved = await studio.invoke('studio:scene-action', {
+    action: 'update-source', sourceId: geometryId, patch: { x: 0.12, y: 0.41, w: 0.35, h: 0.2 }
+  });
+  assert.equal(moved.ok, true, moved);
+  const movedSource = moved.state.scenes.find((scene) => scene.id === sceneId)
+    .sources.find((source) => source.id === geometryId);
+  assert.deepEqual(
+    { x: movedSource.x, y: movedSource.y, w: movedSource.w, h: movedSource.h },
+    { x: 0.12, y: 0.41, w: 0.35, h: 0.2 }
+  );
+  const reloadedGeometry = await studio.invoke('studio:scene-action', { action: 'load' });
+  const persistedGeometry = reloadedGeometry.state.scenes.find((scene) => scene.id === sceneId)
+    .sources.find((source) => source.id === geometryId);
+  assert.deepEqual(
+    { x: persistedGeometry.x, y: persistedGeometry.y, w: persistedGeometry.w, h: persistedGeometry.h },
+    { x: 0.12, y: 0.41, w: 0.35, h: 0.2 }
+  );
+
+  const audioSourceAdded = await studio.invoke('studio:scene-action', {
+    action: 'add-source',
+    source: { type: 'screen', name: 'Audio Display', settings: { sourceId: 'screen:1:0', audioEnabled: true }, audio: { gain: 0.4, routes: ['stream', 'monitor'] } }
+  });
+  assert.equal(audioSourceAdded.ok, true, audioSourceAdded);
+  const sceneAudioId = audioSourceAdded.state.scenes.find((scene) => scene.id === sceneId)
+    .sources.find((source) => source.name === 'Audio Display').id;
+
+  const dependencyScene = await studio.invoke('studio:scene-action', { action: 'create', name: 'Dependency' });
+  assert.equal(dependencyScene.ok, true, dependencyScene);
+  const dependencyId = dependencyScene.state.previewSceneId;
+  const dependenciesSaved = await studio.invoke('studio:scene-action', {
+    action: 'set-scene-dependencies', id: dependencyId, dependsOn: [sceneId]
+  });
+  assert.equal(dependenciesSaved.ok, true, dependenciesSaved);
+  assert.deepEqual(
+    dependenciesSaved.state.scenes.find((scene) => scene.id === dependencyId).dependsOn,
+    [sceneId]
+  );
+  const blockedDelete = await studio.invoke('studio:scene-action', { action: 'delete-scene', id: sceneId });
+  assert.equal(blockedDelete.ok, false);
+  const dependenciesReloaded = await studio.invoke('studio:scene-action', { action: 'load' });
+  assert.deepEqual(
+    dependenciesReloaded.state.scenes.find((scene) => scene.id === dependencyId).dependsOn,
+    [sceneId]
+  );
+
+  const sceneAudioSaved = await studio.invoke('studio:scene-action', {
+    action: 'update-source', sceneId, sourceId: sceneAudioId,
+    patch: { audio: { enabled: true, gain: 0.65, muted: false, solo: true, pan: -0.25, routes: ['stream', 'headphones'] } }
+  });
+  assert.equal(sceneAudioSaved.ok, true, sceneAudioSaved);
+  const sceneAudioSource = sceneAudioSaved.state.scenes.find((scene) => scene.id === sceneId)
+    .sources.find((source) => source.id === sceneAudioId);
+  assert.deepEqual(sceneAudioSource.audio, {
+    enabled: true, gain: 0.65, muted: false, solo: true, pan: -0.25, routes: ['stream', 'headphones']
+  });
+  const sceneAudioReloaded = await studio.invoke('studio:scene-action', { action: 'load' });
+  assert.deepEqual(
+    sceneAudioReloaded.state.scenes.find((scene) => scene.id === sceneId)
+      .sources.find((source) => source.id === sceneAudioId).audio,
+    sceneAudioSource.audio
+  );
+
+  const selectedForTransform = await studio.invoke('studio:scene-action', { action: 'select', id: sceneId });
+  assert.equal(selectedForTransform.ok, true, selectedForTransform);
+  const transformSaved = await studio.invoke('studio:scene-action', {
+    action: 'update-source', sourceId: geometryId,
+    patch: { transform: { alpha: 0.5, rotationDeg: 90, fit: 'contain', crop: { x: 0.1, y: 0.1, w: 0.8, h: 0.8 } } }
+  });
+  assert.equal(transformSaved.ok, true, transformSaved);
+  const transformReloaded = await studio.invoke('studio:scene-action', { action: 'load' });
+  assert.deepEqual(
+    transformReloaded.state.scenes.find((scene) => scene.id === sceneId)
+      .sources.find((source) => source.id === geometryId).transform,
+    { alpha: 0.5, rotationDeg: 90, flipH: false, flipV: false, fit: 'contain', crop: { x: 0.1, y: 0.1, w: 0.8, h: 0.8 } }
+  );
+
+  const duplicated = await studio.invoke('studio:scene-action', { action: 'duplicate-scene', id: sceneId });
+  assert.equal(duplicated.ok, true, duplicated);
+  assert.equal(duplicated.state.scenes.find((scene) => scene.id === duplicated.state.previewSceneId).kind, 'custom');
+  const reordered = await studio.invoke('studio:scene-action', {
+    action: 'reorder-scenes', order: [...duplicated.state.scenes].reverse().map((scene) => scene.id)
+  });
+  assert.equal(reordered.ok, true, reordered);
+  const exported = await studio.invoke('studio:scene-action', { action: 'export-scenes' });
+  assert.equal(exported.ok, true, exported);
+  assert.equal(exported.pack.kind, 'streamiov-scene-pack');
+  const importedPack = await studio.invoke('studio:scene-action', { action: 'import-scene-pack', pack: exported.pack });
+  assert.equal(importedPack.ok, true, importedPack);
+  assert.ok(importedPack.state.scenes.length > reordered.state.scenes.length);
+
   await studio.invoke('studio:get-device-capabilities', {
     devices: [{ kind: 'videoinput' }, { kind: 'videoinput' }, { kind: 'audioinput' }]
   });
@@ -412,4 +509,52 @@ test('Studio verbindet den Renderer mit getrennten RTMP-Ausgängen und Remote-LI
   assert.match(studio.source, /\['connecting', 'live'\]\.includes\(platformOutputState\(platform\)\)/);
   assert.doesNotMatch(studio.source, /Nur die autorisierte Twitch-Ausgabe wird unterstützt/);
   assert.equal(studio.source.includes('payload.destination'), false);
+});
+
+test('Lokale Aufzeichnung läuft ohne RTMP und verwaltet ihre Dateien', async (t) => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streamiov-integration-recording-'));
+  t.after(() => fs.rmSync(userDataDir, { recursive: true, force: true }));
+  const studio = loadStudioMain({
+    fetchImpl: async () => { throw new Error('Kein Host für diesen Test nötig'); },
+    userDataDir
+  });
+
+  const started = await studio.invoke('studio:recording-action', 'start');
+  assert.equal(started.ok, true, started);
+  assert.equal(started.recording.active, true);
+  assert.equal(started.recording.mode, 'local');
+
+  const payload = new Uint8Array(Buffer.from('local-webm-chunk'));
+  const chunk = payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength);
+  const written = await studio.invoke('studio:record-chunk', chunk);
+  assert.equal(written.ok, true, written);
+  assert.equal(written.recording.bytes, payload.byteLength);
+
+  const stopped = await studio.invoke('studio:recording-action', 'stop');
+  assert.equal(stopped.ok, true);
+  assert.equal(stopped.recording.active, false);
+  const id = path.basename(stopped.recording.path);
+  assert.match(id, /^local-.*\.webm$/);
+
+  const files = await studio.invoke('studio:recording-list');
+  assert.equal(files.ok, true, files);
+  assert.equal(files.files.length, 1);
+  assert.equal(files.files[0].id, id);
+  assert.equal(files.files[0].bytes, payload.byteLength);
+  assert.equal(fs.readFileSync(files.files[0].path).length, payload.byteLength);
+
+  const revealed = await studio.invoke('studio:recording-file-action', { id, action: 'reveal' });
+  assert.equal(revealed.ok, true, revealed);
+  const opened = await studio.invoke('studio:recording-file-action', { id, action: 'open' });
+  assert.equal(opened.ok, true, opened);
+  const traversal = await studio.invoke('studio:recording-file-action', { id: '../main.js', action: 'delete' });
+  assert.equal(traversal.ok, false);
+  assert.equal(fs.existsSync(path.join(userDataDir, 'recordings', id)), true);
+
+  const deleted = await studio.invoke('studio:recording-file-action', { id, action: 'delete' });
+  assert.equal(deleted.ok, true, deleted);
+  assert.equal(fs.existsSync(path.join(userDataDir, 'recordings', id)), false);
+  const empty = await studio.invoke('studio:recording-list');
+  assert.equal(empty.ok, true);
+  assert.equal(empty.files.length, 0);
 });

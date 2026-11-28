@@ -12,15 +12,35 @@ from .local_http import ProviderError
 
 
 class CloudflareWorkerError(ProviderError):
-    def __init__(self, message: str, *, reachable: bool = False) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        reachable: bool = False,
+        failure_class: str = "",
+        retry_after_seconds: float = 0,
+    ) -> None:
         super().__init__(message)
         self.reachable = reachable
+        self.failure_class = failure_class
+        self.retry_after_seconds = max(float(retry_after_seconds), 0.0)
 
 
 DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash"
 MAX_MESSAGE_CHARS = 32_000
 MAX_PROMPT_CHARS = 48_000
 MAX_REQUEST_BYTES = 64 * 1024
+MAX_RETRY_AFTER_SECONDS = 24 * 60 * 60
+
+
+def _retry_after_seconds(exc: HTTPError) -> float:
+    raw = exc.headers.get("Retry-After") if exc.headers else None
+    if not raw:
+        return 0.0
+    try:
+        return min(max(float(raw), 0.0), MAX_RETRY_AFTER_SECONDS)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _worker_url(value: str) -> str:
@@ -101,6 +121,7 @@ def _validated_payload(model: str, system: str, messages: list[dict[str, str]]) 
         "model": model,
         "stream": False,
         "temperature": 0.1,
+        "response_format": {"type": "json_object"},
         "messages": all_messages,
     }
     if len(json.dumps(payload).encode("utf-8")) > MAX_REQUEST_BYTES:
@@ -177,10 +198,20 @@ class CloudflareWorkersAIProvider:
             detail = _http_error_detail(exc, self.token)
             suffix = f" Details: {detail}" if detail else ""
             if status == 401:
-                raise CloudflareWorkerError("Streamiov AI Worker rejected its bearer token (401)." + suffix, reachable=True) from exc
+                raise CloudflareWorkerError(
+                    "Streamiov AI Worker rejected its bearer token (401)." + suffix,
+                    reachable=True, failure_class="auth",
+                ) from exc
             if status == 429:
-                raise CloudflareWorkerError("Cloudflare Workers AI daily free allocation may be exhausted (429)." + suffix, reachable=True) from exc
-            raise CloudflareWorkerError(f"Streamiov AI Worker request failed (HTTP {status})." + suffix, reachable=True) from exc
+                raise CloudflareWorkerError(
+                    "Cloudflare Workers AI daily free allocation may be exhausted (429)." + suffix,
+                    reachable=True, failure_class="quota",
+                    retry_after_seconds=_retry_after_seconds(exc),
+                ) from exc
+            raise CloudflareWorkerError(
+                f"Streamiov AI Worker request failed (HTTP {status})." + suffix,
+                reachable=True, failure_class="outage" if status >= 500 else "error",
+            ) from exc
         except (URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
             raise CloudflareWorkerError(f"Streamiov AI Worker request failed: {type(exc).__name__}.") from exc
         if not isinstance(result, dict):
@@ -189,7 +220,10 @@ class CloudflareWorkersAIProvider:
             error = result["error"]
             code = error.get("code", "worker_error") if isinstance(error, dict) else "worker_error"
             if code == "daily_ai_limit_reached":
-                raise CloudflareWorkerError("Cloudflare Workers AI daily free allocation is exhausted (429).")
+                raise CloudflareWorkerError(
+                    "Cloudflare Workers AI daily free allocation is exhausted (429).",
+                    failure_class="quota",
+                )
             message = error.get("message") if isinstance(error, dict) else None
             safe_message = str(message or code).replace(self.token, "[redacted]")[:500]
             raise CloudflareWorkerError(f"Streamiov AI Worker reported an inference error: {safe_message}")

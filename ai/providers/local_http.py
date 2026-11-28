@@ -141,7 +141,7 @@ def _post(url: str, payload: dict) -> dict:
         method="POST",
     )
     try:
-        with urlopen(request, timeout=120) as response:
+        with urlopen(request, timeout=900) as response:
             data = json.loads(response.read().decode("utf-8"))
     except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
         raise ProviderError(f"Local model inference failed: {type(exc).__name__}: {exc}") from exc
@@ -176,6 +176,19 @@ def _configured_provider(kind: str, *, legacy: bool = False):
     )
 
 
+def _cooldown_seconds(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ProviderError(f"{name} must be a positive number of seconds.") from exc
+    if value <= 0:
+        raise ProviderError(f"{name} must be a positive number of seconds.")
+    return value
+
+
 def provider_from_env():
     provider_order = os.environ.get("STREAMIOV_MODEL_PROVIDERS", "").strip()
     if provider_order:
@@ -185,6 +198,12 @@ def provider_from_env():
             raise ProviderError("STREAMIOV_MODEL_PROVIDERS must be a comma-separated provider list.")
         if len(set(kinds)) != len(kinds):
             raise ProviderError("STREAMIOV_MODEL_PROVIDERS cannot contain duplicate providers.")
-        return ProviderRouter([(kind, _configured_provider(kind)) for kind in kinds])
+        cooldown = _cooldown_seconds("STREAMIOV_PROVIDER_RECOVERY_COOLDOWN_SECONDS", 6 * 60 * 60)
+        max_cooldown = _cooldown_seconds("STREAMIOV_PROVIDER_MAX_COOLDOWN_SECONDS", 24 * 60 * 60)
+        return ProviderRouter(
+            [(kind, _configured_provider(kind)) for kind in kinds],
+            recovery_cooldown_seconds=cooldown,
+            max_recovery_cooldown_seconds=max_cooldown,
+        )
     kind = os.environ.get("STREAMIOV_MODEL_PROVIDER", "ollama").lower()
     return _configured_provider(kind, legacy=True)

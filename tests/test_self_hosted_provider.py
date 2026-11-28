@@ -53,6 +53,7 @@ class SelfHostedProviderTests(unittest.TestCase):
         self.assertEqual(request.full_url, "https://model.example.com/v1/chat/completions")
         payload = json.loads(request.data.decode("utf-8"))
         self.assertEqual(payload["model"], "qwen2.5-coder:7b")
+        self.assertEqual(payload["response_format"], {"type": "json_object"})
         self.assertEqual(reply.content, "Core model ready")
         self.assertEqual(reply.provider, "self-hosted-openai-compatible")
 

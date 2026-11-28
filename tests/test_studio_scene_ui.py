@@ -7,6 +7,7 @@ MAIN = ROOT / "dist" / "streamiov-studio-app" / "main.js"
 UI = ROOT / "dist" / "streamiov-studio-app" / "regie-v2.html"
 PRELOAD = ROOT / "dist" / "streamiov-studio-app" / "preload.js"
 ENGINE = ROOT / "dist" / "streamiov-studio-app" / "engine" / "scene-engine.js"
+OUTPUT = ROOT / "dist" / "streamiov-studio-app" / "program-output.html"
 SHIELD = ROOT / "dist" / "streamiov-studio-app" / "engine" / "privacy-shield.js"
 
 
@@ -79,7 +80,8 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn('data-tool="Soundboard"', self.ui)
         self.assertIn("async function renderSoundboardTool(body)", self.ui)
         self.assertIn("createMediaElementSource(pad.audio)", self.ui)
-        self.assertIn("pad.source.connect(pad.gain).connect(broadcastMasterGain)", self.ui)
+        self.assertIn("pad.source.connect(pad.gain).connect(pad.destination)", self.ui)
+        self.assertIn('studioAudioMixer.connect(pad.channelName,pad.destination.stream,{gain:1,routes:effectiveAuxRoutes("soundboard")});', self.ui)
         self.assertIn("installSoundboardHotkeys()", self.ui)
         self.assertIn("event.key", self.ui)
         self.assertIn("soundboardPads.length>=32", self.ui)
@@ -127,18 +129,17 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("studio:select-display-source", self.main)
         self.assertIn("frame.parent !== null || frame.url !== studioUrl || !sourceId", self.main)
         self.assertIn("['media', 'display-capture'].includes(permission)", self.main)
-        self.assertIn("getDisplayMedia({video:captureVideoConstraints(settings),audio:true})", self.ui)
+        self.assertIn("getDisplayMedia({video:captureVideoConstraints(settings),audio:audioEnabled})", self.ui)
 
     def test_real_capture_and_media_sources_use_runtime_settings_and_mixer(self):
         self.assertIn("function captureVideoConstraints(settings={})", self.ui)
         self.assertIn("constraints.frameRate={ideal:settings.fps}", self.ui)
         self.assertIn("getUserMedia({video:device,audio})", self.ui)
         self.assertIn("settings.audioEnabled===true", self.ui)
-        self.assertIn('connectRuntimeAudio(runtime,source,runtime.stream,"camera-",["stream"])', self.ui)
-        self.assertIn('connectRuntimeAudio(runtime,source,runtime.stream,"capture-",["stream"])', self.ui)
-        self.assertIn("element.muted=settings.muted===true", self.ui)
+        self.assertIn("connectRuntimeAudio(runtime,source,runtime.stream,sourceAudioState(source).routes)", self.ui)
+        self.assertIn("element.muted=settings.muted===true||audio.enabled===false", self.ui)
         self.assertIn("element.volume=volume", self.ui)
-        self.assertIn('id="sourceCameraAudioField" hidden', self.ui)
+        self.assertIn('id="sourceCameraAudioField" hidden>Quellen-Audio aktivieren', self.ui)
         self.assertIn('id="sourceVolumeField" hidden', self.ui)
 
     def test_broadcast_frames_are_paced_independently_of_window_animation_frames(self):
@@ -176,35 +177,120 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
 
     def test_scene_engine_supports_layout_sources_and_v1_migration(self):
         engine = ENGINE.read_text(encoding="utf-8")
-        self.assertIn("const SCENE_VERSION = 2;", engine)
+        self.assertIn("const SCENE_VERSION = 4;", engine)
         for source_type in ("'camera'", "'screen'", "'title'", "'text'"):
             self.assertIn(source_type, engine)
         for action in ("addSource", "updateSource", "removeSource", "moveSource",
-                       "setBackground", "deleteScene", "renameScene"):
+                       "setBackground", "setTransition", "setOverlay", "deleteScene", "renameScene"):
             with self.subTest(action=action):
                 self.assertIn(f"  {action}(", engine)
-        self.assertIn("savedState.version != null && ![1, SCENE_VERSION].includes(savedState.version)", engine)
+        self.assertIn("savedState.version != null && ![1, 2, 3, SCENE_VERSION].includes(savedState.version)", engine)
         self.assertIn("function cleanSource(raw, index)", engine)
         self.assertIn("Math.trunc(clamp(raw.z, 0, 100, index))", engine)
         self.assertIn("direction === 'up' ? index + 1 : index - 1", engine)
         self.assertIn("MAX_SOURCES", engine)
         self.assertIn("MAX_SCENES", engine)
 
+    def test_source_audio_is_wired_from_engine_through_regie_to_ipc(self):
+        engine = ENGINE.read_text(encoding="utf-8")
+        for identifier in (
+            "const AUDIO_ROUTES = Object.freeze(['stream', 'monitor', 'headphones', 'communications'])",
+            "const AUDIO_CAPABLE_TYPES = Object.freeze(['camera', 'screen', 'window', 'video', 'audio'])",
+            "function cleanSourceAudio(raw, type, settings)",
+            "audio: cleanSourceAudio(raw.audio, raw.type, settings)",
+            "routes: [...source.audio.routes]",
+            "audioEnabled",
+            "AUDIO_ROUTES,"
+        ):
+            with self.subTest(engine_identifier=identifier):
+                self.assertIn(identifier, engine)
+        for identifier in (
+            'id="sourceAudioGroup"',
+            'data-source-audio-route="stream"',
+            'id="sourceMixerChannels"',
+            "const audioCapableSourceTypes=new Set([\"camera\",\"screen\",\"window\",\"video\",\"audio\"])",
+            "function sourceAudioState(source)",
+            "function applySceneAudioRouting()",
+            "function renderSourceMixer()",
+            "function channelAudibleOnStream(name)",
+            "studioAudioMixer.connect(runtime.channelName,runtime.destination.stream,{gain:audio.gain,muted:audio.muted,routes});",
+            "studioAudioMixer.setSolo(runtime.channelName,audio.solo)",
+            "applySceneAudioRouting();",
+            "channelAudibleOnStream(runtime.channelName)"
+        ):
+            with self.subTest(ui_identifier=identifier):
+                self.assertIn(identifier, self.ui)
+        signature_block = self.ui.split("function sourceRuntimeSignature(source){", 1)[1].split("\n}", 1)[0]
+        self.assertIn("audioEnabled:audio.enabled===true", signature_block)
+        for mutable_audio in ("audio.gain", "audio.muted", "audio.solo", "audio.pan", "audio.routes"):
+            with self.subTest(mutable_audio=mutable_audio):
+                self.assertNotIn(mutable_audio, signature_block)
+        self.assertIn("const signature=sourceRuntimeSignature(source);", self.ui)
+        self.assertNotIn("audio:sourceAudioState(source),volume:source.volume", self.ui)
+        self.assertIn("engine.updateSource(payload.sourceId, payload.patch || {}, payload.sceneId)", self.main)
+        for identifier in (
+            "function sourceAudioRouteGroup(source)",
+            'effectiveAudioRoutes(audio.routes||["stream"],sourceAudioRouteGroup(source))',
+            '$("streamAudio").addEventListener("change",()=>{applyMonitorFeedbackGuard();});',
+            'if(!studioAudioMixer)throw new Error("Die zentrale Audio-Bus-Engine ist nicht verfügbar.");',
+            "broadcastMixerSource.connect(broadcastMasterGain);",
+            "const sourceAudioSaveTimers=new Map();",
+            "function applySourceMixerChannelState(source)",
+            "function refreshSourceMixerRow(source)",
+            "sourceAudioSaveTimers.set(sourceId,setTimeout(()=>{sourceAudioSaveTimers.delete(sourceId);void persistSourceAudio(sourceId);},240));",
+            "updateSourceAudioFromMixer(event.target,true)",
+        ):
+            with self.subTest(audio_identifier=identifier):
+                self.assertIn(identifier, self.ui)
+        for forbidden in (
+            "broadcastMasterGain.connect(broadcastAudioContext.destination)",
+            "else musicChannelGain.connect(broadcastMasterGain)",
+            "else pad.source.connect(pad.gain).connect(broadcastMasterGain)",
+            "else ttsMediaSource.connect(ttsChannelGain).connect(broadcastMasterGain)",
+            'await sceneCommand({action:"update-source",sceneId,sourceId,patch:{audio}});',
+        ):
+            with self.subTest(forbidden_audio_identifier=forbidden):
+                self.assertNotIn(forbidden, self.ui)
+
     def test_scene_handler_dispatches_to_the_engine(self):
         handler = self.main.split("ipcMain.handle('studio:scene-action'", 1)[1].split(
             "ipcMain.handle('studio:game-analysis'", 1
         )[0]
         for action in ("select", "take", "create", "rename-scene", "delete-scene",
+                       "duplicate-scene", "reorder-scenes", "import-scene-pack",
                        "add-source", "update-source", "remove-source",
-                       "move-source", "set-background", "set-program"):
+                       "move-source", "set-background", "set-transition", "set-overlay", "set-scene-dependencies", "set-program"):
             with self.subTest(action=action):
                 self.assertIn(f"action === '{action}'", handler)
         for method in ("selectPreview", "take", "createScene", "renameScene",
-                       "deleteScene", "addSource", "updateSource", "removeSource",
-                       "moveSource", "setBackground", "setProgramScene"):
+                       "deleteScene", "duplicateScene", "reorderScenes", "importScenePack",
+                       "addSource", "updateSource", "removeSource",
+                         "moveSource", "setBackground", "setTransition", "setOverlay", "setSceneDependencies", "setProgramScene"):
             with self.subTest(method=method):
                 self.assertIn(f"engine.{method}(", handler)
+        self.assertIn("if (action === 'export-scenes') return engine.exportScenePack(payload.sceneIds);", handler)
         self.assertIn("publishProgramScene(result.state)", handler)
+
+    def test_regie_persists_transitions_and_overlay_settings(self):
+        self.assertIn('id="transitionType"', self.ui)
+        self.assertIn('id="transitionDuration"', self.ui)
+        self.assertIn('id="saveTransition"', self.ui)
+        self.assertIn('id="sceneOverlayStyle"', self.ui)
+        self.assertIn('id="sceneOverlayText"', self.ui)
+        self.assertIn('id="sceneOverlayOpacity"', self.ui)
+        self.assertIn('id="saveSceneOverlay"', self.ui)
+        self.assertIn('action:"set-transition"', self.ui)
+        self.assertIn('action:"set-overlay"', self.ui)
+        self.assertIn('<option value="slide">SLIDE</option>', self.ui)
+        self.assertIn('<option value="wipe">WIPE</option>', self.ui)
+        self.assertIn('function paintTransition(type,progress,from,to,output)', self.ui)
+        self.assertIn("function drawSceneOverlay(context,scene,width,height)", self.ui)
+        self.assertIn("drawSceneOverlay(context,scene,width,height);", self.ui)
+        self.assertIn("activeProgramTransition=hasTimedTransition(active)", self.ui)
+        self.assertIn("function drawProgramFrame(target,fromBuffer,toBuffer,now)", self.ui)
+        self.assertIn('drawProgramFrame($("programCanvas"),programFrameFromCanvas,programFrameToCanvas,now)', self.ui)
+        self.assertIn("const drawFrame=()=>drawProgramFrame(canvas,transitionFromCanvas,transitionToCanvas,performance.now())", self.ui)
+        self.assertNotIn("screen.style.opacity=\".25\"", self.ui)
 
     def test_program_output_window_uses_a_separate_button_and_local_canvas(self):
         self.assertIn('id="openProgramOutput" type="button">REGIE AUF 2. BILDSCHIRM', self.ui)
@@ -219,6 +305,14 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertNotIn("VIDEO-COMPOSITOR NOCH NICHT ANGESCHLOSSEN", output)
         self.assertIn("createImageBitmap(blob)", output)
         self.assertIn("frameSequence", output)
+        self.assertIn("function frameReady(frame)", output)
+        self.assertIn("let frameExpiryTimer=0", output)
+        self.assertIn("function expireFrame()", output)
+        self.assertIn("setTimeout(expireFrame,FRAME_LIVE_WINDOW_MS+250)", output)
+        self.assertIn("REGIE-CANVAS · KEIN AKTUELLES BILD", output)
+        self.assertIn("const assetElements=new Map()", output)
+        self.assertIn("function drawAsset(targetContext,asset,source,x,y,w,h)", output)
+        self.assertIn("assetById(source.settings.assetId)", output)
 
     def test_studio_sources_import_media_control_audio_and_relay_program_frames(self):
         for element_id in ("sourceDevice", "sourceImport", "sourceColor", "sourceLoop",
@@ -251,6 +345,88 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("mediaAssetUsage", self.ui)
         self.assertIn("createMediaElementSource", self.ui)
         self.assertIn("Number.isFinite(settings.volume)", self.ui)
+
+    def test_regie_edits_free_form_source_geometry_and_persists_it(self):
+        for element_id in ("sourcePosition", "sourceX", "sourceY", "sourceW", "sourceH"):
+            with self.subTest(element_id=element_id):
+                self.assertIn(f'id="{element_id}"', self.ui)
+        self.assertIn('<option value="custom">Freie Position</option>', self.ui)
+        self.assertIn("const SOURCE_GEOMETRY_LIMITS=Object.freeze({minSize:0.05,maxSize:1,maxPosition:0.95});", self.ui)
+        self.assertIn("function sourceGeometryFromDialog()", self.ui)
+        self.assertIn("const position=sourceGeometryFromDialog();", self.ui)
+        self.assertIn("setSourceGeometryFields(source||sourcePosition(\"full\"));", self.ui)
+        self.assertIn("function formatSourceGeometry(source)", self.ui)
+        self.assertIn(" · Position \"+formatSourceGeometry(source)", self.ui)
+        self.assertIn("function drawSourceSelection(context,scene,width,height)", self.ui)
+        self.assertIn('$("previewCanvas").addEventListener("pointerdown"', self.ui)
+        self.assertIn('$("previewCanvas").addEventListener("pointermove"', self.ui)
+        self.assertIn('$("previewCanvas").addEventListener("pointerup"', self.ui)
+        self.assertIn("canvas.setPointerCapture(event.pointerId)", self.ui)
+        self.assertIn('action:"update-source",sourceId:state.id,patch', self.ui)
+        self.assertIn("renderSources();\n event.preventDefault();\n});\n$(\"previewCanvas\").addEventListener(\"pointermove\"", self.ui)
+
+    def test_regie_manages_validated_scene_dependencies(self):
+        for element_id in ("sceneDependencies", "dependenciesDialog", "dependencyList",
+                           "saveDependencies", "closeDependencies"):
+            with self.subTest(element_id=element_id):
+                self.assertIn(f'id="{element_id}"', self.ui)
+        self.assertIn('$("sceneDependencies").disabled=!custom;', self.ui)
+        self.assertIn("function openDependenciesDialog()", self.ui)
+        self.assertIn('action:"set-scene-dependencies",id:scene.id,dependsOn', self.ui)
+        self.assertIn("check.dataset.dependencyScene=candidate.id;", self.ui)
+        self.assertIn(" · ABH \"+scene.dependsOn.length", self.ui)
+        self.assertIn("Abhängigkeiten dürfen keinen Kreis bilden", self.ui)
+        self.assertIn("const MAX_DEPENDENCIES = 10;", ENGINE.read_text(encoding="utf-8"))
+        engine_text = ENGINE.read_text(encoding="utf-8")
+        self.assertIn("function cleanDependencyIds(raw)", engine_text)
+        self.assertIn("function hasDependencyCycle(dependencyMap, sceneId, dependencyId)", engine_text)
+        self.assertIn("dependsOn: cleanDependencyIds(raw.dependsOn)", engine_text)
+        self.assertIn("setSceneDependencies(sceneId, raw)", engine_text)
+        self.assertIn("Szene wird von einer anderen Szene benötigt.", engine_text)
+
+    def test_regie_exposes_bounded_source_visual_transforms(self):
+        for element_id in ("sourceAlpha", "sourceAlphaValue", "sourceRotation", "sourceFlipH",
+                           "sourceFlipV", "sourceFit", "sourceCropX", "sourceCropY",
+                           "sourceCropW", "sourceCropH"):
+            with self.subTest(element_id=element_id):
+                self.assertIn(f'id="{element_id}"', self.ui)
+        self.assertIn("function sourceTransformFromDialog()", self.ui)
+        self.assertIn("function setSourceTransformFields(transform)", self.ui)
+        self.assertIn("function formatSourceTransform(transform)", self.ui)
+        self.assertIn("function drawMediaFit(", self.ui)
+        self.assertIn("function withSourceTransform(context, source, x, y, width, height, drawFn)", self.ui)
+        self.assertIn("const payload={type,name,text,...position,transform,settings,...(audio?{audio}:{})};", self.ui)
+        self.assertIn('" · "+formatSourceTransform(source.transform)', self.ui)
+        engine_text = ENGINE.read_text(encoding="utf-8")
+        self.assertIn("SOURCE_TRANSFORM_FIT_MODES = Object.freeze(['cover', 'contain', 'stretch'])", engine_text)
+        self.assertIn("function cleanSourceTransform(raw)", engine_text)
+        self.assertIn("transform: cleanSourceTransform(raw.transform)", engine_text)
+        output_text = OUTPUT.read_text(encoding="utf-8")
+        self.assertIn("function sanitizeTransform(value)", output_text)
+        self.assertIn("transform:sanitizeTransform(source.transform)", output_text)
+        self.assertIn("function withSourceTransform(targetContext,source,x,y,w,h,drawFn)", output_text)
+        self.assertIn("targetContext.globalAlpha*=transform.alpha", output_text)
+
+    def test_regie_manages_scene_duplication_order_and_packs(self):
+        for element_id in ("duplicateScene", "moveSceneLeft", "moveSceneRight",
+                           "exportScenes", "importScenes", "scenePackInput"):
+            with self.subTest(element_id=element_id):
+                self.assertIn(f'id="{element_id}"', self.ui)
+        self.assertIn('$("duplicateScene").disabled=!scene;', self.ui)
+        self.assertIn('$("moveSceneLeft").disabled=index<=0;', self.ui)
+        self.assertIn('$("moveSceneRight").disabled=index<0||index>=scenes.length-1;', self.ui)
+        self.assertIn('action:"duplicate-scene",id:scene.id', self.ui)
+        self.assertIn('action:"reorder-scenes",order', self.ui)
+        self.assertIn('action:"import-scene-pack",pack', self.ui)
+        self.assertIn('action:"export-scenes"', self.ui)
+        self.assertIn('link.download="streamiov-szenen.json"', self.ui)
+        self.assertIn("URL.createObjectURL(blob)", self.ui)
+        engine_text = ENGINE.read_text(encoding="utf-8")
+        self.assertIn("duplicateScene(sceneId)", engine_text)
+        self.assertIn("reorderScenes(order)", engine_text)
+        self.assertIn("exportScenePack(sceneIds)", engine_text)
+        self.assertIn("importScenePack(raw)", engine_text)
+        self.assertIn("kind: 'streamiov-scene-pack'", engine_text)
 
     def test_music_tool_records_a_real_local_wav_test_file(self):
         handler = self.main.split("ipcMain.handle('studio:record-music-test'", 1)[1].split(
@@ -718,11 +894,14 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
 
     def test_stream_start_requires_routed_unmuted_auxiliary_audio(self):
         self.assertIn('function hasStreamRoute(name)', self.ui)
+        self.assertIn('function channelAudibleOnStream(name){return Boolean(studioAudioMixer?.isAudibleOn(name,"stream"));}', self.ui)
         self.assertIn('!snapshot.muted&&snapshot.routes.includes("stream")', self.ui)
         for source in ('"music"', '"tts"', '"alert"', 'pad.channelName'):
             with self.subTest(source=source):
-                self.assertIn(f'hasStreamRoute({source})', self.ui)
-        self.assertIn('hasStreamRoute("tts")&&!mixerSourceMuteState.tts', self.ui)
+                self.assertIn(f'channelAudibleOnStream({source})', self.ui)
+        self.assertIn('channelAudibleOnStream("tts")&&!mixerSourceMuteState.tts', self.ui)
+        self.assertIn('primaryAudioChannels.some(channelAudibleOnStream)', self.ui)
+        self.assertIn('hasStreamRoute("music")&&!musicCurrentLiveAllowed()', self.ui)
         self.assertNotIn('!ttsAudio.paused&&studioAudioMixer.snapshot("tts")', self.ui)
         self.assertNotIn('alertToneActive&&studioAudioMixer.snapshot("alert")', self.ui)
 
@@ -771,11 +950,27 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("path.join(app.getPath('userData'), 'recordings')", self.main)
         self.assertIn("fs.open(filePath, 'wx')", self.main)
         self.assertIn("await recording.handle.write(chunk)", self.main)
-        self.assertIn("if (written.ok !== false && streamRecording) await appendStreamRecording(bytes);", self.main)
-        self.assertIn("const recording = await stopStreamRecording('stream_stopped');", self.main)
+        self.assertIn("if (written.ok !== false && streamRecording?.mode === 'stream') await appendStreamRecording(bytes);", self.main)
+        self.assertIn("const recording = streamRecording?.mode === 'stream' ? await stopStreamRecording('stream_stopped')", self.main)
         self.assertIn("if(sent?.recording?.ok)updateRecordingUi(sent.recording);", self.ui)
-        self.assertIn('studio.recordingAction(current?.active?"stop":"start")', self.ui)
+        self.assertIn('const result=await studio.recordingAction("stop");', self.ui)
+        self.assertIn('const result=await studio.recordingAction("start");', self.ui)
         self.assertIn("{ id: 'local-recording', status: 'local_webm_file'", self.main)
+        self.assertIn("ipcMain.handle('studio:record-chunk'", self.main)
+        self.assertIn("ipcMain.handle('studio:recording-list'", self.main)
+        self.assertIn("ipcMain.handle('studio:recording-file-action'", self.main)
+        self.assertIn("recordChunk: (chunk) => ipcRenderer.invoke('studio:record-chunk', chunk)", self.preload)
+        self.assertIn("recordingList: () => ipcRenderer.invoke('studio:recording-list')", self.preload)
+        self.assertIn("recordingFileAction: (id, action) => ipcRenderer.invoke('studio:recording-file-action', { id, action })", self.preload)
+        self.assertIn('id="recordingRefresh"', self.ui)
+        self.assertIn('id="recordingFiles"', self.ui)
+        self.assertIn("async function startLocalRecorder()", self.ui)
+        self.assertIn("async function stopLocalRecording()", self.ui)
+        self.assertIn("localRecordingCanvasStream=canvas.captureStream(fps)", self.ui)
+        self.assertIn("if(!streamState?.active){", self.ui)
+        self.assertIn("await stopLocalRecording();", self.ui)
+        self.assertIn("async function refreshRecordingFiles()", self.ui)
+        self.assertIn("void refreshRecordingFiles();", self.ui)
 
 
 if __name__ == "__main__":

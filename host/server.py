@@ -108,6 +108,8 @@ from host.event_store import EVENT_SCHEMA_VERSION, EventStore, EventValidationEr
 from host.forum import ForumError, ForumStore
 from host.music_library import HostMusicLibrary, HostMusicLibraryError
 from host.music_state import MusicStateError, MusicStateStore
+from host.retention import ForumRetentionScheduler
+from host.shared_rate_limiter import SharedRateLimiter, SharedRateLimiterError
 from host.wishbox import WishboxError, WishboxStore
 from services.oauth.connection_service import PLATFORMS as OAUTH_PLATFORMS
 from services.oauth.connection_service import ConnectionError as OAuthConnectionError
@@ -307,7 +309,8 @@ class StreamioVHTTPServer(ThreadingHTTPServer):
     def __init__(self, address, handler, site_root: Path, data_dir: Path, *,
                  tls_enabled: bool = False, trust_loopback_proxy: bool = False,
                  registration_open: bool = False, raw_data_root: Path | None = None,
-                 music_root: Path | None = None):
+                 music_root: Path | None = None,
+                 shared_rate_limit_db: str | Path | None = None):
         self.site_root = site_root.resolve()
         self.data_dir = Path(data_dir).resolve()
         effective_raw_root = raw_data_root or DEFAULT_RAW_DATA_ROOT
@@ -341,17 +344,39 @@ class StreamioVHTTPServer(ThreadingHTTPServer):
             data_dir, music_catalog=self.music_catalog,
             event_publisher=publish_wishbox_event,
         )
-        self.auth_limiter = RequestRateLimiter()
-        self.forum_thread_limiter = RequestRateLimiter(limit=5, window_seconds=600)
-        self.forum_reply_limiter = RequestRateLimiter(limit=20, window_seconds=600)
-        self.forum_report_limiter = RequestRateLimiter(limit=5, window_seconds=600)
-        if self.connection_store is not None:
-            self.oauth_limiter = DurableRateLimiter(data_dir, limit=12, window_seconds=600)
+        shared_db = (shared_rate_limit_db if shared_rate_limit_db is not None
+                     else os.environ.get("STREAMIOV_SHARED_RATE_LIMIT_DB"))
+        self.shared_rate_limit_status = None
+        if shared_db:
+            def shared(namespace: str, limit: int, window: int) -> SharedRateLimiter:
+                return SharedRateLimiter(shared_db, namespace=namespace, limit=limit,
+                                         window_seconds=window)
+            self.auth_limiter = shared("auth", 10, 900)
+            self.forum_thread_limiter = shared("forum-thread", 5, 600)
+            self.forum_reply_limiter = shared("forum-reply", 20, 600)
+            self.forum_report_limiter = shared("forum-report", 5, 600)
+            self.forum_moderation_limiter = shared("forum-moderation", 10, 600)
+            if self.connection_store is not None:
+                self.oauth_limiter = shared("oauth", 12, 600)
+            else:
+                self.oauth_limiter = RequestRateLimiter(limit=12, window_seconds=600)
+            self.event_limiter = shared("events", 60, 600)
+            self.music_state_limiter = shared("music-state", 120, 600)
+            self.wishbox_limiter = shared("wishbox", 30, 600)
+            self.shared_rate_limit_status = self.auth_limiter.status()
         else:
-            self.oauth_limiter = RequestRateLimiter(limit=12, window_seconds=600)
-        self.event_limiter = RequestRateLimiter(limit=60, window_seconds=600)
-        self.music_state_limiter = RequestRateLimiter(limit=120, window_seconds=600)
-        self.wishbox_limiter = RequestRateLimiter(limit=30, window_seconds=600)
+            self.auth_limiter = RequestRateLimiter()
+            self.forum_thread_limiter = RequestRateLimiter(limit=5, window_seconds=600)
+            self.forum_reply_limiter = RequestRateLimiter(limit=20, window_seconds=600)
+            self.forum_report_limiter = RequestRateLimiter(limit=5, window_seconds=600)
+            self.forum_moderation_limiter = RequestRateLimiter(limit=10, window_seconds=600)
+            if self.connection_store is not None:
+                self.oauth_limiter = DurableRateLimiter(data_dir, limit=12, window_seconds=600)
+            else:
+                self.oauth_limiter = RequestRateLimiter(limit=12, window_seconds=600)
+            self.event_limiter = RequestRateLimiter(limit=60, window_seconds=600)
+            self.music_state_limiter = RequestRateLimiter(limit=120, window_seconds=600)
+            self.wishbox_limiter = RequestRateLimiter(limit=30, window_seconds=600)
         self.oauth_refresh_lock = threading.Lock()
         self.auth_work_slots = threading.BoundedSemaphore(4)
         self.ai_work_slots = threading.BoundedSemaphore(2)
@@ -958,6 +983,9 @@ class Handler(BaseHTTPRequestHandler):
             if user.user_id not in forum_moderator_ids():
                 self._json(403, {"error": "moderator_required"})
                 return True
+            if not self.server.forum_moderation_limiter.allow("forum_moderation_decision", self._client_address()):
+                self._json_with_headers(429, {"error": "too_many_attempts"}, (("Retry-After", "600"),))
+                return True
             try:
                 payload = self._read_json_object(max_bytes=4096)
             except AuthError as exc:
@@ -1048,6 +1076,9 @@ class Handler(BaseHTTPRequestHandler):
                 return True
             if user.user_id not in forum_moderator_ids():
                 self._json(403, {"error": "moderator_required"})
+                return True
+            if not self.server.forum_moderation_limiter.allow("forum_moderation_decision", self._client_address()):
+                self._json_with_headers(429, {"error": "too_many_attempts"}, (("Retry-After", "600"),))
                 return True
             try:
                 payload = self._read_json_object(max_bytes=4096)
@@ -1634,8 +1665,9 @@ class Handler(BaseHTTPRequestHandler):
                 "wishbox_music_orders_require_live_rights": True,
                 "platform_connections_ready": self.server.connection_store is not None,
                 "platform_configs": oauth_platform_statuses(self.server.connection_store),
-                "platform_integrations_ready": oauth_ready(self.server.connection_store),
-            })
+                 "platform_integrations_ready": oauth_ready(self.server.connection_store),
+                 "shared_rate_limiter": getattr(self.server, "shared_rate_limit_status", None),
+             })
             return
         if path == "/api/v1/ai/status":
             self._json(200, local_ai_status())
@@ -1766,6 +1798,12 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Report the forum retention policy and eligible records without deleting anything.")
     parser.add_argument("--forum-retention-run", action="store_true",
                         help="Apply the local forum retention policy; does not start the server.")
+    parser.add_argument("--forum-retention-schedule-status", action="store_true",
+                        help="Show the local forum retention schedule state; does not start the server.")
+    parser.add_argument("--forum-retention-schedule-run", action="store_true",
+                        help="Run one local forum retention cycle; does not start the server.")
+    parser.add_argument("--forum-retention-policy", metavar="FILE",
+                        help="Local forum retention schedule policy file for status, schedule-run, or server start.")
     return parser
 
 
@@ -1778,6 +1816,7 @@ def main(argv: list[str] | None = None) -> int:
         args.forum_notifications, args.forum_mark_notification_read,
         args.forum_spam, args.forum_history,
         args.forum_retention_status, args.forum_retention_run,
+        args.forum_retention_schedule_status, args.forum_retention_schedule_run,
     ]
     backup_actions = [args.backup_create, args.backup_list, args.backup_prune,
                       args.backup_verify, args.backup_restore,
@@ -1870,6 +1909,14 @@ def main(argv: list[str] | None = None) -> int:
     if any(forum_actions):
         if sum(1 for action in forum_actions if action) != 1:
             raise SystemExit("Choose exactly one forum moderation action.")
+        if args.forum_retention_schedule_status:
+            scheduler = ForumRetentionScheduler(args.data_dir, policy_path=args.forum_retention_policy)
+            print(json.dumps(scheduler.status(), ensure_ascii=False))
+            return 0
+        if args.forum_retention_schedule_run:
+            scheduler = ForumRetentionScheduler(args.data_dir, policy_path=args.forum_retention_policy)
+            print(json.dumps(scheduler.run_once(force=True), ensure_ascii=False))
+            return 0
         store = ForumStore(args.data_dir)
         if args.forum_retention_status:
             print(json.dumps(store.retention_status(), ensure_ascii=False))
@@ -1971,10 +2018,13 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--trust-loopback-proxy requires a loopback bind address.")
     if not args.site_root.is_dir():
         raise SystemExit(f"Static site directory does not exist: {args.site_root}")
-    server = StreamioVHTTPServer((args.host, args.port), Handler, args.site_root, args.data_dir,
-                                 tls_enabled=use_tls, trust_loopback_proxy=args.trust_loopback_proxy,
-                                 registration_open=args.enable_registration,
-                                 raw_data_root=args.raw_data_root, music_root=args.music_root)
+    try:
+        server = StreamioVHTTPServer((args.host, args.port), Handler, args.site_root, args.data_dir,
+                                     tls_enabled=use_tls, trust_loopback_proxy=args.trust_loopback_proxy,
+                                     registration_open=args.enable_registration,
+                                     raw_data_root=args.raw_data_root, music_root=args.music_root)
+    except SharedRateLimiterError as exc:
+        raise SystemExit(str(exc)) from exc
     scheme = "https" if use_tls else "http"
     if use_tls:
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -1983,9 +2033,13 @@ def main(argv: list[str] | None = None) -> int:
         server.socket = context.wrap_socket(server.socket, server_side=True)
     scheduler = BackupScheduler(args.data_dir, policy_path=args.backup_policy)
     scheduler_started = scheduler.start()
+    retention = ForumRetentionScheduler(args.data_dir, policy_path=args.forum_retention_policy)
+    retention_started = retention.start()
     print(f"StreamioV host {VERSION} serving {server.site_root} at {scheme}://{args.host}:{server.server_port}")
     print("Local Core backup schedule: " + ("enabled" if scheduler_started else "disabled") +
           "; backups stay local and production restore remains unverified.")
+    print("Local forum retention schedule: " + ("enabled" if retention_started else "disabled") +
+          "; automatic deletion requires owner and legal approval.")
     print("Stage: local account API enabled; web registration is " +
           ("open" if server.registration_open else "closed") +
           "; read-only raw-data catalog enabled; AI tasks enabled when a local model is ready; " +
@@ -1996,6 +2050,7 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         print("\nStopping StreamioV host.")
     finally:
+        retention.stop()
         scheduler.stop()
         server.server_close()
     return 0

@@ -2,7 +2,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import closing, redirect_stdout
 from io import StringIO
 from pathlib import Path
 
@@ -35,7 +35,7 @@ class JasonProjectAdministratorTests(unittest.TestCase):
         self.assertEqual(len(snapshot["blockers"]), 2)
 
     def test_reads_persistent_missions_and_specialist_assignments(self):
-        with sqlite3.connect(self.missions) as db:
+        with closing(sqlite3.connect(self.missions)) as db:
             db.executescript("""
                 CREATE TABLE development_missions (
                     mission_id TEXT PRIMARY KEY, goal TEXT, status TEXT, cycle INTEGER,
@@ -51,7 +51,7 @@ class JasonProjectAdministratorTests(unittest.TestCase):
                 INSERT INTO development_mission_tasks VALUES
                     ('task-2', 'mission-1', 'studio', 'queued');
             """)
-        with sqlite3.connect(self.queue) as db:
+        with closing(sqlite3.connect(self.queue)) as db:
             db.executescript("""
                 CREATE TABLE specialist_tasks (
                     specialist TEXT, status TEXT
@@ -88,7 +88,7 @@ class JasonProjectAdministratorTests(unittest.TestCase):
 
     def test_rejects_symlink_database(self):
         target = self.root / "real.sqlite3"
-        with sqlite3.connect(target):
+        with closing(sqlite3.connect(target)):
             pass
         link = self.root / "linked.sqlite3"
         link.symlink_to(target)

@@ -1,0 +1,12 @@
+{
+  "project": "StreamioV",
+  "component": "forum-retention",
+  "status": "IMPLEMENTED_LOCALLY",
+  "schedule": {
+    "enabled": false,
+    "interval_minutes": 1440,
+    "state_root": "forum-retention"
+  },
+  "approval": "OWNER_AND_LEGAL_REVIEW_REQUIRED_BEFORE_ENABLE",
+  "production_status": "NOT_VERIFIED"
+}

@@ -12,15 +12,23 @@ from pathlib import Path
 
 from ai.core.agent import AgentError, DevelopmentAgent
 from ai.providers.local_http import ProviderError, provider_from_env
+from ai.providers.router import provider_for_role
 from ai.runtime.task_queue import SpecialistTaskQueue, SpecialistWorker, TaskQueueError
 from ai.runtime.learning_store import VerifiedLearningStore
 from ai.runtime.worker_service import run_worker_loop
 from ai.runtime.continuous_engine import ContinuousDevelopmentEngine, ModelMissionPlanner
 from ai.runtime.project_supervisor import ProjectSupervisor, ProjectSupervisorError
+from ai.runtime.project_tools import ProjectTools
 from ai.core.orchestrator import SpecialistTask
 from ai.core.planner import PlannerError, SpecialistPlanner
 from ai.specialists import specialist_names
 from ai.management.jason import JasonAdministrationError, JasonProjectAdministrator
+
+
+def run_final_verification_tests(root: Path) -> str:
+    tools = ProjectTools(root)
+    tools.set_read_only(True)
+    return tools.run_tests("python -W error::ResourceWarning -m unittest discover -s tests")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -148,11 +156,12 @@ def main(argv: list[str] | None = None) -> int:
             # Creating a mission and inspecting persisted status are local database
             # operations; execution modes require the configured model provider.
             provider = provider_from_env() if (args.mission_run or args.project_supervisor_run) else None
+            planner_provider = provider_for_role(provider, "planning") if provider is not None else None
             engine = ContinuousDevelopmentEngine(
                 args.mission_db,
-                ModelMissionPlanner(provider),
+                ModelMissionPlanner(planner_provider),
                 lambda role, task_id=None: DevelopmentAgent(
-                    provider=provider,
+                    provider=provider_for_role(provider, role),
                     project_root=Path(args.project_root),
                     max_steps=args.max_steps,
                     specialist=role,
@@ -162,6 +171,8 @@ def main(argv: list[str] | None = None) -> int:
                     full_project_development=args.full_project_development,
                     task_id=task_id,
                 ),
+                provider=provider,
+                verification_runner=run_final_verification_tests,
             )
             if args.mission_create:
                 mission_id = engine.create_mission(args.task)
@@ -209,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
                     signal.signal(item, handler)
         if args.plan_and_enqueue:
             provider = provider_from_env()
-            tasks = SpecialistPlanner(provider).plan(args.task)
+            tasks = SpecialistPlanner(provider_for_role(provider, "planning")).plan(args.task)
             queue = SpecialistTaskQueue(args.queue_db)
             queue.enqueue_plan(tasks)
             print(json.dumps({"status": "queued", "tasks": [{"task_id": task.task_id, "specialist": task.specialist, "depends_on": list(task.depends_on)} for task in tasks]}, ensure_ascii=False))
@@ -222,19 +233,22 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.worker_once:
             queue = SpecialistTaskQueue(args.queue_db)
-            worker = SpecialistWorker(
-                queue,
-                args.worker_id,
-                lambda role, task_id=None: DevelopmentAgent(
-                    provider=provider_from_env(),
+            provider_holder = {}
+
+            def worker_agent(role, task_id=None):
+                if "provider" not in provider_holder:
+                    provider_holder["provider"] = provider_from_env()
+                return DevelopmentAgent(
+                    provider=provider_for_role(provider_holder["provider"], role),
                     project_root=Path(args.project_root),
                     max_steps=args.max_steps,
                     specialist=role,
                     learning_store=VerifiedLearningStore(args.learning_db) if args.learning_db else None,
                     checkpoint_db=args.queue_db,
                     task_id=task_id,
-                ),
-            )
+                )
+
+            worker = SpecialistWorker(queue, args.worker_id, worker_agent)
             execution = worker.run_once()
             if execution is None:
                 print(json.dumps({"status": "idle"}, ensure_ascii=False))
@@ -248,18 +262,21 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if execution.status == "succeeded" else 1
         if args.worker_loop:
             queue = SpecialistTaskQueue(args.queue_db)
-            worker = SpecialistWorker(
-                queue,
-                args.worker_id,
-                lambda role, task_id=None: DevelopmentAgent(
-                    provider=provider_from_env(),
+            provider_holder = {}
+
+            def worker_agent(role, task_id=None):
+                if "provider" not in provider_holder:
+                    provider_holder["provider"] = provider_from_env()
+                return DevelopmentAgent(
+                    provider=provider_for_role(provider_holder["provider"], role),
                     project_root=Path(args.project_root),
                     max_steps=args.max_steps,
                     specialist=role,
                     checkpoint_db=args.queue_db,
                     task_id=task_id,
-                ),
-            )
+                )
+
+            worker = SpecialistWorker(queue, args.worker_id, worker_agent)
             stop_event = threading.Event()
             def request_stop(_signum, _frame):
                 stop_event.set()
@@ -283,7 +300,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result, ensure_ascii=False, indent=2))
             return 0 if result["ready"] else 3
         agent = DevelopmentAgent(
-            provider=provider,
+            provider=provider_for_role(provider, args.specialist),
             project_root=Path(args.project_root),
             max_steps=args.max_steps,
             specialist=args.specialist,

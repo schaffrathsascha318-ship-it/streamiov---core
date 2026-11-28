@@ -287,8 +287,11 @@ class HostStaticPathTests(unittest.TestCase):
                     "Content-Type": "application/json", "Cookie": session_cookie,
                     "X-Streamiov-Client": "studio",
                 })
-                with self.assertRaises(HTTPError) as error:
-                    urlopen(ai_task, timeout=2)
+                from ai.providers.local_http import ProviderError
+
+                with patch("host.server.run_local_ai_task", side_effect=ProviderError("local model unavailable")):
+                    with self.assertRaises(HTTPError) as error:
+                        urlopen(ai_task, timeout=10)
                 self.assertEqual(error.exception.code, 503)
                 failed_task = json.loads(error.exception.read())
                 self.assertEqual(failed_task["error"], "ai_execution_not_ready")
@@ -371,7 +374,8 @@ class HostCatalogApiTests(unittest.TestCase):
             return json.loads(response.read())
 
     def test_status_reports_the_read_only_catalog_without_claiming_a_full_api(self):
-        status = self._get_json("/api/v1/status")
+        with patch("host.server.local_ai_status", return_value={"ready": False}):
+            status = self._get_json("/api/v1/status")
         self.assertFalse(status["api_ready"])
         self.assertTrue(status["catalog_ready"])
         self.assertTrue(status["catalog_read_only"])

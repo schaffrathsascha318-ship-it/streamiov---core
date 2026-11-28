@@ -6,6 +6,7 @@ fragment, path, executable, environment variable, or arbitrary argument.
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import hashlib
 import hmac
 import json
@@ -165,7 +166,7 @@ class LocalTerminalExecutor:
         return connection
 
     def _init_audit(self):
-        with self._connect() as db:
+        with closing(self._connect()) as db, db:
             db.execute("""CREATE TABLE IF NOT EXISTS executions (
                 job_id TEXT PRIMARY KEY, profile TEXT NOT NULL, status TEXT NOT NULL,
                 started_at INTEGER NOT NULL, finished_at INTEGER, exit_code INTEGER,
@@ -205,7 +206,7 @@ class LocalTerminalExecutor:
             raise ExecutorError("Workspace symlinks are not permitted.")
 
     def _already_seen(self, job_id: str) -> bool:
-        with self._connect() as db:
+        with closing(self._connect()) as db, db:
             row = db.execute("SELECT status FROM executions WHERE job_id=?", (job_id,)).fetchone()
             return row is not None
 
@@ -245,7 +246,7 @@ class LocalTerminalExecutor:
         if self._already_seen(job["id"]):
             raise ExecutorError("Duplicate or previously interrupted job refused; manual audit required.")
         started = int(time.time())
-        with self._connect() as db:
+        with closing(self._connect()) as db, db:
             db.execute(
                 "INSERT INTO executions(job_id,profile,status,started_at) VALUES(?,?,?,?)",
                 (job["id"], job["profile"], "running", started),
@@ -257,7 +258,7 @@ class LocalTerminalExecutor:
             exit_code, output, status = 1, _redact(str(exc)), "failed"
         digest = hashlib.sha256(output.encode("utf-8")).hexdigest()
         finished = int(time.time())
-        with self._connect() as db:
+        with closing(self._connect()) as db, db:
             db.execute(
                 "UPDATE executions SET status=?,finished_at=?,exit_code=?,result_sha256=?,output=? WHERE job_id=?",
                 (status, finished, exit_code, digest, output, job["id"]),

@@ -10,7 +10,7 @@ const UPDATE_MANIFEST_SIGNATURE_URL = UPDATE_MANIFEST_URL + '.sig';
 const RELEASE_BASE_URL = 'https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/';
 const RELEASE_TAG_URL = 'https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/tag/';
 const UPDATE_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAtkp4zYJvGotS/606ORM4uXNAEnAweUUu/UPg6OBpcrk=
+MCowBQYDK2VwAyEAc8aQcJQE7RfiZMb9AmzBYpirWNXDO2OKjY63+vb/Whg=
 -----END PUBLIC KEY-----`;
 
 const MAX_MANIFEST_BYTES = 256 * 1024;

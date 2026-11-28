@@ -566,6 +566,7 @@ class ForumHttpTests(unittest.TestCase):
         self.server.forum_thread_limiter._attempts.clear()
         self.server.forum_reply_limiter._attempts.clear()
         self.server.forum_report_limiter._attempts.clear()
+        self.server.forum_moderation_limiter._attempts.clear()
 
     def _json(self, path, *, method=None, payload=None, cookie=None, origin=None):
         if method is None:
@@ -769,6 +770,34 @@ class ForumHttpTests(unittest.TestCase):
         open_ids = {item["id"] for item in self.server.forum_store.list_reports(status="open")}
         self.assertNotIn(report["report"]["id"], open_ids)
 
+    def test_moderation_decisions_share_a_rate_limit_across_both_endpoints(self):
+        _, created = self._json("/api/forum/threads", payload={
+            "title": "Moderationslimit", "body": "Zu melden",
+        }, cookie=self.other_cookie, origin=self.origin)
+        thread_id = created["thread"]["id"]
+        _, report = self._json("/api/forum/reports", payload={
+            "reason": "spam", "thread_id": thread_id,
+        }, cookie=self.other_cookie, origin=self.origin)
+        report_id = report["report"]["id"]
+
+        for index in range(10):
+            error = self._error(
+                f"/api/forum/reports/{'0' * 32}/decide",
+                payload={"decision": "dismissed", "note": f"Prüfung {index}"},
+                cookie=self.cookie, origin=self.origin,
+            )
+            self.assertEqual(error.code, 404)
+
+        error = self._error(
+            f"/api/forum/reports/{report_id}/resolve",
+            payload={"status": "resolved"}, cookie=self.cookie, origin=self.origin,
+        )
+        self.assertEqual(error.code, 429)
+        self.assertEqual(error.headers["Retry-After"], "600")
+        self.assertIn(report_id, {
+            item["id"] for item in self.server.forum_store.list_reports(status="open")
+        })
+
     def test_moderation_decision_notifies_reporter_over_http(self):
         _, created = self._json("/api/forum/threads", payload={
             "title": "Meldefluss", "body": "Bitte prüfen",
@@ -937,8 +966,9 @@ class ForumRetentionTests(unittest.TestCase):
         self._directory.cleanup()
 
     def _update(self, statement: str, parameters: tuple) -> None:
-        with sqlite3.connect(self.store.database) as db:
+        with closing(sqlite3.connect(self.store.database)) as db:
             db.execute(statement, parameters)
+            db.commit()
 
     def _seed_retention_records(self):
         visible = self.store.create_thread(self.author, "Sichtbar", "Beitrag")
@@ -1029,7 +1059,7 @@ class ForumRetentionTests(unittest.TestCase):
         )
         self.assertEqual(self.store.list_notifications(self.reporter.user_id), [])
         self.assertIsNotNone(self.store.get_thread(visible["id"]))
-        with sqlite3.connect(self.store.database) as db:
+        with closing(sqlite3.connect(self.store.database)) as db:
             self.assertEqual(db.execute(
                 "SELECT COUNT(*) FROM forum_moderation_actions"
             ).fetchone()[0], 0)
@@ -1047,14 +1077,15 @@ class ForumRetentionTests(unittest.TestCase):
     def test_legacy_soft_deletes_receive_a_deletion_timestamp(self):
         thread = self.store.create_thread(self.author, "Alt", "Beitrag")
         reply = self.store.create_reply(self.author, thread["id"], "Antwort")
-        with sqlite3.connect(self.store.database) as db:
+        with closing(sqlite3.connect(self.store.database)) as db:
             db.execute("ALTER TABLE threads DROP COLUMN deleted_at")
             db.execute("ALTER TABLE replies DROP COLUMN deleted_at")
             db.execute("UPDATE threads SET deleted = 1 WHERE thread_id=?", (thread["id"],))
             db.execute("UPDATE replies SET deleted = 1 WHERE reply_id=?", (reply["id"],))
+            db.commit()
 
         migrated = ForumStore(self._directory.name)
-        with sqlite3.connect(migrated.database) as db:
+        with closing(sqlite3.connect(migrated.database)) as db:
             thread_row = db.execute(
                 "SELECT created_at, deleted_at FROM threads WHERE thread_id=?", (thread["id"],)
             ).fetchone()

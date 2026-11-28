@@ -13,6 +13,7 @@ from ai.runtime.project_tools import NODE_TEST_COMMANDS, TEST_COMMANDS, ProjectT
 
 ALLOWED_COMMANDS = {
     "python -m unittest discover -s tests",
+    "python -W error::ResourceWarning -m unittest discover -s tests",
     "node --test tests/test_cloudflare_ai_worker.mjs",
     "python scripts/verify-cloudflare-config.py",
     "node scripts/release-signing.mjs verify-release",
@@ -60,6 +61,9 @@ class ChiefTestAllowlistTests(unittest.TestCase):
                         self.assertEqual(argv[0], "/usr/bin/bwrap")
                         self.assertIn("--ro-bind", argv)
                         self.assertIn("--unshare-net", argv)
+                        self.assertIn("--tmpfs", argv)
+                        bind_index = argv.index("--bind")
+                        self.assertTrue(argv[bind_index + 1].startswith("/tmp/streamiov-sandbox-"))
                         self.assertEqual(argv[argv.index("--") + 1], expected)
         self.assertEqual(run.call_count, len(ALLOWED_COMMANDS))
 
@@ -114,7 +118,7 @@ class ChiefTestAllowlistTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("bwrap"), "bubblewrap is not installed in this environment.")
     def test_sandboxed_tests_cannot_read_the_parent_environment(self):
-        with tempfile.TemporaryDirectory(dir="/var/tmp") as tmp:
+        with tempfile.TemporaryDirectory(prefix="streamiov-sandbox-test-") as tmp:
             root = Path(tmp)
             tests = root / "tests"
             tests.mkdir()

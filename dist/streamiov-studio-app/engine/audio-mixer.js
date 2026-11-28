@@ -283,6 +283,16 @@ class StudioAudioMixer {
     return true;
   }
 
+  hasSolo() {
+    return this.soloChannels.size > 0;
+  }
+
+  isAudibleOn(name, bus = 'stream') {
+    const channel = this.channels.get(name);
+    if (!channel || channel.muted || !channel.routes.includes(bus)) return false;
+    return this.soloChannels.size === 0 || channel.solo === true;
+  }
+
   snapshot(name) {
     const channel = this.channels.get(name);
     if (!channel) return null;

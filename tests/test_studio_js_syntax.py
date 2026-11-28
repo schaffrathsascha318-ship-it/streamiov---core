@@ -187,7 +187,7 @@ class HomepageDownloadPageTests(unittest.TestCase):
         self.assertIn("Release-Signatur", html)
         self.assertIn("/downloads/STREAMIOV-RELEASE-KEY.pub", html)
         self.assertIn("/downloads/SHA256SUMS.txt.sig", html)
-        self.assertIn("5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc", html)
+        self.assertIn("2c3de4b60d60cf4c7fa19ac3378a504706f79960978dfb610d9660bc10aeb09e", html)
 
     def test_promo_page_uses_real_media_and_states_the_limits(self):
         public = ROOT / "dist" / "streamiov-homepage-worker" / "public"

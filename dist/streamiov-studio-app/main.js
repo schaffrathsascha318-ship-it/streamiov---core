@@ -312,14 +312,25 @@ ipcMain.handle('studio:remove-media-asset', async (event, payload = {}) => {
   return { ok: removed, assets: mediaAssetsWithUrls() };
 });
 
+function recordingsDirectory() {
+  return path.join(app.getPath('userData'), 'recordings');
+}
+function isRecordingFileName(id) {
+  return typeof id === 'string' && id === path.basename(id) && /^[A-Za-z0-9][A-Za-z0-9._-]*\.webm$/.test(id);
+}
+function recordingFilePath(id) {
+  if (!isRecordingFileName(id)) throw new Error('Ungültiger Aufzeichnungsdateiname.');
+  return path.join(recordingsDirectory(), id);
+}
 function recordingSnapshot() {
   const recording = streamRecording || lastStreamRecording;
   if (!recording) {
-    return { ok: true, active: false, path: null, bytes: 0, queuedBytes: 0, startedAt: null, stoppedAt: null, reason: null, limitReached: false, error: null };
+    return { ok: true, active: false, mode: null, path: null, bytes: 0, queuedBytes: 0, startedAt: null, stoppedAt: null, reason: null, limitReached: false, error: null };
   }
   return {
     ok: true,
     active: Boolean(streamRecording),
+    mode: recording.mode || 'stream',
     path: recording.filePath,
     bytes: recording.bytes,
     queuedBytes: recording.queuedBytes,
@@ -330,16 +341,16 @@ function recordingSnapshot() {
     error: recording.error
   };
 }
-async function startStreamRecording() {
+async function startStreamRecording(mode = 'stream') {
   if (streamRecording) return { ok: false, error: 'Eine lokale Aufzeichnung läuft bereits.', recording: recordingSnapshot() };
-  if (!liveOutputManager.isActive()) return { ok: false, error: 'Aufzeichnung benötigt einen aktiven Stream.', recording: recordingSnapshot() };
-  const directory = path.join(app.getPath('userData'), 'recordings');
+  const directory = recordingsDirectory();
   await fs.mkdir(directory, { recursive: true });
-  const name = 'stream-' + new Date().toISOString().replace(/[:.]/g, '-') + '-' + randomUUID().slice(0, 8) + '.webm';
+  const prefix = mode === 'local' ? 'local' : 'stream';
+  const name = prefix + '-' + new Date().toISOString().replace(/[:.]/g, '-') + '-' + randomUUID().slice(0, 8) + '.webm';
   const filePath = path.join(directory, name);
   const handle = await fs.open(filePath, 'wx');
   streamRecording = {
-    filePath, handle, bytes: 0, queuedBytes: 0,
+    filePath, handle, bytes: 0, queuedBytes: 0, mode,
     startedAt: new Date().toISOString(), stoppedAt: null,
     reason: null, limitReached: false, error: null
   };
@@ -386,6 +397,41 @@ async function stopStreamRecording(reason = 'user') {
   }
   return { ok: true, recording: recordingSnapshot() };
 }
+async function listRecordingFiles() {
+  const directory = recordingsDirectory();
+  await fs.mkdir(directory, { recursive: true });
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+  const files = await Promise.all(entries.filter(entry => entry.isFile() && isRecordingFileName(entry.name)).map(async entry => {
+    const filePath = path.join(directory, entry.name);
+    const stats = await fs.stat(filePath);
+    return { id: entry.name, name: entry.name, path: filePath, bytes: stats.size, modifiedAt: stats.mtime.toISOString() };
+  }));
+  return files.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt)).slice(0, 100);
+}
+async function recordingFileAction(id, action) {
+  const filePath = recordingFilePath(id);
+  if (action !== 'open' && action !== 'reveal' && action !== 'delete') return { ok: false, error: 'Unbekannte Aufzeichnungsaktion.' };
+  if (action === 'delete' && streamRecording && path.basename(streamRecording.filePath) === id) {
+    return { ok: false, error: 'Die aktive Aufzeichnung kann nicht gelöscht werden.' };
+  }
+  let stats;
+  try {
+    stats = await fs.lstat(filePath);
+  } catch (error) {
+    return { ok: false, error: error?.code === 'ENOENT' ? 'Aufzeichnung wurde nicht gefunden.' : String(error?.message || error).slice(0, 300) };
+  }
+  if (!stats.isFile()) return { ok: false, error: 'Keine reguläre Aufzeichnungsdatei.' };
+  if (action === 'delete') {
+    await fs.unlink(filePath);
+    return { ok: true, path: filePath };
+  }
+  if (action === 'reveal') {
+    shell.showItemInFolder(filePath);
+    return { ok: true, path: filePath };
+  }
+  const openError = await shell.openPath(filePath);
+  return openError ? { ok: false, error: String(openError).slice(0, 300) } : { ok: true, path: filePath };
+}
 ipcMain.handle('studio:recording-status', (event) => {
   if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
   return recordingSnapshot();
@@ -393,11 +439,30 @@ ipcMain.handle('studio:recording-status', (event) => {
 ipcMain.handle('studio:recording-action', async (event, action) => {
   if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
   if (action === 'start') {
-    try { return await startStreamRecording(); }
+    try { return await startStreamRecording(liveOutputManager.isActive() ? 'stream' : 'local'); }
     catch (error) { return { ok: false, error: String(error?.message || error).slice(0, 300), recording: recordingSnapshot() }; }
   }
   if (action === 'stop') return stopStreamRecording('user');
   return { ok: false, error: 'Unbekannte Aufzeichnungsaktion.', recording: recordingSnapshot() };
+});
+ipcMain.handle('studio:record-chunk', async (event, chunk) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  if (!streamRecording) return { ok: false, error: 'Keine aktive lokale Aufzeichnung.', recording: recordingSnapshot() };
+  if (Object.prototype.toString.call(chunk) !== '[object ArrayBuffer]' || chunk.byteLength > 4 * 1024 * 1024) {
+    return { ok: false, error: 'Ungültiger Medienblock.', recording: recordingSnapshot() };
+  }
+  await appendStreamRecording(new Uint8Array(chunk));
+  return { ok: true, recording: recordingSnapshot() };
+});
+ipcMain.handle('studio:recording-list', async (event) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  try { return { ok: true, files: await listRecordingFiles() }; }
+  catch (error) { return { ok: false, error: String(error?.message || error).slice(0, 300), files: [] }; }
+});
+ipcMain.handle('studio:recording-file-action', async (event, payload = {}) => {
+  if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
+  try { return await recordingFileAction(payload?.id, payload?.action); }
+  catch (error) { return { ok: false, error: String(error?.message || error).slice(0, 300) }; }
 });
 
 function publishGlobalStreamStatus(status, detail = '') {
@@ -437,7 +502,7 @@ function handleLiveOutputEvent(platform, event, payload = {}) {
   }
   const active = liveOutputManager.activePlatforms();
   if (!active.length) {
-    void stopStreamRecording('stream_ended');
+    if (streamRecording?.mode === 'stream') void stopStreamRecording('stream_ended');
     publishGlobalStreamStatus('offline', detail);
   }
   else if (event === 'reconnecting') publishGlobalStreamStatus('reconnecting', detail);
@@ -608,12 +673,12 @@ ipcMain.handle('studio:start-stream', async (event, payload = {}) => {
 ipcMain.handle('studio:write-stream-chunk', async (event, chunk) => {
   if (!isTrustedStudioSender(event)) throw new Error('Nicht autorisierter Studio-Aufruf');
   if (!liveOutputManager.isActive() || liveStreamState === 'stopping') return { ok: false, error: 'Kein aktiver Stream.' };
-  if (!(chunk instanceof ArrayBuffer) || chunk.byteLength > 4 * 1024 * 1024) {
+  if (Object.prototype.toString.call(chunk) !== '[object ArrayBuffer]' || chunk.byteLength > 4 * 1024 * 1024) {
     return { ok: false, error: 'Ungültiger Medienblock.' };
   }
   const bytes = new Uint8Array(chunk);
   const written = await liveOutputManager.write(bytes);
-  if (written.ok !== false && streamRecording) await appendStreamRecording(bytes);
+  if (written.ok !== false && streamRecording?.mode === 'stream') await appendStreamRecording(bytes);
   return { ...written, recording: recordingSnapshot() };
 });
 
@@ -627,7 +692,7 @@ ipcMain.handle('studio:stop-stream', async (event) => {
   liveStreamState = 'stopping';
   publishGlobalStreamStatus('stopping', 'LIVE-Ausgaben werden beendet.');
   await liveOutputManager.stopAll();
-  const recording = await stopStreamRecording('stream_stopped');
+  const recording = streamRecording?.mode === 'stream' ? await stopStreamRecording('stream_stopped') : { recording: recordingSnapshot() };
   publishStreamStatus('offline');
   return { ok: true, status: 'offline', recording: recording.recording };
 });
@@ -875,13 +940,20 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
   const engine = new StudioSceneEngine(savedState);
 
   const action = payload && payload.action;
+  if (action === 'export-scenes') return engine.exportScenePack(payload.sceneIds);
   let result;
   if (action === 'load') {
     return { ok: true, state: engine.snapshot() };
   } else if (action === 'select') {
     result = engine.selectPreview(payload.id || payload.name);
   } else if (action === 'take') {
-    result = engine.take();
+    result = engine.take(payload.transition);
+  } else if (action === 'set-transition') {
+    result = engine.setTransition(payload.transition);
+  } else if (action === 'set-overlay') {
+    result = engine.setOverlay(payload.overlay);
+  } else if (action === 'set-scene-dependencies') {
+    result = engine.setSceneDependencies(payload.id || payload.sceneId, payload.dependsOn);
   } else if (action === 'set-program') {
     result = engine.setProgramScene(payload.id || payload.name);
   } else if (action === 'create') {
@@ -890,10 +962,16 @@ ipcMain.handle('studio:scene-action', async (event, payload = {}) => {
     result = engine.renameScene(payload.id, payload.name);
   } else if (action === 'delete-scene') {
     result = engine.deleteScene(payload.id);
+  } else if (action === 'duplicate-scene') {
+    result = engine.duplicateScene(payload.id);
+  } else if (action === 'reorder-scenes') {
+    result = engine.reorderScenes(payload.order);
+  } else if (action === 'import-scene-pack') {
+    result = engine.importScenePack(payload.pack);
   } else if (action === 'add-source') {
     result = engine.addSource(payload.source || {});
   } else if (action === 'update-source') {
-    result = engine.updateSource(payload.sourceId, payload.patch || {});
+    result = engine.updateSource(payload.sourceId, payload.patch || {}, payload.sceneId);
   } else if (action === 'remove-source') {
     result = engine.removeSource(payload.sourceId);
   } else if (action === 'move-source') {
@@ -1408,7 +1486,7 @@ ipcMain.handle('studio:get-module-status', async (event) => {
       { id: 'local-camera-preview', status: 'renderer_local_only', note: 'Kamera-, Bildschirm-, Fenster- und Medienquellen laufen im Renderer, werden in die Programmszene gezeichnet und mit ihren echten Medien-Tracks in den Stream-Bus geroutet.' },
       { id: 'synthetic-av-test', status: 'dependency_gated', note: 'Lokaler Test mit installierten GStreamer-Komponenten.' },
       { id: 'compositor', status: 'renderer_canvas_program_output', note: 'Die Programmszene wird mit festem Frame-Takt aus echten Quell-Tracks gerendert und als WebM-Mediastream an den lokalen Encoder gesendet.' },
-      { id: 'local-recording', status: 'local_webm_file', note: 'Der komponierte WebM-Mediastream kann während eines aktiven Streams zusätzlich als lokale Datei im Benutzerprofil aufgezeichnet werden; es erfolgt kein Upload und keine Plattformveröffentlichung.' },
+      { id: 'local-recording', status: 'local_webm_file', note: 'Der komponierte WebM-Mediastream kann ohne RTMP und zusätzlich während eines aktiven Streams als lokale Datei im Benutzerprofil aufgezeichnet, aufgelistet, geöffnet und gelöscht werden; es erfolgt kein Upload und keine Plattformveröffentlichung.' },
       { id: 'production-encoder', status: encoder.available ? 'ffmpeg_available' : 'ffmpeg_missing', note: encoder.available ? `FFmpeg ${encoder.executable} mit libx264, AAC und RTMP/RTMPS ist verfügbar.` : 'Fehlend: ' + encoder.missing.join(', ') + '.' },
       { id: 'audio-mixer-routing', status: 'local_four_bus_engine', note: 'Mikrofon, Bildschirm-Systemton, lokaler Musikplayer, Soundboard-Pads, deutsches TTS und manuelle Alert-Töne werden über getrennte Stream-, Monitor-, Kopfhörer- und Kommunikationsbusse geroutet. Jeder Ausgang besitzt einen Limiter; ein plattformneutraler Geräteadapter übernimmt Geräteinventar, Mikrofonöffnung, Ausgabeverbindung und Hot-plug-Beobachtung. Mikrofon bietet Hochpass, optionalen Sprachkompressor, Noise Gate/Expander mit Hysterese, Pan, Solo und konfigurierbare OS-Echo-/Rauschunterdrückung sowie automatische Pegelregelung. Live-RMS-/Peak-Meter zeigen Quellen- und Stream-Ausgangspegel samt Clipping-Hinweis. Der Stream-Bus speist den lokalen MediaRecorder/Encoder-Eingang. Spiel-/Fensterton wird über den ausgewählten Capture-Track aufgenommen, sofern Windows/Electron einen Loopback-Audiotrack liefert; separate App-Audio-Kanäle, Voice-Räume und automatische Plattform-Event-Zuordnung für Alerts sind noch nicht angebunden. TTS nutzt espeak-ng, wenn vorhanden, und unter Windows zusätzlich die native System.Speech-Fallback-Ausgabe. Physische Geräteausgabe und LIVE-Übertragung sind nicht hardwareverifiziert.' },
       { id: 'tiktok-live-output', status: registry.tiktok?.state === 'live' ? 'remote_live_confirmed' : 'rtmp_transport_ready', note: 'RTMP-Transport und getrennter Encoder sind integriert; LIVE gilt nur nach remote bestätigter Plattformmeldung.' },
@@ -2288,8 +2366,11 @@ function publishProgramScene(snapshot) {
   const activeScene = scenes.find(scene => scene && scene.id === state.programSceneId);
   const scene = activeScene || { name: 'STREAMIOV' };
   programOutputWindow.webContents.send('studio:program-scene', {
+    id: typeof scene.id === 'string' ? scene.id.slice(0, 80) : '',
     name: typeof scene.name === 'string' ? scene.name.slice(0, 60) : 'STREAMIOV',
     background: scene.background,
+    overlay: scene.overlay,
+    transition: state.transition,
     sources: Array.isArray(scene.sources) ? scene.sources.slice(0, 20) : [],
     snapshot,
     assets: mediaAssetsWithUrls()

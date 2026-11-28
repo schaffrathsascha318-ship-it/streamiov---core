@@ -120,6 +120,11 @@ class Handler(BaseHTTPRequestHandler):
             return json_response(self, {"error": {"code": "invalid_json"}}, 400)
         if not isinstance(payload, dict) or payload.get("model") != MODEL or payload.get("stream") is True:
             return json_response(self, {"error": {"code": "invalid_model_or_stream_mode"}}, 400)
+        response_format = payload.get("response_format")
+        if response_format is not None and (
+            not isinstance(response_format, dict) or response_format.get("type") != "json_object"
+        ):
+            return json_response(self, {"error": {"code": "unsupported_response_format"}}, 400)
         messages = payload.get("messages")
         if not isinstance(messages, list) or not 1 <= len(messages) <= MAX_MESSAGES:
             return json_response(self, {"error": {"code": "invalid_messages"}}, 400)
@@ -135,12 +140,15 @@ class Handler(BaseHTTPRequestHandler):
         if not request_lock.acquire(blocking=False):
             return json_response(self, {"error": {"code": "runtime_busy"}}, 429)
         try:
-            result = ollama_request("/api/chat", {
+            ollama_payload = {
                 "model": MODEL,
                 "stream": False,
                 "messages": messages,
                 "options": {"temperature": 0.1},
-            })
+            }
+            if response_format is not None:
+                ollama_payload["format"] = "json"
+            result = ollama_request("/api/chat", ollama_payload)
             content = result.get("message", {}).get("content")
             if not isinstance(content, str) or not content.strip():
                 raise ValueError("invalid model response")

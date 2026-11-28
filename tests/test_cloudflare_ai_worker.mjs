@@ -73,6 +73,54 @@ test("chat endpoint supports legacy response shape and returns OpenAI shape", as
   assert.deepEqual(receivedOptions.chat_template_kwargs, { enable_thinking: false });
 });
 
+test("chat forwards JSON mode to Workers AI and falls back if the model rejects it", async () => {
+  const calls = [];
+  const runtime = env({
+    AI: {
+      run: async (model, options) => {
+        calls.push(JSON.parse(JSON.stringify(options)));
+        if (calls.length === 1) throw new Error("JSON Mode couldn't be met");
+        return { response: '{"final":"fallback succeeded"}' };
+      }
+    }
+  });
+  const response = await worker.fetch(
+    chatRequest({
+      model: MODEL,
+      messages: [{ role: "user", content: "Return JSON" }],
+      response_format: { type: "json_object" }
+    }),
+    runtime
+  );
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.choices[0].message.content, '{"final":"fallback succeeded"}');
+  assert.deepEqual(calls[0].response_format, { type: "json_object" });
+  assert.equal("response_format" in calls[1], false);
+});
+
+test("chat rejects unsupported response formats before inference", async () => {
+  let calls = 0;
+  const response = await worker.fetch(
+    chatRequest({
+      model: MODEL,
+      messages: [{ role: "user", content: "Return JSON" }],
+      response_format: { type: "json_schema", schema: {} }
+    }),
+    env({
+      AI: {
+        run: async () => {
+          calls += 1;
+          return { response: "{}" };
+        }
+      }
+    })
+  );
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, "unsupported-response-format");
+  assert.equal(calls, 0);
+});
+
 test("chat endpoint extracts OpenAI-style choices returned by Workers AI", async () => {
   const response = await worker.fetch(
     chatRequest({ model: MODEL, messages: [{ role: "user", content: "Say hello" }] }),
@@ -230,7 +278,11 @@ test("prefers the authenticated self-hosted model before Workers AI", async () =
   };
   try {
     const response = await worker.fetch(
-      chatRequest({ model: MODEL, messages: [{ role: "user", content: "Build Streamiov" }] }),
+      chatRequest({
+        model: MODEL,
+        messages: [{ role: "user", content: "Build Streamiov" }],
+        response_format: { type: "json_object" }
+      }),
       env({
         STREAMIOV_SELF_HOSTED_MODEL_URL: "https://model.example.com",
         STREAMIOV_SELF_HOSTED_MODEL_TOKEN: TOKEN,
@@ -244,6 +296,7 @@ test("prefers the authenticated self-hosted model before Workers AI", async () =
     assert.equal(receivedUrl, "https://model.example.com/v1/chat/completions");
     assert.equal(receivedAuthorization, `Bearer ${TOKEN}`);
     assert.equal(receivedPayload.model, "qwen2.5-coder:7b");
+    assert.deepEqual(receivedPayload.response_format, { type: "json_object" });
     assert.equal(workersAiCalled, false);
   } finally {
     globalThis.fetch = originalFetch;

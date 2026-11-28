@@ -64,8 +64,11 @@ contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
     bitrate: payload?.bitrate
   }),
   writeStreamChunk: (chunk) => ipcRenderer.invoke('studio:write-stream-chunk', chunk),
+  recordChunk: (chunk) => ipcRenderer.invoke('studio:record-chunk', chunk),
   recordingStatus: () => ipcRenderer.invoke('studio:recording-status'),
   recordingAction: (action) => ipcRenderer.invoke('studio:recording-action', action),
+  recordingList: () => ipcRenderer.invoke('studio:recording-list'),
+  recordingFileAction: (id, action) => ipcRenderer.invoke('studio:recording-file-action', { id, action }),
   stopStream: () => ipcRenderer.invoke('studio:stop-stream'),
   listDisplaySources: () => ipcRenderer.invoke('studio:list-display-sources'),
   selectDisplaySource: (sourceId) => ipcRenderer.sendSync('studio:select-display-source', sourceId),

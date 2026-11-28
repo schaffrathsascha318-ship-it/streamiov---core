@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -290,7 +291,7 @@ class PlatformOAuthHttpTests(unittest.TestCase):
         for forbidden in ("access_token", "refresh_token", "access_token_encrypted"):
             self.assertNotIn(forbidden, connection)
 
-        with sqlite3.connect(self.host.connection_store.path) as db:
+        with closing(sqlite3.connect(self.host.connection_store.path)) as db:
             encrypted = db.execute(
                 "SELECT access_token_encrypted, refresh_token_encrypted "
                 "FROM platform_connections WHERE platform = 'tiktok'"

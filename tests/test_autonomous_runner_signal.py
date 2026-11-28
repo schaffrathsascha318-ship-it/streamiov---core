@@ -1,6 +1,7 @@
 """Process-level regression coverage for graceful mission runner shutdown."""
 from __future__ import annotations
 
+from contextlib import closing
 import os
 from pathlib import Path
 import signal
@@ -22,6 +23,7 @@ class AutonomousRunnerSignalTests(unittest.TestCase):
             database = Path(tmp, "mission.sqlite3")
             script = r"""
 import importlib.util
+from contextlib import closing
 import sqlite3
 import sys
 import threading
@@ -33,10 +35,11 @@ spec = importlib.util.spec_from_file_location("streamiov_runner", runner_path)
 runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 
-with sqlite3.connect(database) as db:
+with closing(sqlite3.connect(database)) as db:
     db.execute("PRAGMA journal_mode=WAL")
     db.execute("CREATE TABLE shutdown_state (value TEXT NOT NULL)")
     db.execute("INSERT INTO shutdown_state VALUES ('started')")
+    db.commit()
 
 stop = threading.Event()
 try:
@@ -45,8 +48,9 @@ try:
         return stop.wait(30)
 
     runner.run_with_signal_handlers(run_after_handlers_are_installed, stop)
-    with sqlite3.connect(database) as db:
+    with closing(sqlite3.connect(database)) as db:
         db.execute("INSERT INTO shutdown_state VALUES ('stopped')")
+        db.commit()
 finally:
     runner.checkpoint_database(database)
 """
@@ -67,7 +71,7 @@ finally:
                     process.kill()
                     process.communicate(timeout=5)
 
-            with sqlite3.connect(database) as db:
+            with closing(sqlite3.connect(database)) as db:
                 integrity = db.execute("PRAGMA integrity_check").fetchone()[0]
                 rows = db.execute(
                     "SELECT value FROM shutdown_state ORDER BY rowid"
