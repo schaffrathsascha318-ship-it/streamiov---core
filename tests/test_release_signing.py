@@ -201,6 +201,8 @@ class StudioReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("command: dist:mac:x64", workflow)
         self.assertIn("command: dist:mac:arm64", workflow)
         self.assertIn("if: matrix.ffmpeg_target != 'none'", workflow)
+        self.assertIn("Plattformunabhängige Regie-Engine-Smoketests", workflow)
+        self.assertIn("engine/source-contract.test.js", workflow)
         self.assertIn('CSC_IDENTITY_AUTO_DISCOVERY: "false"', workflow)
         publish = workflow.split("  publish-release:", 1)[1]
         self.assertIn('"*.dmg" "Streamiov.Studio-${APP_VERSION}-x64-unsigned.dmg"', publish)

@@ -66,6 +66,7 @@ jobs:
   build:
     name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -150,7 +151,22 @@ jobs:
           --target "${{ matrix.ffmpeg_target }}"
 
       - name: Eigene Regie-Engine testen
+        if: matrix.ffmpeg_target != 'none'
         run: npm run test:engine
+
+      - name: Plattformunabhängige Regie-Engine-Smoketests
+        if: matrix.ffmpeg_target == 'none'
+        timeout-minutes: 5
+        run: >-
+          node --test
+          engine/source-contract.test.js
+          engine/source-model.test.js
+          engine/scene-engine.test.js
+          engine/audio-mixer.test.js
+          engine/privacy-shield.test.js
+          engine/app-updater.test.js
+          engine/device-capabilities-bridge.test.js
+          engine/ffmpeg-runtime.test.js
 
       - name: Studio bauen
         env:
