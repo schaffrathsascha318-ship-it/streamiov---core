@@ -482,6 +482,33 @@ class MissionEngineTests(unittest.TestCase):
         self.assertEqual(resumed.failed_tasks, 1)
         self.assertIsNone(resumed_engine._claim_task(mission_id, "next-slice"))
 
+    def test_terminal_action_protocol_stops_the_slice_before_replanning(self):
+        planner = SequencePlanner([
+            MissionPlan("continue", "Run one protocol task.", (
+                SpecialistTask("protocol", "code", "produce valid tool actions"),
+            )),
+        ])
+
+        class InvalidActionAgent:
+            def run(self, prompt, *, checkpoint_id=None, cancel_event=None):
+                raise AgentError(
+                    "Model action protocol remained invalid after 3 bounded corrections; refusing to execute."
+                )
+
+        engine = self.make_engine(planner, lambda _role: InvalidActionAgent(), max_task_failures=3)
+        mission_id = engine.create_mission("Stop invalid protocol loops before the runner deadline")
+        stop_event = threading.Event()
+        events = []
+        snapshot = engine.run(mission_id, stop_event, poll_seconds=0.01, emit=events.append)
+        self.assertTrue(stop_event.is_set())
+        self.assertEqual(len(planner.calls), 1)
+        self.assertGreaterEqual(snapshot.failed_tasks, 1)
+        self.assertTrue(any(
+            json.loads(item).get("event") == "mission_protocol_blocked" for item in events
+        ))
+        self.assertIn(mission_id, engine._protocol_blocked_missions)
+        self.assertEqual(engine.get_mission(mission_id).status, "active")
+
     def test_worker_timeout_backoff_is_classified_and_persisted_across_slices(self):
         planner = SequencePlanner([
             MissionPlan("continue", "Wait safely after provider timeout.", (

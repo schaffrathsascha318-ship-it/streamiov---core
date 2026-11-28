@@ -529,9 +529,24 @@ class SpecialistActionProtocolTests(unittest.TestCase):
                 self.assertIn(expected, correction)
         self.assertIn("Never invent tools", correction)
 
-    def test_action_key_correction_states_the_exact_top_level_schema(self):
+    def test_allowlisted_legacy_action_key_is_executed_without_a_correction_round(self):
         provider = SequenceProvider(
-            '{"action":"read_file","arguments":{"path":"ai/file.py"}}',
+            '{"action":"list_files","arguments":{"path":"."}}',
+            '{"final":"legacy action key recovered"}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="code")
+            self.assertIn("legacy action key recovered", agent.run("Use the documented tool key."))
+        self.assertEqual(provider.calls, 2)
+        self.assertFalse(any(
+            "FORMAT CORRECTION:" in message["content"]
+            for call in provider.messages
+            for message in call
+        ))
+
+    def test_unknown_action_key_is_not_canonicalized_and_is_corrected(self):
+        provider = SequenceProvider(
+            '{"action":"create_module","arguments":{"path":"ai/file.py"}}',
             '{"tool":"list_files","arguments":{"path":"."}}',
             '{"final":"corrected the action key"}',
         )
@@ -547,6 +562,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
         self.assertIn("never 'action'", correction)
         self.assertIn("'tool' and 'arguments'", correction)
         self.assertIn("['action', 'arguments']", correction)
+        self.assertIn("create_module", correction)
 
     def test_mixed_final_and_tool_correction_states_the_exclusive_final_rule(self):
         provider = SequenceProvider(

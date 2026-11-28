@@ -43,6 +43,15 @@ class AutonomousWorkflowGuardTests(unittest.TestCase):
             with self.subTest(editable_source=editable_source):
                 self.assertNotIn(editable_source, source)
 
+    def test_ollama_cooldown_reset_runs_after_the_runner_initializes_its_schema(self):
+        source = WORKFLOW.read_text(encoding="utf-8")
+        runner = (ROOT / "scripts" / "autonomous" / "run_issue.py").read_text(encoding="utf-8")
+        self.assertNotIn("UPDATE development_missions", source)
+        self.assertIn("def clear_verified_local_provider_cooldown", runner)
+        self.assertIn("sqlite_master WHERE type='table'", runner)
+        self.assertIn("clear_verified_local_provider_cooldown(database, mission_id)", runner)
+        self.assertIn('STREAMIOV_LOCAL_INFERENCE_TIMEOUT_SECONDS: "120"', source)
+
     def test_public_mission_artifacts_are_encrypted_before_upload(self):
         source = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("actions/upload-artifact@v4", source)

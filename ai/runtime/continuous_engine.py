@@ -220,6 +220,7 @@ class ContinuousDevelopmentEngine:
             raise MissionEngineError("Mission database must not be a symlink.")
         self.planner = planner
         self.agent_factory = agent_factory
+        self._protocol_blocked_missions: set[str] = set()
         try:
             factory_parameters = inspect.signature(agent_factory).parameters
             task_parameter = factory_parameters.get("task_id")
@@ -1105,6 +1106,8 @@ class ContinuousDevelopmentEngine:
                 else:
                     delay = min(self.retry_base_seconds * (2 ** min(failures - 1, 6)), 60.0)
                 terminal_failure = terminal_protocol_failure or terminal_verification_failure
+                if terminal_protocol_failure:
+                    self._protocol_blocked_missions.add(row["mission_id"])
                 next_status = "failed" if terminal_failure else "queued"
                 available_at = now if terminal_failure else now + delay
                 db.execute("""
@@ -1328,6 +1331,15 @@ class ContinuousDevelopmentEngine:
                 if snapshot.status == "completed":
                     emit(json.dumps({"event": "mission_completed", "mission_id": mission_id, "summary": snapshot.summary}, ensure_ascii=False))
                     return snapshot
+                if mission_id in self._protocol_blocked_missions:
+                    emit(json.dumps({
+                        "event": "mission_protocol_blocked", "mission_id": mission_id,
+                        "failed_tasks": snapshot.failed_tasks,
+                        "pending_tasks": snapshot.pending_tasks,
+                        "summary": "A specialist repeatedly returned an invalid action protocol; this runner slice stops with a durable checkpoint.",
+                    }, ensure_ascii=False))
+                    stop_event.set()
+                    break
                 if stop_event.is_set():
                     break
 

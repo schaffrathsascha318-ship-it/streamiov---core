@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import patch
 
@@ -137,6 +138,31 @@ class ProviderRouterTests(unittest.TestCase):
         with patch("ai.providers.local_http.urlopen", side_effect=fake_openai_urlopen):
             LocalOpenAICompatibleProvider("local-model").generate(system="Return JSON.", messages=[])
         self.assertEqual(captured[1][1]["response_format"], {"type": "json_object"})
+
+    def test_local_inference_timeout_is_bounded_and_configurable(self):
+        captured = []
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return b'{"message":{"content":"{}"}}'
+
+        def fake_urlopen(request, timeout):
+            captured.append(timeout)
+            return Response()
+
+        with patch.dict(os.environ, {}, clear=True), patch("ai.providers.local_http.urlopen", side_effect=fake_urlopen):
+            OllamaProvider("qwen2.5-coder:1.5b").generate(system="Return JSON.", messages=[])
+        self.assertEqual(captured[0], 120.0)
+
+        with patch.dict(os.environ, {"STREAMIOV_LOCAL_INFERENCE_TIMEOUT_SECONDS": "45"}, clear=True), patch("ai.providers.local_http.urlopen", side_effect=fake_urlopen):
+            OllamaProvider("qwen2.5-coder:1.5b").generate(system="Return JSON.", messages=[])
+        self.assertEqual(captured[1], 45.0)
 
     def test_environment_router_rejects_unknown_provider(self):
         with patch.dict("os.environ", {"STREAMIOV_MODEL_PROVIDERS": "ollama,unknown"}, clear=True):
