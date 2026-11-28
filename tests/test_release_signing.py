@@ -241,8 +241,9 @@ class StudioReleaseWorkflowTests(unittest.TestCase):
                 self.assertNotIn("Release ausstehend", markup)
                 self.assertNotIn("Release vorbereitet", markup)
                 self.assertNotIn("Veröffentlichung steht aus", markup)
-        self.assertIn("Kein macOS-Artefakt in 1.0.4", download)
-        self.assertNotIn("release/download/studio-v1.0.4/Streamiov.Studio-1.0.4-x64-unsigned.dmg", download)
+        self.assertIn("Streamiov.Studio-1.0.4-x64-unsigned.dmg", download)
+        self.assertIn("Streamiov.Studio-1.0.4-arm64-unsigned.dmg", download)
+        self.assertIn("Unsigned · Gerätetest offen", download)
 
 
 if __name__ == "__main__":

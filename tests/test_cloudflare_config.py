@@ -99,7 +99,7 @@ class CloudflareConfigTests(unittest.TestCase):
         ok, detail = verifier.verify_studio_update_manifest(downloads)
         self.assertTrue(ok, detail)
         checks = verifier.verify()["checks"]
-        self.assertIn("hosted Studio update manifest is signed and lists only published Windows/Linux assets", checks)
+        self.assertIn("hosted Studio update manifest is signed and lists published Windows/Linux installers and optional macOS DMGs", checks)
 
     def test_offline_verifier_rejects_a_tampered_studio_update_manifest(self):
         verifier = load_verifier()

@@ -139,14 +139,15 @@ def verify_studio_update_manifest(downloads: Path = DOWNLOADS) -> tuple[bool, st
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (ValueError, OSError) as error:
         return False, f"studio-update.json is not valid JSON: {error}"
-    expected_targets = {"win32-x64", "win32-arm64", "linux-x64", "linux-arm64"}
+    required_targets = {"win32-x64", "win32-arm64", "linux-x64", "linux-arm64"}
+    allowed_targets = required_targets | {"darwin-x64", "darwin-arm64"}
     if manifest.get("format") != "streamiov-studio-update-v1":
         return False, "update manifest has an unknown format"
     if manifest.get("version") != "1.0.4":
         return False, "update manifest version does not match the published Studio release"
     assets = manifest.get("assets")
-    if not isinstance(assets, dict) or set(assets) != expected_targets:
-        return False, "update manifest assets do not match the published Windows/Linux installers"
+    if not isinstance(assets, dict) or not required_targets.issubset(assets) or not set(assets).issubset(allowed_targets):
+        return False, "update manifest assets must include published Windows/Linux installers and only optional macOS DMGs"
     for target, asset in assets.items():
         if not isinstance(asset, dict):
             return False, f"update manifest asset {target} is invalid"
@@ -419,7 +420,7 @@ def verify() -> dict[str, Any]:
         update_ok, update_detail = verify_studio_update_manifest(DOWNLOADS)
         if not update_ok:
             errors.append(f"Studio update manifest verification failed: {update_detail}")
-        checks.append("hosted Studio update manifest is signed and lists only published Windows/Linux assets")
+        checks.append("hosted Studio update manifest is signed and lists published Windows/Linux installers and optional macOS DMGs")
 
         if sorted(DOWNLOADS.glob("*-prototype.zip")):
             for filename in ("SHA256SUMS-games.txt", "SHA256SUMS-games.txt.sig"):
