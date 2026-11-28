@@ -311,6 +311,18 @@ def _parse_action(content: str):
     return actions[0]
 
 
+def _canonicalize_tool_action(action, *, allow_game_checks: bool = False):
+    if (
+        isinstance(action, dict)
+        and set(action) == {"action", "arguments"}
+        and isinstance(action["action"], str)
+        and action["action"] in TOOL_ARGUMENTS
+        and (action["action"] != "run_game_checks" or allow_game_checks)
+    ):
+        return {"tool": action["action"], "arguments": action["arguments"]}
+    return action
+
+
 def _validate_tool_action(action: dict, *, allow_game_checks: bool = False) -> None:
     if set(action) != {"tool", "arguments"}:
         received = sorted(str(key) for key in action)
@@ -640,6 +652,10 @@ class DevelopmentAgent:
             verification_final_error = False
             try:
                 actions = _parse_actions(reply.content)
+                actions = [
+                    _canonicalize_tool_action(action, allow_game_checks=self._run_allow_game_checks)
+                    for action in actions
+                ]
                 verification_report = (
                     verification and len(actions) == 1
                     and isinstance(actions[0], dict)

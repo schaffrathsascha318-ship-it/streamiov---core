@@ -2,8 +2,14 @@
 from __future__ import annotations
 
 import ast
+import os
 from pathlib import Path
+import sqlite3
+import tempfile
 import unittest
+from unittest.mock import patch
+
+from scripts.autonomous.run_issue import clear_verified_local_provider_cooldown
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -49,6 +55,56 @@ class AutonomousRunnerPolicyTests(unittest.TestCase):
         self.assertIn("implement worthwhile improvements", policy)
         self.assertIn("highest-value unblocked work", policy)
         self.assertIn("reassess the roadmap", policy)
+
+    def test_local_provider_cooldown_reset_is_schema_safe_and_mission_scoped(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            database = Path(temporary) / "missions.sqlite3"
+            with patch.dict(os.environ, {"STREAMIOV_MODEL_PROVIDERS": "ollama"}):
+                self.assertFalse(clear_verified_local_provider_cooldown(database, "active-mission"))
+                with sqlite3.connect(database) as db:
+                    db.execute(
+                        """CREATE TABLE development_missions (
+                           mission_id TEXT PRIMARY KEY, status TEXT NOT NULL,
+                           planning_retry_at REAL, planning_failures INTEGER NOT NULL DEFAULT 0,
+                           planning_owner TEXT NOT NULL DEFAULT '',
+                           planning_lease_until REAL
+                        )"""
+                    )
+                    db.executemany(
+                        """INSERT INTO development_missions
+                           (mission_id,status,planning_retry_at,planning_failures,planning_owner,planning_lease_until)
+                           VALUES(?,?,?,?,?,?)""",
+                        [
+                            ("active-mission", "active", 9999.0, 4, "worker", 123.0),
+                            ("other-mission", "active", 8888.0, 3, "other", 456.0),
+                            ("completed-mission", "completed", 7777.0, 2, "old", 789.0),
+                        ],
+                    )
+                self.assertTrue(clear_verified_local_provider_cooldown(database, "active-mission"))
+                with sqlite3.connect(database) as db:
+                    rows = {
+                        row[0]: row[1:]
+                        for row in db.execute(
+                            """SELECT mission_id, planning_retry_at, planning_failures,
+                               planning_owner, planning_lease_until FROM development_missions"""
+                        ).fetchall()
+                    }
+                self.assertEqual(rows["active-mission"], (None, 0, "", None))
+                self.assertEqual(rows["other-mission"], (8888.0, 3, "other", 456.0))
+                self.assertEqual(rows["completed-mission"], (7777.0, 2, "old", 789.0))
+
+                with sqlite3.connect(database) as db:
+                    db.execute(
+                        """UPDATE development_missions SET planning_retry_at=9999.0
+                           WHERE mission_id='active-mission'"""
+                    )
+                with patch.dict(os.environ, {"STREAMIOV_MODEL_PROVIDERS": "cloudflare-workers-ai"}):
+                    self.assertFalse(clear_verified_local_provider_cooldown(database, "active-mission"))
+                with sqlite3.connect(database) as db:
+                    retry_at = db.execute(
+                        "SELECT planning_retry_at FROM development_missions WHERE mission_id='active-mission'"
+                    ).fetchone()[0]
+                self.assertEqual(retry_at, 9999.0)
 
     def test_control_plane_and_security_guards_remain_protected(self):
         workflow = (ROOT / ".github" / "workflows" / "autonomous-development.yml").read_text(encoding="utf-8")

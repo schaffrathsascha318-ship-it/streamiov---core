@@ -108,6 +108,37 @@ def checkpoint_database(path: Path) -> None:
         db.commit()
 
 
+def clear_verified_local_provider_cooldown(database: Path, mission_id: str) -> bool:
+    providers = [
+        item.strip()
+        for item in os.environ.get("STREAMIOV_MODEL_PROVIDERS", "").split(",")
+        if item.strip()
+    ]
+    if providers != ["ollama"]:
+        return False
+    if not database.exists() or database.is_symlink():
+        return False
+    with closing(sqlite3.connect(database, timeout=30)) as db:
+        table = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='development_missions'"
+        ).fetchone()
+        if table is None:
+            return False
+        columns = {row[1] for row in db.execute("PRAGMA table_info(development_missions)")}
+        required = {"status", "planning_retry_at", "planning_failures", "planning_owner", "planning_lease_until"}
+        if not required.issubset(columns):
+            return False
+        with db:
+            cursor = db.execute(
+                """UPDATE development_missions
+                   SET planning_retry_at=NULL, planning_failures=0,
+                       planning_owner='', planning_lease_until=NULL
+                   WHERE mission_id=? AND status='active'""",
+                (mission_id,),
+            )
+        return cursor.rowcount > 0
+
+
 def run_with_signal_handlers(run_callable, stop_event: threading.Event):
     """Convert process termination signals into cooperative mission cancellation."""
     watched = (signal.SIGINT, signal.SIGTERM)
@@ -176,6 +207,12 @@ def main() -> int:
             ),
             max_concurrent_workers=int(os.environ.get("STREAMIOV_MAX_CONCURRENT_WORKERS", "4")),
         )
+        if clear_verified_local_provider_cooldown(database, mission_id):
+            print(json.dumps({
+                "event": "planning_cooldown_cleared",
+                "mission_id": mission_id,
+                "reason": "verified_local_ollama",
+            }), flush=True)
         stop_event = threading.Event()
         if number == 0 or os.environ.get("STREAMIOV_PROJECT_SUPERVISOR") == "true":
             # The whole-platform mission spans many independently

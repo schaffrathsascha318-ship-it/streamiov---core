@@ -140,8 +140,9 @@ def _post(url: str, payload: dict) -> dict:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
+    timeout = _cooldown_seconds("STREAMIOV_LOCAL_INFERENCE_TIMEOUT_SECONDS", 120.0)
     try:
-        with urlopen(request, timeout=900) as response:
+        with urlopen(request, timeout=timeout) as response:
             data = json.loads(response.read().decode("utf-8"))
     except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
         raise ProviderError(f"Local model inference failed: {type(exc).__name__}: {exc}") from exc
