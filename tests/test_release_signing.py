@@ -189,6 +189,15 @@ class StudioReleaseWorkflowTests(unittest.TestCase):
         self.assertLessEqual(len(notes), 5000)
         self.assertIn("1.0.4", notes)
 
+    def test_workflow_skips_publishing_when_the_release_already_exists(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        publish = workflow.split("  publish-release:", 1)[1]
+        self.assertIn('echo "skip=true" >> "$GITHUB_OUTPUT"', publish)
+        self.assertIn('echo "skip=false" >> "$GITHUB_OUTPUT"', publish)
+        self.assertIn("Release studio-v$APP_VERSION already exists; skipping publication for this commit.", publish)
+        self.assertNotIn("Bump the app version before publishing new installers.", publish)
+        self.assertGreaterEqual(publish.count("if: steps.version.outputs.skip != 'true'"), 5)
+
     def test_public_pages_do_not_advertise_an_unpublished_release(self):
         for page in (DOWNLOAD_PAGE, PROMO_PAGE):
             with self.subTest(page=page.name):

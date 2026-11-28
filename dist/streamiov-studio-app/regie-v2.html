@@ -712,6 +712,7 @@ dialog::backdrop{background:#000b}
 <script src="engine/audio-mixer.js"></script>
 <script src="engine/audio-device-adapter.js"></script>
 <script src="engine/privacy-shield.js"></script>
+<script src="engine/source-contract.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const mobileRegieToggle=$("mobile-regie-toggle");
@@ -1348,6 +1349,8 @@ function sourceTypeLabel(type){
 }
 const mediaAssetState=new Map();
 const sourceRuntime=new Map();
+const sourceContract=window.StreamiovSourceContract;
+const sourceAvailability={devices:[],displaySources:[],assets:[],checkedAt:0};
 let sourceEditId=null;
 let lastProgramFrameAt=0;
 let programFrameBusy=false;
@@ -1370,9 +1373,10 @@ function drawProgramFrame(target,fromBuffer,toBuffer,now){
 async function loadMediaAssets(){
  if(!window.streamiovStudio?.listMediaAssets)return [];
  const result=await window.streamiovStudio.listMediaAssets();
-  mediaAssetState.clear();
-  for(const asset of result?.assets||[])mediaAssetState.set(asset.id,asset);
-  renderMediaManager();
+   mediaAssetState.clear();
+   for(const asset of result?.assets||[])mediaAssetState.set(asset.id,asset);
+   sourceAvailability.assets=[...mediaAssetState.values()].map(asset=>({id:asset.id,kind:asset.kind}));
+   renderMediaManager();
   return [...mediaAssetState.values()];
 }
 
@@ -1464,8 +1468,32 @@ function sourceRuntimeSignature(source){
   },
   audioEnabled:audio.enabled===true,
   volume:source?.volume,
-  muted:source?.muted
- });
+   muted:source?.muted
+  });
+}
+function sourceAvailabilitySnapshot(){
+ const assets=new Set([...mediaAssetState.keys()]);
+ for(const asset of sourceAvailability.assets||[])if(asset?.id)assets.add(asset.id);
+ return {
+  devices:sourceAvailability.devices,
+  displaySources:sourceAvailability.displaySources,
+  assets:[...assets]
+ };
+}
+async function refreshSourceAvailability(){
+ try{
+  sourceAvailability.devices=(await navigator.mediaDevices?.enumerateDevices?.()||[]).map(device=>({kind:device.kind,deviceId:device.deviceId,label:device.label||""}));
+ }catch(_){sourceAvailability.devices=[];}
+ try{
+  sourceAvailability.displaySources=(await window.streamiovStudio?.listDisplaySources?.()||[]).map(source=>({id:source.id,sourceId:source.id,displayId:source.displayId,name:source.name||""}));
+ }catch(_){sourceAvailability.displaySources=[];}
+ sourceAvailability.checkedAt=Date.now();
+ return sourceAvailabilitySnapshot();
+}
+function assertSourceSelection(source){
+ const check=sourceContract.validateAvailability(source,sourceAvailabilitySnapshot());
+ if(check.ok)return check;
+ throw Object.assign(new Error(check.findings.join(" ")),{streamiovSourceStatus:check.status});
 }
 function formatSourceAudio(source){
  if(!audioCapableSourceTypes.has(source?.type))return "";
@@ -1497,19 +1525,24 @@ function sourcePositionPreset(source){
   $("sourceMuteField").hidden=!mediaAudioTypes.has(type);
   $("sourceTextField").hidden=type!=="title"&&type!=="text";
 
- if(type==="camera"){
-  for(const option of cameraSelect.options)select.add(new Option(option.text,option.value));
- }else if(type==="screen"||type==="window"){
-  if(window.streamiovStudio?.listDisplaySources){
-   const sources=await window.streamiovStudio.listDisplaySources();
-    const candidates=type==="window"?sources.filter(source=>!String(source.id).startsWith("screen")):sources;
-    for(const source of candidates)select.add(new Option(source.name,source.id));
-   }
+  if(type==="camera"){
+   sourceAvailability.devices=[...cameraSelect.options].filter(option=>option.value).map(option=>({kind:"videoinput",deviceId:option.value,label:option.text}));
+   for(const option of cameraSelect.options)select.add(new Option(option.text,option.value));
+  }else if(type==="screen"||type==="window"){
+   if(window.streamiovStudio?.listDisplaySources){
+    const sources=await window.streamiovStudio.listDisplaySources();
+    sourceAvailability.displaySources=sources.map(source=>({id:source.id,sourceId:source.id,displayId:source.displayId,name:source.name||""}));
+     const candidates=type==="window"?sources.filter(source=>!String(source.id).startsWith("screen")):sources;
+     for(const source of candidates)select.add(new Option(source.name,source.id));
+    }
+
 
   if(!select.options.length)select.add(new Option("Keine Bildschirmquelle gefunden",""));
- }else if(mediaSourceTypes.has(type)){
-  const assets=(await loadMediaAssets()).filter(asset=>asset.kind===type);
-  for(const asset of assets)select.add(new Option(asset.name,asset.id));
+  }else if(mediaSourceTypes.has(type)){
+   const loadedAssets=await loadMediaAssets();
+   sourceAvailability.assets=loadedAssets.map(asset=>({id:asset.id,kind:asset.kind}));
+   const assets=loadedAssets.filter(asset=>asset.kind===type);
+   for(const asset of assets)select.add(new Option(asset.name,asset.id));
   if(!select.options.length)select.add(new Option("Keine Mediendatei importiert",""));
  }
  const target=settings.deviceId||settings.sourceId||settings.assetId;
@@ -1628,11 +1661,12 @@ function connectRuntimeAudio(runtime,source,stream,routes){
   const signature=sourceRuntimeSignature(source);
  const existing=sourceRuntime.get(source.id);
  if(existing&&existing.signature===signature)return existing;
- releaseSourceRuntime(source.id);
- const settings=source.settings||{};
- const runtime={type:source.type,signature};
- try{
-   if(source.type==="camera"){
+  releaseSourceRuntime(source.id);
+  const settings=source.settings||{};
+  const runtime={type:source.type,signature,status:"connecting"};
+  try{
+    assertSourceSelection(source);
+    if(source.type==="camera"){
     if(!navigator.mediaDevices?.getUserMedia)throw new Error("Kamera-API nicht verfügbar.");
     const video=document.createElement("video");
      const device=settings.deviceId?{deviceId:{ideal:settings.deviceId},...captureVideoConstraints(settings)}:captureVideoConstraints(settings);
@@ -1673,25 +1707,39 @@ function connectRuntimeAudio(runtime,source,stream,routes){
       studioAudioMixer.setPan(runtime.channelName,audio.pan);
       studioAudioMixer.setSolo(runtime.channelName,audio.solo);
      }
-    await element.play().catch(error=>runtime.error=String(error.message||error));
+     await element.play().catch(error=>runtime.error=String(error.message||error));
+    }
+   if(runtime.stream?.getTracks){
+    for(const track of runtime.stream.getTracks())track.addEventListener("ended",()=>{
+     if(sourceRuntime.get(source.id)!==runtime)return;
+     releaseSourceRuntime(source.id);
+     renderSources();
+    },{once:true});
    }
-
-  sourceRuntime.set(source.id,runtime);
-  return runtime;
- }catch(error){
-  releaseSourceRuntime(source.id);
-  runtime.error=String(error.message||error);
-  sourceRuntime.set(source.id,runtime);
-  return runtime;
- }
+   if(runtime.error){
+    runtime.status=sourceContract.classifyError(runtime.error);
+   }else{
+    runtime.status="ready";
+   }
+   sourceRuntime.set(source.id,runtime);
+   return runtime;
+  }catch(error){
+   releaseSourceRuntime(source.id);
+   runtime.error=String(error.message||error);
+   runtime.status=error?.streamiovSourceStatus||sourceContract.classifyError(error);
+   sourceRuntime.set(source.id,runtime);
+   return runtime;
+  }
 }
 async function reconcileSourceRuntime(){
-  const scenes=[sceneById(previewSceneId),sceneById(programSceneId)].filter(Boolean);
+   await refreshSourceAvailability();
+   const scenes=[sceneById(previewSceneId),sceneById(programSceneId)].filter(Boolean);
   const active=new Map();
   for(const scene of scenes)for(const source of scene.sources)if(source.type!=="color")active.set(source.id,source);
   for(const id of [...sourceRuntime.keys()])if(!active.has(id))releaseSourceRuntime(id);
-  await Promise.all([...active.values()].map(source=>ensureSourceRuntime(source)));
-  applySceneAudioRouting();
+   await Promise.all([...active.values()].map(source=>ensureSourceRuntime(source)));
+   applySceneAudioRouting();
+   renderSources();
 }
 function applySceneAudioRouting(){
   if(!studioAudioMixer)return;
@@ -1804,9 +1852,10 @@ if($("sourceMixerChannels")){
 async function retrySourceRuntime(id){
   const source=[sceneById(previewSceneId),sceneById(programSceneId)]
    .flatMap(scene=>scene?.sources||[]).find(item=>item.id===id);
-  if(!source)return;
-  releaseSourceRuntime(id);
-  await ensureSourceRuntime(source);
+   if(!source)return;
+   await refreshSourceAvailability();
+   releaseSourceRuntime(id);
+   await ensureSourceRuntime(source);
   applySceneAudioRouting();
   renderSources();
 }
@@ -1827,9 +1876,11 @@ function renderSources(){
   const info=document.createElement("div");
   const title=document.createElement("b");title.textContent=source.name;
   const meta=document.createElement("small");
-    const detail=sourceSettingLabel(source);
-    const runtimeError=sourceRuntime.get(source.id)?.error;
-     meta.textContent=sourceTypeLabel(source.type)+(detail?" · "+detail:"")+" · Ebene "+source.z+" · Position "+formatSourceGeometry(source)+" · "+formatSourceTransform(source.transform)+(source.visible?"":" · ausgeblendet")+(runtimeError?" · Fehler: "+String(runtimeError).slice(0,60):"");
+   const detail=sourceSettingLabel(source);
+     const health=sourceContract.sourceHealth(source,sourceRuntime.get(source.id),sourceAvailabilitySnapshot());
+     row.dataset.sourceHealth=health.status;
+      meta.textContent=sourceTypeLabel(source.type)+(detail?" · "+detail:"")+" · Ebene "+source.z+" · Position "+formatSourceGeometry(source)+" · "+formatSourceTransform(source.transform)+(source.visible?"":" · ausgeblendet")+" · Status "+sourceContract.healthLabel(health.status)+(health.message?" · "+String(health.message).slice(0,60):"");
+
 
 
   info.append(title,meta);
@@ -1839,7 +1890,7 @@ function renderSources(){
    button.addEventListener("click",handler);actions.append(button);return button;
   };
     addButton("✎","Quelle bearbeiten",()=>void openSourceDialog(source));
-    if(runtimeError)addButton("↻","Quelle erneut versuchen",()=>void retrySourceRuntime(source.id));
+     if(health.status!=="ready"&&health.status!=="not-applicable")addButton("↻",health.status==="stale"?"Quelle neu wählen":"Quelle erneut versuchen",()=>void retrySourceRuntime(source.id));
     addButton(source.visible?"◉":"○",source.visible?"Ausblenden":"Einblenden",()=>sceneCommand({action:"update-source",sourceId:source.id,patch:{visible:!source.visible}}));
    if(audioCapableSourceTypes.has(source.type)){
     const sourceAudio=sourceAudioState(source);
@@ -2475,8 +2526,9 @@ function stopCapture(kind){
  if(kind==="microphone")$("microphoneMetric").textContent="NICHT VERBUNDEN";
 }
 async function refreshCaptureDevices(){
- const devices=await navigator.mediaDevices.enumerateDevices();
- const fill=(select,kind,label)=>{
+  const devices=await navigator.mediaDevices.enumerateDevices();
+  sourceAvailability.devices=devices.map(device=>({kind:device.kind,deviceId:device.deviceId,label:device.label||""}));
+  const fill=(select,kind,label)=>{
   const previous=select.value;
   select.replaceChildren();
   const fallback=document.createElement("option");fallback.value="";fallback.textContent="Standard"+label.toLowerCase();select.append(fallback);

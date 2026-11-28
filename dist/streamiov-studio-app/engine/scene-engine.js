@@ -1,5 +1,6 @@
 'use strict';
 const { randomUUID } = require('node:crypto');
+const sourceContract = require('./source-contract');
 
 const SCENE_VERSION = 4;
 const MAX_SCENES = 100;
@@ -13,11 +14,11 @@ const DEFAULT_OVERLAY = Object.freeze({ style: 'none', text: '', opacity: 0.85 }
 const SOURCE_TRANSFORM_FIT_MODES = Object.freeze(['cover', 'contain', 'stretch']);
 const AUDIO_ROUTES = Object.freeze(['stream', 'monitor', 'headphones', 'communications']);
 const AUDIO_CAPABLE_TYPES = Object.freeze(['camera', 'screen', 'window', 'video', 'audio']);
-const SOURCE_TYPES = Object.freeze(['camera', 'screen', 'window', 'title', 'text', 'image', 'video', 'audio', 'color']);
+const SOURCE_TYPES = sourceContract.SUPPORTED_TYPES;
 const SOURCE_SETTINGS = Object.freeze({
   camera: Object.freeze(['deviceId', 'width', 'height', 'fps', 'audioEnabled']),
-  screen: Object.freeze(['sourceId', 'width', 'height', 'fps', 'audioEnabled']),
-  window: Object.freeze(['sourceId', 'width', 'height', 'fps', 'audioEnabled']),
+  screen: Object.freeze(['sourceId', 'displayId', 'width', 'height', 'fps', 'audioEnabled']),
+  window: Object.freeze(['sourceId', 'displayId', 'width', 'height', 'fps', 'audioEnabled']),
   image: Object.freeze(['assetId', 'loop']),
   video: Object.freeze(['assetId', 'loop', 'volume', 'muted']),
   audio: Object.freeze(['assetId', 'loop', 'volume', 'muted']),
@@ -121,7 +122,7 @@ function cleanSourceSettings(type, raw) {
   for (const key of allowed) {
     if (!Object.prototype.hasOwnProperty.call(raw, key)) continue;
     const value = raw[key];
-    if (key === 'deviceId' || key === 'sourceId' || key === 'assetId') {
+    if (key === 'deviceId' || key === 'sourceId' || key === 'displayId' || key === 'assetId') {
       if (!validOpaqueId(value)) return null;
       settings[key] = value;
     } else if (key === 'loop' || key === 'muted' || key === 'audioEnabled') {
@@ -187,15 +188,17 @@ function cleanSourceAudio(raw, type, settings) {
 }
 
 function cleanSource(raw, index) {
-  if (!raw || typeof raw !== 'object' || !SOURCE_TYPES.includes(raw.type)) return null;
+  if (!raw || typeof raw !== 'object') return null;
+  const type = sourceContract.normalizeType(raw.type);
+  if (!SOURCE_TYPES.includes(type)) return null;
   const id = validId(raw.id) ? raw.id : randomUUID();
   const name = typeof raw.name === 'string' ? raw.name.trim().slice(0, 60) : '';
   const text = typeof raw.text === 'string' ? raw.text.slice(0, 200) : '';
-  const settings = cleanSourceSettings(raw.type, raw.settings);
+  const settings = cleanSourceSettings(type, raw.settings);
   if (settings === null) return null;
   const source = {
     id,
-    type: raw.type,
+    type,
     name: name || raw.type,
     text,
     x: clamp(raw.x, 0, 0.95, 0),
@@ -205,7 +208,7 @@ function cleanSource(raw, index) {
     z: Math.trunc(clamp(raw.z, 0, 100, index)),
     visible: raw.visible !== false,
     transform: cleanSourceTransform(raw.transform),
-    audio: cleanSourceAudio(raw.audio, raw.type, settings)
+    audio: cleanSourceAudio(raw.audio, type, settings)
   };
   if (settings && Object.keys(settings).length) source.settings = settings;
   return source;

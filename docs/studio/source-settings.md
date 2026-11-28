@@ -13,6 +13,8 @@ Supported fields:
 
 Unknown fields and invalid values reject the whole update. The model does not accept arbitrary paths, URLs, executable commands or secrets. Opaque device/source IDs are local references and can become stale after device changes; adapters must re-enumerate and validate them before opening a capture stream.
 
-This makes source configuration persistable, but it does not yet connect every source type to the production compositor. Device discovery, actual frame capture and Program/Encoder routing remain separate integration work.
+`engine/source-contract.js` is now the single contract shared by the metadata model, scene engine and Regie. Legacy `capture` sources are normalized to `screen`, `title` cards are first-class, and saved camera/display/asset references are validated against the current local inventory before a runtime is opened. The source list shows `connecting`, `ready`, `stale`, `permission-denied`, `device-busy`, `ended` or `error`, offers a reselect/retry action for unhealthy sources, and clears runtimes when a track ends.
 
-Run `npm run test:engine`.
+This makes source configuration persistable and locally recoverable. It does not prove physical camera/display availability, platform permission or live output; those remain external device and platform acceptance. Local frame capture, Program routing and RTMP output are implemented but only verified with local tests in this environment.
+
+Run `npm run test:engine` and `python3 -m unittest tests.test_studio_scene_ui`.

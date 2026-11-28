@@ -239,12 +239,15 @@ jobs:
             exit 1
           fi
           if gh release view "studio-v$APP_VERSION" >/dev/null 2>&1; then
-            echo "::error::Release studio-v$APP_VERSION already exists. Bump the app version before publishing new installers."
-            exit 1
+            echo "Release studio-v$APP_VERSION already exists; skipping publication for this commit."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
           echo "version=$APP_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: GPL-Quellcode-Nachweis für FFmpeg prüfen
+        if: steps.version.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -261,6 +264,7 @@ jobs:
           echo "Corresponding-source bundle present; continuing release validation."
 
       - name: Installer eindeutig benennen und prüfen
+        if: steps.version.outputs.skip != 'true'
         shell: bash
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
@@ -293,6 +297,7 @@ jobs:
           ls -lh
 
       - name: Signiertes Studio-Update-Manifest erzeugen
+        if: steps.version.outputs.skip != 'true'
         shell: bash
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
@@ -316,6 +321,7 @@ jobs:
           rm -f "$SIGNING_KEY"
 
       - name: Signiertes Update-Manifest als Artefakt speichern
+        if: steps.version.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: streamiov-studio-update-manifest
@@ -324,6 +330,7 @@ jobs:
           retention-days: 90
 
       - name: GitHub Release erstellen oder aktualisieren
+        if: steps.version.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: studio-v${{ steps.version.outputs.version }}

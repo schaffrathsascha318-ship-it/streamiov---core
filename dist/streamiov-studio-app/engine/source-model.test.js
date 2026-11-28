@@ -147,3 +147,12 @@ test('updates source settings atomically and returns defensive copies', () => {
   assert.equal(model.update('screen', { settings: { sourceId: 'screen:3', deviceId: 'wrong-type' } }).ok, false);
   assert.equal(model.snapshot().sources[0].settings.sourceId, 'screen:2');
 });
+
+test('normalizes legacy capture metadata and title cards into the shared source contract', () => {
+  const model = new StudioSourceModel();
+  const legacy = model.add({ id: 'legacy-capture', type: 'capture', name: 'Alter Bildschirm', settings: { sourceId: 'screen:1' } });
+  assert.equal(legacy.ok, true);
+  assert.equal(legacy.source.type, 'screen');
+  assert.equal(model.add({ id: 'title-1', type: 'title', name: 'Titel' }).ok, true);
+  assert.deepEqual(model.snapshot().sources.map(source => source.type), ['screen', 'title']);
+});

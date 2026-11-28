@@ -566,6 +566,15 @@ a dated record.
 - **Published assets:** Windows-x64/ARM64-NSIS, Linux-x64/ARM64-AppImage und DEB, ChromeOS-DEBs, `SHA256SUMS.txt`, `FFMPEG-SOURCE-SHA256SUMS.txt`, `ffmpeg-source-bundle.tar.xz`, `studio-update.json` und `studio-update.json.sig` sind alle `uploaded`.
 - **Verified:** das veröffentlichte `studio-update.json` wurde heruntergeladen und mit `node scripts/release-signing.mjs verify ... --pub dist/streamiov-homepage-worker/public/downloads/STREAMIOV-RELEASE-KEY.pub` gegen den verankerten Key geprüft; Version `1.0.4`, vier Update-Assets und eine gültige Ed25519-Signatur wurden beobachtet. Ein Live-Deployment oder ein Download-/Installationslauf auf echten Zielgeräten wurde nicht durchgeführt.
 
+## Studio source contract and runtime health (2026-11-28)
+
+- **Investigated:** the persistent source metadata model and the scene/capture model used different vocabularies (`capture` vs. `screen`, `displayId` missing in scenes, `title` missing in metadata), and Regie stored opaque device/display/asset IDs without validating them before opening a stream. A stale source only produced an opaque runtime error.
+- **Changed:** `dist/streamiov-studio-app/engine/source-contract.js` is now the single normalized source contract for the metadata model, scene engine and Regie. Legacy `capture` sources migrate to `screen`, `title` sources are supported in both models, opaque IDs stay strictly bounded, and saved camera/display/asset selections are checked against the current local inventory before a runtime opens.
+- **Changed:** Regie refreshes device/display/asset availability, classifies capture failures into `stale`, `permission-denied`, `device-busy`, `ended` and `error`, shows a per-source health state with a reselect/retry action, and releases a runtime when its track ends. Availability checks never invent device support and never claim platform permission.
+- **Changed:** `.github/workflows/studio-build.yml` no longer fails every later `main` build just because `studio-v1.0.4` already exists; the publish job sets `skip=true` and skips only the release steps after successful platform builds and tests. A new version still publishes normally.
+- **Verified locally:** `npm run test:engine` passed `170/170`, the full Python suite passed `795` tests with `ResourceWarning` as an error, `python3 -m unittest tests.test_studio_scene_ui` passed `67/67`, `python3 -m compileall -q ai host scripts services tests` and `git diff --check` were clean. The inline Regie script parser included in the Python suite accepted the modified UI.
+- **Still open:** this is local source validation and recoverability, not proof of physical camera/display presence, operating-system permission, platform acceptance or live output. Real device and live-platform checks remain external.
+
 ## Publication rule
 
 Do not describe a platform as connected, a broadcast as live, or a feature as verified unless the real integration has been exercised. Do not claim TikTok approval, payout values, or device support without evidence.

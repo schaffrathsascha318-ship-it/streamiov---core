@@ -1,10 +1,9 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
+const sourceContract = require('./source-contract');
 
-const SOURCE_TYPES = Object.freeze([
-  'camera', 'capture', 'screen', 'window', 'image', 'video', 'audio', 'text', 'color'
-]);
+const SOURCE_TYPES = sourceContract.SUPPORTED_TYPES;
 const MAX_SOURCES = 64;
 const validId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
 const validOpaqueId = value => typeof value === 'string' && value.length > 0 &&
@@ -17,17 +16,18 @@ const validColor = value => typeof value === 'string' && /^#[0-9a-f]{6}(?:[0-9a-
 function cleanSettings(type, raw) {
   if (raw === undefined) return undefined;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const normalizedType = sourceContract.normalizeType(type);
   const allowed = {
     camera: ['deviceId', 'width', 'height', 'fps', 'audioEnabled'],
     audio: ['deviceId', 'assetId', 'loop', 'volume', 'muted'],
-    capture: ['sourceId', 'displayId', 'width', 'height', 'fps', 'audioEnabled'],
     screen: ['sourceId', 'displayId', 'width', 'height', 'fps', 'audioEnabled'],
     window: ['sourceId', 'displayId', 'width', 'height', 'fps', 'audioEnabled'],
     image: ['assetId', 'loop'],
     video: ['assetId', 'loop', 'volume', 'muted'],
     text: ['text', 'fontSize', 'color'],
+    title: ['text'],
     color: ['color']
-  }[type] || [];
+  }[normalizedType] || [];
   if (Object.keys(raw).some(key => !allowed.includes(key))) return null;
 
   const settings = {};
@@ -73,16 +73,17 @@ function cleanSettings(type, raw) {
 
 function cleanSource(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
-  if (!validId(input.id) || !SOURCE_TYPES.includes(input.type)) return null;
+  const type = sourceContract.normalizeType(input.type);
+  if (!validId(input.id) || !SOURCE_TYPES.includes(type)) return null;
   if (typeof input.name !== 'string') return null;
   const name = input.name.trim();
   if (!name || name.length > 80) return null;
   const volume = Number.isFinite(input.volume) ? Math.min(1, Math.max(0, input.volume)) : 1;
-  const settings = cleanSettings(input.type, input.settings);
+  const settings = cleanSettings(type, input.settings);
   if (settings === null) return null;
   const source = {
     id: input.id,
-    type: input.type,
+    type,
     name,
     enabled: input.enabled !== false,
     muted: input.muted === true,
@@ -159,4 +160,11 @@ class StudioSourceModel {
   }
 }
 
-module.exports = { SOURCE_TYPES, MAX_SOURCES, StudioSourceModel, cleanSettings };
+module.exports = {
+  SOURCE_TYPES,
+  MAX_SOURCES,
+  StudioSourceModel,
+  cleanSettings,
+  normalizeSourceType: sourceContract.normalizeType,
+  sourceDescriptor: sourceContract.descriptor
+};

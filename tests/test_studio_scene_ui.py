@@ -7,6 +7,8 @@ MAIN = ROOT / "dist" / "streamiov-studio-app" / "main.js"
 UI = ROOT / "dist" / "streamiov-studio-app" / "regie-v2.html"
 PRELOAD = ROOT / "dist" / "streamiov-studio-app" / "preload.js"
 ENGINE = ROOT / "dist" / "streamiov-studio-app" / "engine" / "scene-engine.js"
+SOURCE_CONTRACT = ROOT / "dist" / "streamiov-studio-app" / "engine" / "source-contract.js"
+SOURCE_MODEL = ROOT / "dist" / "streamiov-studio-app" / "engine" / "source-model.js"
 OUTPUT = ROOT / "dist" / "streamiov-studio-app" / "program-output.html"
 SHIELD = ROOT / "dist" / "streamiov-studio-app" / "engine" / "privacy-shield.js"
 
@@ -177,9 +179,11 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
 
     def test_scene_engine_supports_layout_sources_and_v1_migration(self):
         engine = ENGINE.read_text(encoding="utf-8")
+        contract = SOURCE_CONTRACT.read_text(encoding="utf-8")
         self.assertIn("const SCENE_VERSION = 4;", engine)
+        self.assertIn("const SOURCE_TYPES = sourceContract.SUPPORTED_TYPES;", engine)
         for source_type in ("'camera'", "'screen'", "'title'", "'text'"):
-            self.assertIn(source_type, engine)
+            self.assertIn(source_type, contract)
         for action in ("addSource", "updateSource", "removeSource", "moveSource",
                        "setBackground", "setTransition", "setOverlay", "deleteScene", "renameScene"):
             with self.subTest(action=action):
@@ -197,7 +201,7 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
             "const AUDIO_ROUTES = Object.freeze(['stream', 'monitor', 'headphones', 'communications'])",
             "const AUDIO_CAPABLE_TYPES = Object.freeze(['camera', 'screen', 'window', 'video', 'audio'])",
             "function cleanSourceAudio(raw, type, settings)",
-            "audio: cleanSourceAudio(raw.audio, raw.type, settings)",
+            "audio: cleanSourceAudio(raw.audio, type, settings)",
             "routes: [...source.audio.routes]",
             "audioEnabled",
             "AUDIO_ROUTES,"
@@ -345,6 +349,38 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("mediaAssetUsage", self.ui)
         self.assertIn("createMediaElementSource", self.ui)
         self.assertIn("Number.isFinite(settings.volume)", self.ui)
+
+    def test_sources_share_one_contract_with_availability_and_health_checks(self):
+        contract = SOURCE_CONTRACT.read_text(encoding="utf-8")
+        model = SOURCE_MODEL.read_text(encoding="utf-8")
+        engine = ENGINE.read_text(encoding="utf-8")
+        self.assertIn("const sourceContract = require('./source-contract');", model)
+        self.assertIn("const sourceContract = require('./source-contract');", engine)
+        for identifier in (
+            "CONTRACT_VERSION = 1",
+            "capture: 'screen'",
+            "function normalizeType(type)",
+            "function validateAvailability(source, availability)",
+            "function sourceHealth(source, runtime, availability)",
+            "permission-denied",
+            "device-busy"
+        ):
+            with self.subTest(contract_identifier=identifier):
+                self.assertIn(identifier, contract)
+        for identifier in (
+            '<script src="engine/source-contract.js"></script>',
+            "const sourceContract=window.StreamiovSourceContract;",
+            "const sourceAvailability={devices:[],displaySources:[],assets:[],checkedAt:0};",
+            "async function refreshSourceAvailability()",
+            "function assertSourceSelection(source)",
+            "assertSourceSelection(source);",
+            "runtime.status=error?.streamiovSourceStatus||sourceContract.classifyError(error);",
+            "sourceContract.sourceHealth(source,sourceRuntime.get(source.id),sourceAvailabilitySnapshot())",
+            "row.dataset.sourceHealth=health.status;",
+            "await refreshSourceAvailability();"
+        ):
+            with self.subTest(ui_identifier=identifier):
+                self.assertIn(identifier, self.ui)
 
     def test_regie_edits_free_form_source_geometry_and_persists_it(self):
         for element_id in ("sourcePosition", "sourceX", "sourceY", "sourceW", "sourceH"):
