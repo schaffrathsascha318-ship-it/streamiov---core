@@ -118,35 +118,47 @@
         <div class="section-head">
           <div class="kicker">StreamioV Studio · Version 1.0.4</div>
           <h2>Desktop-Installer</h2>
-          <p>Studio 1.0.4 enthält die Electron-Regie mit Szenen-/Quellenmodell, Vorschau, Programmausgabe, lokalem Audio-Mixer, lokaler Aufzeichnung, RTMP-Ziel und Schutzregie. Die Installer-Builds wurden in CI erzeugt; die dauerhafte Veröffentlichung erfolgt erst nach vollständigem FFmpeg-Quellpaket und signiertem Update-Manifest. Ein Erststart- und Funktionstest auf jedem Zielgerät steht weiterhin aus.</p>
+          <p>Studio 1.0.4 enthält die Electron-Regie mit Szenen-/Quellenmodell, Vorschau, Programmausgabe, lokalem Audio-Mixer, lokaler Aufzeichnung, RTMP-Ziel und Schutzregie. Das signierte Release <code>studio-v1.0.4</code> ist veröffentlicht; Prüfsummen und Update-Manifest wurden mit dem verankerten Ed25519-Key geprüft. Ein Erststart- und Funktionstest auf jedem Zielgerät steht weiterhin aus.</p>
         </div>
         <div class="grid">
           <article class="card">
             <h3>Windows x64</h3>
             <span class="meta">Version 1.0.4 · .exe</span>
             <p>NSIS-Installer für übliche 64-Bit-Windows-PCs.</p>
-            <span class="tag tag-work">Build geprüft · Release ausstehend</span>
+            <a class="download-button" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.4/Streamiov.Studio.Setup.1.0.4-x64.exe">Windows-x64-Installer herunterladen</a>
+            <span class="tag tag-ready">Veröffentlicht · Gerätetest offen</span>
           </article>
           <article class="card">
             <h3>Windows ARM64</h3>
             <span class="meta">Version 1.0.4 · .exe</span>
             <p>NSIS-Installer für Windows-on-ARM-Geräte.</p>
-            <span class="tag tag-work">Build geprüft · Release ausstehend</span>
+            <a class="download-button" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.4/Streamiov.Studio.Setup.1.0.4-arm64.exe">Windows-ARM64-Installer herunterladen</a>
+            <span class="tag tag-ready">Veröffentlicht · Gerätetest offen</span>
           </article>
           <article class="card">
             <h3>Linux x64</h3>
             <span class="meta">Version 1.0.4 · AppImage / DEB</span>
             <p>Für übliche 64-Bit-PCs mit Linux. Die DEB wurde zusätzlich auf Inhalt und Prüfsumme geprüft.</p>
-            <span class="tag tag-work">Build geprüft · Release ausstehend</span>
+            <a class="download-button" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.4/Streamiov.Studio-1.0.4-x64.AppImage">Linux-x64-AppImage herunterladen</a>
+            <a class="download-button" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.4/streamiov-studio_1.0.4_amd64.deb">Linux-x64-DEB herunterladen</a>
+            <span class="tag tag-ready">Veröffentlicht · Gerätetest offen</span>
           </article>
           <article class="card">
             <h3>Linux ARM64</h3>
             <span class="meta">Version 1.0.4 · AppImage / DEB</span>
             <p>Für kompatible ARM64-Linux-Systeme, inklusive Chromebooks mit Crostini.</p>
-            <span class="tag tag-work">Build geprüft · Release ausstehend</span>
+            <a class="download-button" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.4/Streamiov.Studio-1.0.4-arm64.AppImage">Linux-ARM64-AppImage herunterladen</a>
+            <a class="download-button" href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.4/streamiov-studio_1.0.4_arm64.deb">Linux-ARM64-DEB herunterladen</a>
+            <span class="tag tag-ready">Veröffentlicht · Gerätetest offen</span>
+          </article>
+          <article class="card">
+            <h3>macOS</h3>
+            <span class="meta">Kein Artefakt in 1.0.4</span>
+            <p>Ein unsigniertes DMG ist in diesem Release nicht veröffentlicht. Gatekeeper-Vertrauen, Notarisierung und ein Installationslauf auf macOS werden nicht behauptet.</p>
+            <span class="tag tag-work">Kein macOS-Artefakt in 1.0.4</span>
           </article>
         </div>
-        <p><small>Die Installer-Links werden erst nach erfolgreich verifiziertem GitHub-Release <code>studio-v1.0.4</code> freigeschaltet. Bis dahin ist der Quellcode-Snapshot weiter unten der geprüfte Download. Ein Installer ist kein Beweis für einen funktionierenden Livestream oder für Unterstützung jeder Kamera, Capture-Karte und jedes Betriebssystems. ChromeOS/Crostini nutzt die Linux-DEB-Pakete.</small></p>
+        <p><small>Die Installer-Links verweisen direkt auf die geprüften Assets des veröffentlichten GitHub-Releases <code>studio-v1.0.4</code>. Prüfsummen: <a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.4/SHA256SUMS.txt">SHA256SUMS.txt</a>. Ein Installer ist kein Beweis für einen funktionierenden Livestream oder für Unterstützung jeder Kamera, Capture-Karte und jedes Betriebssystems. ChromeOS/Crostini nutzt die Linux-DEB-Pakete; macOS, iOS und Android haben in 1.0.4 keine Installer.</small></p>
       </div>
     </section>
 

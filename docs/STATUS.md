@@ -575,6 +575,24 @@ a dated record.
 - **Verified locally:** `npm run test:engine` passed `170/170`, the full Python suite passed `795` tests with `ResourceWarning` as an error, `python3 -m unittest tests.test_studio_scene_ui` passed `67/67`, `python3 -m compileall -q ai host scripts services tests` and `git diff --check` were clean. The inline Regie script parser included in the Python suite accepted the modified UI.
 - **Still open:** this is local source validation and recoverability, not proof of physical camera/display presence, operating-system permission, platform acceptance or live output. Real device and live-platform checks remain external.
 
+## Studio audio and AI feedback hardening (2026-11-28)
+
+- **Investigated:** the TTS path could assume a usable mixer after decoding and only rendered a generic "not automatically verified" line, while `renderAiTool` still claimed the host had no executor even though `studio:ai-submit` posts to the real local `/api/v1/ai/tasks` contract and returns a durable task. The mixer also lacked regression coverage for invalid channels, gate bounds, output-bus controls, failed physical playback and `close()`.
+- **Changed:** `engine/audio-mixer.test.js` now covers invalid channel/route rejection, gate validation and reopening, independent output gain/mute, cleanup after a failed `attachOutput`, and closed-mixer rejection.
+- **Changed:** `regie-v2.html` resolves the broadcast audio graph before TTS playback, fails explicitly when the local mixer or audio element is unavailable, records a bounded `ttsLastRuntime` diagnostic exposed through `window.streamiovTtsDiagnostics()`, and distinguishes a validated WAV from unverified physical playback.
+- **Changed:** `renderAiTool` now shows the host-provided task ID, status, provider, model and answer, states refusals unchanged, and no longer contains the stale claim that the host executes no AI tasks.
+- **Verified locally:** `npm run test:engine` passed `176/176`, the full Python suite passed `798` tests with `ResourceWarning` as an error, `python3 -m unittest tests.test_studio_scene_ui` passed `69/69`, `python3 -m compileall -q ai host scripts services tests`, `node --check dist/streamiov-studio-app/main.js` and `git diff --check` were clean.
+- **Still open:** no physical speaker/headphone output, microphone latency, local AI provider availability or live platform result was verified here. The diagnostics say what was observed and never claim audible playback.
+
+## Unsigned macOS build path and honest release links (2026-11-28)
+
+- **Investigated:** the public download and promo pages still said the release was pending after `studio-v1.0.4` had been published, and the build workflow had no macOS target. This host is Linux/aarch64 without `hdiutil`, `codesign` or Darwin Electron caches, so it cannot produce a real DMG locally.
+- **Changed:** the download page now links every actually published Windows/Linux asset and `SHA256SUMS.txt`, marks macOS/iOS/Android as absent from 1.0.4, and keeps the explicit warning that project Ed25519 signatures are not Apple code signing. The promo page no longer calls the release pending and links the same real assets.
+- **Changed:** `dist/streamiov-studio-app/package.json` adds `dist:mac:x64` and `dist:mac:arm64` with an explicitly unsigned `mac` target (`identity: null`, no hardened runtime, no extra FFmpeg resource), and `.github/workflows/studio-build.yml` builds them on `macos-15-intel` and `macos-15` with `CSC_IDENTITY_AUTO_DISCOVERY=false`.
+- **Changed:** update-manifest candidates and `SUPPORTED_TARGETS` accept `darwin-x64`/`darwin-arm64` DMGs only as `manual` updates. A normal main push still skips publishing an existing tag; an explicit `workflow_dispatch` with `update_existing_release=true` is required to add newly built assets to that release.
+- **Verified locally:** targeted release-signing, Cloudflare-config and Studio UI tests passed, `npm run test:engine` passed `176/176`, `python3 scripts/verify-cloudflare-config.py` reported 16 checks and 0 errors, `package.json` parsed as valid JSON, and `git diff --check` was clean.
+- **Still open:** no DMG has been built or uploaded yet, no macOS install or Gatekeeper behavior has been observed, and macOS/iOS/Android real-device tests remain external. This section documents the build path, not a completed macOS release.
+
 ## Publication rule
 
 Do not describe a platform as connected, a broadcast as live, or a feature as verified unless the real integration has been exercised. Do not claim TikTok approval, payout values, or device support without evidence.

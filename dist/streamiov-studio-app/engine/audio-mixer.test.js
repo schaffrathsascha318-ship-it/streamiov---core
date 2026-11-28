@@ -99,3 +99,63 @@ test('mixer mute, solo and routes affect what reaches the stream bus', () => {
   assert.equal(mixer.hasSolo(), false);
   assert.equal(mixer.snapshot('program-source'), null);
 });
+
+test('mixer rejects invalid channels and unknown output routes', () => {
+  const mixer = new StudioAudioMixer({ AudioContextClass: FakeAudioContext });
+  assert.throws(() => mixer.connect('no-track', { getAudioTracks: () => [] }), /at least one audio track/);
+  assert.throws(() => mixer.connect('bad name', audioStream()), /Invalid mixer channel name/);
+  assert.throws(() => mixer.connect('bad-route', audioStream(), { routes: ['broadcast'] }), /Mixer output bus not found/);
+  assert.equal(mixer.channels.has('no-track'), false);
+  assert.equal(mixer.channels.has('bad name'), false);
+  assert.equal(mixer.channels.has('bad-route'), false);
+});
+
+test('mixer gate validates bounds and reopens when disabled', () => {
+  const mixer = new StudioAudioMixer({ AudioContextClass: FakeAudioContext });
+  mixer.connect('microphone', audioStream());
+  assert.throws(() => mixer.setGate('microphone', { thresholdDb: -10 }), /Gate threshold/);
+  assert.throws(() => mixer.setGate('microphone', { attenuationDb: 10 }), /Gate attenuation/);
+  const gated = mixer.setGate('microphone', { enabled: true, thresholdDb: -40, attenuationDb: -60 });
+  assert.deepEqual(gated.gate, { enabled: true, thresholdDb: -40, attenuationDb: -60 });
+  assert.equal(mixer.updateGate('microphone').open, false);
+  assert.equal(mixer.channels.get('microphone').gateGain.gain.value, Math.pow(10, -3));
+  assert.equal(mixer.setGate('microphone', { enabled: false }).gate.enabled, false);
+  assert.equal(mixer.channels.get('microphone').gateGain.gain.value, 1);
+});
+
+test('mixer output gain and mute remain independent from channel gain', () => {
+  const mixer = new StudioAudioMixer({ AudioContextClass: FakeAudioContext });
+  mixer.connect('camera-source', audioStream(), { gain: 0.8, routes: ['monitor'] });
+  assert.equal(mixer.setOutputGain('monitor', 0.5).gain, 0.5);
+  assert.equal(mixer.setOutputMuted('monitor', true).muted, true);
+  assert.deepEqual(mixer.getOutputSnapshot('monitor'), {
+    name: 'monitor', gain: 0.5, muted: true, streamAvailable: true, playbackAttached: false
+  });
+  assert.equal(mixer.snapshot('camera-source').gain, 0.8);
+  assert.equal(mixer.snapshot('camera-source').muted, false);
+  assert.throws(() => mixer.setOutputGain('missing', 1), /Mixer output bus not found/);
+});
+
+test('mixer attachOutput clears a failed physical playback attempt', async () => {
+  const mixer = new StudioAudioMixer({ AudioContextClass: FakeAudioContext });
+  const element = {
+    sinkId: '',
+    async setSinkId(deviceId) { this.sinkId = deviceId; },
+    async play() { throw new Error('play blocked'); },
+    pause() {}
+  };
+  await assert.rejects(mixer.attachOutput('monitor', element, { deviceId: 'speaker-1' }), /play blocked/);
+  assert.equal(element.srcObject, null);
+  assert.equal(mixer.outputElements.has('monitor'), false);
+  assert.equal(mixer.getOutputSnapshot('monitor').playbackAttached, false);
+});
+
+test('mixer close disconnects channels and rejects later use', async () => {
+  const mixer = new StudioAudioMixer({ AudioContextClass: FakeAudioContext });
+  mixer.connect('camera-source', audioStream());
+  await mixer.close();
+  assert.equal(mixer.snapshot('camera-source'), null);
+  assert.throws(() => mixer.connect('camera-source', audioStream()), /Audio mixer is closed/);
+  assert.throws(() => mixer.getOutputStream('stream'), /Audio mixer is closed/);
+  await mixer.close();
+});

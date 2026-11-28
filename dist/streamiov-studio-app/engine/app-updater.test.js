@@ -133,6 +133,32 @@ test('manifest parsing rejects unsupported formats and insecure assets', () => {
   assert.throws(() => verifyManifestSignature(bytes, signature, exportPublicKey(createKeys()), exportPublicKey(keys)));
 });
 
+test('manifest parsing keeps unsigned macOS DMGs as manual-only targets', () => {
+  const manifest = {
+    format: 'streamiov-studio-update-v1',
+    version: '1.0.5',
+    notes: 'Unsigniertes DMG',
+    assets: {
+      'darwin-x64': {
+        filename: 'Streamiov.Studio-1.0.5-x64-unsigned.dmg',
+        sha256: 'a'.repeat(64),
+        size: 1024,
+        installMode: 'manual'
+      },
+      'darwin-arm64': {
+        filename: 'Streamiov.Studio-1.0.5-arm64-unsigned.dmg',
+        sha256: 'b'.repeat(64),
+        size: 2048,
+        installMode: 'manual'
+      }
+    }
+  };
+  const parsed = parseUpdateManifest(Buffer.from(JSON.stringify(manifest)), '1.0.4');
+  assert.deepEqual(Object.keys(parsed.assets), ['darwin-x64', 'darwin-arm64']);
+  assert.equal(parsed.assets['darwin-x64'].installMode, 'manual');
+  assert.equal(parsed.assets['darwin-arm64'].installMode, 'manual');
+});
+
 test('signed update is downloaded, verified, staged and installed from a fixed URL', async (t) => {
   const spawnCalls = [];
   const spawnImpl = (file, args, options) => {

@@ -382,6 +382,35 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
             with self.subTest(ui_identifier=identifier):
                 self.assertIn(identifier, self.ui)
 
+    def test_tts_playback_reports_validated_wav_without_claiming_output_verification(self):
+        for identifier in (
+            "let ttsLastRuntime=null;",
+            "window.streamiovTtsDiagnostics=()=>ttsLastRuntime?{...ttsLastRuntime}:null;",
+            "TTS-Wiedergabe ohne lokale Audio-Bus-Engine nicht möglich.",
+            "ttsLastRuntime={status:\"wav-generated\",wavBytes:bytes.length,mime,playbackVerified:false,error:null};",
+            "ttsLastRuntime.playbackVerified=!error;",
+            "ttsLastRuntime.status=error?\"playback-failed\":\"playback-finished\";",
+            "WAV erzeugt und geprüft; tatsächliche Wiedergabe nicht automatisch verifiziert.",
+            "window.streamiovTtsDiagnostics() zeigt den letzten Lauf."
+        ):
+            with self.subTest(tts_identifier=identifier):
+                self.assertIn(identifier, self.ui)
+
+    def test_ai_tool_reports_the_host_task_result_instead_of_claiming_no_executor(self):
+        for identifier in (
+            "const taskLine=toolNote(\"Noch kein KI-Auftrag in dieser Ansicht.\");",
+            "data.task_id||result?.task_id",
+            "task?.status)details.push(\"Status \"+task.status)",
+            "task?.provider)details.push(\"Provider \"+task.provider)",
+            "details.join(\" · \")",
+            "showTaskResult(result);",
+            "KI-Aufträge laufen über den lokalen Host.",
+            "Status, Antwort und Ablehnungen werden unverändert angezeigt."
+        ):
+            with self.subTest(ai_identifier=identifier):
+                self.assertIn(identifier, self.ui)
+        self.assertNotIn("Der Host führt noch keine KI-Aufträge aus.", self.ui)
+
     def test_regie_edits_free_form_source_geometry_and_persists_it(self):
         for element_id in ("sourcePosition", "sourceX", "sourceY", "sourceW", "sourceH"):
             with self.subTest(element_id=element_id):
@@ -707,8 +736,12 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertNotIn("sync-studio-games.py", package)
         self.assertIn("sync-studio-tiktok-oauth.py", package)
         self.assertNotIn("sync-studio-ui.py", package)
-        for hook in ("prestart", "predist:win", "predist:linux"):
+        for hook in ("prestart", "predist:win", "predist:linux", "predist:mac:x64", "predist:mac:arm64"):
             self.assertIn(f'"{hook}":', package)
+        self.assertIn('"dist:mac:x64": "electron-builder --mac dmg --x64"', package)
+        self.assertIn('"dist:mac:arm64": "electron-builder --mac dmg --arm64"', package)
+        self.assertIn('"identity": null', package)
+        self.assertIn('"extraResources": []', package)
         for excluded in ("!games/**", "!release/**", "!squashfs-root/**", "!index-before-*.html",
                          "!**/*.bak-*", "!**/*.before-*"):
             self.assertIn(excluded, package)

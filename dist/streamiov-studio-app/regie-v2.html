@@ -3897,13 +3897,17 @@ async function renderChatTool(body){
  apply(await api({action:"status"}));
 }
 let ttsPlaybackFinish=null;
+let ttsLastRuntime=null;
+window.streamiovTtsDiagnostics=()=>ttsLastRuntime?{...ttsLastRuntime}:null;
 async function playTtsAudio(base64,mime="audio/wav"){
  if(typeof base64!=="string"||!base64.length)throw new Error("TTS-Audiodaten fehlen.");
  const binary=atob(base64);
  const bytes=new Uint8Array(binary.length);
  for(let index=0;index<binary.length;index++)bytes[index]=binary.charCodeAt(index);
-  const context=await ensureBroadcastAudioGraph();
-  await context.resume();
+   const context=ensureBroadcastAudioGraph();
+   if(!studioAudioMixer||!ttsAudio)throw new Error("TTS-Wiedergabe ohne lokale Audio-Bus-Engine nicht möglich.");
+   ttsLastRuntime={status:"wav-generated",wavBytes:bytes.length,mime,playbackVerified:false,error:null};
+   await context.resume();
   if(studioAudioMixer)await studioAudioMixer.resume();
   if(!ttsMediaSource){
    ttsMediaSource=context.createMediaElementSource(ttsAudio);
@@ -3929,13 +3933,18 @@ async function playTtsAudio(base64,mime="audio/wav"){
  ttsAudio.src=ttsObjectUrl;
  ttsAudio.load();
  await new Promise((resolve,reject)=>{
-  const finish=error=>{
-   if(ttsPlaybackFinish===finish)ttsPlaybackFinish=null;
-   ttsAudio.removeEventListener("ended",onEnded);
-   ttsAudio.removeEventListener("error",onError);
-   applyMixerGains();
-   if(error)reject(error);else resolve();
-  };
+   const finish=error=>{
+    if(ttsPlaybackFinish===finish)ttsPlaybackFinish=null;
+    ttsAudio.removeEventListener("ended",onEnded);
+    ttsAudio.removeEventListener("error",onError);
+    if(ttsLastRuntime){
+     ttsLastRuntime.playbackVerified=!error;
+     ttsLastRuntime.status=error?"playback-failed":"playback-finished";
+     ttsLastRuntime.error=error?String(error.message||error):null;
+    }
+    applyMixerGains();
+    if(error)reject(error);else resolve();
+   };
   const onEnded=()=>finish();
   const onError=()=>finish(new Error("TTS-Audiowiedergabe fehlgeschlagen."));
   ttsPlaybackFinish=finish;
@@ -3970,8 +3979,8 @@ async function renderTtsTool(body){
    stateLine.textContent="TTS fehlgeschlagen: "+(result?.error||"unbekannter Fehler");
    return;
   }
-  stateLine.textContent="Lokale Sprachausgabe: "+(result.tts==="online"?"an":"aus")+
-   " · Audioausgabe nicht automatisch verifiziert.";
+   stateLine.textContent="Lokale Sprachausgabe: "+(result.tts==="online"?"an":"aus")+
+    " · WAV erzeugt und geprüft; tatsächliche Wiedergabe nicht automatisch verifiziert.";
   toggle.textContent=result.tts==="online"?"TTS ausschalten":"TTS einschalten";
   speak.disabled=result.tts!=="online";
   input.disabled=result.tts!=="online";
@@ -4025,7 +4034,7 @@ async function renderTtsTool(body){
   else if(queue.length===0)stateLine.textContent="TTS-Warteschlange abgeschlossen.";
  }
  body.append(
-   toolNote("Lokale deutsche Stimme: espeak-ng oder unter Windows die native System.Speech-Stimme. Kein Cloud-Dienst. Das WAV wird beim ersten Sprechen in den echten Vier-Bus-Audio-Mixer geroutet; der Monitor-Ausgang wird bei aktiver Monitor-Route automatisch verbunden, die LIVE-Ausgabe folgt weiterhin der Quellenmatrix."),
+    toolNote("Lokale deutsche Stimme: espeak-ng oder unter Windows die native System.Speech-Stimme. Kein Cloud-Dienst. Das WAV wird vor der Wiedergabe geprüft und beim ersten Sprechen in den echten Vier-Bus-Audio-Mixer geroutet; der Monitor-Ausgang wird bei aktiver Monitor-Route automatisch verbunden, die LIVE-Ausgabe folgt weiterhin der Quellenmatrix. Die tatsächliche Ausgabe wird nicht automatisch verifiziert; window.streamiovTtsDiagnostics() zeigt den letzten Lauf."),
   stateLine,toggle,toolField("Sprechtext",input),
   toolField("Sprechgeschwindigkeit (80–300 Wörter/Minute)",speed),speedLabel,
   toolField("Sprachlautstärke (0–100 %)",amplitude),amplitudeLabel,
@@ -5130,41 +5139,62 @@ async function renderAiTool(body){
  const password=document.createElement("input");
  password.type="password";
  password.autocomplete="current-password";
- const sessionLine=toolNote("Nicht in dieser Ansicht angemeldet. Der lokale Host prüft die Sitzung beim Senden.");
- const request=document.createElement("textarea");
- request.maxLength=2000;
- request.placeholder="Auftrag an die lokale KI-Regie";
- const submit=toolButton("Auftrag senden",async()=>{
-  const text=request.value.trim();
-  if(!text){request.focus();return;}
-  sessionLine.textContent="Auftrag wird an den lokalen Host gesendet …";
-  const result=await submitApi({request:text});
-  if(result?.ok){
-   sessionLine.textContent="Der lokale Host hat den Auftrag angenommen.";
-  }else{
-   const code=result?.statusCode?" (HTTP "+result.statusCode+")":"";
-   sessionLine.textContent="KI-Auftrag nicht ausgeführt"+code+": "+
-    (result?.error||"unbekannter Fehler");
-  }
- });
+  const sessionLine=toolNote("Nicht in dieser Ansicht angemeldet. Der lokale Host prüft die Sitzung beim Senden.");
+  const taskLine=toolNote("Noch kein KI-Auftrag in dieser Ansicht.");
+  const showTaskResult=result=>{
+   const data=result?.data||{};
+   const task=data.task||result?.task||null;
+   const taskId=task?.id||data.task_id||result?.task_id||null;
+   const answer=typeof data.answer==="string"?data.answer:
+    (typeof result?.answer==="string"?result.answer:(typeof task?.answer==="string"?task.answer:""));
+   const details=[];
+   if(taskId)details.push("Auftrag "+taskId);
+   if(task?.status)details.push("Status "+task.status);
+   if(task?.provider)details.push("Provider "+task.provider);
+   if(task?.model)details.push("Modell "+task.model);
+   if(!details.length&&!answer){
+    taskLine.textContent="Der Host hat keinen ausführbaren KI-Auftrag zurückgegeben.";
+    return;
+   }
+   taskLine.textContent=(details.join(" · ")||"Auftragsstatus unbekannt")+
+    (answer?" · Antwort: "+answer.slice(0,500)+(answer.length>500?" …":""):"");
+  };
+  const request=document.createElement("textarea");
+  request.maxLength=2000;
+  request.placeholder="Auftrag an die lokale KI-Regie";
+  const submit=toolButton("Auftrag senden",async()=>{
+   const text=request.value.trim();
+   if(!text){request.focus();return;}
+   sessionLine.textContent="Auftrag wird an den lokalen Host gesendet …";
+   const result=await submitApi({request:text});
+   if(result?.ok){
+    sessionLine.textContent="Der lokale Host hat den Auftrag angenommen.";
+   }else{
+    const code=result?.statusCode?" (HTTP "+result.statusCode+")":"";
+    sessionLine.textContent="KI-Auftrag nicht ausgeführt"+code+": "+
+     (result?.error||"unbekannter Fehler");
+   }
+   showTaskResult(result);
+  });
  const login=toolButton("Am lokalen Host anmelden",async()=>{
   const result=await loginApi({username:username.value.trim(),password:password.value});
   if(!result?.ok){
    sessionLine.textContent="Anmeldung fehlgeschlagen: "+(result?.error||"unbekannter Fehler");
    return;
   }
-   sessionLine.textContent="Angemeldet als "+result.user.username+". Der Host führt noch keine KI-Aufträge aus.";
+    sessionLine.textContent="Angemeldet als "+result.user.username+". KI-Aufträge laufen über den lokalen Host.";
    log("KI-Regie: am lokalen Host angemeldet.");
    void refreshWishbox();
 
  });
  body.append(
-  toolNote("Die KI-Regie spricht ausschließlich den lokalen Host an. Es gibt keinen Cloud-Aufruf "+
-   "und keinen bezahlten Fallback. Solange der Host keinen Ausführer hat, wird ein Auftrag ehrlich abgelehnt."),
-  toolField("Benutzername",username),
-  toolField("Passwort",password),
-  login,sessionLine,
-  toolField("Auftrag",request),submit
+   toolNote("Die KI-Regie spricht ausschließlich den lokalen Host an. Es gibt keinen Cloud-Aufruf "+
+    "und keinen bezahlten Fallback. Aufträge werden nur ausgeführt, wenn ein lokaler KI-Ausführer verfügbar ist; "+
+    "Status, Antwort und Ablehnungen werden unverändert angezeigt."),
+   toolField("Benutzername",username),
+   toolField("Passwort",password),
+   login,sessionLine,taskLine,
+   toolField("Auftrag",request),submit
  );
 }
 function updateStateLabel(result){

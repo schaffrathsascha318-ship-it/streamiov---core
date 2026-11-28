@@ -149,7 +149,7 @@ def find_forbidden_r2_usage(text: str) -> list[str]:
 
 
 RELEASE_REPOSITORY = "schaffrathsascha318-ship-it/streamiov---core"
-RELEASE_ASSET_SUFFIXES = (".exe", ".appimage", ".deb", ".zip", ".tar.gz", ".txt")
+RELEASE_ASSET_SUFFIXES = (".exe", ".appimage", ".deb", ".dmg", ".zip", ".tar.gz", ".txt")
 
 
 def find_local_download_targets(markup: str) -> list[str]:

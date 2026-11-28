@@ -88,6 +88,18 @@ function candidatesFor(version) {
         { filename: 'Streamiov.Studio-' + version + '-arm64.AppImage', installMode: 'silent' },
         { filename: 'streamiov-studio_' + version + '_arm64.deb', installMode: 'manual' }
       ]
+    },
+    {
+      target: 'darwin-x64',
+      entries: [
+        { filename: 'Streamiov.Studio-' + version + '-x64-unsigned.dmg', installMode: 'manual' }
+      ]
+    },
+    {
+      target: 'darwin-arm64',
+      entries: [
+        { filename: 'Streamiov.Studio-' + version + '-arm64-unsigned.dmg', installMode: 'manual' }
+      ]
     }
   ];
 }

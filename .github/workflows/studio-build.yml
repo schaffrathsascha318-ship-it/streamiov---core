@@ -20,6 +20,11 @@ on:
         required: true
         type: boolean
         default: true
+      update_existing_release:
+        description: "Bereits veröffentlichtes Release ausdrücklich mit neuen Assets aktualisieren"
+        required: true
+        type: boolean
+        default: false
   pull_request:
     paths:
       - "dist/streamiov-studio-app/**"
@@ -101,6 +106,14 @@ jobs:
             ffmpeg_target: linux64
             ffmpeg_asset: ffmpeg-N-129219-g359c825152-linux64-gpl.tar.xz
             ffmpeg_sha256: bcc1539edf917320fd3eb83bd5ab4d0a5ff686980d4717e802e346279beb1f30
+          - name: macOS x64 (unsigned)
+            runner: macos-15-intel
+            command: dist:mac:x64
+            ffmpeg_target: none
+          - name: macOS ARM64 (unsigned)
+            runner: macos-15
+            command: dist:mac:arm64
+            ffmpeg_target: none
 
     defaults:
       run:
@@ -126,6 +139,7 @@ jobs:
         run: npm ci
 
       - name: FFmpeg-Laufzeit laden und prüfen
+        if: matrix.ffmpeg_target != 'none'
         run: >-
           python ../../scripts/prepare-ffmpeg-runtime.py
           --asset "${{ matrix.ffmpeg_asset }}"
@@ -139,6 +153,8 @@ jobs:
         run: npm run test:engine
 
       - name: Studio bauen
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: npm run ${{ matrix.command }}
 
       - name: Installer als Artefakte speichern
@@ -229,6 +245,7 @@ jobs:
         shell: bash
         env:
           REQUESTED_VERSION: ${{ inputs.release_version }}
+          UPDATE_EXISTING: ${{ inputs.update_existing_release }}
           EVENT_NAME: ${{ github.event_name }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -239,6 +256,12 @@ jobs:
             exit 1
           fi
           if gh release view "studio-v$APP_VERSION" >/dev/null 2>&1; then
+            if [[ "$EVENT_NAME" == "workflow_dispatch" && "$UPDATE_EXISTING" == "true" ]]; then
+              echo "Release studio-v$APP_VERSION exists; updating only the newly built assets because this was explicitly requested."
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+              echo "version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
             echo "Release studio-v$APP_VERSION already exists; skipping publication for this commit."
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -292,6 +315,8 @@ jobs:
           copy_one "artifacts/streamiov-studio-Linux ARM64" "*.AppImage" "Streamiov.Studio-${APP_VERSION}-arm64.AppImage"
           copy_one "artifacts/streamiov-studio-Linux x64" "*.deb" "streamiov-studio_${APP_VERSION}_amd64.deb"
           copy_one "artifacts/streamiov-studio-Linux ARM64" "*.deb" "streamiov-studio_${APP_VERSION}_arm64.deb"
+          copy_one "artifacts/streamiov-studio-macOS x64 (unsigned)" "*.dmg" "Streamiov.Studio-${APP_VERSION}-x64-unsigned.dmg"
+          copy_one "artifacts/streamiov-studio-macOS ARM64 (unsigned)" "*.dmg" "Streamiov.Studio-${APP_VERSION}-arm64-unsigned.dmg"
           cd release
           find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
           ls -lh

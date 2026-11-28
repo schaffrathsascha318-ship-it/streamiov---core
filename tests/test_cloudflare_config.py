@@ -44,8 +44,9 @@ class CloudflareConfigTests(unittest.TestCase):
         markup = """
           <a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.2/Streamiov.Studio.Setup.1.0.2-x64.exe">Windows</a>
           <a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.2/streamiov-studio_1.0.2_arm64.deb">Linux ARM64</a>
-        """
-        self.assertEqual(len(verifier.find_release_download_targets(markup)), 2)
+          <a href="https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.2/Streamiov.Studio-1.0.2-arm64-unsigned.dmg">macOS ARM64</a>
+         """
+        self.assertEqual(len(verifier.find_release_download_targets(markup)), 3)
         self.assertEqual(verifier.find_local_download_targets(markup), [])
 
     def test_download_page_rejects_untrusted_release_hosts_and_tag_pages(self):

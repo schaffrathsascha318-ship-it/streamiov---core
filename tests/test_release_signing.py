@@ -185,9 +185,26 @@ class StudioReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("STUDIO_RELEASE_SIGNING_KEY: ${{ secrets.STUDIO_RELEASE_SIGNING_KEY }}", publish)
         self.assertIn("--notes-file docs/STUDIO_UPDATE_NOTES.md", publish)
         self.assertIn("name: streamiov-studio-update-manifest", publish)
+        manifest_script = (ROOT / "scripts" / "build-studio-update-manifest.mjs").read_text(encoding="utf-8")
+        self.assertIn("target: 'darwin-x64'", manifest_script)
+        self.assertIn("target: 'darwin-arm64'", manifest_script)
+        self.assertIn("-x64-unsigned.dmg", manifest_script)
+        self.assertIn("-arm64-unsigned.dmg", manifest_script)
         notes = UPDATE_NOTES.read_text(encoding="utf-8")
         self.assertLessEqual(len(notes), 5000)
         self.assertIn("1.0.4", notes)
+
+    def test_workflow_builds_explicitly_unsigned_macos_dmgs(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("runner: macos-15-intel", workflow)
+        self.assertIn("runner: macos-15", workflow)
+        self.assertIn("command: dist:mac:x64", workflow)
+        self.assertIn("command: dist:mac:arm64", workflow)
+        self.assertIn("if: matrix.ffmpeg_target != 'none'", workflow)
+        self.assertIn('CSC_IDENTITY_AUTO_DISCOVERY: "false"', workflow)
+        publish = workflow.split("  publish-release:", 1)[1]
+        self.assertIn('"*.dmg" "Streamiov.Studio-${APP_VERSION}-x64-unsigned.dmg"', publish)
+        self.assertIn('"*.dmg" "Streamiov.Studio-${APP_VERSION}-arm64-unsigned.dmg"', publish)
 
     def test_workflow_skips_publishing_when_the_release_already_exists(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
@@ -195,17 +212,35 @@ class StudioReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('echo "skip=true" >> "$GITHUB_OUTPUT"', publish)
         self.assertIn('echo "skip=false" >> "$GITHUB_OUTPUT"', publish)
         self.assertIn("Release studio-v$APP_VERSION already exists; skipping publication for this commit.", publish)
+        self.assertIn("updating only the newly built assets because this was explicitly requested", publish)
+        self.assertIn("UPDATE_EXISTING: ${{ inputs.update_existing_release }}", publish)
         self.assertNotIn("Bump the app version before publishing new installers.", publish)
         self.assertGreaterEqual(publish.count("if: steps.version.outputs.skip != 'true'"), 5)
 
-    def test_public_pages_do_not_advertise_an_unpublished_release(self):
+    def test_public_pages_link_the_published_release_assets(self):
+        base = "https://github.com/schaffrathsascha318-ship-it/streamiov---core/releases/download/studio-v1.0.4/"
+        download = DOWNLOAD_PAGE.read_text(encoding="utf-8")
+        promo = PROMO_PAGE.read_text(encoding="utf-8")
+        for asset in (
+            "Streamiov.Studio.Setup.1.0.4-x64.exe",
+            "Streamiov.Studio.Setup.1.0.4-arm64.exe",
+            "Streamiov.Studio-1.0.4-x64.AppImage",
+            "Streamiov.Studio-1.0.4-arm64.AppImage",
+            "streamiov-studio_1.0.4_amd64.deb",
+            "streamiov-studio_1.0.4_arm64.deb",
+            "SHA256SUMS.txt",
+        ):
+            with self.subTest(asset=asset):
+                self.assertIn(base + asset, download)
         for page in (DOWNLOAD_PAGE, PROMO_PAGE):
             with self.subTest(page=page.name):
                 markup = page.read_text(encoding="utf-8")
-                self.assertNotIn("/releases/download/studio-v1.0.4/", markup)
-                self.assertNotIn("/releases/tag/studio-v1.0.4", markup)
-                self.assertNotIn("Gebaut und veröffentlicht", markup)
-                self.assertIn("Release ausstehend", markup)
+                self.assertIn(base, markup)
+                self.assertNotIn("Release ausstehend", markup)
+                self.assertNotIn("Release vorbereitet", markup)
+                self.assertNotIn("Veröffentlichung steht aus", markup)
+        self.assertIn("Kein macOS-Artefakt in 1.0.4", download)
+        self.assertNotIn("release/download/studio-v1.0.4/Streamiov.Studio-1.0.4-x64-unsigned.dmg", download)
 
 
 if __name__ == "__main__":
