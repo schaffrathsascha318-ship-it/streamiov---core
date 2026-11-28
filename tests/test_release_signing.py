@@ -170,6 +170,7 @@ class StudioReleaseWorkflowTests(unittest.TestCase):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("name: FFmpeg corresponding source bundle", workflow)
         self.assertIn("python scripts/build-ffmpeg-source-bundle.py", workflow)
+        self.assertIn("sudo apt-get install -y subversion", workflow)
         self.assertIn("name: streamiov-ffmpeg-source-code", workflow)
         publish = workflow.split("  publish-release:", 1)[1]
         self.assertIn("needs: [build, media-pipeline-smoke, ffmpeg-source]", publish)

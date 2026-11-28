@@ -558,6 +558,7 @@ a dated record.
 
 - **Changed:** der verankerte Release-Key ist jetzt `2c3de4b60d60cf4c7fa19ac3378a504706f79960978dfb610d9660bc10aeb09e`. Der private Ed25519-Key liegt außerhalb des Repositories mit Modus `600` und als GitHub-Repository-Secret `STUDIO_RELEASE_SIGNING_KEY`; öffentlicher Schlüssel, Studio-Updater, Verifikatoren, Tests und Download-Seite wurden gemeinsam aktualisiert.
 - **Verified locally:** die vollständige Python-Suite lief mit `793` Tests und `0` Fehlern durch (`ResourceWarning` als Fehler), `npm run test:engine` bestand `163/163`, der Offline-Cloudflare-Verifier meldete `16/16` Prüfungen und `errors: []`, `verify-release` meldete `16/16` Prüfungen mit gültigem Fingerprint und gültigen Signaturen; `compileall` und `git diff --check` waren sauber.
+- **Fixed:** der CI-Job `FFmpeg corresponding source bundle` installiert jetzt `subversion`, weil der FFmpeg-Quell-Pin `lame@7153` über SVN geholt wird und dem Ubuntu-Runner sonst `svn` fehlte; der Publish-Job blieb dadurch korrekt blockiert statt ein unvollständiges Quellpaket zu veröffentlichen.
 
 ## Publication rule
 
