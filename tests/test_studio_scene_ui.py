@@ -11,6 +11,9 @@ SOURCE_CONTRACT = ROOT / "dist" / "streamiov-studio-app" / "engine" / "source-co
 SOURCE_MODEL = ROOT / "dist" / "streamiov-studio-app" / "engine" / "source-model.js"
 OUTPUT = ROOT / "dist" / "streamiov-studio-app" / "program-output.html"
 SHIELD = ROOT / "dist" / "streamiov-studio-app" / "engine" / "privacy-shield.js"
+ENCODER_PROFILES = ROOT / "dist" / "streamiov-studio-app" / "engine" / "encoder-profiles.js"
+STREAM_HEALTH = ROOT / "dist" / "streamiov-studio-app" / "engine" / "stream-health.js"
+LIVE_OUTPUT_MANAGER = ROOT / "dist" / "streamiov-studio-app" / "engine" / "live-output-manager.js"
 
 
 class StudioRuntimeBridgeTests(unittest.TestCase):
@@ -126,6 +129,43 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("'-c:v', 'libx264'", self.main)
         self.assertIn("'-c:a', 'aac'", self.main)
 
+    def test_encoder_profiles_and_local_stream_telemetry_are_wired(self):
+        profiles = ENCODER_PROFILES.read_text(encoding="utf-8")
+        health = STREAM_HEALTH.read_text(encoding="utf-8")
+        self.assertIn("require('./engine/encoder-profiles')", self.main)
+        self.assertIn("validateStreamSettings({", self.main)
+        self.assertIn("encoderArgsForProfile(settings.profile, settings.fps)", self.main)
+        self.assertIn("health: liveOutputManager.healthSnapshot()", self.main)
+        self.assertIn("profile: payload?.profile", self.preload)
+        self.assertIn('<script src="engine/encoder-profiles.js"></script>', self.ui)
+        self.assertIn('id="streamProfile"', self.ui)
+        self.assertIn('id="streamHealth"', self.ui)
+        self.assertIn('profile:$("streamProfile").value', self.ui)
+        self.assertIn("function renderStreamHealth(state)", self.ui)
+        self.assertIn("setInterval(()=>void refreshStreamHealth(),3000)", self.ui)
+        self.assertIn("keine Plattformbestätigung", self.ui)
+        for name in ("performance", "balanced", "quality"):
+            self.assertIn(name + ":", profiles)
+        self.assertIn("PROFILES[profile].maxBitrate", profiles)
+        self.assertIn("selected.maxBitrate", self.ui)
+        self.assertIn("recordWrite(platform, byteLength", health)
+        self.assertIn("recordFailure(platform, reason", health)
+        self.assertIn("snapshotAll(now", health)
+
+    def test_stream_telemetry_reaches_renderer_and_failed_outputs_are_cleaned_up(self):
+        manager = LIVE_OUTPUT_MANAGER.read_text(encoding="utf-8")
+        self.assertIn("onHealthEvent: handleLiveHealthEvent", self.main)
+        self.assertIn("webContents.send('studio:stream-telemetry'", self.main)
+        self.assertIn("for (const platform of startedPlatforms) await liveOutputManager.stop(platform)", self.main)
+        self.assertIn("lastEncoderProfile = null;", self.main)
+        self.assertIn("spawnImpl: spawn", self.main)
+        self.assertIn("onStreamTelemetry:", self.preload)
+        self.assertIn("onStreamTelemetry?.(telemetry", self.ui)
+        self.assertIn("if (platform === undefined || platform === null) return this.outputs.size > 0;", manager)
+        self.assertIn("this.health.stop(config.platform);", manager)
+        self.assertIn("this.health.stop(output.platform);", manager)
+        self.assertIn("ArrayBuffer.isView(chunk)", manager)
+
     def test_screen_capture_requires_trusted_source_selection(self):
         self.assertIn("studio:list-display-sources", self.main)
         self.assertIn("studio:select-display-source", self.main)
@@ -153,7 +193,8 @@ class StudioRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("'-map', '0:a:0'", self.main)
         self.assertNotIn("'-map', '0:a:0?'", self.main)
         self.assertIn("'-fps_mode', 'cfr'", self.main)
-        self.assertIn("'-g', String(settings.fps * 2)", self.main)
+        self.assertIn("'-g', String(fps * selected.keyframeFactor)", ENCODER_PROFILES.read_text(encoding="utf-8"))
+        self.assertIn("encoderArgsForProfile(settings.profile, settings.fps)", self.main)
         self.assertIn("aresample=async=1:first_pts=0", self.main)
         self.assertIn("'-fflags', '+genpts'", self.main)
 

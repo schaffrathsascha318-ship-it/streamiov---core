@@ -1,6 +1,7 @@
 'use strict';
 
 const { spawn } = require('node:child_process');
+const { StreamHealth } = require('./stream-health');
 
 const PLATFORMS = Object.freeze(['twitch', 'tiktok']);
 const MAX_RETRIES = 3;
@@ -9,15 +10,21 @@ const MAX_CHUNK_BYTES = 4 * 1024 * 1024;
 const MAX_STDIN_QUEUE_BYTES = 8 * 1024 * 1024;
 
 class LiveOutputManager {
-  constructor({ spawnImpl = spawn, setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout, onEvent = () => {} } = {}) {
+  constructor({ spawnImpl = spawn, setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout, onEvent = () => {}, onHealthEvent = () => {}, health = null } = {}) {
     this.outputs = new Map();
     this.spawnImpl = spawnImpl;
     this.setTimeoutImpl = setTimeoutImpl;
     this.clearTimeoutImpl = clearTimeoutImpl;
     this.onEvent = typeof onEvent === 'function' ? onEvent : () => {};
+    this.health = health || new StreamHealth({
+      onEvent: (platform, status, details) => {
+        if (typeof onHealthEvent === 'function') onHealthEvent(platform, status, details);
+      }
+    });
   }
 
   isActive(platform) {
+    if (platform === undefined || platform === null) return this.outputs.size > 0;
     return this.outputs.has(platform);
   }
 
@@ -31,6 +38,7 @@ class LiveOutputManager {
       return { ok: false, error: 'Ungültige Encoder-Konfiguration.' };
     }
     if (this.outputs.has(platform)) return { ok: false, error: 'Für diese Plattform läuft bereits eine Ausgabe.' };
+    this.health.reset(platform);
     return this.#launch({ platform, executable, args, destination, attempt: 0 });
   }
 
@@ -49,6 +57,8 @@ class LiveOutputManager {
     try {
       output.child = this.spawnImpl(config.executable, config.args, { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
     } catch (error) {
+      this.health.recordFailure(config.platform, 'Encoder konnte nicht gestartet werden.');
+      this.health.stop(config.platform);
       this.onEvent(config.platform, 'error', { detail: 'Encoder konnte nicht gestartet werden.', attempt: config.attempt });
       return { ok: false, error: 'Encoder konnte nicht gestartet werden.' };
     }
@@ -81,8 +91,11 @@ class LiveOutputManager {
     output.child = null;
     if (output.attempt >= MAX_RETRIES) {
       if (this.outputs.get(output.platform) === output) this.outputs.delete(output.platform);
+      const detail = 'Die RTMP-Verbindung wurde wiederholt unterbrochen. Bitte Ziel, Stream-Key und Netzwerk prüfen.';
+      this.health.recordFailure(output.platform, detail);
+      this.health.stop(output.platform);
       this.onEvent(output.platform, 'error', {
-        detail: 'Die RTMP-Verbindung wurde wiederholt unterbrochen. Bitte Ziel, Stream-Key und Netzwerk prüfen.',
+        detail,
         attempt: output.attempt
       });
       return;
@@ -90,6 +103,7 @@ class LiveOutputManager {
     const delay = RETRY_DELAYS_MS[output.attempt] || RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
     const nextAttempt = output.attempt + 1;
     output.retrying = true;
+    this.health.recordRetry(output.platform, nextAttempt, 'RTMP-Verbindung unterbrochen.');
     this.onEvent(output.platform, 'reconnecting', {
       detail: `RTMP-Verbindung unterbrochen; neuer Versuch in ${delay} ms.`,
       attempt: nextAttempt
@@ -102,21 +116,29 @@ class LiveOutputManager {
   }
 
   async write(chunk) {
-    if (!(chunk instanceof Uint8Array) && !Buffer.isBuffer(chunk)) return { ok: false, errors: ['Ungültiger Medienblock.'] };
+    const isBytes = Buffer.isBuffer(chunk) || ArrayBuffer.isView(chunk) ||
+      Object.prototype.toString.call(chunk) === '[object ArrayBuffer]';
+    if (!isBytes) return { ok: false, errors: ['Ungültiger Medienblock.'] };
     if (chunk.byteLength > MAX_CHUNK_BYTES) return { ok: false, errors: ['Medienblock zu groß.'] };
     const active = [...this.outputs.values()].filter(output => !output.stopping && output.child && !output.retrying);
     if (!active.length) return { ok: false, errors: ['Kein aktiver LIVE-Ausgang.'] };
     const results = await Promise.all(active.map(output => new Promise(resolve => {
       const input = output.child.stdin;
       if (!input || input.destroyed || input.writableLength > MAX_STDIN_QUEUE_BYTES) {
+        this.health.recordFailure(output.platform, 'Der Encoder kann Medien nicht schnell genug verarbeiten.');
         resolve({ platform: output.platform, ok: false, error: 'Der Encoder kann Medien nicht schnell genug verarbeiten.' });
         return;
       }
-      input.write(Buffer.from(chunk), error => resolve({
-        platform: output.platform,
-        ok: !error,
-        error: error ? 'Medien konnten nicht an den Encoder gesendet werden.' : null
-      }));
+      const bytes = Buffer.from(chunk);
+      input.write(bytes, error => {
+        if (error) this.health.recordFailure(output.platform, 'Medien konnten nicht an den Encoder gesendet werden.');
+        else this.health.recordWrite(output.platform, bytes.byteLength);
+        resolve({
+          platform: output.platform,
+          ok: !error,
+          error: error ? 'Medien konnten nicht an den Encoder gesendet werden.' : null
+        });
+      });
     })));
     const errors = results.filter(result => !result.ok);
     return errors.length ? { ok: false, errors } : { ok: true, written: results.length };
@@ -128,6 +150,7 @@ class LiveOutputManager {
     output.stopping = true;
     if (output.retryTimer) this.clearTimeoutImpl(output.retryTimer);
     if (this.outputs.get(platform) === output) this.outputs.delete(platform);
+    this.health.stop(platform);
     if (!output.child || output.retrying) {
       this.onEvent(platform, 'offline', { detail: 'LIVE-Ausgabe beendet.' });
       return { ok: true, platform, stopped: false };
@@ -165,8 +188,13 @@ class LiveOutputManager {
       attempt: output.attempt,
       ready: output.ready,
       retrying: output.retrying,
-      stopping: output.stopping
+      stopping: output.stopping,
+      health: this.health.snapshot(output.platform)
     })]));
+  }
+
+  healthSnapshot() {
+    return this.health.snapshotAll();
   }
 }
 

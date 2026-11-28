@@ -55,6 +55,20 @@ test('keeps separate FFmpeg processes and destinations for each platform', () =>
   assert.deepEqual(manager.activePlatforms(), ['twitch', 'tiktok']);
 });
 
+test('isActive works both for any output and for a specific platform', async () => {
+  const { manager, children } = harness();
+  assert.equal(manager.isActive(), false);
+  assert.equal(manager.isActive('twitch'), false);
+  manager.start({ platform: 'twitch', executable: 'ffmpeg', args: ['-i', 'pipe:0'], destination: 'rtmps://twitch/key' });
+  assert.equal(manager.isActive(), true);
+  assert.equal(manager.isActive('twitch'), true);
+  assert.equal(manager.isActive('tiktok'), false);
+  const stopping = manager.stop('twitch');
+  children[0].emit('close', 0, 'SIGINT');
+  await stopping;
+  assert.equal(manager.isActive(), false);
+});
+
 test('reports output readiness without claiming remote LIVE', () => {
   const { manager, children, events } = harness();
   manager.start({ platform: 'twitch', executable: 'ffmpeg', args: ['-i', 'pipe:0'], destination: 'rtmps://twitch/key' });
@@ -89,6 +103,8 @@ test('reconnects an interrupted output with backoff and stops permanently after 
   assert.ok(events.some(item => item.event === 'reconnecting' && item.attempt === 3));
   assert.ok(events.some(item => item.event === 'error' && item.attempt === 3));
   assert.deepEqual(manager.activePlatforms(), []);
+  assert.equal(manager.healthSnapshot().twitch.status, 'offline');
+  assert.match(manager.healthSnapshot().twitch.lastReason, /wiederholt unterbrochen/);
 });
 
 test('keeps a reconnecting output visible and stoppable before the retry timer fires', async () => {
@@ -103,6 +119,20 @@ test('keeps a reconnecting output visible and stoppable before the retry timer f
   assert.equal(result.stopped, false);
   assert.equal(timers[0].cancelled, true);
   assert.deepEqual(manager.activePlatforms(), []);
+});
+
+test('records a failed encoder launch as local telemetry', () => {
+  const manager = new LiveOutputManager({
+    spawnImpl: () => { throw new Error('ENOENT'); },
+    onEvent: () => {}
+  });
+  const result = manager.start({ platform: 'twitch', executable: 'ffmpeg', args: ['-i', 'pipe:0'], destination: 'rtmps://twitch/key' });
+  assert.equal(result.ok, false);
+  const health = manager.healthSnapshot().twitch;
+  assert.equal(health.failures, 1);
+  assert.equal(health.status, 'offline');
+  assert.match(health.lastReason, /Encoder konnte nicht gestartet werden/);
+  assert.equal(manager.isActive(), false);
 });
 
 test('stops cleanly and reports offline', async () => {

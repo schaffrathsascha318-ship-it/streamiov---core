@@ -1,5 +1,6 @@
 import hashlib
 import importlib.util
+import json
 import re
 import shutil
 import subprocess
@@ -91,6 +92,26 @@ class CloudflareConfigTests(unittest.TestCase):
         verifier = load_verifier()
         ok, detail = verifier.verify_release_signatures(ROOT / "dist/streamiov-homepage-worker/public/downloads")
         self.assertTrue(ok, detail)
+
+    def test_offline_verifier_checks_hosted_studio_update_manifest(self):
+        verifier = load_verifier()
+        downloads = ROOT / "dist/streamiov-homepage-worker/public/downloads"
+        ok, detail = verifier.verify_studio_update_manifest(downloads)
+        self.assertTrue(ok, detail)
+        checks = verifier.verify()["checks"]
+        self.assertIn("hosted Studio update manifest is signed and lists only published Windows/Linux assets", checks)
+
+    def test_offline_verifier_rejects_a_tampered_studio_update_manifest(self):
+        verifier = load_verifier()
+        with tempfile.TemporaryDirectory() as tmp:
+            downloads = Path(tmp) / "downloads"
+            shutil.copytree(ROOT / "dist/streamiov-homepage-worker/public/downloads", downloads)
+            manifest = downloads / "studio-update.json"
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+            data["assets"]["win32-x64"]["filename"] = "malware.exe"
+            manifest.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+            ok, _ = verifier.verify_studio_update_manifest(downloads)
+            self.assertFalse(ok)
 
     def test_offline_verifier_rejects_a_manipulated_part_with_rewritten_checksum(self):
         verifier = load_verifier()

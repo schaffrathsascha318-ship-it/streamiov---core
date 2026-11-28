@@ -7,12 +7,16 @@ const { randomUUID } = require('node:crypto');
 const os = require('node:os');
 const http = require('node:http');
 const { pathToFileURL } = require('node:url');
+const { execFile, spawn } = require('node:child_process');
+const { promisify } = require('node:util');
+const execFileAsync = promisify(execFile);
 const { buildSyntheticAvPipelineArgs } = require('./media-pipeline');
 const { StudioSourceModel } = require('./engine/source-model');
 const { StudioSceneEngine } = require('./engine/scene-engine');
 const { resolveFfmpegExecutable } = require('./engine/ffmpeg-runtime');
 const { PlatformOutputRegistry } = require('./engine/platform-output-registry');
 const { LiveOutputManager, PLATFORMS: LIVE_PLATFORMS } = require('./engine/live-output-manager');
+const { encoderArgsForProfile, validateStreamSettings } = require('./engine/encoder-profiles');
 const { collectRendererMeasurements, countMediaDevices, createDeviceCapabilityReport } = require('./engine/device-capabilities-bridge');
 const { redactUrlForLog } = require('./engine/log-redaction');
 const { isWavBuffer } = require('./engine/audio-file-validation');
@@ -38,8 +42,9 @@ if (typeof protocol?.registerSchemesAsPrivileged === 'function') {
   }]);
 }
 
-const liveOutputManager = new LiveOutputManager({ onEvent: handleLiveOutputEvent });
+const liveOutputManager = new LiveOutputManager({ spawnImpl: spawn, onEvent: handleLiveOutputEvent, onHealthEvent: handleLiveHealthEvent });
 const liveOutputStatus = new Map(LIVE_PLATFORMS.map(platform => [platform, { status: 'idle', detail: '' }]));
+let lastEncoderProfile = null;
 let remoteConfirmationTimer = null;
 let remoteConfirmationRunning = false;
 
@@ -99,9 +104,6 @@ function syncPlatformOutputWithStreamStatus(status, detail = '') {
   }
 }
 
-const { execFile, spawn } = require('node:child_process');
-const { promisify } = require('node:util');
-const execFileAsync = promisify(execFile);
 const STREAMIOV_API = process.env.STREAMIOV_HOST_URL || 'http://127.0.0.1:8765';
 const STREAMIOV_CLIENT_HEADER = 'studio';
 
@@ -478,6 +480,15 @@ function publishStreamStatus(status, detail = '') {
     mainWindow.webContents.send('studio:stream-status', { status, detail });
   }
 }
+function handleLiveHealthEvent(platform, status, health) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('studio:stream-telemetry', {
+    platform,
+    status,
+    health: liveOutputManager.healthSnapshot(),
+    encoderProfile: lastEncoderProfile
+  });
+}
 function handleLiveOutputEvent(platform, event, payload = {}) {
   const detail = typeof payload.detail === 'string' ? payload.detail : '';
   liveOutputStatus.set(platform, { status: event, detail, attempt: payload.attempt ?? 0 });
@@ -549,8 +560,8 @@ function buildRtmpEncoderArgs(destination, settings, dimensions) {
     '-hide_banner', '-loglevel', 'info', '-fflags', '+genpts', '-analyzeduration', '0', '-probesize', '33554432',
     '-f', 'webm', '-i', 'pipe:0',
     '-map', '0:v:0', '-map', '0:a:0', '-vf', `scale=${dimensions[0]}:${dimensions[1]}:force_original_aspect_ratio=decrease,pad=${dimensions[0]}:${dimensions[1]}:(ow-iw)/2:(oh-ih)/2`,
-    '-r', String(settings.fps), '-fps_mode', 'cfr', '-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'zerolatency',
-    '-pix_fmt', 'yuv420p', '-g', String(settings.fps * 2), '-keyint_min', String(settings.fps), '-sc_threshold', '0',
+    '-r', String(settings.fps), '-fps_mode', 'cfr', '-c:v', 'libx264', ...encoderArgsForProfile(settings.profile, settings.fps),
+    '-pix_fmt', 'yuv420p',
     '-b:v', `${settings.bitrate}k`, '-maxrate', `${settings.bitrate}k`, '-bufsize', `${settings.bitrate * 2}k`,
     '-af', 'aresample=async=1:first_pts=0', '-c:a', 'aac', '-b:a', '128k', '-ar', '48000', '-ac', '2', '-f', 'flv', destination
   ];
@@ -624,12 +635,11 @@ ipcMain.handle('studio:start-stream', async (event, payload = {}) => {
   if (platforms.some(platform => !LIVE_PLATFORMS.includes(platform))) {
     return { ok: false, error: 'Mindestens eine ausgewählte LIVE-Plattform wird nicht unterstützt.' };
   }
-  const resolution = ['720p', '1080p', '1440p'].includes(options.resolution) ? options.resolution : '1080p';
-  const fps = Number(options.fps);
-  const bitrate = Number(options.bitrate);
-  if (![30, 60].includes(fps) || !Number.isInteger(bitrate) || bitrate < 500 || bitrate > 20000) {
-    return { ok: false, error: 'Stream-Einstellungen sind ungültig.' };
-  }
+  const validated = validateStreamSettings({
+    resolution: options.resolution, fps: options.fps, bitrate: options.bitrate, profile: options.profile
+  });
+  if (!validated.ok) return { ok: false, error: validated.error };
+  const { resolution, fps, bitrate, profile } = validated.settings;
   const encoder = await probeFfmpegRtmp();
   if (!encoder.available) {
     for (const platform of platforms) transitionPlatformOutput(platform, 'error', 'Encoder nicht verfügbar: ' + encoder.missing.join(', ') + '.');
@@ -651,20 +661,26 @@ ipcMain.handle('studio:start-stream', async (event, payload = {}) => {
     return { ok: false, error: failed.map(output => output.platform + ': ' + output.error).join('; ') };
   }
   const dimensions = { '720p': [1280, 720], '1080p': [1920, 1080], '1440p': [2560, 1440] }[resolution];
+  const startedPlatforms = [];
   for (const output of outputs) {
     preparePlatformOutput(output.platform, 'Autorisierte Ausgabe vorbereitet; LIVE nicht bestätigt.');
     const started = liveOutputManager.start({
       platform: output.platform,
       executable: encoder.executable,
-      args: buildRtmpEncoderArgs(output.destination, { fps, bitrate }, dimensions),
+      args: buildRtmpEncoderArgs(output.destination, { fps, bitrate, profile }, dimensions),
       destination: output.destination
     });
     if (!started.ok) {
+      for (const platform of startedPlatforms) await liveOutputManager.stop(platform);
       transitionPlatformOutput(output.platform, 'error', started.error);
+      lastEncoderProfile = null;
+      publishStreamStatus('offline', started.error);
       return { ok: false, error: started.error };
     }
+    startedPlatforms.push(output.platform);
     liveOutputStatus.set(output.platform, { status: 'starting', detail: 'RTMP-Ausgabe wird gestartet.', attempt: 0 });
   }
+  lastEncoderProfile = profile;
   startRemoteConfirmationPolling();
   publishGlobalStreamStatus('connecting', 'Lokale RTMP-Ausgaben werden initialisiert; LIVE nicht bestätigt.');
   return { ok: true, status: 'connecting', platforms: liveOutputManager.activePlatforms() };
@@ -693,6 +709,7 @@ ipcMain.handle('studio:stop-stream', async (event) => {
   publishGlobalStreamStatus('stopping', 'LIVE-Ausgaben werden beendet.');
   await liveOutputManager.stopAll();
   const recording = streamRecording?.mode === 'stream' ? await stopStreamRecording('stream_stopped') : { recording: recordingSnapshot() };
+  lastEncoderProfile = null;
   publishStreamStatus('offline');
   return { ok: true, status: 'offline', recording: recording.recording };
 });
@@ -1032,8 +1049,9 @@ ipcMain.handle('studio:game-analysis', async (event, payload = {}) => {
 });
 
 
-// Dauerhafte Verwaltung von Quellen-Metadaten. Dies verbindet noch keine
-// Kamera-/Capture-Quelle mit der Encoder-Pipeline.
+// Dauerhafte Verwaltung von Quellen-Metadaten. Diese IPC-Stelle ist
+// bewusst metadata-only: echte Medien-Tracks öffnet die Regie lokal, und
+// der Encoder erhält ausschließlich den komponierten Programm-Mediastream.
 ipcMain.handle('studio:source-action', async (event, payload = {}) => {
   if (!isTrustedStudioSender(event)) {
     throw new Error('Nicht autorisierter Studio-Aufruf');
@@ -1052,7 +1070,7 @@ ipcMain.handle('studio:source-action', async (event, payload = {}) => {
   const model = new StudioSourceModel(saved);
   const action = payload && payload.action;
   if (action === 'load') {
-    return { ok: true, state: model.snapshot(), capture_pipeline_connected: false };
+    return { ok: true, state: model.snapshot(), metadata_only: true };
   }
 
   let result;
@@ -1079,7 +1097,7 @@ ipcMain.handle('studio:source-action', async (event, payload = {}) => {
     return { ok: false, error: 'Quellen konnten nicht gespeichert werden: ' + String(error.message || error).slice(0, 180) };
   }
 
-  return { ok: true, state: model.snapshot(), capture_pipeline_connected: false };
+  return { ok: true, state: model.snapshot(), metadata_only: true };
 });
 
 
@@ -1373,7 +1391,8 @@ let twitchConnectInProgress = false;
 function getTwitchOAuth() {
   if (!twitchOAuth) twitchOAuth = new TwitchOAuth({
     env: process.env,
-    tokenFile: path.join(app.getPath('userData'), 'oauth', 'twitch.json')
+    tokenFile: path.join(app.getPath('userData'), 'oauth', 'twitch.json'),
+    fetch
   });
   return twitchOAuth;
 }
@@ -1488,7 +1507,8 @@ ipcMain.handle('studio:get-module-status', async (event) => {
       { id: 'compositor', status: 'renderer_canvas_program_output', note: 'Die Programmszene wird mit festem Frame-Takt aus echten Quell-Tracks gerendert und als WebM-Mediastream an den lokalen Encoder gesendet.' },
       { id: 'local-recording', status: 'local_webm_file', note: 'Der komponierte WebM-Mediastream kann ohne RTMP und zusätzlich während eines aktiven Streams als lokale Datei im Benutzerprofil aufgezeichnet, aufgelistet, geöffnet und gelöscht werden; es erfolgt kein Upload und keine Plattformveröffentlichung.' },
       { id: 'production-encoder', status: encoder.available ? 'ffmpeg_available' : 'ffmpeg_missing', note: encoder.available ? `FFmpeg ${encoder.executable} mit libx264, AAC und RTMP/RTMPS ist verfügbar.` : 'Fehlend: ' + encoder.missing.join(', ') + '.' },
-      { id: 'audio-mixer-routing', status: 'local_four_bus_engine', note: 'Mikrofon, Bildschirm-Systemton, lokaler Musikplayer, Soundboard-Pads, deutsches TTS und manuelle Alert-Töne werden über getrennte Stream-, Monitor-, Kopfhörer- und Kommunikationsbusse geroutet. Jeder Ausgang besitzt einen Limiter; ein plattformneutraler Geräteadapter übernimmt Geräteinventar, Mikrofonöffnung, Ausgabeverbindung und Hot-plug-Beobachtung. Mikrofon bietet Hochpass, optionalen Sprachkompressor, Noise Gate/Expander mit Hysterese, Pan, Solo und konfigurierbare OS-Echo-/Rauschunterdrückung sowie automatische Pegelregelung. Live-RMS-/Peak-Meter zeigen Quellen- und Stream-Ausgangspegel samt Clipping-Hinweis. Der Stream-Bus speist den lokalen MediaRecorder/Encoder-Eingang. Spiel-/Fensterton wird über den ausgewählten Capture-Track aufgenommen, sofern Windows/Electron einen Loopback-Audiotrack liefert; separate App-Audio-Kanäle, Voice-Räume und automatische Plattform-Event-Zuordnung für Alerts sind noch nicht angebunden. TTS nutzt espeak-ng, wenn vorhanden, und unter Windows zusätzlich die native System.Speech-Fallback-Ausgabe. Physische Geräteausgabe und LIVE-Übertragung sind nicht hardwareverifiziert.' },
+      { id: 'stream-telemetry', status: 'local_write_telemetry', note: 'Für jeden aktiven Ausgang werden echte, an den Encoder geschriebene Medienblöcke, Bytes, Wiederholungen, Backpressure-Fehler und eine lokale Bitraten-Schätzung erfasst. Status „degraded“/„stalled“ beschreibt ausschließlich die lokale Schreibverbindung; LIVE bleibt nur nach remote bestätigter Plattformmeldung wahr. Encoderprofile steuern Preset, Tune und Keyframe-Abstand.' },
+      { id: 'audio-mixer-routing', status: 'local_four_bus_engine', note: 'Mikrofon, Bildschirm-Systemton, lokaler Musikplayer, Soundboard-Pads, deutsches TTS und manuelle Alert-Töne werden über getrennte Stream-, Monitor-, Kopfhörer- und Kommunikationsbusse geroutet. Jeder Ausgang besitzt einen Limiter; ein plattformneutraler Geräteadapter übernimmt Geräteinventar, Mikrofonöffnung, Ausgabeverbindung und Hot-plug-Beobachtung. Mikrofon bietet Hochpass, optionalen Sprachkompressor, Noise Gate/Expander mit Hysterese, Pan, Solo und konfigurierbare OS-Echo-/Rauschunterdrückung sowie automatische Pegelregelung. Live-RMS-/Peak-Meter zeigen Quellen- und Stream-Ausgangspegel samt Clipping-Hinweis. Der Stream-Bus speist den lokalen MediaRecorder/Encoder-Eingang. Spiel-/Fensterton wird über den ausgewählten Capture-Track aufgenommen, sofern Windows/Electron einen Loopback-Audiotrack liefert; separate App-Audio-Kanäle und Voice-Räume bleiben ohne autorisiertes Geräte-/Dienstinterface. Bestätigte Twitch-Chat- und EventSub-Ereignisse lösen lokal gespeicherte Alertregeln aus, ohne Plattformereignisse zu erfinden. TTS nutzt espeak-ng, wenn vorhanden, und unter Windows zusätzlich die native System.Speech-Fallback-Ausgabe. Physische Geräteausgabe und LIVE-Übertragung sind nicht hardwareverifiziert.' },
       { id: 'tiktok-live-output', status: registry.tiktok?.state === 'live' ? 'remote_live_confirmed' : 'rtmp_transport_ready', note: 'RTMP-Transport und getrennter Encoder sind integriert; LIVE gilt nur nach remote bestätigter Plattformmeldung.' },
       { id: 'chat-events', status: incomingEvents.chat.status, note: incomingEvents.chat.note },
       { id: 'gift-events', status: incomingEvents.gift.status, note: incomingEvents.gift.note },
@@ -1507,6 +1527,8 @@ ipcMain.handle('studio:get-stream-status', async (event) => {
     stopping: liveStreamState === 'stopping',
     platforms: liveOutputManager.activePlatforms(),
     outputs: liveOutputManager.snapshot(),
+    health: liveOutputManager.healthSnapshot(),
+    encoderProfile: lastEncoderProfile,
     registry: platformOutputRegistry.snapshot(),
     recording: recordingSnapshot(),
     programFramesDelivered

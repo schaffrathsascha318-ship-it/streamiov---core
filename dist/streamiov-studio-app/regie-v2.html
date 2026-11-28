@@ -563,8 +563,9 @@ dialog::backdrop{background:#000b}
     <div class="panel-title" style="margin-top:12px">PLATTFORM-AUSGÄNGE</div>
     <p style="font-size:12px;color:var(--muted)">Streamiov verwaltet die Zielverbindungen intern. Kein manueller RTMP-Key und keine manuelle RTMP-Adresse erforderlich: Nach dem jeweiligen Konto-Login werden nur offiziell freigegebene Plattform-Zugangsdaten automatisch bezogen. Hier werden keine RTMP-Adressen oder Stream-Keys manuell eingegeben.</p>
     <button class="go-live" style="width:100%;margin-top:10px" id="live" disabled>● LIVE STARTEN</button>
-    <p id="liveStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Blockiert · Verbinde Twitch, um die offizielle Stream-Key-Berechtigung zu prüfen. TikTok-Produktionsausgabe folgt separat.</p>
-   </div>
+     <p id="liveStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Blockiert · Verbinde Twitch, um die offizielle Stream-Key-Berechtigung zu prüfen. TikTok-Produktionsausgabe folgt separat.</p>
+     <p id="streamHealth" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">LOKALE TELEMETRIE · kein aktiver Ausgang; Werte sind keine Plattformbestätigung.</p>
+    </div>
   </section>
   <section class="panel">
    <div class="panel-title">CREATOR-WERKZEUGE</div>
@@ -690,10 +691,14 @@ dialog::backdrop{background:#000b}
       <select id="streamFps"><option value="30">30 FPS</option><option value="60" selected>60 FPS</option>
       </select>
      </label>
-     <label>Bitrate (kbit/s)
-      <input id="streamBitrate" type="number" min="500" max="20000" step="500" value="4500" required>
-     </label>
-     <label>Audio-Modus
+      <label>Bitrate (kbit/s)
+       <input id="streamBitrate" type="number" min="500" max="20000" step="500" value="4500" required>
+      </label>
+      <label>Encoder-Profil
+       <select id="streamProfile"><option value="performance">Performance</option><option value="balanced" selected>Ausgewogen</option><option value="quality">Qualität</option></select>
+      </label>
+      <p id="bitrateRecommendation" role="status" aria-live="polite" style="font-size:12px;color:var(--muted)">Empfehlung für 1080p/60: 4500 kbit/s. Höhere Profile benötigen mehr CPU.</p>
+      <label>Audio-Modus
       <select id="streamAudio"><option value="mic-system">Mikrofon + System</option><option value="mic">Nur Mikrofon</option><option value="system">Nur System</option></select>
      </label>
      <label>Overlay
@@ -713,6 +718,7 @@ dialog::backdrop{background:#000b}
 <script src="engine/audio-device-adapter.js"></script>
 <script src="engine/privacy-shield.js"></script>
 <script src="engine/source-contract.js"></script>
+<script src="engine/encoder-profiles.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const mobileRegieToggle=$("mobile-regie-toggle");
@@ -3442,8 +3448,37 @@ async function refreshConnectionMetrics(){
  if(platformMetric)platformMetric.textContent=text;
 }
 void refreshConnectionMetrics();
+function renderStreamHealth(state){
+ const node=$("streamHealth");
+ if(!node)return;
+ const health=state?.health||{};
+ const platforms=Array.isArray(state?.platforms)?state.platforms:Object.keys(health);
+ const lines=platforms.map(platform=>{
+  const entry=health[platform]||{};
+  const reason=String(entry.lastReason||"").slice(0,80);
+  return platform.toUpperCase()+" · "+String(entry.status||"waiting")
+   +" · "+(Number(entry.kbps)||0)+" kbit/s · "+(Number(entry.bytes)||0)+" B"
+   +" · Fehler "+(Number(entry.failures)||0)+"/Wdh. "+(Number(entry.retries)||0)
+   +(reason?" · "+reason:"");
+ });
+ const profile=state?.encoderProfile?String(state.encoderProfile):"–";
+ node.textContent=lines.length
+  ? "LOKALE TELEMETRIE · Profil "+profile+" · "+lines.join(" | ")+" · keine Plattformbestätigung."
+  : "LOKALE TELEMETRIE · kein aktiver Ausgang; Werte sind keine Plattformbestätigung.";
+}
+async function refreshStreamHealth(){
+ const state=await window.streamiovStudio?.getStreamStatus?.().catch(()=>null);
+ if(state?.ok)renderStreamHealth(state);
+}
+setInterval(()=>void refreshStreamHealth(),3000);
+window.streamiovStudio?.onStreamTelemetry?.(telemetry=>{
+ if(telemetry?.health&&Object.keys(telemetry.health).length){
+  renderStreamHealth({health:telemetry.health,platforms:Object.keys(telemetry.health),encoderProfile:telemetry.encoderProfile});
+ }else void refreshStreamHealth();
+});
 window.streamiovStudio?.onStreamStatus?.(payload=>{
  void refreshConnectionMetrics();
+ void refreshStreamHealth();
  if(lastStreamError&&["stopping","offline"].includes(payload?.status))return;
  setBroadcastStatus(payload?.status||"offline",payload?.detail||"");
  if(payload?.status==="error"||payload?.status==="offline"){
@@ -3454,9 +3489,10 @@ window.streamiovStudio?.onStreamStatus?.(payload=>{
 });
 async function syncStreamState(){
  const state=await window.streamiovStudio?.getStreamStatus?.().catch(()=>null);
- if(!state?.ok)return;
-  if(state.active){
-   setBroadcastStatus(state.stopping?"stopping":"connecting",state.stopping?"":"Ein Stream aus einer vorherigen Sitzung läuft weiter; ein Klick beendet ihn.");
+  if(!state?.ok)return;
+   renderStreamHealth(state);
+   if(state.active){
+    setBroadcastStatus(state.stopping?"stopping":"connecting",state.stopping?"":"Ein Stream aus einer vorherigen Sitzung läuft weiter; ein Klick beendet ihn.");
    void syncRecordingState();
    return;
   }
@@ -3531,9 +3567,10 @@ async function startBroadcast(){
     platforms,
 
    resolution:$("streamResolution").value,
-   fps:Number($("streamFps").value),
-   bitrate:Number($("streamBitrate").value)
-  });
+    fps:Number($("streamFps").value),
+    bitrate:Number($("streamBitrate").value),
+    profile:$("streamProfile").value
+   });
   if(!result?.ok)throw new Error(result?.error||"Encoder konnte nicht gestartet werden.");
   rendererOwnsStream=true;
   const resolution=$("streamResolution").value;
@@ -5414,26 +5451,45 @@ refreshAudioBusDevices().catch(()=>audioBusNames.slice(1).forEach(name=>audioBus
 
 <script>
 (() => {
- const ids = ['streamerName','profileName','accountEmail','streamResolution','streamFps','streamBitrate','streamAudio','streamOverlay'];
- const byId = id => document.getElementById(id);
- const status = byId('creatorSettingsStatus');
- const storageKey = 'streamiov.studio.creator-settings.v1';
-  const defaults = {streamerName:'',profileName:'',accountEmail:'',streamResolution:'1080p',streamFps:'60',streamBitrate:'4500',streamAudio:'mic-system',streamOverlay:'standard'};
+  const ids = ['streamerName','profileName','accountEmail','streamResolution','streamFps','streamBitrate','streamProfile','streamAudio','streamOverlay'];
+  const byId = id => document.getElementById(id);
+  const status = byId('creatorSettingsStatus');
+  const storageKey = 'streamiov.studio.creator-settings.v1';
+   const defaults = {streamerName:'',profileName:'',accountEmail:'',streamResolution:'1080p',streamFps:'60',streamBitrate:'4500',streamProfile:'balanced',streamAudio:'mic-system',streamOverlay:'standard'};
+  function updateBitrateRecommendation(){
+   const hint = byId('bitrateRecommendation');
+   if(!hint||!window.StreamiovEncoderProfiles)return;
+    const recommended = window.StreamiovEncoderProfiles.recommendedBitrate(byId('streamResolution').value,Number(byId('streamFps').value));
+    const selected = window.StreamiovEncoderProfiles.PROFILES[byId('streamProfile').value];
+    const maximum = selected ? selected.maxBitrate : null;
+    hint.textContent = recommended
+     ? 'Empfehlung für '+byId('streamResolution').value+'/'+byId('streamFps').value+': '+recommended+' kbit/s. Maximal '+maximum+' kbit/s für dieses Profil; höhere Profile benötigen mehr CPU.'
+     : 'Keine Empfehlung für diese Kombination vorhanden.';
+
+  }
+  ['streamResolution','streamFps','streamBitrate','streamProfile'].forEach(id=>byId(id)?.addEventListener('change',updateBitrateRecommendation));
   try {
    const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
    for (const id of ids) if (byId(id)) byId(id).value = String(saved[id] ?? defaults[id] ?? '');
- } catch (_) { status.textContent = 'Gespeicherte Einstellungen konnten nicht gelesen werden.'; }
+  } catch (_) { status.textContent = 'Gespeicherte Einstellungen konnten nicht gelesen werden.'; }
+  updateBitrateRecommendation();
  byId('saveCreatorSettings').addEventListener('click', () => {
   const name = byId('streamerName').value.trim();
   const email = byId('accountEmail').value.trim();
   const bitrate = Number(byId('streamBitrate').value);
   if (!name) { status.textContent = 'Bitte einen Streamername eingeben.'; byId('streamerName').focus(); return; }
   if (email && !byId('accountEmail').checkValidity()) { status.textContent = 'Bitte eine gültige Konto-E-Mail eingeben.'; byId('accountEmail').focus(); return; }
-  if (!Number.isInteger(bitrate) || bitrate < 500 || bitrate > 20000 || bitrate % 500 !== 0) {
-   status.textContent = 'Bitrate muss zwischen 500 und 20.000 kbit/s liegen und in 500er-Schritten eingegeben werden.';
-   byId('streamBitrate').focus(); return;
-  }
-  const values = Object.fromEntries(ids.map(id => [id, byId(id).value.trim()]));
+   const validated = window.StreamiovEncoderProfiles?.validateStreamSettings({
+    resolution:byId('streamResolution').value,
+    fps:Number(byId('streamFps').value),
+    bitrate,
+    profile:byId('streamProfile').value
+   });
+   if (!validated?.ok) {
+    status.textContent = validated?.error || 'Encoder-Einstellungen sind in dieser Laufzeit nicht prüfbar.';
+    return;
+   }
+   const values = Object.fromEntries(ids.map(id => [id, byId(id).value.trim()]));
   try {
    localStorage.setItem(storageKey, JSON.stringify(values));
    if (['none','standard','custom'].includes(values.streamOverlay)) {

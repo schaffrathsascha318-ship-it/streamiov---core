@@ -115,6 +115,50 @@ def verify_release_signatures(downloads: Path = DOWNLOADS) -> tuple[bool, str]:
     return False, detail[0] if detail else "release verification failed"
 
 
+def verify_studio_update_manifest(downloads: Path = DOWNLOADS) -> tuple[bool, str]:
+    manifest_path = downloads / "studio-update.json"
+    signature_path = downloads / "studio-update.json.sig"
+    public_key = downloads / "STREAMIOV-RELEASE-KEY.pub"
+    if not manifest_path.is_file() or not signature_path.is_file():
+        return False, "studio-update.json or its signature is missing from downloads"
+    if release_key_fingerprint(public_key) != EXPECTED_RELEASE_FINGERPRINT:
+        return False, "update manifest would be verified with an untrusted key"
+    node = shutil.which("node")
+    if not node:
+        return False, "node is required for update manifest signature verification"
+    result = subprocess.run(
+        [node, str(ROOT / "scripts" / "release-signing.mjs"), "verify", str(manifest_path), "--pub", str(public_key)],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if result.returncode != 0:
+        return False, (result.stderr or result.stdout).strip().splitlines()[0]
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (ValueError, OSError) as error:
+        return False, f"studio-update.json is not valid JSON: {error}"
+    expected_targets = {"win32-x64", "win32-arm64", "linux-x64", "linux-arm64"}
+    if manifest.get("format") != "streamiov-studio-update-v1":
+        return False, "update manifest has an unknown format"
+    if manifest.get("version") != "1.0.4":
+        return False, "update manifest version does not match the published Studio release"
+    assets = manifest.get("assets")
+    if not isinstance(assets, dict) or set(assets) != expected_targets:
+        return False, "update manifest assets do not match the published Windows/Linux installers"
+    for target, asset in assets.items():
+        if not isinstance(asset, dict):
+            return False, f"update manifest asset {target} is invalid"
+        if not re.fullmatch(r"[0-9a-f]{64}", str(asset.get("sha256", ""))):
+            return False, f"update manifest asset {target} has an invalid SHA-256"
+        if not isinstance(asset.get("size"), int) or asset["size"] <= 0:
+            return False, f"update manifest asset {target} has an invalid size"
+        if not str(asset.get("filename", "")).strip() or ".." in str(asset.get("filename", "")):
+            return False, f"update manifest asset {target} has an unsafe filename"
+    return True, "ok"
+
+
 def load_jsonc(path: Path) -> dict[str, Any]:
     value = json.loads(strip_jsonc_comments(path.read_text(encoding="utf-8")))
     if not isinstance(value, dict):
@@ -371,6 +415,11 @@ def verify() -> dict[str, Any]:
         if not signed_ok:
             errors.append(f"release signature verification failed: {signed_detail}")
         checks.append("release signatures and checksums verify against the pinned trust anchor")
+
+        update_ok, update_detail = verify_studio_update_manifest(DOWNLOADS)
+        if not update_ok:
+            errors.append(f"Studio update manifest verification failed: {update_detail}")
+        checks.append("hosted Studio update manifest is signed and lists only published Windows/Linux assets")
 
         if sorted(DOWNLOADS.glob("*-prototype.zip")):
             for filename in ("SHA256SUMS-games.txt", "SHA256SUMS-games.txt.sig"):

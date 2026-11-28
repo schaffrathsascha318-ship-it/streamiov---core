@@ -3,11 +3,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { spawn, spawnSync } = require('node:child_process');
+const { EventEmitter } = require('node:events');
+const { promisify } = require('node:util');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { loadStudioMain } = require('./studio-main-harness.cjs');
 const { isWavBuffer } = require('./audio-file-validation.js');
+const { TwitchTokenStore, REQUIRED_SCOPES } = require('../twitch-oauth.js');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const CORE_HELPER = path.join(ROOT, 'tests', 'support', 'studio_core_server.py');
@@ -187,7 +190,7 @@ test('Chat, Quellen, Szenen-Take und TTS laufen über die echten Studio-Engines'
     source: { type: 'audio', name: 'Test-Mikrofon', settings: { deviceId: 'integration-device' } }
   });
   assert.equal(source.ok, true, source);
-  assert.equal(source.capture_pipeline_connected, false);
+  assert.equal(source.metadata_only, true);
   const sourceId = source.state.sources[0].id;
   const muted = await studio.invoke('studio:source-action', {
     action: 'update', id: sourceId, patch: { muted: true }
@@ -499,6 +502,30 @@ test('Stream-Start akzeptiert kein vom Renderer vorgegebenes RTMP-Ziel', async (
   assert.match(studio.source, /resolveOutputCredentials/);
 });
 
+test('Stream-Start validiert Encoderprofile und der Status liefert lokale Telemetrie', async (t) => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streamiov-integration-profile-'));
+  t.after(() => fs.rmSync(userDataDir, { recursive: true, force: true }));
+  const studio = loadStudioMain({
+    fetchImpl: async () => { throw new Error('Kein Host für diesen Test nötig'); },
+    userDataDir
+  });
+
+  const invalid = await studio.invoke('studio:start-stream', {
+    platforms: ['twitch'], resolution: '1080p', fps: 60, bitrate: 4500, profile: 'turbo'
+  });
+  assert.equal(invalid.ok, false);
+  assert.match(invalid.error, /Profil/);
+  assert.match(studio.source, /encoderArgsForProfile\(settings\.profile, settings\.fps\)/);
+  assert.match(studio.source, /health: liveOutputManager\.healthSnapshot\(\)/);
+
+  const status = await studio.invoke('studio:get-stream-status');
+  assert.equal(status.ok, true);
+  assert.equal(typeof status.health, 'object');
+  assert.equal(status.encoderProfile, null);
+  const modules = await studio.invoke('studio:get-module-status');
+  assert.ok(modules.modules.some(module => module.id === 'stream-telemetry'));
+});
+
 test('Studio verbindet den Renderer mit getrennten RTMP-Ausgängen und Remote-LIVE-Prüfung', () => {
   const studio = loadStudioMain({ fetchImpl: async () => { throw new Error('Kein Host für diesen Test nötig'); } });
   assert.match(studio.source, /Array\.isArray\(options\.platforms\)/);
@@ -509,6 +536,105 @@ test('Studio verbindet den Renderer mit getrennten RTMP-Ausgängen und Remote-LI
   assert.match(studio.source, /\['connecting', 'live'\]\.includes\(platformOutputState\(platform\)\)/);
   assert.doesNotMatch(studio.source, /Nur die autorisierte Twitch-Ausgabe wird unterstützt/);
   assert.equal(studio.source.includes('payload.destination'), false);
+});
+
+test('Gestarteter RTMP-Ausgang schreibt echte Blöcke, meldet Telemetrie und stoppt über IPC', async (t) => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streamiov-integration-stream-'));
+  const encryptionKey = Buffer.alloc(32, 7).toString('base64');
+  new TwitchTokenStore({
+    filePath: path.join(userDataDir, 'oauth', 'twitch.json'),
+    key: encryptionKey
+  }).save({
+    accessToken: 'integration-access-token',
+    refreshToken: 'integration-refresh-token',
+    expiresAt: Date.now() + 3600000,
+    scopes: REQUIRED_SCOPES
+  });
+  const children = [];
+  class FakeEncoder extends EventEmitter {
+    constructor() {
+      super();
+      this.writes = [];
+      this.exitCode = null;
+      this.signalCode = null;
+      this.stdin = new EventEmitter();
+      this.stdin.destroyed = false;
+      this.stdin.writableLength = 0;
+      this.stdin.write = (chunk, callback) => { this.writes.push(Buffer.from(chunk)); callback(); };
+      this.stdin.end = () => {};
+      this.stderr = new EventEmitter();
+      children.push(this);
+    }
+    kill() { this.signalCode = 'SIGINT'; }
+  }
+  const fetchImpl = async (url) => {
+    const target = String(url);
+    if (target.includes('/helix/users')) return { ok: true, json: async () => ({ data: [{ id: '4242' }] }) };
+    if (target.includes('/helix/streams/key')) return { ok: true, json: async () => ({ data: [{ stream_key: 'integration-stream-key' }] }) };
+    if (target.includes('/helix/streams')) return { ok: true, json: async () => ({ data: [] }) };
+    if (target.includes('/oauth2/validate')) {
+      return { ok: true, json: async () => ({ client_id: 'integration-client', login: 'integration', user_id: '4242', scopes: REQUIRED_SCOPES }) };
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  };
+  const studio = loadStudioMain({
+    userDataDir,
+    fetchImpl,
+    env: {
+      STREAMIOV_TWITCH_CLIENT_ID: 'integration-client',
+      STREAMIOV_TWITCH_CLIENT_SECRET: 'integration-secret',
+      STREAMIOV_TWITCH_TOKEN_ENCRYPTION_KEY: encryptionKey
+    },
+    childProcessImpl: {
+      execFile: Object.assign((command, args, options, callback) => {
+        if (String(command).includes('ffmpeg')) {
+          callback(null, args.includes('-encoders') ? 'libx264 aac' : '\nrtmp\nrtmps\n', '');
+          return;
+        }
+        callback(new Error('integration command unavailable'), '', '');
+      }, {
+        [promisify.custom]: async (command, args) => {
+          if (!String(command).includes('ffmpeg')) throw new Error('integration command unavailable');
+          return { stdout: args.includes('-encoders') ? 'libx264 aac' : '\nrtmp\nrtmps\n', stderr: '' };
+        }
+      }),
+      spawn: () => new FakeEncoder()
+    }
+  });
+  t.after(() => fs.rmSync(userDataDir, { recursive: true, force: true }));
+  await studio.ready();
+
+  const started = await studio.invoke('studio:start-stream', {
+    platforms: ['twitch'], resolution: '720p', fps: 30, bitrate: 2500, profile: 'performance'
+  });
+  assert.equal(started.ok, true, JSON.stringify(started));
+  assert.deepEqual(started.platforms, ['twitch']);
+
+  const active = await studio.invoke('studio:get-stream-status');
+  assert.equal(active.active, true);
+  assert.equal(active.encoderProfile, 'performance');
+
+  const payload = Buffer.from('integration-media-chunk');
+  const chunk = payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength);
+  const written = await studio.invoke('studio:write-stream-chunk', chunk);
+  assert.equal(written.ok, true, JSON.stringify(written));
+  assert.equal(written.written, 1);
+  assert.equal(children.length, 1);
+  assert.deepEqual(children[0].writes[0], payload);
+
+  const healthy = await studio.invoke('studio:get-stream-status');
+  assert.equal(healthy.health.twitch.status, 'healthy');
+  assert.equal(healthy.health.twitch.bytes, payload.byteLength);
+  assert.ok(studio.sentEvents.some(event => event.channel === 'studio:stream-telemetry' && event.payload.status === 'healthy'));
+
+  const stopping = studio.invoke('studio:stop-stream');
+  children[0].emit('close', 0, 'SIGINT');
+  const stopped = await stopping;
+  assert.equal(stopped.ok, true);
+  const final = await studio.invoke('studio:get-stream-status');
+  assert.equal(final.active, false);
+  assert.equal(final.encoderProfile, null);
+  assert.equal(final.health.twitch.status, 'offline');
 });
 
 test('Lokale Aufzeichnung läuft ohne RTMP und verwaltet ihre Dateien', async (t) => {

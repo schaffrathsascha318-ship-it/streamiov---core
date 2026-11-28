@@ -1,0 +1,32 @@
+{
+  "format": "streamiov-studio-update-v1",
+  "version": "1.0.4",
+  "releasedAt": "2026-11-28T05:09:06.023Z",
+  "notes": "# StreamioV Studio 1.0.4\n\nKostenlose, installierbare Regie ohne Abo. Kein Browser-Studio und keine PWA als Ersatz.\n\n- Windows x64/ARM64 als NSIS-Installer; Linux x64/ARM64 als AppImage und DEB; ChromeOS/Crostini über Linux-DEB, soweit die Umgebung sie unterstützt.\n- Szenen- und Quellenmodell mit Vorschau, Programmausgabe, TAKE, lokalen Audio-Mixern und Übergängen.\n- Lokale Aufzeichnung ohne RTMP mit Dateiansicht sowie Öffnen/Anzeigen/Löschen im Studio.\n- Schutzregie: `Ctrl+Shift+P` fordert Stopp von Encoder und lokaler Aufzeichnung an, schaltet Programm auf PAUSE und lokales Mikrofon auf 0 %. Beim Aufheben kehren nur Szene und Mikrofonpegel zurück.\n- Signierte Update-Manifeste mit Ed25519 und SHA-256 für unterstützte Installationsziele.\n\nGrenzen: Ein Build ist kein Nachweis für echten Livestream, Hardware, Kamera- oder Plattformfunktion. Die Schutzregie garantiert keine Plattform-Privatsphäre. FFmpeg mit libx264, AAC und RTMP/RTMPS wird separat benötigt. Keine Behauptung von App-Review, TikTok-Freigabe, Code-Signatur oder vollständiger Gerätetests.\n",
+  "assets": {
+    "win32-x64": {
+      "filename": "Streamiov.Studio.Setup.1.0.4-x64.exe",
+      "sha256": "04533024c5d0c9d6ed688a325706ad3dab23d5c51a484617cd17d12920ea6388",
+      "size": 171157678,
+      "installMode": "silent"
+    },
+    "win32-arm64": {
+      "filename": "Streamiov.Studio.Setup.1.0.4-arm64.exe",
+      "sha256": "ff929b7d654087810e172423309ee0dcdc2520c81527609211424a1da52d5717",
+      "size": 149889110,
+      "installMode": "silent"
+    },
+    "linux-x64": {
+      "filename": "Streamiov.Studio-1.0.4-x64.AppImage",
+      "sha256": "fac353aa8b2c79e100058665c1a999938baaee777d5def5eb485625bf480863e",
+      "size": 197499455,
+      "installMode": "silent"
+    },
+    "linux-arm64": {
+      "filename": "Streamiov.Studio-1.0.4-arm64.AppImage",
+      "sha256": "d45a2d45b0259c0dfa1d7b83cf0a35770324d370dc929571911cb7419d001916",
+      "size": 191384548,
+      "installMode": "silent"
+    }
+  }
+}

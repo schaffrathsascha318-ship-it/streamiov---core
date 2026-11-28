@@ -61,7 +61,8 @@ contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
     platforms: Array.isArray(payload?.platforms) ? payload.platforms : (payload?.platform ? [payload.platform] : []),
     resolution: payload?.resolution,
     fps: payload?.fps,
-    bitrate: payload?.bitrate
+    bitrate: payload?.bitrate,
+    profile: payload?.profile
   }),
   writeStreamChunk: (chunk) => ipcRenderer.invoke('studio:write-stream-chunk', chunk),
   recordChunk: (chunk) => ipcRenderer.invoke('studio:record-chunk', chunk),
@@ -77,6 +78,12 @@ contextBridge.exposeInMainWorld('streamiovStudio', Object.freeze({
     const listener = (_event, status) => callback(status);
     ipcRenderer.on('studio:stream-status', listener);
     return () => ipcRenderer.removeListener('studio:stream-status', listener);
+  },
+  onStreamTelemetry: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, telemetry) => callback(telemetry);
+    ipcRenderer.on('studio:stream-telemetry', listener);
+    return () => ipcRenderer.removeListener('studio:stream-telemetry', listener);
   },
   wishboxOrders: (payload) => ipcRenderer.invoke('studio:wishbox-orders', {
     limit: Number.isInteger(payload?.limit) ? payload.limit : 25,

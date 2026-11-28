@@ -7,16 +7,18 @@ const vm = require('node:vm');
 const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 
-function loadStudioMain({ env = {}, fetchImpl = globalThis.fetch, userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streamiov-studio-main-')) } = {}) {
+function loadStudioMain({ env = {}, fetchImpl = globalThis.fetch, userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streamiov-studio-main-')), childProcessImpl = {} } = {}) {
   const studioDir = path.resolve(__dirname, '..');
   const mainPath = path.join(studioDir, 'main.js');
   const studioUrl = pathToFileURL(path.join(studioDir, 'regie-v2.html')).href;
   const handlers = new Map();
+  const sentEvents = [];
+  let resolveReady = null;
   const proc = Object.create(process);
   proc.env = { ...process.env, ...env };
 
   const webContents = () => ({
-    on() {}, once() {}, send() {}, getURL: () => studioUrl,
+    on() {}, once() {}, send: (channel, payload) => sentEvents.push({ channel, payload }), getURL: () => studioUrl,
     setWindowOpenHandler() {}, loadFile: async () => {}, openDevTools() {}
   });
 
@@ -38,7 +40,7 @@ function loadStudioMain({ env = {}, fetchImpl = globalThis.fetch, userDataDir = 
   const electron = {
     app: {
       disableHardwareAcceleration() {},
-      whenReady: () => new Promise(() => {}),
+      whenReady: () => new Promise((resolve) => { resolveReady = resolve; }),
       getAppPath: () => studioDir,
       getPath: (name) => name === 'userData' ? userDataDir : path.join(userDataDir, name),
       getVersion: () => '1.0.4',
@@ -74,8 +76,9 @@ function loadStudioMain({ env = {}, fetchImpl = globalThis.fetch, userDataDir = 
   };
 
   const projectRequire = createRequire(mainPath);
+  const injectedChildProcess = Object.assign({}, require('node:child_process'), childProcessImpl);
   const sandbox = {
-    require: (id) => id === 'electron' ? electron : projectRequire(id),
+    require: (id) => id === 'electron' ? electron : id === 'node:child_process' ? injectedChildProcess : projectRequire(id),
     process: proc,
     console,
     Buffer,
@@ -108,6 +111,11 @@ function loadStudioMain({ env = {}, fetchImpl = globalThis.fetch, userDataDir = 
     studioUrl,
     userDataDir,
     handlers,
+    sentEvents,
+    ready: async () => {
+      if (resolveReady) resolveReady();
+      await new Promise((resolve) => setImmediate(resolve));
+    },
     invoke: (name, payload = {}) => {
       const handler = handlers.get(name);
       if (!handler) throw new Error(`Unknown Studio IPC handler: ${name}`);
