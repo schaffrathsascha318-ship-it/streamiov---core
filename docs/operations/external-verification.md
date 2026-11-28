@@ -180,7 +180,7 @@ node scripts/release-signing.mjs fingerprint
 
 Bestanden (Projekt-Signatur): `verify-release` meldet `ok: true`, der
 Fingerabdruck stimmt mit dem veröffentlichten Wert
-`5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc`
+`2c3de4b60d60cf4c7fa19ac3378a504706f79960978dfb610d9660bc10aeb09e`
 überein, und nach einer Änderung an einer Datei schlägt die Prüfung fehl.
 
 **Weiterhin offen (OS-Vertrauen):** Damit Windows SmartScreen oder macOS

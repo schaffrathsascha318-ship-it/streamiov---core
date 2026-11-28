@@ -30,7 +30,7 @@ const DOWNLOADS = path.join(ROOT, "dist/streamiov-homepage-worker/public/downloa
 const DEFAULT_KEY = path.join(os.homedir(), ".config/streamiov/release-signing.key");
 const DEFAULT_PUB = path.join(DOWNLOADS, "STREAMIOV-RELEASE-KEY.pub");
 const MANIFESTS = ["SHA256SUMS.txt", "SHA256SUMS-games.txt"];
-const EXPECTED_RELEASE_FINGERPRINT = "5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc";
+const EXPECTED_RELEASE_FINGERPRINT = "2c3de4b60d60cf4c7fa19ac3378a504706f79960978dfb610d9660bc10aeb09e";
 
 function fail(message) {
   console.error(`FEHLER: ${message}`);

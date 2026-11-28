@@ -7,6 +7,7 @@ gate as satisfied.
 """
 from __future__ import annotations
 
+from contextlib import closing
 import json
 import sqlite3
 import threading
@@ -65,7 +66,7 @@ class ProjectSupervisor:
         return db
 
     def _initialize(self) -> None:
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("""
                 CREATE TABLE IF NOT EXISTS development_supervisors (
                     supervisor_key TEXT PRIMARY KEY,
@@ -83,7 +84,7 @@ class ProjectSupervisor:
         if not isinstance(goal, str) or not goal.strip() or len(goal) > 8000:
             raise ProjectSupervisorError("Project goal must contain 1–8000 characters.")
         now = time.time()
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
                 "SELECT goal,active_mission_id,lease_owner,lease_until FROM development_supervisors WHERE supervisor_key=?",
@@ -116,7 +117,7 @@ class ProjectSupervisor:
         ):
             raise ProjectSupervisorError("Initial mission ID must contain 1–96 characters.")
         now = time.time()
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
                 "SELECT supervisor_key FROM development_supervisors WHERE supervisor_key=?",
@@ -134,7 +135,7 @@ class ProjectSupervisor:
 
     def _acquire_lease(self) -> None:
         now = time.time()
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
                 "SELECT lease_owner,lease_until FROM development_supervisors WHERE supervisor_key=?",
@@ -155,7 +156,7 @@ class ProjectSupervisor:
 
     def _renew_lease(self) -> bool:
         now = time.time()
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             cursor = db.execute("""
                 UPDATE development_supervisors
                 SET lease_until=?,updated_at=?
@@ -164,7 +165,7 @@ class ProjectSupervisor:
             return cursor.rowcount == 1
 
     def _release_lease(self) -> None:
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("""
                 UPDATE development_supervisors
                 SET lease_owner='',lease_until=NULL,updated_at=?
@@ -184,7 +185,7 @@ class ProjectSupervisor:
                 return
 
     def _state(self) -> sqlite3.Row:
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             row = db.execute(
                 "SELECT * FROM development_supervisors WHERE supervisor_key=?",
                 (self.supervisor_key,),
@@ -197,7 +198,7 @@ class ProjectSupervisor:
         mission_id = row["active_mission_id"]
         if not mission_id:
             mission_id = uuid.uuid4().hex
-            with self._connect() as db:
+            with closing(self._connect()) as db:
                 db.execute("BEGIN IMMEDIATE")
                 cursor = db.execute("""
                     UPDATE development_supervisors
@@ -283,20 +284,31 @@ class ProjectSupervisor:
                         event = json.loads(message)
                     except (TypeError, json.JSONDecodeError):
                         return
-                    if event.get("event") in {
-                        "mission_waiting_for_retry",
-                        "mission_waiting_for_planning_retry",
-                    }:
+                    if (
+                        event.get("event") in {
+                            "mission_waiting_for_retry",
+                            "mission_waiting_for_planning_retry",
+                            "mission_progress_blocked",
+                        }
+                        and event.get("supervisor_wait") is True
+                    ):
                         retry_wait[0] = max(retry_wait[0], float(event.get("retry_after_seconds", 0)))
 
-                last_snapshot = self.engine.run(
-                    mission_id, stop_event, poll_seconds=poll_seconds, emit=capture,
-                    worker_id=f"project-supervisor-{self.owner_id}",
-                )
+                try:
+                    last_snapshot = self.engine.run(
+                        mission_id, stop_event, poll_seconds=poll_seconds, emit=capture,
+                        worker_id=f"project-supervisor-{self.owner_id}",
+                    )
+                except Exception as exc:
+                    emit(json.dumps({
+                        "event": "mission_engine_recovered", "mission_id": mission_id,
+                        "error": f"{type(exc).__name__}: {str(exc)[:1000]}",
+                    }, ensure_ascii=False))
+                    last_snapshot = self.engine.get_mission(mission_id)
                 if lost_lease.is_set():
                     raise ProjectSupervisorError("Supervisor lease was lost; stopping to prevent duplicate work.")
                 if last_snapshot.status == "completed":
-                    with self._connect() as db:
+                    with closing(self._connect()) as db:
                         db.execute("BEGIN IMMEDIATE")
                         previous_progress = row["progress"] or ""
                         milestone = (

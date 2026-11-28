@@ -129,6 +129,7 @@ class SelfHostedOpenAIProvider:
             "model": self.model,
             "temperature": 0.1,
             "stream": False,
+            "response_format": {"type": "json_object"},
             "messages": all_messages,
         })
         try:

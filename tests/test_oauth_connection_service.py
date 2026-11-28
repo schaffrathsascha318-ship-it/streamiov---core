@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import closing
 import json
 import os
 import sqlite3
@@ -86,7 +87,7 @@ class ConnectionStoreTests(unittest.TestCase):
         self.assertTrue(self.store.verify_oauth_state(1, "twitch", state))
         self.assertFalse(self.store.verify_oauth_state(1, "twitch", state + "x"))
         self.assertFalse(self.store.verify_oauth_state(2, "twitch", state))
-        with sqlite3.connect(self.store.path) as db:
+        with closing(sqlite3.connect(self.store.path)) as db:
             stored = db.execute(
                 "SELECT oauth_state_hash FROM platform_connections"
             ).fetchone()[0]
@@ -97,10 +98,11 @@ class ConnectionStoreTests(unittest.TestCase):
     def test_expired_state_cannot_save_connection(self):
         state = self.store.create_oauth_state(1, "twitch")
         past = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
-        with sqlite3.connect(self.store.path) as db:
+        with closing(sqlite3.connect(self.store.path)) as db:
             db.execute(
                 "UPDATE platform_connections SET oauth_state_expires_at = ?", (past,)
             )
+            db.commit()
         with self.assertRaises(ConnectionError):
             self._save(state)
 
@@ -121,7 +123,7 @@ class ConnectionStoreTests(unittest.TestCase):
             "access_token_encrypted", "refresh_token_encrypted",
         ):
             self.assertNotIn(forbidden, status)
-        with sqlite3.connect(self.store.path) as db:
+        with closing(sqlite3.connect(self.store.path)) as db:
             stored = db.execute(
                 """
                 SELECT access_token_encrypted, refresh_token_encrypted

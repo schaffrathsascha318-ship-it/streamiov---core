@@ -69,7 +69,7 @@ function loadStudioMain({ env = {}, fetchImpl = globalThis.fetch, userDataDir = 
       }),
       on() {}
     },
-    shell: { openExternal: async () => ({}) },
+    shell: { openExternal: async () => ({}), openPath: async () => '', showItemInFolder() {} },
     Notification: { isSupported: () => false }
   };
 

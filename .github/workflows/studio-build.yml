@@ -27,6 +27,9 @@ on:
       - "scripts/sync-studio-games.py"
       - "scripts/test-studio-media-pipeline.cjs"
       - "scripts/prepare-ffmpeg-runtime.py"
+      - "scripts/build-ffmpeg-source-bundle.py"
+      - "scripts/build-studio-update-manifest.mjs"
+      - "dist/streamiov-homepage-worker/public/downloads/STREAMIOV-RELEASE-KEY.pub"
       - ".github/workflows/studio-build.yml"
   push:
     branches:
@@ -38,6 +41,9 @@ on:
       - "scripts/sync-studio-games.py"
       - "scripts/test-studio-media-pipeline.cjs"
       - "scripts/prepare-ffmpeg-runtime.py"
+      - "scripts/build-ffmpeg-source-bundle.py"
+      - "scripts/build-studio-update-manifest.mjs"
+      - "dist/streamiov-homepage-worker/public/downloads/STREAMIOV-RELEASE-KEY.pub"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -163,10 +169,50 @@ jobs:
         timeout-minutes: 5
         run: node scripts/test-studio-media-pipeline.cjs
 
+  ffmpeg-source:
+    name: FFmpeg corresponding source bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Quellcode laden
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Subversion für FFmpeg-Quell-Pins installieren
+        run: sudo apt-get update && sudo apt-get install -y subversion
+
+      - name: Vollständiges FFmpeg-Quellpaket bauen
+        env:
+          FFMPEG_RELEASE_TAG: ${{ env.FFMPEG_RELEASE_TAG }}
+          FFMPEG_SOURCE_COMMIT: ${{ env.FFMPEG_SOURCE_COMMIT }}
+          FFMPEG_BUILD_SCRIPTS_COMMIT: ${{ env.FFMPEG_BUILD_SCRIPTS_COMMIT }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/ffmpeg-source
+          python scripts/build-ffmpeg-source-bundle.py \
+            --source-commit "$FFMPEG_SOURCE_COMMIT" \
+            --build-scripts-commit "$FFMPEG_BUILD_SCRIPTS_COMMIT" \
+            --release-tag "$FFMPEG_RELEASE_TAG" \
+            --output-dir artifacts/ffmpeg-source
+          cd artifacts/ffmpeg-source
+          sha256sum -c SHA256SUMS.txt
+
+      - name: FFmpeg-Quellpaket als Artefakt speichern
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamiov-ffmpeg-source-code
+          path: artifacts/ffmpeg-source/*
+          if-no-files-found: error
+          retention-days: 90
+
   publish-release:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish_release))
     name: Installer dauerhaft veröffentlichen
-    needs: [build, media-pipeline-smoke]
+    needs: [build, media-pipeline-smoke, ffmpeg-source]
     runs-on: ubuntu-latest
     steps:
       - name: Quellcode laden
@@ -208,6 +254,10 @@ jobs:
             exit 1
           }
           test -s "$SOURCE_DIR/SHA256SUMS.txt"
+          mkdir -p release
+          cp "$SOURCE_DIR/ffmpeg-source-bundle.tar.xz" release/ffmpeg-source-bundle.tar.xz
+          cp "$SOURCE_DIR/SHA256SUMS.txt" release/FFMPEG-SOURCE-SHA256SUMS.txt
+          (cd release && sha256sum -c FFMPEG-SOURCE-SHA256SUMS.txt)
           echo "Corresponding-source bundle present; continuing release validation."
 
       - name: Installer eindeutig benennen und prüfen
@@ -241,6 +291,37 @@ jobs:
           cd release
           find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
           ls -lh
+
+      - name: Signiertes Studio-Update-Manifest erzeugen
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          STUDIO_RELEASE_SIGNING_KEY: ${{ secrets.STUDIO_RELEASE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${STUDIO_RELEASE_SIGNING_KEY:-}" ]; then
+            echo "::error::Repository secret STUDIO_RELEASE_SIGNING_KEY is required for signed updates."
+            exit 1
+          fi
+          SIGNING_KEY="$RUNNER_TEMP/studio-release-signing.key"
+          umask 077
+          printf '%s' "$STUDIO_RELEASE_SIGNING_KEY" > "$SIGNING_KEY"
+          chmod 600 "$SIGNING_KEY"
+          node scripts/build-studio-update-manifest.mjs \
+            --release-dir release \
+            --version "$RELEASE_VERSION" \
+            --private-key "$SIGNING_KEY" \
+            --out-dir release \
+            --notes-file docs/STUDIO_UPDATE_NOTES.md
+          rm -f "$SIGNING_KEY"
+
+      - name: Signiertes Update-Manifest als Artefakt speichern
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamiov-studio-update-manifest
+          path: release/studio-update.json*
+          if-no-files-found: error
+          retention-days: 90
 
       - name: GitHub Release erstellen oder aktualisieren
         uses: softprops/action-gh-release@v2

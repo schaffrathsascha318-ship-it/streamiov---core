@@ -104,7 +104,7 @@ test('version comparison handles numeric core versions and prereleases', () => {
 });
 
 test('pinned public key fingerprint stays stable', () => {
-  assert.equal(publicKeyFingerprint(UPDATE_PUBLIC_KEY_PEM), '5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc');
+  assert.equal(publicKeyFingerprint(UPDATE_PUBLIC_KEY_PEM), '2c3de4b60d60cf4c7fa19ac3378a504706f79960978dfb610d9660bc10aeb09e');
 });
 
 test('manifest parsing rejects unsupported formats and insecure assets', () => {

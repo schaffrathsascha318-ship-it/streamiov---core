@@ -1,5 +1,6 @@
 """SQLite-backed, evidence-first rights register. This is not legal advice."""
 from __future__ import annotations
+from contextlib import closing
 import sqlite3
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -32,7 +33,7 @@ class RightsRegister:
         self.database = str(database)
         if self.database != ":memory:":
             Path(self.database).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
-        with self._db() as db:
+        with closing(self._db()) as db, db:
             db.executescript("""
             CREATE TABLE IF NOT EXISTS titles(title_id TEXT PRIMARY KEY,title TEXT NOT NULL,territory TEXT NOT NULL,created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS components(component_id TEXT PRIMARY KEY,title_id TEXT NOT NULL REFERENCES titles(title_id) ON DELETE CASCADE,component_type TEXT NOT NULL,description TEXT NOT NULL,rights_holder TEXT NOT NULL,created_at TEXT NOT NULL);
@@ -49,13 +50,13 @@ class RightsRegister:
     def create_title(self, title_id, title, territory):
         if not all(isinstance(x, str) and x.strip() for x in (title_id, title, territory)):
             raise RightsError("title_id, title, and territory are required.")
-        with self._db() as db:
+        with closing(self._db()) as db, db:
             db.execute("INSERT INTO titles VALUES(?,?,?,?)", (title_id, title.strip(), territory.strip(), _now()))
 
     def add_component(self, component_id, title_id, component_type, description, rights_holder=""):
         if not all(isinstance(x, str) and x.strip() for x in (component_id, title_id, component_type, description)):
             raise RightsError("Component id, title id, type, and description are required.")
-        with self._db() as db:
+        with closing(self._db()) as db, db:
             if not db.execute("SELECT 1 FROM titles WHERE title_id=?", (title_id,)).fetchone():
                 raise RightsError("Unknown title_id.")
             db.execute("INSERT INTO components VALUES(?,?,?,?,?,?)", (component_id, title_id, component_type, description, rights_holder.strip(), _now()))
@@ -65,7 +66,7 @@ class RightsRegister:
         _date(accessed_at, "accessed_at")
         if not all(isinstance(x, str) and x.strip() for x in (component_id, source_authority, relevant_excerpt)):
             raise RightsError("Evidence needs a component, authority, and excerpt.")
-        with self._db() as db:
+        with closing(self._db()) as db, db:
             if not db.execute("SELECT 1 FROM components WHERE component_id=?", (component_id,)).fetchone():
                 raise RightsError("Unknown component_id.")
             cur = db.execute("INSERT INTO evidence(component_id,source_url,source_authority,accessed_at,relevant_excerpt,notes) VALUES(?,?,?,?,?,?)", (component_id, source_url, source_authority.strip(), accessed_at, relevant_excerpt.strip(), notes.strip()))
@@ -80,7 +81,7 @@ class RightsRegister:
             raise RightsError("Assessment requires component, legal basis, and reviewer.")
         if next_review_at:
             _date(next_review_at, "next_review_at")
-        with self._db() as db:
+        with closing(self._db()) as db, db:
             if not db.execute("SELECT 1 FROM components WHERE component_id=?", (component_id,)).fetchone():
                 raise RightsError("Unknown component_id.")
             count = db.execute("SELECT COUNT(*) FROM evidence WHERE component_id=?", (component_id,)).fetchone()[0]
@@ -93,7 +94,7 @@ class RightsRegister:
     def release_decision(self, title_id, activity):
         if activity not in RELEASE_ACTIVITIES:
             raise RightsError("Unsupported rights activity.")
-        with self._db() as db:
+        with closing(self._db()) as db, db:
             title = db.execute("SELECT * FROM titles WHERE title_id=?", (title_id,)).fetchone()
             if not title:
                 raise RightsError("Unknown title_id.")
@@ -121,7 +122,7 @@ class RightsRegister:
                     "checked_at": _now(), "legal_notice": "Workflow gate only; not a legal opinion."}
 
     def dossier(self, title_id):
-        with self._db() as db:
+        with closing(self._db()) as db, db:
             title = db.execute("SELECT * FROM titles WHERE title_id=?", (title_id,)).fetchone()
             if not title:
                 raise RightsError("Unknown title_id.")

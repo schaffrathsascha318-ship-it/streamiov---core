@@ -32,7 +32,7 @@ CHECKS_WORKFLOW = ROOT / ".github" / "workflows" / "cloudflare-checks.yml"
 DOWNLOAD_PAGE = HOMEPAGE_PUBLIC / "download" / "index.html"
 DOWNLOADS = HOMEPAGE_PUBLIC / "downloads"
 PINNED_MODEL = "@cf/zai-org/glm-4.7-flash"
-EXPECTED_RELEASE_FINGERPRINT = "5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc"
+EXPECTED_RELEASE_FINGERPRINT = "2c3de4b60d60cf4c7fa19ac3378a504706f79960978dfb610d9660bc10aeb09e"
 
 
 def strip_jsonc_comments(text: str) -> str:

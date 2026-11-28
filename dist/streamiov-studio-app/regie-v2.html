@@ -145,7 +145,8 @@ dialog::backdrop{background:#000b}
  .right-stack{grid-column:1/-1;grid-template-columns:repeat(3,1fr)}
  .bottom{grid-template-columns:1fr 1fr}
 }
-.screen canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#05080c}
+.screen canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#05080c;touch-action:none}
+#previewCanvas{cursor:crosshair}
 .screen-name{margin-top:6px;text-align:center;font-size:11px;letter-spacing:1.5px;color:var(--muted)}
 .source-list{display:grid;gap:6px;margin-bottom:8px}
 .scene-actions{display:flex;gap:6px;margin-top:6px}
@@ -257,7 +258,9 @@ dialog::backdrop{background:#000b}
    <label>Name <input id="sourceName" maxlength="60" placeholder="z. B. Kamera 1"></label>
     <label id="sourceDeviceField">Quelle <select id="sourceDevice"></select></label>
     <label id="sourceVideoField" hidden>Aufnahme <select id="sourceWidth"><option value="1280">1280</option><option value="1920">1920</option><option value="2560">2560</option><option value="3840">3840</option></select> × <select id="sourceHeight"><option value="720">720</option><option value="1080">1080</option><option value="1440">1440</option><option value="2160">2160</option></select> @ <select id="sourceFps"><option value="15">15</option><option value="30" selected>30</option><option value="60">60</option></select> fps</label>
-    <label id="sourceCameraAudioField" hidden>Kamera-Mikrofon in den Stream <input id="sourceCameraAudio" type="checkbox"></label>
+     <label id="sourceCameraAudioField" hidden>Quellen-Audio aktivieren <input id="sourceCameraAudio" type="checkbox"></label>
+     <div id="sourceAudioGroup" hidden>Quellen-Gain <input id="sourceAudioGain" type="range" min="0" max="200" step="5" value="100"> <span id="sourceAudioGainValue">100 %</span> · Pan <input id="sourceAudioPan" type="range" min="-100" max="100" step="5" value="0"> <span id="sourceAudioPanValue">Mitte</span> <input id="sourceAudioMuted" type="checkbox"> stumm <input id="sourceAudioSolo" type="checkbox"> solo</div>
+     <div id="sourceAudioRoutesField" hidden>Quellen-Routen <label><input type="checkbox" data-source-audio-route="stream" checked> Stream</label> <label><input type="checkbox" data-source-audio-route="monitor"> Monitor</label> <label><input type="checkbox" data-source-audio-route="headphones"> Kopfhörer</label> <label><input type="checkbox" data-source-audio-route="communications"> Kommunikation</label></div>
     <button id="sourceImport" type="button" hidden>Mediendatei importieren</button>
 
    <input id="sourceFileInput" type="file" hidden accept="image/*,video/*,audio/*">
@@ -268,24 +271,57 @@ dialog::backdrop{background:#000b}
     <label id="sourceTextField">Text (nur Titel/Text) <textarea id="sourceText" maxlength="200" placeholder="z. B. STARTING SOON"></textarea></label>
 
 
-  <label>Position
-   <select id="sourcePosition">
-    <option value="full">Vollbild</option>
-    <option value="pip">Bild-in-Bild rechts unten</option>
-    <option value="bottom">Unterer Balken</option>
-    <option value="top">Oberer Balken</option>
-    <option value="left">Linke Hälfte</option>
-    <option value="right">Rechte Hälfte</option>
-   </select>
-  </label>
- </div>
- <div class="dialog-actions">
-  <button id="confirmSource" type="button">Hinzufügen</button>
-  <button id="cancelSource" type="button">Abbrechen</button>
- </div>
- </dialog>
+   <label>Position
+    <select id="sourcePosition">
+     <option value="full">Vollbild</option>
+     <option value="pip">Bild-in-Bild rechts unten</option>
+     <option value="bottom">Unterer Balken</option>
+     <option value="top">Oberer Balken</option>
+     <option value="left">Linke Hälfte</option>
+     <option value="right">Rechte Hälfte</option>
+     <option value="custom">Freie Position</option>
+    </select>
+   </label>
+   <label>Geometrie in Prozent
+     X <input id="sourceX" type="number" min="0" max="95" step="1" value="0">
+     Y <input id="sourceY" type="number" min="0" max="95" step="1" value="0">
+     Breite <input id="sourceW" type="number" min="5" max="100" step="1" value="100">
+      Höhe <input id="sourceH" type="number" min="5" max="100" step="1" value="100">
+    </label>
+    <label>Deckkraft <input id="sourceAlpha" type="range" min="10" max="100" value="100"> <span id="sourceAlphaValue">100 %</span></label>
+    <label>Drehung <input id="sourceRotation" type="number" min="-180" max="180" step="1" value="0">°</label>
+    <label>Spiegelung <input id="sourceFlipH" type="checkbox"> horizontal <input id="sourceFlipV" type="checkbox"> vertikal</label>
+    <label>Darstellung
+     <select id="sourceFit">
+      <option value="cover">Füllen</option>
+      <option value="contain">Einpassen</option>
+      <option value="stretch">Strecken</option>
+     </select>
+    </label>
+    <label>Zuschnitt in Prozent
+      X <input id="sourceCropX" type="number" min="0" max="95" step="1" value="0">
+      Y <input id="sourceCropY" type="number" min="0" max="95" step="1" value="0">
+      Breite <input id="sourceCropW" type="number" min="5" max="100" step="1" value="100">
+      Höhe <input id="sourceCropH" type="number" min="5" max="100" step="1" value="100">
+    </label>
+   </div>
+  <div class="dialog-actions">
+   <button id="confirmSource" type="button">Hinzufügen</button>
+   <button id="cancelSource" type="button">Abbrechen</button>
+  </div>
+  </dialog>
 
- <dialog id="mediaDialog" aria-labelledby="mediaDialogTitle">
+  <dialog id="dependenciesDialog" aria-labelledby="dependenciesDialogTitle">
+   <h2 id="dependenciesDialogTitle">Szenenabhängigkeiten</h2>
+   <p>Die ausgewählten Szenen müssen für diese Szene erhalten bleiben. Abhängigkeiten dürfen keinen Kreis bilden und sind lokal im Studio-Profil gespeichert.</p>
+   <div id="dependencyList" class="source-list"></div>
+   <div class="dialog-actions">
+    <button id="saveDependencies" type="button">Abhängigkeiten speichern</button>
+    <button id="closeDependencies" type="button">Abbrechen</button>
+   </div>
+  </dialog>
+
+  <dialog id="mediaDialog" aria-labelledby="mediaDialogTitle">
   <h2 id="mediaDialogTitle">Importierte Medien</h2>
   <p>Dateien liegen privat im Studio-Profil. Entfernen ist nur möglich, solange keine Szene die Datei verwendet.</p>
   <div id="mediaManagerList" class="source-list"></div>
@@ -331,10 +367,17 @@ dialog::backdrop{background:#000b}
     <button class="scene" data-scene="JUST CHATTING">JUST CHATTING <small>06</small></button>
    </div>
    <button id="createScene" type="button" style="width:100%;margin-top:6px">＋ Eigene Szene</button>
-   <div class="scene-actions">
-    <button id="renameScene" type="button" disabled>✎ Umbenennen</button>
-    <button id="deleteScene" type="button" disabled>✕ Löschen</button>
-   </div>
+    <div class="scene-actions">
+     <button id="renameScene" type="button" disabled>✎ Umbenennen</button>
+     <button id="duplicateScene" type="button" disabled>Duplizieren</button>
+     <button id="sceneDependencies" type="button" disabled>Abhängigkeiten</button>
+     <button id="moveSceneLeft" type="button" disabled>Nach links</button>
+     <button id="moveSceneRight" type="button" disabled>Nach rechts</button>
+     <button id="exportScenes" type="button">Export</button>
+     <button id="importScenes" type="button">Import</button>
+     <input id="scenePackInput" type="file" accept="application/json,.json" hidden>
+     <button id="deleteScene" type="button" disabled>✕ Löschen</button>
+    </div>
    <div class="panel-title" style="margin:12px -12px">QUELLEN DER VORSCHAU</div>
    <div class="source-list" id="sourceList"></div>
     <button style="width:100%;margin-top:8px" id="addSource">＋ Quelle hinzufügen</button>
@@ -455,11 +498,20 @@ dialog::backdrop{background:#000b}
   <div class="panel section">
    <div class="panel-title">ÜBERGANGSSTEUERUNG</div>
    <div class="controls">
-    <button class="cut" id="cut">CUT</button>
-    <button class="fade" id="fade">FADE</button>
-    <span class="pill">ÜBERGANG: 300 MS</span>
-    <button id="take">TAKE → PROGRAMM</button>
-     <button id="privacyShield" type="button" aria-pressed="false" title="Stoppt bei aktivem Stream den lokalen Encoder und eine aktive lokale Aufzeichnung, setzt das Programm auf PAUSE und den Mikrofon-Mix auf 0 %. Beim Aufheben werden nur Szene und Mikrofon wiederhergestellt; den Broadcast manuell neu starten. Plattformseitige Privatsphäre ist nicht garantiert. (Ctrl+Shift+P)">SCHUTZREGIE (Ctrl+Shift+P)</button>
+      <button class="cut" id="cut">CUT</button>
+      <button class="fade" id="fade">FADE</button>
+      <button class="fade" id="slide">SLIDE</button>
+      <button class="fade" id="wipe">WIPE</button>
+      <span class="pill" id="transitionBadge">ÜBERGANG: CUT · 0 MS</span>
+      <label>Übergang <select id="transitionType"><option value="cut">CUT</option><option value="fade">FADE</option><option value="slide">SLIDE</option><option value="wipe">WIPE</option></select></label>
+     <label>Dauer <input id="transitionDuration" type="number" min="100" max="2000" step="50" value="300"></label>
+     <button id="saveTransition" type="button">ÜBERGANG SPEICHERN</button>
+     <button id="take">TAKE → PROGRAMM</button>
+     <label>Overlay <select id="sceneOverlayStyle"><option value="none">KEIN OVERLAY</option><option value="standard">STREAMIOV STANDARD</option><option value="custom">EIGENES OVERLAY</option></select></label>
+     <label>Overlay-Text <input id="sceneOverlayText" type="text" maxlength="80" placeholder="z. B. SPONSOR"></label>
+     <label>Deckkraft <input id="sceneOverlayOpacity" type="range" min="10" max="100" value="85"></label>
+     <button id="saveSceneOverlay" type="button">OVERLAY SPEICHERN</button>
+      <button id="privacyShield" type="button" aria-pressed="false" title="Stoppt bei aktivem Stream den lokalen Encoder und eine aktive lokale Aufzeichnung, setzt das Programm auf PAUSE und den Mikrofon-Mix auf 0 %. Beim Aufheben werden nur Szene und Mikrofon wiederhergestellt; den Broadcast manuell neu starten. Plattformseitige Privatsphäre ist nicht garantiert. (Ctrl+Shift+P)">SCHUTZREGIE (Ctrl+Shift+P)</button>
       <button id="openProgramOutput" type="button">REGIE AUF 2. BILDSCHIRM</button>
       <button id="openProgramOutputWindow" type="button">PROGRAMMAUSGABE FENSTER</button>
     </div>
@@ -486,10 +538,11 @@ dialog::backdrop{background:#000b}
      <input id="mixerTts" type="range" min="0" max="100" value="100" aria-label="TTS-Lautstärke"><small id="mixerTtsValue">TTS · 100 %</small><label>Pan <input data-mixer-pan="tts" type="range" min="-100" max="100" value="0"></label><button type="button" data-mixer-mute="tts" aria-pressed="false">STUMM</button><button type="button" data-mixer-solo="tts" aria-pressed="false">SOLO</button></div>
     <div class="channel"><b>Alerts</b><div class="meter"><i data-mixer-meter="alert" style="width:0%"></i></div>
      <input id="mixerAlert" type="range" min="0" max="100" value="70" aria-label="Alert-Lautstärke"><small id="mixerAlertValue">ALERTS · 70 %</small><label>Pan <input data-mixer-pan="alert" type="range" min="-100" max="100" value="0"></label><button type="button" data-mixer-mute="alert" aria-pressed="false">STUMM</button><button type="button" data-mixer-solo="alert" aria-pressed="false">SOLO</button></div>
-    <div class="channel"><b>Master</b><div class="meter"><i data-mixer-meter="output:stream" style="width:0%"></i></div>
-     <input id="mixerMaster" type="range" min="0" max="100" value="80" aria-label="Masterlautstärke"><small id="mixerMasterValue">MASTER · 80 %</small></div>
-   </div>
-   <p id="mixerStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted);margin:0 12px 12px">Mikrofon, Systemton, Musik, Soundboard, TTS und Alerts haben getrennte Kanäle. Live-Pegelanzeigen zeigen RMS und Peak; die Ausgangsbusse besitzen Limiter.</p>
+     <div class="channel"><b>Master</b><div class="meter"><i data-mixer-meter="output:stream" style="width:0%"></i></div>
+      <input id="mixerMaster" type="range" min="0" max="100" value="80" aria-label="Masterlautstärke"><small id="mixerMasterValue">MASTER · 80 %</small></div>
+     <div id="sourceMixerChannels" class="mixer"></div>
+    </div>
+    <p id="mixerStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--muted);margin:0 12px 12px">Mikrofon, Systemton, Musik, Soundboard, TTS und Alerts haben getrennte Kanäle; Szenenquellen folgen dem Programm. Live-Pegelanzeigen zeigen RMS und Peak; die Ausgangsbusse besitzen Limiter.</p>
   </div>
  </section>
 
@@ -620,10 +673,12 @@ dialog::backdrop{background:#000b}
        <legend>LIVE-Ausgänge</legend>
        <label><input id="streamPlatformTwitch" type="checkbox" checked> Twitch</label>
        <label><input id="streamPlatformTiktok" type="checkbox"> TikTok</label>
-       <div style="grid-column:1/-1">
-        <button id="recordingToggle" type="button">● LOKAL AUFZEICHNEN</button>
-        <p id="recordingStatus" role="status" aria-live="polite">Keine lokale Aufzeichnung aktiv.</p>
-       </div>
+        <div style="grid-column:1/-1">
+         <button id="recordingToggle" type="button">● LOKAL AUFZEICHNEN</button>
+         <button id="recordingRefresh" type="button">DATEIEN AKTUALISIEREN</button>
+         <p id="recordingStatus" role="status" aria-live="polite">Keine lokale Aufzeichnung aktiv.</p>
+         <div id="recordingFiles" role="list">Keine gespeicherten Aufzeichnungen.</div>
+        </div>
        </fieldset>
 
       <label>Auflösung
@@ -668,8 +723,37 @@ if(mobileRegieToggle){
  });
 }
 let selected="STARTING SOON";
-let programOutputAlpha=1;
+let activeProgramTransition=null;
+let demoTransition={type:"cut",durationMs:0};
+const TRANSITION_TYPES=new Set(["cut","fade","slide","wipe"]);
+function hasTimedTransition(transition){return Boolean(transition&&transition.type!=="cut"&&Number(transition.durationMs)>0);}
+function paintTransition(type,progress,from,to,output){
+ const target=output.getContext("2d");
+ const width=output.width,height=output.height;
+ target.clearRect(0,0,width,height);
+ target.globalAlpha=1;
+ if(type==="wipe"){
+  target.drawImage(from,0,0);
+  target.save();
+  target.beginPath();target.rect(0,0,width*progress,height);target.clip();
+  target.drawImage(to,0,0);
+  target.restore();
+  return;
+ }
+ const eased=progress*progress*(3-2*progress);
+ if(type==="slide"){
+  target.drawImage(from,-width*eased,0);
+  target.drawImage(to,width*(1-eased),0);
+  return;
+ }
+ target.drawImage(from,0,0);
+ target.globalAlpha=eased;
+ target.drawImage(to,0,0);
+ target.globalAlpha=1;
+}
 let sceneState=null;
+let selectedSourceId=null;
+let previewPointerState=null;
 let previewSceneId="starting-soon";
 let programSceneId="starting-soon";
 const multiviewCanvases=new Map();
@@ -840,24 +924,41 @@ function applySceneState(state){
  sceneState=state;
  previewSceneId=state.previewSceneId;
  programSceneId=state.programSceneId;
+ if(selectedSourceId&&!sceneById(previewSceneId)?.sources.some(source=>source.id===selectedSourceId))selectedSourceId=null;
  selected=sceneName(previewSceneId);
- $("previewName").textContent=selected;
- $("programName").textContent=sceneName(programSceneId);
- const background=sceneById(previewSceneId)?.background;
-  if(background)$("sceneBackground").value=background;
+  $("previewName").textContent=selected;
+  $("programName").textContent=sceneName(programSceneId);
+  const transition=state.transition||{type:"cut",durationMs:0};
+  $("transitionType").value=TRANSITION_TYPES.has(transition.type)?transition.type:"cut";
+  $("transitionDuration").value=String(hasTimedTransition(transition)?transition.durationMs:300);
+  $("transitionBadge").textContent="ÜBERGANG: "+String(transition.type).toUpperCase()+" · "+Number(transition.durationMs||0)+" MS";
+  const overlay=sceneById(previewSceneId)?.overlay||{style:"none",text:"",opacity:0.85};
+  $("sceneOverlayStyle").value=["none","standard","custom"].includes(overlay.style)?overlay.style:"none";
+  if($("streamOverlay"))$("streamOverlay").value=$("sceneOverlayStyle").value;
+  $("sceneOverlayText").value=overlay.text||"";
+  $("sceneOverlayOpacity").value=String(Math.round((overlay.opacity||0.85)*100));
+  const background=sceneById(previewSceneId)?.background;
+   if(background)$("sceneBackground").value=background;
   renderScenes(state.scenes,previewSceneId);
   renderMultiview(state.scenes);
    renderSources();
+   renderSourceMixer();
 
-  updateSceneManagement();
-  void reconcileSourceRuntime();
+   updateSceneManagement();
+   void reconcileSourceRuntime();
 }
 
 function updateSceneManagement(){
  const scene=sceneById(previewSceneId);
  const custom=scene?.kind==="custom";
- $("renameScene").disabled=!custom;
- $("deleteScene").disabled=!custom;
+ const scenes=sceneState?.scenes||[];
+ const index=scenes.findIndex(item=>item.id===previewSceneId);
+  $("renameScene").disabled=!custom;
+  $("duplicateScene").disabled=!scene;
+  $("sceneDependencies").disabled=!custom;
+  $("moveSceneLeft").disabled=index<=0;
+  $("moveSceneRight").disabled=index<0||index>=scenes.length-1;
+  $("deleteScene").disabled=!custom;
 }
 function renderScenes(scenes, previewId){
  const host=$("scenes");
@@ -869,7 +970,7 @@ function renderScenes(scenes, previewId){
   button.dataset.scene=scene.name;
   button.append(document.createTextNode(scene.name));
   const small=document.createElement("small");
-  small.textContent=String(index+1).padStart(2,"0");
+  small.textContent=String(index+1).padStart(2,"0")+(scene.dependsOn?.length?" · ABH "+scene.dependsOn.length:"");
   button.append(small);
   button.addEventListener("click",()=>selectScene(scene.id));
   host.append(button);
@@ -942,10 +1043,19 @@ async function takeMultiviewScene(id){
  await take();
 }
 async function sceneCommand(payload){
- if(!window.streamiovStudio?.sceneAction){
-  // Browser/PWA demo: scene changes stay local so the UI and Schutzregie can
-  // be tried without the desktop Core. No file or platform action is claimed.
-  if(payload?.action==="set-program"){
+  if(!window.streamiovStudio?.sceneAction){
+   // Browser/PWA demo: scene changes stay local so the UI and Schutzregie can
+   // be tried without the desktop Core. No file or platform action is claimed.
+   if(payload?.action==="set-transition"){
+    demoTransition=payload.transition&&TRANSITION_TYPES.has(payload.transition.type)?{type:payload.transition.type,durationMs:Number(payload.transition.durationMs)||0}:demoTransition;
+    return {transition:demoTransition};
+   }
+   if(payload?.action==="set-overlay"){
+    const scene=sceneState?.scenes?.find(item=>item.id===previewSceneId);
+    if(scene&&payload.overlay&&["none","standard","custom"].includes(payload.overlay.style))scene.overlay={...payload.overlay};
+    return {transition:demoTransition};
+   }
+   if(payload?.action==="set-program"){
    const target=payload.id||payload.name;
    if(!target)return null;
    programSceneId=target;
@@ -957,8 +1067,8 @@ async function sceneCommand(payload){
    programSceneId=previewSceneId||programSceneId;
    $("programName").textContent=sceneName(programSceneId);
    updateMultiviewState();
-   log("Demo ohne Desktop-Core: Programm lokal auf "+sceneName(programSceneId)+" umgeschaltet. Keine Live-Ausgabe.");
-   return {programSceneId,previewSceneId,scenes:sceneState?.scenes||[]};
+    log("Demo ohne Desktop-Core: Programm lokal auf "+sceneName(programSceneId)+" umgeschaltet. Keine Live-Ausgabe.");
+    return {programSceneId,previewSceneId,transition:demoTransition,scenes:sceneState?.scenes||[]};
   }
   return null;
  }
@@ -1028,13 +1138,21 @@ $("openProgramOutput").onclick=async()=>{
   }catch(error){log("Programmausgabe: "+String(error.message||error));}
   finally{button.disabled=false;}
  };
- async function take(){
- if(privacyShield?.snapshot().active){log("Schutzregie aktiv: TAKE ist gesperrt. Erst Schutzregie aufheben.");return;}
- const state=await sceneCommand({action:"take"});
- if(!state)return;
- $("programName").textContent=sceneName(state.programSceneId);
-  log(broadcastRecorder?"Live-Programmszene umgeschaltet: "+sceneName(state.programSceneId):"Programm lokal umgeschaltet: "+sceneName(state.programSceneId)+" (keine Live-Ausgabe).");
-  void recordEvent("studio.scene.take",{scene:sceneName(state.programSceneId)});
+  async function take(transition){
+  if(privacyShield?.snapshot().active){log("Schutzregie aktiv: TAKE ist gesperrt. Erst Schutzregie aufheben.");return;}
+  if(transition){
+   const saved=await sceneCommand({action:"set-transition",transition});
+   if(!saved)return;
+  }
+  const previousSceneId=programSceneId;
+  const state=await sceneCommand({action:"take"});
+  if(!state)return;
+  $("programName").textContent=sceneName(state.programSceneId);
+  const active=state.transition||{type:"cut",durationMs:0};
+  activeProgramTransition=hasTimedTransition(active)?{type:active.type,previousSceneId,startedAt:performance.now(),durationMs:Number(active.durationMs)||300}:null;
+  $("transitionBadge").textContent="ÜBERGANG: "+String(active.type).toUpperCase()+" · "+Number(active.durationMs||0)+" MS";
+   log(broadcastRecorder?"Live-Programmszene umgeschaltet: "+sceneName(state.programSceneId):"Programm lokal umgeschaltet: "+sceneName(state.programSceneId)+" (keine Live-Ausgabe).");
+   void recordEvent("studio.scene.take",{scene:sceneName(state.programSceneId),transition:active.type});
 }
 $("createScene").onclick=createScene;
 $("renameScene").onclick=async()=>{
@@ -1043,48 +1161,188 @@ $("renameScene").onclick=async()=>{
  const name=window.prompt("Neuer Szenenname (max. 60 Zeichen):",scene.name);
  if(name===null)return;
  const state=await sceneCommand({action:"rename-scene",id:scene.id,name});
- if(state)log("Szene umbenannt: "+sceneName(state.previewSceneId));
-};
-$("deleteScene").onclick=async()=>{
+   if(state)log("Szene umbenannt: "+sceneName(state.previewSceneId));
+  };
+  $("duplicateScene").onclick=async()=>{
+   const scene=sceneById(previewSceneId);
+   if(!scene)return;
+   const state=await sceneCommand({action:"duplicate-scene",id:scene.id});
+   if(state)log("Szene dupliziert: "+sceneName(state.previewSceneId));
+  };
+  async function moveCurrentScene(offset){
+   const scenes=sceneState?.scenes||[];
+   const index=scenes.findIndex(item=>item.id===previewSceneId);
+   const target=index+offset;
+   if(index<0||target<0||target>=scenes.length)return;
+   const order=scenes.map(item=>item.id);
+   [order[index],order[target]]=[order[target],order[index]];
+   const state=await sceneCommand({action:"reorder-scenes",order});
+   if(state)log("Szenenreihenfolge gespeichert.");
+  }
+  $("moveSceneLeft").onclick=()=>void moveCurrentScene(-1);
+  $("moveSceneRight").onclick=()=>void moveCurrentScene(1);
+  $("exportScenes").onclick=async()=>{
+   if(!window.streamiovStudio?.sceneAction){log("Szenenexport ist nur im Desktop-Studio verfügbar.");return;}
+   const result=await window.streamiovStudio.sceneAction({action:"export-scenes"});
+   if(!result?.ok){log("Szenenexport fehlgeschlagen: "+String(result?.error||"unbekannter Fehler").slice(0,120));return;}
+   const blob=new Blob([JSON.stringify(result.pack,null,2)],{type:"application/json"});
+   const url=URL.createObjectURL(blob);
+   const link=document.createElement("a");
+   link.href=url;link.download="streamiov-szenen.json";link.click();
+   URL.revokeObjectURL(url);
+   log("Szenenpaket exportiert.");
+  };
+  $("importScenes").onclick=()=>$("scenePackInput").click();
+  $("scenePackInput").onchange=async event=>{
+   const file=event.target.files?.[0];
+   if(!file)return;
+   try{
+    const pack=JSON.parse(await file.text());
+    const state=await sceneCommand({action:"import-scene-pack",pack});
+    if(state)log("Szenen importiert. Szenen insgesamt: "+state.scenes.length+".");
+   }catch(error){log("Szenenimport fehlgeschlagen: "+String(error).slice(0,120));}
+   finally{event.target.value="";}
+  };
+  function openDependenciesDialog(){
+  const scene=sceneById(previewSceneId);
+  if(!scene||scene.kind!=="custom")return;
+  const host=$("dependencyList");
+  host.replaceChildren();
+  for(const candidate of sceneState?.scenes||[]){
+   if(candidate.id===scene.id)continue;
+   const row=document.createElement("div");row.className="source-row";
+   const check=document.createElement("input");check.type="checkbox";check.value=candidate.id;
+   check.checked=(scene.dependsOn||[]).includes(candidate.id);
+   check.dataset.dependencyScene=candidate.id;
+   const label=document.createElement("span");label.textContent=candidate.name;
+   row.append(check,label);host.append(row);
+  }
+  $("dependenciesDialog").showModal();
+ }
+ $("sceneDependencies").onclick=openDependenciesDialog;
+ $("closeDependencies").onclick=()=>$("dependenciesDialog").close();
+ $("saveDependencies").onclick=async()=>{
+  const scene=sceneById(previewSceneId);
+  if(!scene||scene.kind!=="custom")return;
+  const dependsOn=[...$("dependencyList").querySelectorAll("input[data-dependency-scene]")]
+   .filter(input=>input.checked).map(input=>input.value);
+  const state=await sceneCommand({action:"set-scene-dependencies",id:scene.id,dependsOn});
+  if(state){$("dependenciesDialog").close();log("Szenenabhängigkeiten gespeichert: "+dependsOn.length+".");}
+ };
+ $("deleteScene").onclick=async()=>{
  const scene=sceneById(previewSceneId);
  if(!scene||scene.kind!=="custom")return;
  if(!window.confirm("Szene „"+scene.name+"“ dauerhaft löschen?"))return;
  const state=await sceneCommand({action:"delete-scene",id:scene.id});
  if(state)log("Szene gelöscht. Vorschau: "+sceneName(state.previewSceneId));
 };
-$("cut").onclick=take;
-$("take").onclick=take;
-$("fade").onclick=()=>{
- const screen=document.querySelector(".program .screen");
- screen.style.opacity=".25";
- const started=performance.now(),half=150,total=300;let changed=false;
- const animate=now=>{
-  const elapsed=now-started;
-  if(elapsed<half)programOutputAlpha=1-elapsed/half;
-  else{
-   if(!changed){take();changed=true;}
-   programOutputAlpha=Math.min(1,(elapsed-half)/(total-half));
-  }
-  if(elapsed<total)requestAnimationFrame(animate);
-  else{programOutputAlpha=1;screen.style.opacity="1";}
- };
- requestAnimationFrame(animate);
- log("Fade-Übergang ausgeführt.");
+$("saveTransition").onclick=async()=>{
+ const transition={type:$("transitionType").value,durationMs:Number($("transitionDuration").value)};
+ const state=await sceneCommand({action:"set-transition",transition});
+ if(state)log("Übergang dauerhaft gespeichert: "+transition.type.toUpperCase()+" · "+transition.durationMs+" ms.");
 };
+$("saveSceneOverlay").onclick=async()=>{
+ const overlay={style:$("sceneOverlayStyle").value,text:$("sceneOverlayText").value,opacity:Number($("sceneOverlayOpacity").value)/100};
+ const state=await sceneCommand({action:"set-overlay",overlay});
+ if(state)log("Overlay dauerhaft für die Vorschauszene gespeichert.");
+};
+$("cut").onclick=()=>take({type:"cut",durationMs:0});
+$("take").onclick=take;
+$("fade").onclick=()=>take({type:"fade",durationMs:Number($("transitionDuration").value)||300});
+$("slide").onclick=()=>take({type:"slide",durationMs:Number($("transitionDuration").value)||300});
+$("wipe").onclick=()=>take({type:"wipe",durationMs:Number($("transitionDuration").value)||300});
 
 // ---------------------------------------------------------------------------
 // Szenen-Quellen und lokaler Canvas-Renderer für Vorschau, Programm und Stream.
 // ---------------------------------------------------------------------------
-function sourcePosition(preset){
- return {
-  full:{x:0,y:0,w:1,h:1},
-  pip:{x:0.72,y:0.72,w:0.25,h:0.25},
-  bottom:{x:0,y:0.75,w:1,h:0.25},
-  top:{x:0,y:0,w:1,h:0.25},
-  left:{x:0,y:0,w:0.5,h:1},
-  right:{x:0.5,y:0,w:0.5,h:1}
- }[preset]||{x:0,y:0,w:1,h:1};
+const SOURCE_GEOMETRY_LIMITS=Object.freeze({minSize:0.05,maxSize:1,maxPosition:0.95});
+const SOURCE_HANDLE_SIZE=18;
+function clampSourceGeometry(value,min,max,fallback){
+ const number=Number(value);
+ return Number.isFinite(number)?Math.min(max,Math.max(min,number)):fallback;
 }
+function sourcePosition(preset){
+  return {
+   full:{x:0,y:0,w:1,h:1},
+   pip:{x:0.72,y:0.72,w:0.25,h:0.25},
+   bottom:{x:0,y:0.75,w:1,h:0.25},
+   top:{x:0,y:0,w:1,h:0.25},
+   left:{x:0,y:0,w:0.5,h:1},
+   right:{x:0.5,y:0,w:0.5,h:1},
+   custom:null
+  }[preset]||{x:0,y:0,w:1,h:1};
+}
+function sourceGeometryFromDialog(){
+ const preset=sourcePosition($("sourcePosition").value)||sourcePosition("full");
+ const percent=(id,min,max,fallback)=>clampSourceGeometry(Number($(id).value)/100,min,max,fallback);
+ return {
+  x:percent("sourceX",0,SOURCE_GEOMETRY_LIMITS.maxPosition,preset.x),
+  y:percent("sourceY",0,SOURCE_GEOMETRY_LIMITS.maxPosition,preset.y),
+  w:percent("sourceW",SOURCE_GEOMETRY_LIMITS.minSize,SOURCE_GEOMETRY_LIMITS.maxSize,preset.w),
+  h:percent("sourceH",SOURCE_GEOMETRY_LIMITS.minSize,SOURCE_GEOMETRY_LIMITS.maxSize,preset.h)
+ };
+}
+function setSourceGeometryFields(geometry){
+ const value=geometry||sourcePosition("full");
+ $("sourceX").value=String(Math.round(value.x*100));
+ $("sourceY").value=String(Math.round(value.y*100));
+ $("sourceW").value=String(Math.round(value.w*100));
+ $("sourceH").value=String(Math.round(value.h*100));
+}
+function formatSourceGeometry(source){
+  const part=(value,fallback)=>Math.round((Number.isFinite(Number(value))?Number(value):fallback)*100);
+  return part(source?.x,0)+"/"+part(source?.y,0)+"/"+part(source?.w,1)+"/"+part(source?.h,1)+" %";
+}
+function sourceTransformFromDialog(){
+  const percent=(id,min,max,fallback)=>clampSourceGeometry(Number($(id).value)/100,min,max,fallback);
+  const cropX=percent("sourceCropX",0,0.95,0);
+  const cropY=percent("sourceCropY",0,0.95,0);
+  const fit=$("sourceFit").value;
+  return {
+   alpha:clampSourceGeometry(Number($("sourceAlpha").value)/100,0.1,1,1),
+   rotationDeg:Math.trunc(clampSourceGeometry(Number($("sourceRotation").value),-180,180,0)),
+   flipH:$("sourceFlipH").checked,
+   flipV:$("sourceFlipV").checked,
+   fit:["cover","contain","stretch"].includes(fit)?fit:"cover",
+   crop:{
+    x:cropX,
+    y:cropY,
+    w:percent("sourceCropW",0.05,1-cropX,1-cropX),
+    h:percent("sourceCropH",0.05,1-cropY,1-cropY)
+   }
+  };
+}
+function setSourceTransformFields(transform){
+  const value=transform||{};
+  const fit=["cover","contain","stretch"].includes(value.fit)?value.fit:"cover";
+  const crop=value.crop||{};
+  $("sourceAlpha").value=String(Math.round(clampSourceGeometry(Number(value.alpha??1),0.1,1,1)*100));
+  $("sourceAlphaValue").textContent=$("sourceAlpha").value+" %";
+  $("sourceRotation").value=String(Math.trunc(clampSourceGeometry(Number(value.rotationDeg??0),-180,180,0)));
+  $("sourceFlipH").checked=value.flipH===true;
+  $("sourceFlipV").checked=value.flipV===true;
+  $("sourceFit").value=fit;
+  $("sourceCropX").value=String(Math.round(clampSourceGeometry(Number(crop.x??0),0,0.95,0)*100));
+  $("sourceCropY").value=String(Math.round(clampSourceGeometry(Number(crop.y??0),0,0.95,0)*100));
+  $("sourceCropW").value=String(Math.round(clampSourceGeometry(Number(crop.w??1),0.05,1-Number($("sourceCropX").value)/100,1-Number($("sourceCropX").value)/100)*100));
+  $("sourceCropH").value=String(Math.round(clampSourceGeometry(Number(crop.h??1),0.05,1-Number($("sourceCropY").value)/100,1-Number($("sourceCropY").value)/100)*100));
+}
+function formatSourceTransform(transform){
+  const value=transform||{};
+  const crop=value.crop||{};
+  const alpha=clampSourceGeometry(Number(value.alpha??1),0.1,1,1);
+  const rotation=Math.trunc(clampSourceGeometry(Number(value.rotationDeg??0),-180,180,0));
+  const parts=[];
+  if(alpha<1)parts.push(Math.round(alpha*100)+"%");
+  if(rotation)parts.push(rotation+"°");
+  if(value.flipH)parts.push("H-Spiegel");
+  if(value.flipV)parts.push("V-Spiegel");
+  if(value.fit&&value.fit!=="cover")parts.push(value.fit);
+  if(Number(crop.x??0)||Number(crop.y??0)||Number(crop.w??1)<1||Number(crop.h??1)<1)parts.push("Zuschnitt");
+  return parts.length?parts.join(" · "):"Effekte Standard";
+}
+
+
 function sourceTypeLabel(type){
   return {camera:"Kamera",screen:"Bildschirm",window:"Fenster",title:"Titelkarte",text:"Text",image:"Bild",video:"Video",audio:"Audio",color:"Farbe"}[type]||type;
 }
@@ -1093,6 +1351,22 @@ const sourceRuntime=new Map();
 let sourceEditId=null;
 let lastProgramFrameAt=0;
 let programFrameBusy=false;
+const programFrameFromCanvas=document.createElement("canvas");
+programFrameFromCanvas.width=$("programCanvas").width;programFrameFromCanvas.height=$("programCanvas").height;
+const programFrameToCanvas=document.createElement("canvas");
+programFrameToCanvas.width=$("programCanvas").width;programFrameToCanvas.height=$("programCanvas").height;
+function drawProgramFrame(target,fromBuffer,toBuffer,now){
+ const active=activeProgramTransition;
+ if(active&&active.previousSceneId&&now-active.startedAt<active.durationMs){
+  const progress=Math.max(0,Math.min(1,(now-active.startedAt)/active.durationMs));
+  drawSceneToCanvas(fromBuffer,active.previousSceneId,1);
+  drawSceneToCanvas(toBuffer,programSceneId,1);
+  paintTransition(active.type,progress,fromBuffer,toBuffer,target);
+  return;
+ }
+ if(active)activeProgramTransition=null;
+ drawSceneToCanvas(target,programSceneId,1);
+}
 async function loadMediaAssets(){
  if(!window.streamiovStudio?.listMediaAssets)return [];
  const result=await window.streamiovStudio.listMediaAssets();
@@ -1163,12 +1437,48 @@ const mediaSourceTypes=new Set(["image","video","audio"]);
 
 const mediaAudioTypes=new Set(["video","audio"]);
 const captureSourceTypes=new Set(["camera","screen","window"]);
+const audioCapableSourceTypes=new Set(["camera","screen","window","video","audio"]);
+const sourceAudioChannelPrefix={camera:"camera-",screen:"capture-",window:"capture-",video:"media-",audio:"media-"};
+function sourceAudioState(source){
+ const fallback={enabled:audioCapableSourceTypes.has(source?.type)&&(mediaAudioTypes.has(source?.type)||captureSourceTypes.has(source?.type)&&source?.settings?.audioEnabled===true),gain:1,muted:source?.settings?.muted===true,solo:false,pan:0,routes:["stream"]};
+ return {...fallback,...(source?.audio||{})};
+}
+function sourceChannelName(source){return (sourceAudioChannelPrefix[source?.type]||"source-")+source.id;}
+function sourceRuntimeSignature(source){
+ const settings=source?.settings||{};
+ const audio=sourceAudioState(source);
+ return JSON.stringify({
+  type:source?.type,
+  settings:{
+   deviceId:settings.deviceId||null,
+   sourceId:settings.sourceId||null,
+   assetId:settings.assetId||null,
+   width:settings.width||null,
+   height:settings.height||null,
+   fps:settings.fps||null,
+   audioEnabled:settings.audioEnabled===true,
+   loop:settings.loop===true,
+   volume:settings.volume??null,
+   muted:settings.muted===true,
+   color:settings.color||null
+  },
+  audioEnabled:audio.enabled===true,
+  volume:source?.volume,
+  muted:source?.muted
+ });
+}
+function formatSourceAudio(source){
+ if(!audioCapableSourceTypes.has(source?.type))return "";
+ const audio=sourceAudioState(source);
+ return " · Audio "+(audio.enabled?(Math.round(audio.gain*100)+" %"+(audio.muted?" · stumm":"")+(audio.solo?" · solo":"")):"aus");
+}
 function sourcePositionPreset(source){
+ if(!source)return "full";
  for(const name of ["full","pip","bottom","top","left","right"]){
   const position=sourcePosition(name);
   if(Math.abs((source?.x??0)-position.x)<0.01&&Math.abs((source?.y??0)-position.y)<0.01&&Math.abs((source?.w??1)-position.w)<0.01&&Math.abs((source?.h??1)-position.h)<0.01)return name;
  }
- return "full";
+ return "custom";
 }
  async function updateSourceDialogFields(type,settings={},source=null){
 
@@ -1176,8 +1486,10 @@ function sourcePositionPreset(source){
  select.replaceChildren();
   $("sourceDeviceField").hidden=!(captureSourceTypes.has(type)||mediaSourceTypes.has(type));
   $("sourceVideoField").hidden=!captureSourceTypes.has(type);
-  $("sourceCameraAudioField").hidden=type!=="camera";
-  $("sourceImport").hidden=!mediaSourceTypes.has(type);
+   $("sourceCameraAudioField").hidden=!audioCapableSourceTypes.has(type);
+   $("sourceAudioGroup").hidden=!audioCapableSourceTypes.has(type);
+   $("sourceAudioRoutesField").hidden=!audioCapableSourceTypes.has(type);
+   $("sourceImport").hidden=!mediaSourceTypes.has(type);
 
   $("sourceColorField").hidden=type!=="color";
   $("sourceLoopField").hidden=!mediaAudioTypes.has(type);
@@ -1202,21 +1514,33 @@ function sourcePositionPreset(source){
  }
  const target=settings.deviceId||settings.sourceId||settings.assetId;
  if(target&&[...select.options].some(option=>option.value===target))select.value=target;
-   if(captureSourceTypes.has(type)){
-    if([...$("sourceWidth").options].some(option=>Number(option.value)===settings.width))$("sourceWidth").value=String(settings.width);
-    if([...$("sourceHeight").options].some(option=>Number(option.value)===settings.height))$("sourceHeight").value=String(settings.height);
-    if([...$("sourceFps").options].some(option=>Number(option.value)===settings.fps))$("sourceFps").value=String(settings.fps);
-    $("sourceCameraAudio").checked=settings.audioEnabled===true;
-   }
-   if(type==="color")$("sourceColor").value=settings.color||"#35e0d0";
-   $("sourceLoop").checked=settings.loop===true;
+    if(captureSourceTypes.has(type)){
+     if([...$("sourceWidth").options].some(option=>Number(option.value)===settings.width))$("sourceWidth").value=String(settings.width);
+     if([...$("sourceHeight").options].some(option=>Number(option.value)===settings.height))$("sourceHeight").value=String(settings.height);
+     if([...$("sourceFps").options].some(option=>Number(option.value)===settings.fps))$("sourceFps").value=String(settings.fps);
+    }
+    if(type==="color")$("sourceColor").value=settings.color||"#35e0d0";
+    $("sourceLoop").checked=settings.loop===true;
 
-  if(mediaAudioTypes.has(type)){
-   const volume=Number.isFinite(settings.volume)?Math.max(0,Math.min(1,settings.volume)):1;
-   $("sourceVolume").value=String(Math.round(volume*100));
-   $("sourceVolumeValue").textContent=Math.round(volume*100)+" %";
-   $("sourceMute").checked=settings.muted===true;
-  }
+   if(mediaAudioTypes.has(type)){
+    const volume=Number.isFinite(settings.volume)?Math.max(0,Math.min(1,settings.volume)):1;
+    $("sourceVolume").value=String(Math.round(volume*100));
+    $("sourceVolumeValue").textContent=Math.round(volume*100)+" %";
+    $("sourceMute").checked=settings.muted===true;
+   }
+   if(audioCapableSourceTypes.has(type)){
+    const audio=sourceAudioState(source);
+    $("sourceCameraAudio").checked=audio.enabled===true;
+    const gain=Math.max(0,Math.min(200,Math.round(Number(audio.gain)*100)));
+    $("sourceAudioGain").value=String(gain);
+    $("sourceAudioGainValue").textContent=gain+" %";
+    const pan=Math.max(-100,Math.min(100,Math.round(Number(audio.pan)*100)));
+    $("sourceAudioPan").value=String(pan);
+    $("sourceAudioPanValue").textContent=pan===0?"Mitte":pan<0?"L "+Math.abs(pan):"R "+pan;
+    $("sourceAudioMuted").checked=audio.muted===true;
+    $("sourceAudioSolo").checked=audio.solo===true;
+    document.querySelectorAll("[data-source-audio-route]").forEach(input=>{input.checked=(audio.routes||[]).includes(input.dataset.sourceAudioRoute);});
+   }
 }
 
 async function importSourceMedia(){
@@ -1239,9 +1563,11 @@ async function openSourceDialog(source=null){
  sourceEditId=source?.id||null;
  $("sourceType").value=source?.type||"camera";
  $("sourceName").value=source?.name||"";
- $("sourceText").value=source?.text||"";
- $("sourcePosition").value=sourcePositionPreset(source);
- $("sourceDialogTitle").textContent=source?"Quelle bearbeiten":"Quelle hinzufügen";
+  $("sourceText").value=source?.text||"";
+  $("sourcePosition").value=sourcePositionPreset(source);
+  setSourceGeometryFields(source||sourcePosition("full"));
+  setSourceTransformFields(source?.transform);
+  $("sourceDialogTitle").textContent=source?"Quelle bearbeiten":"Quelle hinzufügen";
   await updateSourceDialogFields($("sourceType").value,source?.settings||{},source);
 
  if(source)$("sourceDevice").value=source.settings?.deviceId||source.settings?.sourceId||source.settings?.assetId||$("sourceDevice").value;
@@ -1249,14 +1575,14 @@ async function openSourceDialog(source=null){
 }
 function sourceSettingLabel(source){
  const settings=source.settings||{};
- if(source.type==="camera")return settings.deviceId?"Gerät "+settings.deviceId.slice(0,12):"Standardkamera";
- if(source.type==="screen"||source.type==="window")return settings.sourceId?"Capture "+settings.sourceId.slice(0,14):"Keine Quelle gewählt";
+  if(source.type==="camera")return (settings.deviceId?"Gerät "+settings.deviceId.slice(0,12):"Standardkamera")+formatSourceAudio(source);
+  if(source.type==="screen"||source.type==="window")return (settings.sourceId?"Capture "+settings.sourceId.slice(0,14):"Keine Quelle gewählt")+formatSourceAudio(source);
   if(["image","video","audio"].includes(source.type)){
    const name=settings.assetId?(mediaAssetState.get(settings.assetId)?.name||"Mediendatei"):"Keine Mediendatei";
    if(!mediaAudioTypes.has(source.type))return name;
-   const volume=Number.isFinite(settings.volume)?Math.round(settings.volume*100):100;
-   return name+(settings.muted?" · stumm":" · "+volume+" %");
-  }
+    const volume=Number.isFinite(settings.volume)?Math.round(settings.volume*100):100;
+    return name+(settings.muted?" · stumm":" · "+volume+" %")+formatSourceAudio(source);
+   }
 
  if(source.type==="color")return settings.color||"#35e0d0";
  return "";
@@ -1283,20 +1609,23 @@ function captureVideoConstraints(settings={}){
  if(Number.isInteger(settings.fps)&&settings.fps>0)constraints.frameRate={ideal:settings.fps};
  return Object.keys(constraints).length?constraints:true;
 }
-function connectRuntimeAudio(runtime,source,stream,channelPrefix,routes){
- const audioTrack=stream.getAudioTracks()[0];
- if(!audioTrack||!studioAudioMixer)return null;
- const context=ensureBroadcastAudioGraph();
- runtime.channelName=channelPrefix+source.id;
- runtime.destination=context.createMediaStreamDestination();
- runtime.audioNode=context.createMediaStreamSource(stream);
- runtime.audioNode.connect(runtime.destination);
- studioAudioMixer.connect(runtime.channelName,runtime.destination.stream,{gain:1,routes});
- audioTrack.addEventListener("ended",()=>releaseSourceRuntime(source.id),{once:true});
- return audioTrack;
+function connectRuntimeAudio(runtime,source,stream,routes){
+  const audio=sourceAudioState(source);
+  const audioTrack=stream.getAudioTracks()[0];
+  if(!audio.enabled||!audioTrack||!studioAudioMixer)return null;
+  const context=ensureBroadcastAudioGraph();
+  runtime.channelName=sourceChannelName(source);
+  runtime.destination=context.createMediaStreamDestination();
+  runtime.audioNode=context.createMediaStreamSource(stream);
+  runtime.audioNode.connect(runtime.destination);
+  studioAudioMixer.connect(runtime.channelName,runtime.destination.stream,{gain:audio.gain,muted:audio.muted,routes});
+  studioAudioMixer.setPan(runtime.channelName,audio.pan);
+  studioAudioMixer.setSolo(runtime.channelName,audio.solo);
+  audioTrack.addEventListener("ended",()=>releaseSourceRuntime(source.id),{once:true});
+  return audioTrack;
 }
-async function ensureSourceRuntime(source){
- const signature=JSON.stringify({type:source.type,settings:source.settings||{},volume:source.volume,muted:source.muted});
+ async function ensureSourceRuntime(source){
+  const signature=sourceRuntimeSignature(source);
  const existing=sourceRuntime.get(source.id);
  if(existing&&existing.signature===signature)return existing;
  releaseSourceRuntime(source.id);
@@ -1306,19 +1635,21 @@ async function ensureSourceRuntime(source){
    if(source.type==="camera"){
     if(!navigator.mediaDevices?.getUserMedia)throw new Error("Kamera-API nicht verfügbar.");
     const video=document.createElement("video");
-    const device=settings.deviceId?{deviceId:{ideal:settings.deviceId},...captureVideoConstraints(settings)}:captureVideoConstraints(settings);
-    const audio=settings.audioEnabled===true?(settings.deviceId?{deviceId:{ideal:settings.deviceId}}:true):false;
-    runtime.stream=await navigator.mediaDevices.getUserMedia({video:device,audio});
-    video.srcObject=runtime.stream;video.muted=true;video.playsInline=true;await video.play();
-    runtime.element=video;
-    connectRuntimeAudio(runtime,source,runtime.stream,"camera-",["stream"]);
+     const device=settings.deviceId?{deviceId:{ideal:settings.deviceId},...captureVideoConstraints(settings)}:captureVideoConstraints(settings);
+     const audioEnabled=settings.audioEnabled===true||sourceAudioState(source).enabled===true;
+     const audio=audioEnabled?(settings.deviceId?{deviceId:{ideal:settings.deviceId}}:true):false;
+     runtime.stream=await navigator.mediaDevices.getUserMedia({video:device,audio});
+     video.srcObject=runtime.stream;video.muted=true;video.playsInline=true;await video.play();
+     runtime.element=video;
+     connectRuntimeAudio(runtime,source,runtime.stream,sourceAudioState(source).routes);
    }else if(source.type==="screen"||source.type==="window"){
     if(!settings.sourceId||!navigator.mediaDevices?.getDisplayMedia)throw new Error("Für diese Quelle ist keine Bildschirmfreigabe gewählt.");
     window.streamiovStudio?.selectDisplaySource?.(settings.sourceId);
-    runtime.stream=await navigator.mediaDevices.getDisplayMedia({video:captureVideoConstraints(settings),audio:true});
-    const video=document.createElement("video");video.srcObject=runtime.stream;video.muted=true;video.playsInline=true;await video.play();
-    runtime.element=video;
-    connectRuntimeAudio(runtime,source,runtime.stream,"capture-",["stream"]);
+     const audioEnabled=settings.audioEnabled===true||sourceAudioState(source).enabled===true;
+     runtime.stream=await navigator.mediaDevices.getDisplayMedia({video:captureVideoConstraints(settings),audio:audioEnabled});
+     const video=document.createElement("video");video.srcObject=runtime.stream;video.muted=true;video.playsInline=true;await video.play();
+     runtime.element=video;
+     connectRuntimeAudio(runtime,source,runtime.stream,sourceAudioState(source).routes);
 
 
   }else if(source.type==="image"){
@@ -1326,19 +1657,22 @@ async function ensureSourceRuntime(source){
    }else if(source.type==="video"||source.type==="audio"){
     const element=source.type==="video"?document.createElement("video"):new Audio();
     const volume=Number.isFinite(settings.volume)?Math.max(0,Math.min(1,settings.volume)):Number.isFinite(source?.volume)?source.volume:1;
-    element.src=mediaAssetUrl(settings.assetId);element.loop=settings.loop===true;
-    element.playsInline=true;element.preload="auto";
-    element.muted=settings.muted===true;
-    element.volume=volume;
-    runtime.element=element;
-    if(mediaAudioTypes.has(source.type)&&studioAudioMixer){
-     const context=ensureBroadcastAudioGraph();
-     runtime.channelName="media-"+source.id;
-     runtime.destination=context.createMediaStreamDestination();
-     runtime.audioNode=context.createMediaElementSource(element);
-     runtime.audioNode.connect(runtime.destination);
-     studioAudioMixer.connect(runtime.channelName,runtime.destination.stream,{gain:1,routes:source.type==="audio"?effectiveAuxRoutes("music"):["stream"]});
-    }
+     element.src=mediaAssetUrl(settings.assetId);element.loop=settings.loop===true;
+     element.playsInline=true;element.preload="auto";
+     const audio=sourceAudioState(source);
+     element.muted=settings.muted===true||audio.enabled===false;
+     element.volume=volume;
+     runtime.element=element;
+     if(mediaAudioTypes.has(source.type)&&studioAudioMixer&&audio.enabled!==false){
+      const context=ensureBroadcastAudioGraph();
+      runtime.channelName=sourceChannelName(source);
+      runtime.destination=context.createMediaStreamDestination();
+      runtime.audioNode=context.createMediaElementSource(element);
+      runtime.audioNode.connect(runtime.destination);
+      studioAudioMixer.connect(runtime.channelName,runtime.destination.stream,{gain:audio.gain,muted:audio.muted,routes:audio.routes});
+      studioAudioMixer.setPan(runtime.channelName,audio.pan);
+      studioAudioMixer.setSolo(runtime.channelName,audio.solo);
+     }
     await element.play().catch(error=>runtime.error=String(error.message||error));
    }
 
@@ -1357,6 +1691,115 @@ async function reconcileSourceRuntime(){
   for(const scene of scenes)for(const source of scene.sources)if(source.type!=="color")active.set(source.id,source);
   for(const id of [...sourceRuntime.keys()])if(!active.has(id))releaseSourceRuntime(id);
   await Promise.all([...active.values()].map(source=>ensureSourceRuntime(source)));
+  applySceneAudioRouting();
+}
+function applySceneAudioRouting(){
+  if(!studioAudioMixer)return;
+  const programSources=new Set((sceneById(programSceneId)?.sources||[]).map(source=>source.id));
+  const sources=new Map();
+  for(const source of sceneById(previewSceneId)?.sources||[])sources.set(source.id,source);
+  for(const source of sceneById(programSceneId)?.sources||[])sources.set(source.id,source);
+  for(const source of sources.values()){
+   const runtime=sourceRuntime.get(source.id);
+   if(!runtime?.channelName||!studioAudioMixer.snapshot(runtime.channelName))continue;
+    const audio=sourceAudioState(source);
+    const onProgram=programSources.has(source.id);
+    const enabled=audio.enabled===true&&source.visible!==false&&onProgram;
+    const routes=enabled?effectiveAudioRoutes(audio.routes||["stream"],sourceAudioRouteGroup(source)):[];
+   studioAudioMixer.setRoutes(runtime.channelName,routes);
+   studioAudioMixer.setGain(runtime.channelName,enabled?audio.gain:0);
+   studioAudioMixer.setMuted(runtime.channelName,!enabled||audio.muted===true);
+   studioAudioMixer.setPan(runtime.channelName,audio.pan);
+   studioAudioMixer.setSolo(runtime.channelName,enabled&&audio.solo===true);
+  }
+  renderSourceMixer();
+}
+function renderSourceMixer(){
+  const host=$("sourceMixerChannels");
+  if(!host)return;
+  host.replaceChildren();
+  const scene=sceneById(programSceneId);
+  for(const source of (scene?.sources||[]).filter(item=>audioCapableSourceTypes.has(item.type))){
+   const audio=sourceAudioState(source);
+   const channel=document.createElement("div");channel.className="channel";
+   channel.dataset.sourceMixerScene=scene.id;channel.dataset.sourceMixer=source.id;
+   const title=document.createElement("b");title.textContent=source.name;
+   const meter=document.createElement("div");meter.className="meter";
+   const level=document.createElement("i");level.dataset.mixerMeter=sourceChannelName(source);level.style.width="0%";meter.append(level);
+   const gain=document.createElement("input");gain.type="range";gain.min="0";gain.max="200";gain.step="5";gain.value=String(Math.round(audio.gain*100));gain.dataset.sourceAudioGain=source.id;gain.setAttribute("aria-label",source.name+" Lautstärke");
+   const pan=document.createElement("input");pan.type="range";pan.min="-100";pan.max="100";pan.step="5";pan.value=String(Math.round(audio.pan*100));pan.dataset.sourceAudioPan=source.id;pan.setAttribute("aria-label",source.name+" Pan");
+   const mute=document.createElement("button");mute.type="button";mute.dataset.sourceAudioMute=source.id;mute.textContent=audio.muted?"STUMM AUS":"STUMM";mute.setAttribute("aria-pressed",String(audio.muted));
+   const solo=document.createElement("button");solo.type="button";solo.dataset.sourceAudioSolo=source.id;solo.textContent=audio.solo?"SOLO AN":"SOLO";solo.setAttribute("aria-pressed",String(audio.solo));
+   const info=document.createElement("small");info.textContent=(audio.enabled?"AKTIV · ":"AUS · ")+(audio.routes||[]).join(",");
+   channel.append(title,meter,gain,pan,mute,solo,info);host.append(channel);
+  }
+}
+const sourceAudioSaveTimers=new Map();
+function sourceAudioSceneId(sourceId){
+ const scene=[sceneById(programSceneId),sceneById(previewSceneId)].find(item=>item?.sources.some(source=>source.id===sourceId));
+ return scene?.id||"";
+}
+function applySourceMixerChannelState(source){
+ const channelName=sourceChannelName(source);
+ const snapshot=studioAudioMixer?.snapshot(channelName);
+ if(!snapshot)return;
+ const audio=sourceAudioState(source);
+ const onProgram=(sceneById(programSceneId)?.sources||[]).some(item=>item.id===source.id);
+ const enabled=audio.enabled===true&&source.visible!==false&&onProgram;
+ studioAudioMixer.setRoutes(channelName,enabled?effectiveAudioRoutes(audio.routes||["stream"],sourceAudioRouteGroup(source)):[]);
+ studioAudioMixer.setGain(channelName,enabled?audio.gain:0);
+ studioAudioMixer.setMuted(channelName,!enabled||audio.muted===true);
+ studioAudioMixer.setPan(channelName,audio.pan);
+ studioAudioMixer.setSolo(channelName,enabled&&audio.solo===true);
+}
+function refreshSourceMixerRow(source){
+ const row=document.querySelector('[data-source-mixer="'+source.id+'"]');
+ if(!row)return;
+ const audio=sourceAudioState(source);
+ for(const [attr,active,on,off] of [
+  ["sourceAudioMute",audio.muted===true,"STUMM AUS","STUMM"],
+  ["sourceAudioSolo",audio.solo===true,"SOLO AN","SOLO"]
+ ]){
+  const button=row.querySelector('[data-'+attr+'="'+source.id+'"]');
+  if(!button)continue;
+  button.setAttribute("aria-pressed",String(active));button.textContent=active?on:off;
+ }
+  const info=row.querySelector("small");
+  if(info)info.textContent=(audio.enabled?"AKTIV · ":"AUS · ")+(audio.routes||[]).join(",");
+}
+async function persistSourceAudio(sourceId){
+ const sceneId=sourceAudioSceneId(sourceId);
+ const source=sceneById(sceneId)?.sources.find(item=>item.id===sourceId);
+ if(!source||!sceneId)return;
+ await sceneCommand({action:"update-source",sceneId,sourceId,patch:{audio:sourceAudioState(source)}});
+}
+function scheduleSourceAudioSave(sourceId){
+ clearTimeout(sourceAudioSaveTimers.get(sourceId));
+ sourceAudioSaveTimers.set(sourceId,setTimeout(()=>{sourceAudioSaveTimers.delete(sourceId);void persistSourceAudio(sourceId);},240));
+}
+async function updateSourceAudioFromMixer(element,persistNow=false){
+  const channel=element.closest("[data-source-mixer]");
+  if(!channel)return;
+  const sceneId=channel.dataset.sourceMixerScene,sourceId=channel.dataset.sourceMixer;
+  const source=sceneById(sceneId)?.sources.find(item=>item.id===sourceId);
+  if(!source)return;
+  const audio=source.audio&&typeof source.audio==="object"?source.audio:(source.audio=sourceAudioState(source));
+  if(element.dataset.sourceAudioGain!==undefined)audio.gain=Math.max(0,Math.min(2,Number(element.value)/100));
+  if(element.dataset.sourceAudioPan!==undefined)audio.pan=Math.max(-1,Math.min(1,Number(element.value)/100));
+  if(element.dataset.sourceAudioMute!==undefined)audio.muted=!audio.muted;
+  if(element.dataset.sourceAudioSolo!==undefined)audio.solo=!audio.solo;
+  applySourceMixerChannelState(source);
+  refreshSourceMixerRow(source);
+  if(persistNow){
+   clearTimeout(sourceAudioSaveTimers.get(sourceId));
+   sourceAudioSaveTimers.delete(sourceId);
+   await persistSourceAudio(sourceId);
+  }else scheduleSourceAudioSave(sourceId);
+}
+if($("sourceMixerChannels")){
+ $("sourceMixerChannels").addEventListener("input",event=>{if(event.target.dataset.sourceAudioGain!==undefined||event.target.dataset.sourceAudioPan!==undefined)void updateSourceAudioFromMixer(event.target);});
+ $("sourceMixerChannels").addEventListener("change",event=>{if(event.target.dataset.sourceAudioGain!==undefined||event.target.dataset.sourceAudioPan!==undefined)void updateSourceAudioFromMixer(event.target,true);});
+ $("sourceMixerChannels").addEventListener("click",event=>{if(event.target.dataset.sourceAudioMute!==undefined||event.target.dataset.sourceAudioSolo!==undefined)void updateSourceAudioFromMixer(event.target,true);});
 }
 async function retrySourceRuntime(id){
   const source=[sceneById(previewSceneId),sceneById(programSceneId)]
@@ -1364,6 +1807,7 @@ async function retrySourceRuntime(id){
   if(!source)return;
   releaseSourceRuntime(id);
   await ensureSourceRuntime(source);
+  applySceneAudioRouting();
   renderSources();
 }
 function renderSources(){
@@ -1385,7 +1829,7 @@ function renderSources(){
   const meta=document.createElement("small");
     const detail=sourceSettingLabel(source);
     const runtimeError=sourceRuntime.get(source.id)?.error;
-    meta.textContent=sourceTypeLabel(source.type)+(detail?" · "+detail:"")+" · Ebene "+source.z+(source.visible?"":" · ausgeblendet")+(runtimeError?" · Fehler: "+String(runtimeError).slice(0,60):"");
+     meta.textContent=sourceTypeLabel(source.type)+(detail?" · "+detail:"")+" · Ebene "+source.z+" · Position "+formatSourceGeometry(source)+" · "+formatSourceTransform(source.transform)+(source.visible?"":" · ausgeblendet")+(runtimeError?" · Fehler: "+String(runtimeError).slice(0,60):"");
 
 
   info.append(title,meta);
@@ -1397,8 +1841,13 @@ function renderSources(){
     addButton("✎","Quelle bearbeiten",()=>void openSourceDialog(source));
     if(runtimeError)addButton("↻","Quelle erneut versuchen",()=>void retrySourceRuntime(source.id));
     addButton(source.visible?"◉":"○",source.visible?"Ausblenden":"Einblenden",()=>sceneCommand({action:"update-source",sourceId:source.id,patch:{visible:!source.visible}}));
+   if(audioCapableSourceTypes.has(source.type)){
+    const sourceAudio=sourceAudioState(source);
+    addButton(sourceAudio.muted?"Muted":"M",sourceAudio.muted?"Stumm aufheben":"Quelle stummschalten",()=>sceneCommand({action:"update-source",sourceId:source.id,patch:{audio:{...sourceAudio,muted:!sourceAudio.muted}}}));
+    addButton(sourceAudio.solo?"Solo":"S",sourceAudio.solo?"Solo aufheben":"Quelle solo schalten",()=>sceneCommand({action:"update-source",sourceId:source.id,patch:{audio:{...sourceAudio,solo:!sourceAudio.solo}}}));
+   }
 
-   addButton("↑","Nach vorne",()=>sceneCommand({action:"move-source",sourceId:source.id,direction:"up"}));
+    addButton("↑","Nach vorne",()=>sceneCommand({action:"move-source",sourceId:source.id,direction:"up"}));
 
   addButton("↓","Nach hinten",()=>sceneCommand({action:"move-source",sourceId:source.id,direction:"down"}));
   if(source.type==="title"||source.type==="text"){
@@ -1413,25 +1862,52 @@ function renderSources(){
   row.append(info,actions);host.append(row);
  });
 }
-function drawVideoCover(context, video, x, y, width, height){
- if(!video?.videoWidth||!video?.videoHeight)return false;
- const scale=Math.max(width/video.videoWidth,height/video.videoHeight);
- const drawWidth=video.videoWidth*scale,drawHeight=video.videoHeight*scale;
- context.save();context.beginPath();context.rect(x,y,width,height);context.clip();
- context.drawImage(video,x+(width-drawWidth)/2,y+(height-drawHeight)/2,drawWidth,drawHeight);
- context.restore();
+function drawMediaFit(context, media, mediaWidth, mediaHeight, x, y, width, height, transform){
+ const crop=transform?.crop||{x:0,y:0,w:1,h:1};
+ const cropX=clampSourceGeometry(Number(crop.x??0),0,0.95,0);
+ const cropY=clampSourceGeometry(Number(crop.y??0),0,0.95,0);
+ const cropW=clampSourceGeometry(Number(crop.w??1),0.05,1-cropX,1-cropX);
+ const cropH=clampSourceGeometry(Number(crop.h??1),0.05,1-cropY,1-cropY);
+ const sourceX=cropX*mediaWidth,sourceY=cropY*mediaHeight;
+ const sourceWidth=Math.max(1,cropW*mediaWidth),sourceHeight=Math.max(1,cropH*mediaHeight);
+ const fit=["cover","contain","stretch"].includes(transform?.fit)?transform.fit:"cover";
+ let drawX=x,drawY=y,drawWidth=width,drawHeight=height;
+ if(fit==="stretch"){
+  context.drawImage(media,sourceX,sourceY,sourceWidth,sourceHeight,drawX,drawY,drawWidth,drawHeight);
+  return true;
+ }
+ const scale=fit==="contain"
+  ?Math.min(width/sourceWidth,height/sourceHeight)
+  :Math.max(width/sourceWidth,height/sourceHeight);
+ drawWidth=sourceWidth*scale;drawHeight=sourceHeight*scale;
+ drawX=x+(width-drawWidth)/2;drawY=y+(height-drawHeight)/2;
+ context.drawImage(media,sourceX,sourceY,sourceWidth,sourceHeight,drawX,drawY,drawWidth,drawHeight);
  return true;
 }
-function drawImageCover(context, image, x, y, width, height){
+function drawVideoCover(context, video, x, y, width, height, transform){
+ if(!video?.videoWidth||!video?.videoHeight)return false;
+ return drawMediaFit(context,video,video.videoWidth,video.videoHeight,x,y,width,height,transform);
+}
+function drawImageCover(context, image, x, y, width, height, transform){
  const sourceWidth=image?.naturalWidth||0;
  const sourceHeight=image?.naturalHeight||0;
  if(!sourceWidth||!sourceHeight)return false;
- const scale=Math.max(width/sourceWidth,height/sourceHeight);
- const drawWidth=sourceWidth*scale,drawHeight=sourceHeight*scale;
- context.save();context.beginPath();context.rect(x,y,width,height);context.clip();
- context.drawImage(image,x+(width-drawWidth)/2,y+(height-drawHeight)/2,drawWidth,drawHeight);
+ return drawMediaFit(context,image,sourceWidth,sourceHeight,x,y,width,height,transform);
+}
+function withSourceTransform(context, source, x, y, width, height, drawFn){
+ const transform=source?.transform||{};
+ const alpha=clampSourceGeometry(Number(transform.alpha??1),0.1,1,1);
+ const rotation=Math.trunc(clampSourceGeometry(Number(transform.rotationDeg??0),-180,180,0));
+ context.save();
+ context.globalAlpha*=alpha;
+ context.beginPath();context.rect(x,y,width,height);context.clip();
+ context.translate(x+width/2,y+height/2);
+ context.rotate(rotation*Math.PI/180);
+ if(transform.flipH===true)context.scale(-1,1);
+ if(transform.flipV===true)context.scale(1,-1);
+ context.translate(-width/2,-height/2);
+ drawFn();
  context.restore();
- return true;
 }
 function drawSourcePlaceholder(context, x, y, width, height, label){
  context.fillStyle="#0c131b";context.fillRect(x,y,width,height);
@@ -1453,7 +1929,39 @@ function drawWrappedText(context, text, x, y, width, height, fontSize, color){
  if(line)lines.push(line);
  const lineHeight=fontSize*1.15;
  const startY=y+height/2-(lines.length-1)*lineHeight/2;
- lines.forEach((item,index)=>context.fillText(item,x+width/2,startY+index*lineHeight));
+  lines.forEach((item,index)=>context.fillText(item,x+width/2,startY+index*lineHeight));
+}
+function drawSceneOverlay(context,scene,width,height){
+ const overlay=scene?.overlay;
+ if(!overlay||overlay.style==="none")return;
+ const opacity=Math.max(0.1,Math.min(1,Number(overlay.opacity)||0.85));
+ context.save();
+ context.globalAlpha*=opacity;
+ if(overlay.style==="standard"){
+  const bandHeight=Math.round(height*0.12);
+  const y=height-bandHeight;
+  const gradient=context.createLinearGradient(0,y,width,height);
+  gradient.addColorStop(0,"rgba(12,18,27,0.94)");
+  gradient.addColorStop(1,"rgba(40,25,62,0.94)");
+  context.fillStyle=gradient;context.fillRect(0,y,width,bandHeight);
+  context.fillStyle="#35e0d0";context.fillRect(0,y,Math.round(width*0.012),bandHeight);
+  context.fillStyle="#edf6fb";context.textAlign="left";context.textBaseline="middle";
+  context.font="800 "+Math.round(bandHeight*0.32)+"px system-ui";
+  context.fillText(scene?.name||"STREAMIOV",width*0.03,y+bandHeight*0.45);
+  context.fillStyle="#8195a6";context.textAlign="right";
+  context.font="700 "+Math.round(bandHeight*0.22)+"px system-ui";
+  context.fillText("STREAMIOV",width*0.97,y+bandHeight*0.45);
+ }else{
+  const value=String(overlay.text||"").slice(0,80);
+  context.font="800 "+Math.max(16,Math.round(width*0.025))+"px system-ui";
+  const boxWidth=Math.min(width*0.7,context.measureText(value).width+width*0.06);
+  const x=(width-boxWidth)/2,y=height*0.12;
+  context.fillStyle="rgba(10,16,24,0.92)";context.fillRect(x,y,boxWidth,height*0.08);
+  context.strokeStyle="#35e0d0";context.lineWidth=2;context.strokeRect(x+1,y+1,boxWidth-2,height*0.08-2);
+  context.fillStyle="#edf6fb";context.textAlign="center";context.textBaseline="middle";
+  context.fillText(value,width/2,y+height*0.04);
+ }
+ context.restore();
 }
 function drawSceneToCanvas(canvas, sceneId, alpha=1){
  const context=canvas.getContext("2d");
@@ -1468,6 +1976,7 @@ function drawSceneToCanvas(canvas, sceneId, alpha=1){
   // PWA demo fallback: show the selected built-in scene name even when the
   // desktop Core has not provided a persisted scene model.
   drawWrappedText(context,sceneName(sceneId),0,0,width,height,Math.max(18,Math.min(96,Math.round(width*0.085))),"#edf6fb");
+  if(canvas.id==="previewCanvas"&&selectedSourceId&&sceneId===previewSceneId)drawSourceSelection(context,scene,width,height);
   context.fillStyle="rgba(53,224,208,0.8)";context.textAlign="left";context.textBaseline="bottom";
   context.font="700 "+Math.max(10,Math.round(width*0.012))+"px system-ui";
   context.fillText("STREAMIOV · LOKAL",width*0.02,height*0.98);
@@ -1477,43 +1986,47 @@ function drawSceneToCanvas(canvas, sceneId, alpha=1){
   for(const source of [...(scene?.sources||[])].sort((a,b)=>a.z-b.z)){
    if(!source.visible)continue;
    const x=source.x*width,y=source.y*height,w=source.w*width,h=source.h*height;
-   if(["camera","screen","window","image","video"].includes(source.type)){
-    const runtime=sourceRuntime.get(source.id);
-    const visual=runtime?.element;
-    const drawn=visual&&(source.type==="image"?drawImageCover(context,visual,x,y,w,h):drawVideoCover(context,visual,x,y,w,h));
-    if(!drawn){
-     const label=source.type==="camera"?"Kamera nicht aktiv":source.type==="screen"?"Bildschirm nicht geteilt":source.type==="window"?"Fenster nicht geteilt":source.type==="image"?"Bild nicht geladen":"Video nicht geladen";
-     drawSourcePlaceholder(context,x,y,w,h,label);
-    }
-   }else if(source.type==="audio"||source.type==="color"){
-    if(source.type==="color"){
-     context.fillStyle=source.settings?.color||"#35e0d0";context.fillRect(x,y,w,h);
+   withSourceTransform(context,source,x,y,w,h,()=>{
+    if(["camera","screen","window","image","video"].includes(source.type)){
+     const runtime=sourceRuntime.get(source.id);
+     const visual=runtime?.element;
+     const drawn=visual&&(source.type==="image"
+      ?drawImageCover(context,visual,0,0,w,h,source.transform)
+      :drawVideoCover(context,visual,0,0,w,h,source.transform));
+     if(!drawn){
+      const label=source.type==="camera"?"Kamera nicht aktiv":source.type==="screen"?"Bildschirm nicht geteilt":source.type==="window"?"Fenster nicht geteilt":source.type==="image"?"Bild nicht geladen":"Video nicht geladen";
+      drawSourcePlaceholder(context,0,0,w,h,label);
+     }
+    }else if(source.type==="audio"||source.type==="color"){
+     if(source.type==="color"){
+      context.fillStyle=source.settings?.color||"#35e0d0";context.fillRect(0,0,w,h);
+     }else{
+      drawSourcePlaceholder(context,0,0,w,h,"Audioquelle aktiv");
+     }
     }else{
-     drawSourcePlaceholder(context,x,y,w,h,"Audioquelle aktiv");
+     if(source.type==="title"){
+      const gradient=context.createLinearGradient(0,0,w,h);
+      gradient.addColorStop(0,"#182a39");gradient.addColorStop(.6,"#10151e");gradient.addColorStop(1,"#292044");
+      context.fillStyle=gradient;context.fillRect(0,0,w,h);
+     }else{
+      context.fillStyle="rgba(10,16,24,0.86)";context.fillRect(0,0,w,h);
+     }
+     const fontSize=source.type==="title"
+      ?Math.max(18,Math.min(96,Math.round(w*0.085)))
+      :Math.max(14,Math.min(48,Math.round(w*0.04)));
+     drawWrappedText(context,source.text||source.name,0,0,w,h,fontSize,"#edf6fb");
+     if(source.type==="title"){
+      context.fillStyle="#35e0d0";context.textAlign="center";context.textBaseline="middle";
+      context.font="700 "+Math.max(12,Math.round(w*0.022))+"px system-ui";
+      context.fillText("STREAMIOV",w/2,h/2+fontSize*1.2);
+     }
     }
-   }else{
-
-   if(source.type==="title"){
-    const gradient=context.createLinearGradient(x,y,x+w,y+h);
-    gradient.addColorStop(0,"#182a39");gradient.addColorStop(.6,"#10151e");gradient.addColorStop(1,"#292044");
-    context.fillStyle=gradient;context.fillRect(x,y,w,h);
-   }else{
-    context.fillStyle="rgba(10,16,24,0.86)";context.fillRect(x,y,w,h);
-   }
-   const fontSize=source.type==="title"
-    ?Math.max(18,Math.min(96,Math.round(w*0.085)))
-    :Math.max(14,Math.min(48,Math.round(w*0.04)));
-   drawWrappedText(context,source.text||source.name,x,y,w,h,fontSize,"#edf6fb");
-   if(source.type==="title"){
-    context.fillStyle="#35e0d0";context.textAlign="center";context.textBaseline="middle";
-    context.font="700 "+Math.max(12,Math.round(w*0.022))+"px system-ui";
-    context.fillText("STREAMIOV",x+w/2,y+h/2+fontSize*1.2);
-   }
+   });
   }
- }
- // Local effect overlays (gifts/alerts) are rendered into the same canvas, so
- // they also appear in the stream output.
- const now=performance.now();
+  drawSceneOverlay(context,scene,width,height);
+  // Local effect overlays (gifts/alerts) are rendered into the same canvas, so
+  // they also appear in the stream output.
+  const now=performance.now();
  if(programEffect&&now-programEffect.startedAt<2800&&sceneId===programSceneId){
   const progress=(now-programEffect.startedAt)/2800;
   context.save();
@@ -1542,12 +2055,87 @@ function drawSceneToCanvas(canvas, sceneId, alpha=1){
  context.fillText("STREAMIOV · LOKAL",width*0.02,height*0.98);
  context.restore();
 }
+function drawSourceSelection(context,scene,width,height){
+ const source=scene?.sources.find(item=>item.id===selectedSourceId);
+ if(!source||source.visible===false)return;
+ const x=source.x*width,y=source.y*height,w=source.w*width,h=source.h*height;
+ context.save();
+ context.strokeStyle="#35e0d0";context.lineWidth=2;context.setLineDash([8,6]);
+ context.strokeRect(x+1,y+1,Math.max(0,w-2),Math.max(0,h-2));
+ context.setLineDash([]);
+ context.fillStyle="#35e0d0";
+ context.fillRect(x+w-SOURCE_HANDLE_SIZE/2,y+h-SOURCE_HANDLE_SIZE/2,SOURCE_HANDLE_SIZE,SOURCE_HANDLE_SIZE);
+ context.restore();
+}
+function previewNormalizedPoint(event){
+ const rect=event.currentTarget.getBoundingClientRect();
+ return {x:(event.clientX-rect.left)/rect.width,y:(event.clientY-rect.top)/rect.height};
+}
+function previewSourceAt(point){
+ const scene=sceneById(previewSceneId);
+ if(!scene)return null;
+ return [...scene.sources].filter(source=>source.visible).sort((a,b)=>b.z-a.z)
+  .find(source=>point.x>=source.x&&point.x<=source.x+source.w&&point.y>=source.y&&point.y<=source.y+source.h)||null;
+}
+function previewHandleHit(source,point,canvas){
+ if(!source||source.visible===false)return false;
+ const px=point.x*canvas.width,py=point.y*canvas.height;
+ return Math.abs(px-(source.x+source.w)*canvas.width)<=SOURCE_HANDLE_SIZE&&Math.abs(py-(source.y+source.h)*canvas.height)<=SOURCE_HANDLE_SIZE;
+}
+function applyPreviewPointerGeometry(point){
+ const state=previewPointerState;
+ if(!state)return;
+ const source=sceneById(previewSceneId)?.sources.find(item=>item.id===state.id);
+ if(!source)return;
+ const dx=point.x-state.start.x,dy=point.y-state.start.y;
+ if(state.mode==="resize"){
+  source.w=clampSourceGeometry(state.geometry.w+dx,SOURCE_GEOMETRY_LIMITS.minSize,Math.min(SOURCE_GEOMETRY_LIMITS.maxSize,1-state.geometry.x),state.geometry.w);
+  source.h=clampSourceGeometry(state.geometry.h+dy,SOURCE_GEOMETRY_LIMITS.minSize,Math.min(SOURCE_GEOMETRY_LIMITS.maxSize,1-state.geometry.y),state.geometry.h);
+ }else{
+  source.x=clampSourceGeometry(state.geometry.x+dx,0,Math.max(0,1-state.geometry.w),state.geometry.x);
+  source.y=clampSourceGeometry(state.geometry.y+dy,0,Math.max(0,1-state.geometry.h),state.geometry.y);
+ }
+}
+async function finishPreviewPointer(cancelled=false){
+ const state=previewPointerState;
+ if(!state)return;
+ previewPointerState=null;
+ const source=sceneById(previewSceneId)?.sources.find(item=>item.id===state.id);
+ if(source&&cancelled)Object.assign(source,state.geometry);
+ if(source&&!cancelled){
+  const patch={x:source.x,y:source.y,w:source.w,h:source.h};
+  const saved=await sceneCommand({action:"update-source",sourceId:state.id,patch});
+  if(!saved)Object.assign(source,state.geometry);
+ }
+ renderSources();
+}
+$("previewCanvas").addEventListener("pointerdown",event=>{
+ const canvas=event.currentTarget;
+ const point=previewNormalizedPoint(event);
+ const scene=sceneById(previewSceneId);
+ if(!scene)return;
+ const selectedSource=scene.sources.find(item=>item.id===selectedSourceId);
+ const targetSource=previewHandleHit(selectedSource,point,canvas)?selectedSource:previewSourceAt(point);
+ if(!targetSource){selectedSourceId=null;renderSources();return;}
+ selectedSourceId=targetSource.id;
+ previewPointerState={pointerId:event.pointerId,id:targetSource.id,mode:previewHandleHit(targetSource,point,canvas)?"resize":"move",start:point,geometry:{x:targetSource.x,y:targetSource.y,w:targetSource.w,h:targetSource.h}};
+ canvas.setPointerCapture(event.pointerId);
+ renderSources();
+ event.preventDefault();
+});
+$("previewCanvas").addEventListener("pointermove",event=>{
+ if(!previewPointerState||event.pointerId!==previewPointerState.pointerId)return;
+ applyPreviewPointerGeometry(previewNormalizedPoint(event));
+ event.preventDefault();
+});
+$("previewCanvas").addEventListener("pointerup",()=>void finishPreviewPointer(false));
+$("previewCanvas").addEventListener("pointercancel",()=>void finishPreviewPointer(true));
 let lastMonitorRender=0;
 function renderMonitors(now=0){
  if((sceneState||multiviewCanvases.size)&&now-lastMonitorRender>33){
   lastMonitorRender=now;
    drawSceneToCanvas($("previewCanvas"),previewSceneId,1);
-   drawSceneToCanvas($("programCanvas"),programSceneId,programOutputAlpha);
+    drawProgramFrame($("programCanvas"),programFrameFromCanvas,programFrameToCanvas,now);
    if(now-lastMultiviewRender>120&&multiviewCanvases.size){
     lastMultiviewRender=now;
     for(const [id,canvas] of multiviewCanvases)drawSceneToCanvas(canvas,id,1);
@@ -1569,7 +2157,12 @@ function renderMonitors(now=0){
  requestAnimationFrame(renderMonitors);
 }
 $("sourceType").addEventListener("change",()=>void updateSourceDialogFields($("sourceType").value));
+for(const id of ["sourceX","sourceY","sourceW","sourceH"])$(id).addEventListener("input",()=>{$("sourcePosition").value="custom";});
+$("sourcePosition").addEventListener("change",()=>{const preset=sourcePosition($("sourcePosition").value);if(preset)setSourceGeometryFields(preset);});
 $("sourceVolume").addEventListener("input",()=>{$("sourceVolumeValue").textContent=$("sourceVolume").value+" %";});
+$("sourceAudioGain").addEventListener("input",()=>{$("sourceAudioGainValue").textContent=$("sourceAudioGain").value+" %";});
+$("sourceAudioPan").addEventListener("input",()=>{const pan=Number($("sourceAudioPan").value);$("sourceAudioPanValue").textContent=pan===0?"Mitte":pan<0?"L "+Math.abs(pan):"R "+pan;});
+$("sourceAlpha").addEventListener("input",()=>{$("sourceAlphaValue").textContent=$("sourceAlpha").value+" %";});
 $("sourceImport").onclick=()=>void importSourceMedia();
 $("addSource").onclick=()=>void openSourceDialog();
 $("manageMedia").onclick=()=>void openMediaManager();
@@ -1579,23 +2172,24 @@ $("confirmSource").onclick=async()=>{
  const type=$("sourceType").value;
  const name=$("sourceName").value.trim()||sourceTypeLabel(type);
  const text=$("sourceText").value.trim();
- const position=sourcePosition($("sourcePosition").value);
+  const position=sourceGeometryFromDialog();
  if((type==="title"||type==="text")&&!text){log("Titel oder Text benötigt einen Textinhalt.");$("sourceText").focus();return;}
  const device=$("sourceDevice").value;
  const settings={};
-  if(type==="camera"){
-   if(device)settings.deviceId=device;
-   settings.width=Number($("sourceWidth").value);
-   settings.height=Number($("sourceHeight").value);
-   settings.fps=Number($("sourceFps").value);
-   settings.audioEnabled=$("sourceCameraAudio").checked;
-  }
-  if((type==="screen"||type==="window")){
-   if(device)settings.sourceId=device;
-   settings.width=Number($("sourceWidth").value);
-   settings.height=Number($("sourceHeight").value);
-   settings.fps=Number($("sourceFps").value);
-  }
+   if(type==="camera"){
+    if(device)settings.deviceId=device;
+    settings.width=Number($("sourceWidth").value);
+    settings.height=Number($("sourceHeight").value);
+    settings.fps=Number($("sourceFps").value);
+    settings.audioEnabled=$("sourceCameraAudio").checked;
+   }
+   if((type==="screen"||type==="window")){
+    if(device)settings.sourceId=device;
+    settings.width=Number($("sourceWidth").value);
+    settings.height=Number($("sourceHeight").value);
+    settings.fps=Number($("sourceFps").value);
+    settings.audioEnabled=$("sourceCameraAudio").checked;
+   }
 
  if(mediaSourceTypes.has(type)){
   if(!device){log("Bitte zuerst eine Mediendatei importieren oder auswählen.");return;}
@@ -1607,8 +2201,17 @@ $("confirmSource").onclick=async()=>{
    }
   }
 
- if(type==="color")settings.color=$("sourceColor").value;
- const payload={type,name,text,...position,settings};
+  if(type==="color")settings.color=$("sourceColor").value;
+   const transform=sourceTransformFromDialog();
+   const audio=audioCapableSourceTypes.has(type)?{
+    enabled:$("sourceCameraAudio").checked,
+    gain:Math.max(0,Math.min(2,Number($("sourceAudioGain").value)/100)),
+    muted:$("sourceAudioMuted").checked,
+    solo:$("sourceAudioSolo").checked,
+    pan:Math.max(-1,Math.min(1,Number($("sourceAudioPan").value)/100)),
+    routes:[...document.querySelectorAll("[data-source-audio-route]:checked")].map(input=>input.dataset.sourceAudioRoute)
+   }:undefined;
+   const payload={type,name,text,...position,transform,settings,...(audio?{audio}:{})};
  const state=sourceEditId
   ?await sceneCommand({action:"update-source",sourceId:sourceEditId,patch:payload})
   :await sceneCommand({action:"add-source",source:payload});
@@ -1732,6 +2335,12 @@ function isLoopbackCaptureActive(){return Boolean(captureState.screen?.getAudioT
 function selectedAuxRoutes(source){return [...document.querySelectorAll('[data-audio-source-route="'+source+'"]:checked')].map(input=>input.dataset.route);}
 function effectiveAuxRoutes(source){return selectedAuxRoutes(source).filter(route=>route!=="monitor"||!isLoopbackCaptureActive()||allowMonitorDuringLoopback);}
 function hasStreamRoute(name){const snapshot=studioAudioMixer?.snapshot(name);return Boolean(snapshot&&!snapshot.muted&&snapshot.routes.includes("stream"));}
+function channelAudibleOnStream(name){return Boolean(studioAudioMixer?.isAudibleOn(name,"stream"));}
+function sourceAudioRouteGroup(source){
+ if(source?.type==="camera")return "microphone";
+ if(source?.type==="screen"||source?.type==="window")return "system";
+ return "source";
+}
 function effectiveAudioRoutes(routes,source){
  const mode=$("streamAudio")?.value||"mic-system";
  const streamAllowed=source==="microphone"?(mode==="mic"||mode==="mic-system"):source==="system"?(mode==="system"||mode==="mic-system"):true;
@@ -1748,8 +2357,9 @@ document.querySelectorAll("[data-audio-source-route]").forEach(input=>input.addE
 function applyMonitorFeedbackGuard(){
  applyMicrophoneRouting();applySystemRouting();
  for(const name of ["music","tts","alert"]){if(studioAudioMixer?.snapshot(name))studioAudioMixer.setRoutes(name,effectiveAuxRoutes(name));}
- for(const pad of soundboardPads){if(pad.channelName&&studioAudioMixer?.snapshot(pad.channelName))studioAudioMixer.setRoutes(pad.channelName,effectiveAuxRoutes("soundboard"));}
- const status=$("loopbackGuardStatus");
+  for(const pad of soundboardPads){if(pad.channelName&&studioAudioMixer?.snapshot(pad.channelName))studioAudioMixer.setRoutes(pad.channelName,effectiveAuxRoutes("soundboard"));}
+  applySceneAudioRouting();
+  const status=$("loopbackGuardStatus");
  if(status)status.textContent=isLoopbackCaptureActive()?allowMonitorDuringLoopback?"WARNUNG: Loopback aktiv, Monitor freigegeben; Rückkopplung möglich.":"Feedback-Schutz aktiv: Monitor-Routing bei aktivem Loopback blockiert.":"Kein Loopback aktiv; Monitor-Routing folgt der Quellenmatrix.";
 }
 function applyMicrophoneRouting(){
@@ -1793,7 +2403,7 @@ function applySystemRouting(){
 }
 document.querySelectorAll("[data-system-route]").forEach(control=>control.addEventListener("change",applySystemRouting));
 $("audioSystemGain").addEventListener("input",applySystemRouting);
-$("streamAudio").addEventListener("change",()=>{applyMicrophoneRouting();applySystemRouting();});
+$("streamAudio").addEventListener("change",()=>{applyMonitorFeedbackGuard();});
 $("allowMonitorDuringLoopback").addEventListener("change",()=>{allowMonitorDuringLoopback=$("allowMonitorDuringLoopback").checked;saveAudioRoutingState();applyMonitorFeedbackGuard();});
 
 async function reconcileAudioOutputDevices(){
@@ -2038,7 +2648,7 @@ $("microphoneStart").onclick=async()=>{
 };
 if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener("devicechange",()=>{void refreshCaptureDevices().catch(()=>{});void reconcileSourceRuntime();});
 const stopWatchingAudioDevices=studioAudioDeviceAdapter?.watchDevices(()=>reconcileAudioOutputDevices().catch(()=>{}));
-window.addEventListener("beforeunload",()=>{if(mixerMeterFrameState.frame)cancelAnimationFrame(mixerMeterFrameState.frame);stopWatchingAudioDevices?.();studioAudioDeviceAdapter?.close();for(const id of [...sourceRuntime.keys()])releaseSourceRuntime(id);stopBroadcast();stopCapture("camera");stopCapture("screen");stopCapture("microphone");if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
+window.addEventListener("beforeunload",()=>{if(mixerMeterFrameState.frame)cancelAnimationFrame(mixerMeterFrameState.frame);stopWatchingAudioDevices?.();studioAudioDeviceAdapter?.close();for(const id of [...sourceRuntime.keys()])releaseSourceRuntime(id);void stopLocalRecording();stopBroadcast();stopCapture("camera");stopCapture("screen");stopCapture("microphone");if(studioAudioMixer)studioAudioMixer.close().catch(()=>{});});
 $("refreshDevices").click();
 void loadMediaAssets().then(()=>renderSources()).catch(()=>{});
 $("runtimeCheck").onclick=async()=>{
@@ -2219,12 +2829,10 @@ async function playSoundboardPad(pad){
   pad.source=context.createMediaElementSource(pad.audio);
   pad.gain=context.createGain();
   pad.gain.gain.value=pad.muted?0:pad.volume;
-  if(studioAudioMixer){
    pad.destination=context.createMediaStreamDestination();
    pad.source.connect(pad.gain).connect(pad.destination);
    pad.channelName="soundboard-"+soundboardPads.indexOf(pad);
    studioAudioMixer.connect(pad.channelName,pad.destination.stream,{gain:1,routes:effectiveAuxRoutes("soundboard")});
-  }else pad.source.connect(pad.gain).connect(broadcastMasterGain);
  }
  pad.audio.currentTime=0;
  await pad.audio.play();
@@ -2242,29 +2850,27 @@ function installSoundboardHotkeys(){
  soundboardHotkeysInstalled=true;
 }
 function ensureBroadcastAudioGraph(){
- const AudioContextClass=window.AudioContext||window.webkitAudioContext;
- if(!AudioContextClass)throw new Error("AudioContext ist in dieser Laufzeit nicht verfügbar.");
- if(!broadcastAudioContext){
-  broadcastAudioContext=new AudioContextClass();
-  broadcastMasterGain=broadcastAudioContext.createGain();
-  broadcastMasterGain.gain.value=mixerValue("mixerMaster");
-  broadcastMasterGain.connect(broadcastAudioContext.destination);
- }
- if(!musicMediaSource){
-  musicMediaSource=broadcastAudioContext.createMediaElementSource(musicPlayerAudio);
-  musicChannelGain=broadcastAudioContext.createGain();
-  musicChannelGain.gain.value=musicMuted?0:mixerValue("mixerMusic");
-  musicMediaSource.connect(musicChannelGain);
-  if(studioAudioMixer){
+  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+  if(!AudioContextClass)throw new Error("AudioContext ist in dieser Laufzeit nicht verfügbar.");
+  if(!studioAudioMixer)throw new Error("Die zentrale Audio-Bus-Engine ist nicht verfügbar.");
+  if(!broadcastAudioContext){
+   broadcastAudioContext=new AudioContextClass();
+   broadcastMasterGain=broadcastAudioContext.createGain();
+   broadcastMasterGain.gain.value=mixerValue("mixerMaster");
+  }
+  if(!musicMediaSource){
+   musicMediaSource=broadcastAudioContext.createMediaElementSource(musicPlayerAudio);
+   musicChannelGain=broadcastAudioContext.createGain();
+   musicChannelGain.gain.value=musicMuted?0:mixerValue("mixerMusic");
+   musicMediaSource.connect(musicChannelGain);
    if(!musicBridgeDestination)musicBridgeDestination=broadcastAudioContext.createMediaStreamDestination();
    musicChannelGain.connect(musicBridgeDestination);
    if(!studioAudioMixer.snapshot("music"))studioAudioMixer.connect("music",musicBridgeDestination.stream,{gain:1,routes:effectiveAuxRoutes("music")});
    studioAudioMixer.setPan("music",mixerPanState.music);
    studioAudioMixer.setMuted("music",musicMuted);
    refreshMixerSoloButtons();
-  }else musicChannelGain.connect(broadcastMasterGain);
- }
- return broadcastAudioContext;
+  }
+  return broadcastAudioContext;
 }
 let broadcastFrameTimer=0;
 const liveButton=$("live");
@@ -2452,9 +3058,10 @@ async function stopPrivacyShieldOutputs(){
   log("Schutzregie: Aufzeichnungs-Stop nicht verfügbar; bitte manuell prüfen.");
   return;
  }
- try{
-  const stopped=await studio.recordingAction("stop");
-  if(stopped?.ok!==true){
+  try{
+   await stopLocalRecording();
+   const stopped=await studio.recordingAction("stop");
+   if(stopped?.ok!==true){
    log("Schutzregie: Stop der lokalen Aufzeichnung NICHT bestätigt"+(stopped?.error?" · "+String(stopped.error).slice(0,220):"")+"; bitte manuell prüfen.");
   }else{
    updateRecordingUi(stopped.recording);
@@ -2530,21 +3137,152 @@ function updateRecordingUi(recording){
  $("recordingToggle").textContent=active?"■ AUFZEICHNUNG BEENDEN":"● LOKAL AUFZEICHNEN";
  if(text!==recordingUiText){$("recordingStatus").textContent=text;recordingUiText=text;}
 }
-async function syncRecordingState(){
- try{
-  const recording=await window.streamiovStudio?.recordingStatus?.();
-  if(recording?.ok)updateRecordingUi(recording);
- }catch(_){}
+let localRecordingRecorder=null;
+let localRecordingFrameTimer=0;
+let localRecordingCanvasStream=null;
+let localRecordingAudioDestination=null;
+let localRecordingMixerSource=null;
+let localRecordingChunkQueue=Promise.resolve();
+function programAudioIsAudible(){
+ const programRuntimes=activeProgramSourceRuntime();
+ return ["microphone","system"].some(channelAudibleOnStream)
+  ||(musicQueueIndex>=0&&!musicPlayerAudio.paused&&musicCurrentLiveAllowed()&&channelAudibleOnStream("music"))
+  ||(channelAudibleOnStream("tts")&&!mixerSourceMuteState.tts)
+  ||(alertToneActive&&channelAudibleOnStream("alert"))
+  ||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended&&pad.channelName&&channelAudibleOnStream(pad.channelName))
+  ||programRuntimes.some(sourceRuntimeHasStreamAudio);
 }
+function programVideoIsAvailable(){
+ const liveTrack=captureState.camera?.getVideoTracks().some(track=>track.readyState==="live")
+  ||captureState.screen?.getVideoTracks().some(track=>track.readyState==="live");
+ return Boolean(liveTrack||programSceneHasStaticVisualSource()||activeProgramSourceRuntime().some(sourceRuntimeHasLiveVideo));
+}
+async function stopLocalRecording(){
+ const recorder=localRecordingRecorder;
+ localRecordingRecorder=null;
+ if(recorder&&recorder.state!=="inactive"){
+  await new Promise(resolve=>{
+   let settled=false;
+   const finish=()=>{if(settled)return;settled=true;clearTimeout(timer);resolve();};
+   const timer=setTimeout(finish,2500);
+   recorder.addEventListener("stop",finish,{once:true});
+   try{recorder.stop();}catch(_){finish();}
+  });
+ }
+ await localRecordingChunkQueue.catch(()=>{});
+ if(localRecordingFrameTimer){clearInterval(localRecordingFrameTimer);localRecordingFrameTimer=0;}
+ if(localRecordingCanvasStream){localRecordingCanvasStream.getTracks().forEach(track=>track.stop());localRecordingCanvasStream=null;}
+ if(localRecordingMixerSource){try{localRecordingMixerSource.disconnect();}catch(_){}localRecordingMixerSource=null;}
+ if(localRecordingAudioDestination){
+  try{broadcastMasterGain?.disconnect(localRecordingAudioDestination);}catch(_){}
+  localRecordingAudioDestination.stream.getTracks().forEach(track=>track.stop());
+  localRecordingAudioDestination=null;
+ }
+ applyMixerGains();
+}
+async function startLocalRecorder(){
+ if(localRecordingRecorder)return;
+ if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream)throw new Error("Lokale Aufzeichnung ist in dieser Laufzeit nicht verfügbar.");
+ if(!programVideoIsAvailable())throw new Error("Bitte zuerst eine sichtbare Kamera-, Bildschirm-, Bild- oder Titelquelle in der Programmszene aktivieren.");
+ if(!programAudioIsAudible())throw new Error("Keine hörbare Audioquelle für die lokale Aufzeichnung. Bitte Quelle oder Routing prüfen.");
+ const dimensions={"720p":[1280,720],"1080p":[1920,1080],"1440p":[2560,1440]}[$("streamResolution").value]||[1920,1080];
+ const fps=Number($("streamFps").value)||30;
+ const canvas=document.createElement("canvas");canvas.width=dimensions[0];canvas.height=dimensions[1];
+ const fromCanvas=document.createElement("canvas");fromCanvas.width=canvas.width;fromCanvas.height=canvas.height;
+ const toCanvas=document.createElement("canvas");toCanvas.width=canvas.width;toCanvas.height=canvas.height;
+ const drawFrame=()=>drawProgramFrame(canvas,fromCanvas,toCanvas,performance.now());
+ try{
+  drawFrame();
+  localRecordingFrameTimer=setInterval(drawFrame,Math.max(1,Math.round(1000/fps)));
+  localRecordingCanvasStream=canvas.captureStream(fps);
+  await ensureBroadcastAudioGraph().resume();
+  await studioAudioMixer.resume();
+  applyMicrophoneRouting();applySystemRouting();
+  const streamBusTrack=studioAudioMixer.getOutputStream("stream").getAudioTracks().find(track=>track.readyState==="live");
+  if(!streamBusTrack)throw new Error("Der Stream-Bus liefert keinen aktiven Audiotrack.");
+  localRecordingAudioDestination=broadcastAudioContext.createMediaStreamDestination();
+  broadcastMasterGain.connect(localRecordingAudioDestination);
+  localRecordingMixerSource=broadcastAudioContext.createMediaStreamSource(new MediaStream([streamBusTrack]));
+  localRecordingMixerSource.connect(broadcastMasterGain);
+  applyMixerGains();
+  const mimeType="video/webm;codecs=vp8,opus";
+  if(!MediaRecorder.isTypeSupported(mimeType))throw new Error("Dieser Browser unterstützt keinen VP8/Opus-Medienstream.");
+  const recorder=new MediaRecorder(new MediaStream([...localRecordingCanvasStream.getVideoTracks(),...localRecordingAudioDestination.stream.getAudioTracks()]),{mimeType,videoBitsPerSecond:Math.max(1000000,Number($("streamBitrate").value)*1000),audioBitsPerSecond:128000});
+  localRecordingRecorder=recorder;
+  localRecordingChunkQueue=Promise.resolve();
+  recorder.ondataavailable=event=>{
+   if(!event.data?.size)return;
+   localRecordingChunkQueue=localRecordingChunkQueue.then(async()=>{
+    const chunk=await event.data.arrayBuffer();
+    const sent=await window.streamiovStudio.recordChunk(chunk);
+    if(sent?.recording?.ok)updateRecordingUi(sent.recording);
+    if(!sent?.ok)throw new Error(sent?.error||"Lokale Aufzeichnung fehlgeschlagen.");
+   }).catch(error=>{
+    updateRecordingUi({error:String(error.message||error).slice(0,220)});
+    void stopLocalRecording();
+   });
+  };
+  recorder.onerror=()=>{updateRecordingUi({error:"Lokale Aufzeichnung ist fehlgeschlagen."});void stopLocalRecording();};
+  recorder.start(250);
+ }catch(error){await stopLocalRecording();throw error;}
+}
+async function syncRecordingState(){
+  try{
+   const recording=await window.streamiovStudio?.recordingStatus?.();
+   if(recording?.ok)updateRecordingUi(recording);
+  }catch(_){}
+}
+async function runRecordingFileAction(id,action){
+ const studio=window.streamiovStudio;
+ if(action==="delete"&&!window.confirm("Diese lokale Aufzeichnung dauerhaft löschen?"))return;
+ try{
+   const result=await studio?.recordingFileAction?.(id,action);
+   if(!result?.ok)throw new Error(result?.error||"Dateiaktion fehlgeschlagen.");
+   log(action==="delete"?"Lokale Aufzeichnung gelöscht.":"Lokale Aufzeichnung geöffnet.");
+   await refreshRecordingFiles();
+  }catch(error){$("recordingStatus").textContent="Dateiaktion fehlgeschlagen: "+String(error.message||error).slice(0,220);}
+}
+async function refreshRecordingFiles(){
+ const host=$("recordingFiles");
+ if(!host)return;
+ const result=await window.streamiovStudio?.recordingList?.().catch(()=>null);
+ host.replaceChildren();
+ if(!result?.ok){host.textContent=result?.error||"Aufzeichnungen konnten nicht gelesen werden.";return;}
+ const files=Array.isArray(result.files)?result.files:[];
+ if(!files.length){host.textContent="Keine gespeicherten Aufzeichnungen.";return;}
+ for(const file of files){
+  const row=document.createElement("div");row.setAttribute("role","listitem");
+  const label=document.createElement("span");label.textContent=file.name+" · "+formatRecordingBytes(file.bytes)+" · "+String(file.modifiedAt||"");
+  const open=document.createElement("button");open.type="button";open.textContent="ÖFFNEN";open.addEventListener("click",()=>void runRecordingFileAction(file.id,"open"));
+  const reveal=document.createElement("button");reveal.type="button";reveal.textContent="ORDNER";reveal.addEventListener("click",()=>void runRecordingFileAction(file.id,"reveal"));
+  const remove=document.createElement("button");remove.type="button";remove.textContent="LÖSCHEN";remove.addEventListener("click",()=>void runRecordingFileAction(file.id,"delete"));
+  row.append(label,open,reveal,remove);host.append(row);
+ }
+}
+$("recordingRefresh")?.addEventListener("click",()=>void refreshRecordingFiles());
 $("recordingToggle").onclick=async()=>{
  const studio=window.streamiovStudio;
  if(!studio?.recordingAction){updateRecordingUi({error:"Aufzeichnung ist in dieser Laufzeit nicht verfügbar."});return;}
  const current=await studio.recordingStatus?.().catch(()=>null);
  try{
-  const result=await studio.recordingAction(current?.active?"stop":"start");
-  if(!result?.ok)throw new Error(result?.error||"Aufzeichnung fehlgeschlagen.");
+  if(current?.active){
+   await stopLocalRecording();
+   const result=await studio.recordingAction("stop");
+   if(!result?.ok)throw new Error(result?.error||"Aufzeichnung konnte nicht beendet werden.");
+   updateRecordingUi(result.recording);
+   await refreshRecordingFiles();
+   log("Lokale Aufzeichnung gespeichert: "+(result.recording?.path||"Datei im Benutzerprofil")+".");
+   return;
+  }
+  const streamState=await studio.getStreamStatus?.().catch(()=>null);
+  const result=await studio.recordingAction("start");
+  if(!result?.ok)throw new Error(result?.error||"Aufzeichnung konnte nicht gestartet werden.");
+  if(!streamState?.active){
+   try{await startLocalRecorder();}
+   catch(error){await studio.recordingAction("stop");throw error;}
+  }
   updateRecordingUi(result.recording);
-  log(current?.active?"Lokale Aufzeichnung gespeichert.":"Lokale Aufzeichnung gestartet; ausschließlich eine Datei auf diesem Gerät.");
+  log(streamState?.active?"Lokale Aufzeichnung des laufenden Streams gestartet.":"Lokale Aufzeichnung ohne RTMP gestartet; ausschließlich eine Datei auf diesem Gerät.");
  }catch(error){updateRecordingUi({error:String(error.message||error)});}
 };
 function setSourceControlsLocked(locked){
@@ -2665,15 +3403,17 @@ window.streamiovStudio?.onStreamStatus?.(payload=>{
 async function syncStreamState(){
  const state=await window.streamiovStudio?.getStreamStatus?.().catch(()=>null);
  if(!state?.ok)return;
- if(state.active){
-  setBroadcastStatus(state.stopping?"stopping":"connecting",state.stopping?"":"Ein Stream aus einer vorherigen Sitzung läuft weiter; ein Klick beendet ihn.");
-  return;
- }
+  if(state.active){
+   setBroadcastStatus(state.stopping?"stopping":"connecting",state.stopping?"":"Ein Stream aus einer vorherigen Sitzung läuft weiter; ein Klick beendet ihn.");
+   void syncRecordingState();
+   return;
+  }
   rendererOwnsStream=false;
   setBroadcastStatus("offline");
   void syncRecordingState();
 }
 void syncStreamState();
+void refreshRecordingFiles();
 
 function activeProgramSourceRuntime(){
   const sources=sceneById(programSceneId)?.sources||[];
@@ -2690,7 +3430,7 @@ function sourceRuntimeHasLiveVideo(entry){
 }
 function sourceRuntimeHasStreamAudio(entry){
   const runtime=entry.runtime;
-  if(!runtime?.channelName||entry.source.visible===false||!hasStreamRoute(runtime.channelName))return false;
+  if(!runtime?.channelName||entry.source.visible===false||!channelAudibleOnStream(runtime.channelName))return false;
   const liveTrack=runtime.stream?.getAudioTracks().some(track=>track.readyState==="live");
   const element=runtime.element;
   const activeElement=Boolean(element&&!runtime.error&&!element.paused&&!element.ended&&element.muted!==true&&(!Number.isFinite(element.volume)||element.volume>0));
@@ -2704,6 +3444,7 @@ function selectedBroadcastPlatforms(){
 }
 async function startBroadcast(){
   lastStreamError="";
+  applySceneAudioRouting();
   const platforms=selectedBroadcastPlatforms();
   if(!platforms.length){setBroadcastStatus("error","Bitte mindestens einen LIVE-Ausgang auswählen.");return;}
   lastBroadcastPlatforms=platforms;
@@ -2717,11 +3458,13 @@ async function startBroadcast(){
  const microphoneTrack=captureState.microphone?.getAudioTracks().find(track=>track.readyState==="live");
  const systemTrack=captureState.screen?.getAudioTracks().find(track=>track.readyState==="live");
  const audioMode=$("streamAudio").value;
- const audioInputs=(audioMode==="mic"?[microphoneTrack]:audioMode==="system"?[systemTrack]:[microphoneTrack,systemTrack]).filter(Boolean);
-   const auxiliaryAudioActive=(musicQueueIndex>=0&&!musicPlayerAudio.paused&&musicCurrentLiveAllowed()&&hasStreamRoute("music"))||(hasStreamRoute("tts")&&!mixerSourceMuteState.tts)||(alertToneActive&&hasStreamRoute("alert"))||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended&&pad.channelName&&hasStreamRoute(pad.channelName))||sourceAudioActive;
-  if(!cameraTrack&&!screenTrack&&!sourceHasLiveVideo&&!staticVisualSource){setBroadcastStatus("error","Bitte zuerst eine sichtbare Kamera-, Bildschirm-, Bild- oder Titelquelle in der Programmszene aktivieren.");return;}
-  if(musicQueueIndex>=0&&!musicPlayerAudio.paused&&hasStreamRoute("music")&&!musicCurrentLiveAllowed()){setBroadcastStatus("blocked","Die aktuelle Musik ist nicht rechtegeprüft. Bitte LIVE-freigegebenen Katalogtitel wählen oder Musik-Routing aus dem Stream entfernen.");return;}
-  if(!audioInputs.length&&!auxiliaryAudioActive){setBroadcastStatus("error","Keine aktive Audioquelle im gewählten Stream-Modus und keine laufende Musik-, TTS-, Alert-, Soundboard- oder Medienquelle.");return;}
+  const audioInputs=(audioMode==="mic"?[microphoneTrack]:audioMode==="system"?[systemTrack]:[microphoneTrack,systemTrack]).filter(Boolean);
+  const primaryAudioChannels=audioMode==="mic"?["microphone"]:audioMode==="system"?["system"]:["microphone","system"];
+  const primaryAudioAudible=primaryAudioChannels.some(channelAudibleOnStream);
+    const auxiliaryAudioActive=(musicQueueIndex>=0&&!musicPlayerAudio.paused&&musicCurrentLiveAllowed()&&channelAudibleOnStream("music"))||(channelAudibleOnStream("tts")&&!mixerSourceMuteState.tts)||(alertToneActive&&channelAudibleOnStream("alert"))||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended&&pad.channelName&&channelAudibleOnStream(pad.channelName))||sourceAudioActive;
+   if(!cameraTrack&&!screenTrack&&!sourceHasLiveVideo&&!staticVisualSource){setBroadcastStatus("error","Bitte zuerst eine sichtbare Kamera-, Bildschirm-, Bild- oder Titelquelle in der Programmszene aktivieren.");return;}
+   if(musicQueueIndex>=0&&!musicPlayerAudio.paused&&hasStreamRoute("music")&&!musicCurrentLiveAllowed()){setBroadcastStatus("blocked","Die aktuelle Musik ist nicht rechtegeprüft. Bitte LIVE-freigegebenen Katalogtitel wählen oder Musik-Routing aus dem Stream entfernen.");return;}
+   if(!primaryAudioAudible&&!auxiliaryAudioActive){setBroadcastStatus("error","Keine hörbare Audioquelle im gewählten Stream-Modus. Bei aktivem Solo muss die Solo-Quelle ebenfalls zum Stream geroutet sein.");return;}
 
   if(platforms.includes("twitch")){
    const twitchAccount=await window.streamiovStudio?.twitchStatus?.();
@@ -2745,9 +3488,13 @@ async function startBroadcast(){
   const dimensions={"720p":[1280,720],"1080p":[1920,1080],"1440p":[2560,1440]}[resolution]||[1920,1080];
   const canvas=document.createElement("canvas");
   canvas.width=dimensions[0];canvas.height=dimensions[1];
-   const streamFps=Number($("streamFps").value);
-   const drawFrame=()=>drawSceneToCanvas(canvas,programSceneId,programOutputAlpha);
-   drawFrame();
+    const streamFps=Number($("streamFps").value);
+    const transitionFromCanvas=document.createElement("canvas");
+    transitionFromCanvas.width=canvas.width;transitionFromCanvas.height=canvas.height;
+    const transitionToCanvas=document.createElement("canvas");
+    transitionToCanvas.width=canvas.width;transitionToCanvas.height=canvas.height;
+     const drawFrame=()=>drawProgramFrame(canvas,transitionFromCanvas,transitionToCanvas,performance.now());
+    drawFrame();
    broadcastFrameTimer=setInterval(drawFrame,Math.max(1,Math.round(1000/streamFps)));
    broadcastCanvasStream=canvas.captureStream(streamFps);
 
@@ -2758,12 +3505,11 @@ async function startBroadcast(){
   applySystemRouting();
   const streamBus=studioAudioMixer.getOutputStream("stream");
   const streamBusTrack=streamBus.getAudioTracks().find(track=>track.readyState==="live");
-  const streamHasSource=((audioMode==="mic"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("microphone"))&&effectiveAudioRoutes(selectedMicrophoneRoutes()).includes("stream"))
-   ||((audioMode==="system"||audioMode==="mic-system")&&Boolean(studioAudioMixer.snapshot("system"))&&effectiveAudioRoutes(selectedSystemRoutes()).includes("stream"))
-   ||(musicQueueIndex>=0&&musicPlayerAudio.paused===false&&musicCurrentLiveAllowed()&&hasStreamRoute("music"))
-     ||(hasStreamRoute("tts")&&!mixerSourceMuteState.tts)
-    ||(alertToneActive&&hasStreamRoute("alert"))
-    ||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended&&pad.channelName&&hasStreamRoute(pad.channelName))
+  const streamHasSource=primaryAudioAudible
+   ||(musicQueueIndex>=0&&musicPlayerAudio.paused===false&&musicCurrentLiveAllowed()&&channelAudibleOnStream("music"))
+     ||(channelAudibleOnStream("tts")&&!mixerSourceMuteState.tts)
+    ||(alertToneActive&&channelAudibleOnStream("alert"))
+    ||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended&&pad.channelName&&channelAudibleOnStream(pad.channelName))
     ||sourceAudioActive;
   if(!streamBusTrack||!streamHasSource)throw new Error("Für den Stream-Bus ist keine aktive Audioquelle zum Stream geroutet.");
   broadcastAudioDestination=broadcastAudioContext.createMediaStreamDestination();
@@ -2782,7 +3528,7 @@ async function startBroadcast(){
   const stopIfSourcesEnded=()=>{
     const runtimeEntries=activeProgramSourceRuntime();
     const videoAvailable=(cameraTrack?.readyState==="live")||(screenTrack?.readyState==="live")||programSceneHasStaticVisualSource()||runtimeEntries.some(entry=>sourceRuntimeHasLiveVideo(entry));
-         const audioAvailable=audioInputs.some(track=>track.readyState==="live")||(musicQueueIndex>=0&&musicPlayerAudio.paused===false&&(!hasStreamRoute("music")||musicCurrentLiveAllowed()))||!ttsAudio.paused||alertToneActive||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended)||runtimeEntries.some(entry=>sourceRuntimeHasStreamAudio(entry));
+    const audioAvailable=primaryAudioChannels.some(channelAudibleOnStream)||(musicQueueIndex>=0&&musicPlayerAudio.paused===false&&musicCurrentLiveAllowed()&&channelAudibleOnStream("music"))||(channelAudibleOnStream("tts")&&!mixerSourceMuteState.tts&&!ttsAudio.paused)||(alertToneActive&&channelAudibleOnStream("alert"))||soundboardPads.some(pad=>!pad.audio.paused&&!pad.audio.ended&&pad.channelName&&channelAudibleOnStream(pad.channelName))||runtimeEntries.some(entry=>sourceRuntimeHasStreamAudio(entry));
     if(broadcastRecorder&&(!videoAvailable||!audioAvailable)){
      setBroadcastStatus("error","Eine benötigte Bild- oder Audioquelle der Programmszene wurde beendet.");
      void stopBroadcast(true);
@@ -3110,8 +3856,7 @@ async function playTtsAudio(base64,mime="audio/wav"){
   if(!ttsMediaSource){
    ttsMediaSource=context.createMediaElementSource(ttsAudio);
    ttsChannelGain=context.createGain();
-   ttsChannelGain.gain.value=studioAudioMixer?1:mixerValue("mixerTts");
-   if(studioAudioMixer){
+    ttsChannelGain.gain.value=1;
     ttsBridgeDestination=context.createMediaStreamDestination();
     ttsMediaSource.connect(ttsChannelGain).connect(ttsBridgeDestination);
     studioAudioMixer.connect("tts",ttsBridgeDestination.stream,{gain:mixerValue("mixerTts"),routes:effectiveAuxRoutes("tts")});
@@ -3126,7 +3871,6 @@ async function playTtsAudio(base64,mime="audio/wav"){
       renderAudioBus("monitor");
      }catch(_){audioBusStatus("monitor","Monitor-Ausgang für TTS nicht verfügbar.");}
     }
-   }else ttsMediaSource.connect(ttsChannelGain).connect(broadcastMasterGain);
   }
  if(ttsObjectUrl)URL.revokeObjectURL(ttsObjectUrl);
  ttsObjectUrl=URL.createObjectURL(new Blob([bytes],{type:mime}));
@@ -4610,6 +5354,9 @@ refreshAudioBusDevices().catch(()=>audioBusNames.slice(1).forEach(name=>audioBus
   const values = Object.fromEntries(ids.map(id => [id, byId(id).value.trim()]));
   try {
    localStorage.setItem(storageKey, JSON.stringify(values));
+   if (['none','standard','custom'].includes(values.streamOverlay)) {
+    void sceneCommand({action:'set-overlay',overlay:{style:values.streamOverlay,text:values.streamOverlay==='custom'?byId('sceneOverlayText').value:'',opacity:Number(byId('sceneOverlayOpacity').value)/100}});
+   }
    status.textContent = 'Einstellungen lokal gespeichert. Noch nicht an einen Streamingdienst übertragen.';
   } catch (_) { status.textContent = 'Speichern fehlgeschlagen – lokaler Speicher nicht verfügbar.'; }
  });

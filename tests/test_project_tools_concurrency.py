@@ -111,6 +111,10 @@ class ProjectToolsConcurrencyTests(unittest.TestCase):
                 if contender.poll() is None:
                     contender.terminate()
                 contender.wait(timeout=5)
+            if holder.stderr is not None:
+                holder.stderr.close()
+            if contender is not None and contender.stderr is not None:
+                contender.stderr.close()
 
     def test_distinct_file_locks_allow_independent_workers_to_overlap(self):
         barrier = threading.Barrier(2, timeout=3)

@@ -9,6 +9,13 @@ for env_file in "${CONFIG_DIR}/ai-worker.env" "${CONFIG_DIR}/ai-chief.env"; do
   fi
 done
 
+for node_bin_dir in "${HOME}"/.config/nvm/versions/node/*/bin; do
+  if [[ -x "${node_bin_dir}/node" ]]; then
+    export PATH="${node_bin_dir}:${PATH}"
+    break
+  fi
+done
+
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 if [[ -z "${STREAMIOV_MODEL_URL:-}" && -n "${OLLAMA_HOST:-}" ]]; then
   export STREAMIOV_MODEL_URL="${OLLAMA_HOST}"

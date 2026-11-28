@@ -1,7 +1,7 @@
 """Unit tests for strict observed test exit-code parsing."""
 import unittest
 
-from ai.core.verification_evidence import observed_successful_test
+from ai.core.verification_evidence import observed_interrupted_test, observed_successful_test
 
 
 class VerificationEvidenceTests(unittest.TestCase):
@@ -15,6 +15,21 @@ class VerificationEvidenceTests(unittest.TestCase):
         self.assertFalse(observed_successful_test("note\nexit_code=0"))
         self.assertFalse(observed_successful_test("exit_code=00\nOK"))
         self.assertFalse(observed_successful_test(None))
+
+    def test_recognizes_terminated_and_timed_out_tool_runs(self):
+        for output in (
+            "exit_code=-15\n",
+            "exit_code=-9\n",
+            "exit_code=124\n",
+            "exit_code=137\n",
+            "exit_code=143\n",
+        ):
+            with self.subTest(output=output):
+                self.assertTrue(observed_interrupted_test(output))
+                self.assertFalse(observed_successful_test(output))
+        for output in ("exit_code=0\nOK", "exit_code=1\nFAILED", "TOOL_ERROR: exit_code=-15", None):
+            with self.subTest(output=output):
+                self.assertFalse(observed_interrupted_test(output))
 
 
 if __name__ == "__main__":

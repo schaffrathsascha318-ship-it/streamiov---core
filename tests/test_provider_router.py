@@ -8,7 +8,12 @@ from ai.providers.local_http import (
     LocalOpenAICompatibleProvider,
     provider_from_env,
 )
-from ai.providers.router import ProviderRouter
+from ai.providers.router import (
+    ProviderRecoveryError,
+    ProviderRouter,
+    TaskScopedProvider,
+    provider_for_role,
+)
 
 
 class FakeProvider:
@@ -147,6 +152,52 @@ class ProviderRouterTests(unittest.TestCase):
             provider = provider_from_env()
         self.assertIsInstance(provider, OllamaProvider)
         self.assertEqual(provider.model, "existing-model")
+
+    def test_quota_failure_sets_cooldown_and_router_keeps_using_fallback(self):
+        class QuotaError(ProviderError):
+            failure_class = "quota"
+
+        cloud = FakeProvider("cloudflare-workers-ai", error=QuotaError("daily_ai_limit_reached (429)"))
+        local = FakeProvider("ollama", reply=ModelReply("fallback", "ollama", "small"))
+        router = ProviderRouter([("cloudflare-workers-ai", cloud), ("ollama", local)])
+
+        self.assertEqual(router.generate(system="", messages=[]).content, "fallback")
+        self.assertEqual(router.generate(system="", messages=[]).content, "fallback")
+        self.assertEqual(cloud.calls, 1)
+        self.assertEqual(local.calls, 2)
+        self.assertGreater(router._cooldown_remaining("cloudflare-workers-ai"), 0)
+
+    def test_all_quota_providers_in_cooldown_raise_structured_recovery_error(self):
+        class QuotaError(ProviderError):
+            failure_class = "quota"
+
+        router = ProviderRouter([("cloudflare-workers-ai", FakeProvider("cloudflare-workers-ai", error=QuotaError("daily_ai_limit_reached")))])
+        with self.assertRaises(ProviderRecoveryError):
+            router.generate(system="", messages=[])
+        with self.assertRaises(ProviderRecoveryError) as caught:
+            router.generate(system="", messages=[])
+        self.assertEqual(caught.exception.failure_class, "provider_quota_all")
+        self.assertIn("failure_class=provider_quota_all", str(caught.exception))
+
+    def test_provider_for_role_restricts_loopback_models_for_complex_tasks(self):
+        cloud = FakeProvider("cloudflare-workers-ai")
+        local = FakeProvider("ollama")
+        router = ProviderRouter([("cloudflare-workers-ai", cloud), ("ollama", local)])
+
+        complex_provider = provider_for_role(router, "code")
+        self.assertIsInstance(complex_provider, TaskScopedProvider)
+        self.assertEqual(complex_provider.allowed_providers, ("cloudflare-workers-ai",))
+        self.assertIsNone(complex_provider.max_actions)
+        simple_provider = provider_for_role(router, "research")
+        self.assertEqual(simple_provider.allowed_providers, ("cloudflare-workers-ai", "ollama"))
+        self.assertEqual(simple_provider.max_actions, 12)
+        self.assertEqual(
+            provider_for_role(router, "LOCAL_RECOVERY_ELIGIBLE").max_actions, 12,
+        )
+        recovery = provider_for_role(complex_provider, "LOCAL_RECOVERY_ELIGIBLE")
+        self.assertIsInstance(recovery, TaskScopedProvider)
+        self.assertEqual(recovery.allowed_providers, ("cloudflare-workers-ai", "ollama"))
+        self.assertEqual(recovery.max_actions, 12)
 
 
 if __name__ == "__main__":

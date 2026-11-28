@@ -16,6 +16,7 @@ from ai.core.agent import (
     _validate_tool_action,
     AgentCheckpointStore,
 )
+from ai.core.verification_evidence import VerificationReportError, validate_verification_report
 from ai.providers.base import ModelReply
 
 
@@ -34,6 +35,27 @@ class SequenceProvider:
 
 
 class SpecialistActionProtocolTests(unittest.TestCase):
+
+    def test_system_prompt_only_offers_game_checks_to_eligible_roles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            code = DevelopmentAgent(SequenceProvider([]), directory, specialist="code")
+            game = DevelopmentAgent(SequenceProvider([]), directory, specialist="ai_games_agent")
+            testing = DevelopmentAgent(SequenceProvider([]), directory, specialist="testing")
+        self.assertNotIn("run_game_checks", code.system_prompt)
+        self.assertIn("run_game_checks", game.system_prompt)
+        self.assertIn("run_game_checks", testing.system_prompt)
+
+    def test_provider_action_budget_stops_unbounded_recovery_loops(self):
+        provider = SequenceProvider(
+            '{"tool":"unknown_tool","arguments":{}}',
+            '{"tool":"unknown_tool","arguments":{}}',
+        )
+        provider.max_actions = 2
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="code")
+            with self.assertRaisesRegex(AgentError, "provider action budget"):
+                agent.run("inspect the repository")
+        self.assertEqual(provider.calls, 2)
 
     def test_old_checkpoint_schema_migrates_retry_and_final_columns_without_losing_rows(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -125,7 +147,15 @@ class SpecialistActionProtocolTests(unittest.TestCase):
         repeated = {"role": "user", "content": "ACTION 1 (list_files):\\nfile README.md"}
         messages = [original, repeated, repeated, repeated]
         fitted = _fit_provider_messages("system", messages)
-        self.assertEqual(fitted, [original, repeated])
+        self.assertEqual(fitted, [original, {"role": "user", "content": "file README.md"}])
+
+    def test_provider_context_drops_synthetic_assistant_tool_summaries(self):
+        original = {"role": "user", "content": "original task"}
+        synthetic = {"role": "assistant", "content": "Previously requested tools: list_files"}
+        results = {"role": "user", "content": "TOOL RESULTS for the actions you already requested."}
+        fitted = _fit_provider_messages("system", [original, synthetic, results])
+        self.assertEqual(fitted, [original, results])
+        self.assertNotIn("Previously requested tools", [message["content"] for message in fitted])
 
     def test_rejects_leading_trailing_prose_and_truncated_json(self):
         invalid = (
@@ -175,6 +205,8 @@ class SpecialistActionProtocolTests(unittest.TestCase):
         )
         self.assertIn("allowed keys are ['content', 'path']", correction)
         self.assertIn("unexpected keys are ['extra']", correction)
+        self.assertIn("Never repeat a rejected object verbatim", correction)
+        self.assertNotIn("run_game_checks", correction)
 
     def test_read_file_offset_and_length_are_rejected_with_actionable_schema_feedback(self):
         invalid = json.dumps({
@@ -275,14 +307,14 @@ class SpecialistActionProtocolTests(unittest.TestCase):
         provider = SequenceProvider(
             '{"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}',
             '{"tool":"write_file","arguments":{"path":"unsafe.py","content":"x"}}',
-            '{"verdict":"passed","evidence":["observed test output"],"findings":[]}',
+            '{"passed":true,"findings":[]}',
         )
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="testing")
             with patch.object(agent.tools, "run_tests", return_value="exit_code=0\nOK"):
                 result = agent.run("STREAMIOV_FINAL_VERIFICATION: inspect the project")
             payload = json.loads(result)
-            self.assertEqual(set(payload), {"verdict", "evidence", "findings", "tool_evidence"})
+            self.assertEqual(set(payload), {"passed", "findings", "tool_evidence"})
             self.assertTrue(any(
                 item["tool"] == "run_tests" and "exit_code=0" in item["result"]
                 for item in payload["tool_evidence"]
@@ -294,7 +326,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
 
         provider = SequenceProvider(
             '{"tool":"list_files","arguments":{"path":"."}}',
-            '{"verdict":"passed","evidence":["inspected"],"findings":[]}',
+            '{"passed":true,"findings":[]}',
         )
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="testing")
@@ -321,7 +353,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
 
         provider = SequenceProvider(
             '{"tool":"run_game_checks","arguments":{}}',
-            '{"verdict":"passed","evidence":["game checks passed"],"findings":[]}',
+            '{"passed":true,"findings":[]}',
         )
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="testing")
@@ -329,7 +361,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
                 result = agent.run("STREAMIOV_FINAL_VERIFICATION: verify game work")
             checks.assert_called_once_with()
             payload = json.loads(result)
-            self.assertEqual(payload["verdict"], "passed")
+            self.assertIs(payload["passed"], True)
             self.assertTrue(any(
                 item["tool"] == "run_game_checks" and "exit_code=0" in item["result"]
                 for item in payload["tool_evidence"]
@@ -371,27 +403,35 @@ class SpecialistActionProtocolTests(unittest.TestCase):
             )
             self.assertIn("run_game_checks tool is restricted", tool_output)
 
-    def test_verification_ignores_model_supplied_tool_evidence(self):
+    def test_verification_rejects_model_supplied_tool_evidence(self):
         from unittest.mock import patch
 
         provider = SequenceProvider(
             '{"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}',
-            '{"verdict":"passed","evidence":["observed"],"findings":[],'
+            '{"passed":true,"findings":[],'
             '"tool_evidence":[{"tool":"write_file","result":"exit_code=0"}]}',
+            '{"passed":true,"findings":[]}',
         )
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="testing")
             with patch.object(agent.tools, "run_tests", return_value="exit_code=0\nOK"):
                 result = agent.run("STREAMIOV_FINAL_VERIFICATION: inspect the project")
-            evidence = json.loads(result)["tool_evidence"]
-            self.assertEqual([item["tool"] for item in evidence], ["run_tests"])
-            self.assertIn("exit_code=0", evidence[0]["result"])
+            payload = json.loads(result)
+            self.assertEqual([item["tool"] for item in payload["tool_evidence"]], ["run_tests"])
+            self.assertIn("exit_code=0", payload["tool_evidence"][0]["result"])
+            correction = next(
+                message["content"]
+                for call in provider.messages
+                for message in call
+                if "FORMAT CORRECTION:" in message["content"]
+            )
+            self.assertIn("exactly the keys 'passed' and 'findings'", correction)
 
 
     def test_final_verification_report_without_tool_runs_observed_baseline_test(self):
         from unittest.mock import patch
 
-        report = '{"verdict":"passed","evidence":["baseline test observed"],"findings":[]}'
+        report = '{"passed":true,"findings":[]}'
         provider = SequenceProvider(report, report)
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="testing")
@@ -399,7 +439,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
                 result = agent.run("STREAMIOV_FINAL_VERIFICATION: inspect the project")
             tests.assert_called_once_with("python -m unittest discover -s tests")
             payload = json.loads(result)
-            self.assertEqual(payload["verdict"], "passed")
+            self.assertIs(payload["passed"], True)
             self.assertTrue(any(
                 item["tool"] == "run_tests" and "exit_code=0" in item["result"]
                 for item in payload["tool_evidence"]
@@ -408,7 +448,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
     def test_final_verification_baseline_failure_cannot_be_reported_as_passed(self):
         from unittest.mock import patch
 
-        report = '{"verdict":"passed","evidence":["claimed"],"findings":[]}'
+        report = '{"passed":true,"findings":[]}'
         provider = SequenceProvider(report, report)
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="testing")
@@ -421,7 +461,7 @@ class SpecialistActionProtocolTests(unittest.TestCase):
 
         provider = SequenceProvider(
             '{"tool":"run_tests","arguments":{"command":"python -m unittest discover -s tests"}}',
-            '{"verdict":"passed","evidence":["claimed"],"findings":[]}',
+            '{"passed":true,"findings":[]}',
         )
         with tempfile.TemporaryDirectory() as directory:
             agent = DevelopmentAgent(provider, directory, specialist="testing")
@@ -460,6 +500,146 @@ class SpecialistActionProtocolTests(unittest.TestCase):
             ]
             self.assertEqual(len(notices), 1)
             self.assertIn("without observed tool output", notices[0])
+
+    def test_unknown_tool_correction_names_the_invented_tool_and_real_alternatives(self):
+        invented = json.dumps({
+            "tool": "create_module",
+            "arguments": {"module_name": "AI Chief", "module_path": "ai/modules/ai-chief.py"},
+        })
+        with self.assertRaisesRegex(AgentError, "create_module.*write_file"):
+            _validate_tool_action(json.loads(invented))
+        provider = SequenceProvider(
+            invented,
+            '{"tool":"list_files","arguments":{"path":"."}}',
+            '{"final":"no invented tool was executed"}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="code")
+            result = agent.run("Inspect the workspace without inventing tools.")
+            self.assertIn("no invented tool was executed", result)
+            self.assertFalse(Path(directory, "ai", "modules", "ai-chief.py").exists())
+        correction = next(
+            message["content"]
+            for call in provider.messages
+            for message in call
+            if "FORMAT CORRECTION:" in message["content"]
+        )
+        for expected in ("create_module", "list_files", "write_file", "replace_text", "run_tests"):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, correction)
+        self.assertIn("Never invent tools", correction)
+
+    def test_action_key_correction_states_the_exact_top_level_schema(self):
+        provider = SequenceProvider(
+            '{"action":"read_file","arguments":{"path":"ai/file.py"}}',
+            '{"tool":"list_files","arguments":{"path":"."}}',
+            '{"final":"corrected the action key"}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="code")
+            self.assertIn("corrected the action key", agent.run("Use the documented tool key."))
+        correction = next(
+            message["content"]
+            for call in provider.messages
+            for message in call
+            if "FORMAT CORRECTION:" in message["content"]
+        )
+        self.assertIn("never 'action'", correction)
+        self.assertIn("'tool' and 'arguments'", correction)
+        self.assertIn("['action', 'arguments']", correction)
+
+    def test_mixed_final_and_tool_correction_states_the_exclusive_final_rule(self):
+        provider = SequenceProvider(
+            '{"tool":"run_game_checks","arguments":{},"final":"No test passed"}',
+            '{"tool":"list_files","arguments":{"path":"."}}',
+            '{"final":"mixed response rejected"}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="code")
+            self.assertIn("mixed response rejected", agent.run("Do not mix final and tool fields."))
+        correction = next(
+            message["content"]
+            for call in provider.messages
+            for message in call
+            if "FORMAT CORRECTION:" in message["content"]
+        )
+        self.assertIn("Never mix a tool with a final field", correction)
+        self.assertIn("only object and contain only a string 'final' field", correction)
+
+    def test_final_verification_final_object_is_corrected_with_report_schema(self):
+        provider = SequenceProvider(
+            '{"final":"I verified everything"}',
+            '{"passed":false,"findings":["No tests observed."]}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="testing")
+            payload = json.loads(agent.run("STREAMIOV_FINAL_VERIFICATION: inspect the project"))
+        self.assertIs(payload["passed"], False)
+        self.assertEqual(provider.calls, 2)
+        correction = next(
+            message["content"]
+            for call in provider.messages
+            for message in call
+            if "FORMAT CORRECTION:" in message["content"]
+        )
+        self.assertIn("'passed'", correction)
+        self.assertIn("'findings'", correction)
+        self.assertIn("Do not use 'verdict', 'evidence'", correction)
+        self.assertIn("Do not use a 'final' field", correction)
+        self.assertIn("passed=true with non-empty findings is invalid", correction)
+
+    def test_final_verification_invalid_report_schema_is_corrected(self):
+        provider = SequenceProvider(
+            '{"passed":false,"findings":42}',
+            '{"passed":false,"findings":["No tests observed."]}',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            agent = DevelopmentAgent(provider, directory, specialist="testing")
+            payload = json.loads(agent.run("STREAMIOV_FINAL_VERIFICATION: inspect the project"))
+        self.assertIs(payload["passed"], False)
+        correction = next(
+            message["content"]
+            for call in provider.messages
+            for message in call
+            if "FORMAT CORRECTION:" in message["content"]
+        )
+        self.assertIn("non-empty strings", correction)
+        self.assertIn("findings", correction)
+
+
+class VerificationReportContractTests(unittest.TestCase):
+    def test_pass_requires_empty_findings(self):
+        validate_verification_report({"passed": True, "findings": []})
+        with self.assertRaises(VerificationReportError):
+            validate_verification_report({"passed": True, "findings": ["No tests observed."]})
+
+    def test_fail_requires_concrete_findings(self):
+        with self.assertRaises(VerificationReportError):
+            validate_verification_report({"passed": False, "findings": []})
+        validate_verification_report({
+            "passed": False,
+            "findings": [
+                "Autonomer Chief-Lauf nicht nachgewiesen",
+                "Mission nicht vollständig abgeschlossen",
+            ],
+        })
+
+    def test_missing_or_invalid_fields_fail(self):
+        invalid_reports = (
+            {"passed": True},
+            {"findings": []},
+            {"passed": "true", "findings": []},
+            {"verdict": "passed", "evidence": ["observed"], "findings": []},
+            {"passed": True, "findings": [], "tool_evidence": []},
+        )
+        for payload in invalid_reports:
+            with self.subTest(payload=payload), self.assertRaises(VerificationReportError):
+                validate_verification_report(payload)
+
+    def test_vague_or_non_string_findings_are_rejected(self):
+        for finding in ("no errors detected", "ok", "looks good", 42, "x"):
+            with self.subTest(finding=finding), self.assertRaises(VerificationReportError):
+                validate_verification_report({"passed": False, "findings": [finding]})
 
 
 if __name__ == "__main__":

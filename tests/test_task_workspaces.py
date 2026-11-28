@@ -1,3 +1,4 @@
+from contextlib import closing
 import json
 import shutil
 import tempfile
@@ -63,7 +64,7 @@ class TaskWorkspaceStoreTests(unittest.TestCase):
         tools = self._tools(workspace)
         tools.replace_text("file.txt", "base", "first")
         tools.replace_text("file.txt", "first", "second")
-        with self.store._connect() as db:
+        with closing(self.store._connect()) as db:
             row = db.execute(
                 "SELECT * FROM development_task_workspace_changes WHERE task_id=? AND relative_path=?",
                 ("mission:1:code", "file.txt"),
@@ -78,7 +79,7 @@ class TaskWorkspaceStoreTests(unittest.TestCase):
         shutil.rmtree(workspace)
         recovered, _ = self._ensure()
         self.assertEqual((recovered / "new.txt").read_text(encoding="utf-8"), "pending\n")
-        with self.store._connect() as db:
+        with closing(self.store._connect()) as db:
             status = db.execute(
                 "SELECT status FROM development_task_workspace_changes WHERE task_id=? AND relative_path=?",
                 ("mission:1:code", "new.txt"),
@@ -205,8 +206,7 @@ class EngineWorkspaceIntegrationTests(unittest.TestCase):
             def run(self, prompt, **kwargs):
                 if "STREAMIOV_FINAL_VERIFICATION" in prompt:
                     return json.dumps({
-                        "verdict": "passed",
-                        "evidence": ["isolated workspace change inspected"],
+                        "passed": True,
                         "findings": [],
                         "tool_evidence": [
                             {"tool": "run_tests", "result": "exit_code=0\nOK"}

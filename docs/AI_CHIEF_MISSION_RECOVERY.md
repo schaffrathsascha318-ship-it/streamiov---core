@@ -9,6 +9,8 @@ This note records the operational contract for persistent Streamiov AI Chief mis
 - Syntax and schema correction is bounded to three attempts per runner execution slice.
 - The cumulative correction count is retained in the encrypted SQLite checkpoint for diagnostics, but it is not a lifetime cutoff. A later slice may correct a new response after earlier slices failed.
 - Invalid or mixed final/tool batches are rejected before side effects.
+- Correction prompts state the exact top-level keys, allowed tool names, and argument examples derived from `TOOL_ARGUMENTS`; unknown tools such as `create_module`, the wrong key `action`, and mixed `tool`/`final` objects receive explicit diagnostics without relaxing validation.
+- Local, self-hosted, gateway, and Cloudflare Worker inference paths request JSON-constrained output; Workers AI falls back to a non-constrained request only when the model explicitly rejects JSON mode.
 
 ## Interrupted actions
 

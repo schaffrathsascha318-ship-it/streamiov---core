@@ -20,9 +20,9 @@ function cleanSettings(type, raw) {
   const allowed = {
     camera: ['deviceId', 'width', 'height', 'fps', 'audioEnabled'],
     audio: ['deviceId', 'assetId', 'loop', 'volume', 'muted'],
-    capture: ['sourceId', 'displayId', 'width', 'height', 'fps'],
-    screen: ['sourceId', 'displayId', 'width', 'height', 'fps'],
-    window: ['sourceId', 'displayId', 'width', 'height', 'fps'],
+    capture: ['sourceId', 'displayId', 'width', 'height', 'fps', 'audioEnabled'],
+    screen: ['sourceId', 'displayId', 'width', 'height', 'fps', 'audioEnabled'],
+    window: ['sourceId', 'displayId', 'width', 'height', 'fps', 'audioEnabled'],
     image: ['assetId', 'loop'],
     video: ['assetId', 'loop', 'volume', 'muted'],
     text: ['text', 'fontSize', 'color'],

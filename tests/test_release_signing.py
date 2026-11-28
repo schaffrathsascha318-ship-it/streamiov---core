@@ -9,8 +9,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "release-signing.mjs"
+WORKFLOW = ROOT / ".github" / "workflows" / "studio-build.yml"
+UPDATE_NOTES = ROOT / "docs" / "STUDIO_UPDATE_NOTES.md"
+DOWNLOAD_PAGE = ROOT / "dist/streamiov-homepage-worker/public/download/index.html"
+PROMO_PAGE = ROOT / "dist/streamiov-homepage-worker/public/promo/index.html"
 NODE = shutil.which("node")
-EXPECTED_FINGERPRINT = "5aba9e30b37a060505470483673bf6b44b66e12bf050edb4fd57415f29f7d2bc"
+EXPECTED_FINGERPRINT = "2c3de4b60d60cf4c7fa19ac3378a504706f79960978dfb610d9660bc10aeb09e"
 
 
 @unittest.skipUnless(NODE, "node is required for the signing tool")
@@ -159,6 +163,40 @@ class ReleaseSigningTests(unittest.TestCase):
         published_body = "".join(re.search(pattern, published, flags=re.S).group(1).split())
         updater_body = "".join(re.search(pattern, updater, flags=re.S).group(1).split())
         self.assertEqual(published_body, updater_body)
+
+
+class StudioReleaseWorkflowTests(unittest.TestCase):
+    def test_workflow_builds_and_attaches_ffmpeg_corresponding_source(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("name: FFmpeg corresponding source bundle", workflow)
+        self.assertIn("python scripts/build-ffmpeg-source-bundle.py", workflow)
+        self.assertIn("sudo apt-get install -y subversion", workflow)
+        self.assertIn("name: streamiov-ffmpeg-source-code", workflow)
+        publish = workflow.split("  publish-release:", 1)[1]
+        self.assertIn("needs: [build, media-pipeline-smoke, ffmpeg-source]", publish)
+        self.assertIn('SOURCE_DIR="artifacts/streamiov-ffmpeg-source-code"', publish)
+        self.assertIn("release/ffmpeg-source-bundle.tar.xz", publish)
+        self.assertIn("release/FFMPEG-SOURCE-SHA256SUMS.txt", publish)
+
+    def test_workflow_creates_signed_update_manifest(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        publish = workflow.split("  publish-release:", 1)[1]
+        self.assertIn("scripts/build-studio-update-manifest.mjs", publish)
+        self.assertIn("STUDIO_RELEASE_SIGNING_KEY: ${{ secrets.STUDIO_RELEASE_SIGNING_KEY }}", publish)
+        self.assertIn("--notes-file docs/STUDIO_UPDATE_NOTES.md", publish)
+        self.assertIn("name: streamiov-studio-update-manifest", publish)
+        notes = UPDATE_NOTES.read_text(encoding="utf-8")
+        self.assertLessEqual(len(notes), 5000)
+        self.assertIn("1.0.4", notes)
+
+    def test_public_pages_do_not_advertise_an_unpublished_release(self):
+        for page in (DOWNLOAD_PAGE, PROMO_PAGE):
+            with self.subTest(page=page.name):
+                markup = page.read_text(encoding="utf-8")
+                self.assertNotIn("/releases/download/studio-v1.0.4/", markup)
+                self.assertNotIn("/releases/tag/studio-v1.0.4", markup)
+                self.assertNotIn("Gebaut und veröffentlicht", markup)
+                self.assertIn("Release ausstehend", markup)
 
 
 if __name__ == "__main__":

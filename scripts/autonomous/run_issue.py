@@ -8,6 +8,7 @@ and source changes are checkpointed to a dedicated draft-PR branch.
 from __future__ import annotations
 
 import base64
+from contextlib import closing
 import json
 import os
 import signal
@@ -102,8 +103,9 @@ def build_task(issue: dict, project_root: Path) -> str:
 def checkpoint_database(path: Path) -> None:
     if not path.exists() or path.is_symlink():
         return
-    with sqlite3.connect(path, timeout=30) as db:
+    with closing(sqlite3.connect(path, timeout=30)) as db:
         db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        db.commit()
 
 
 def run_with_signal_handlers(run_callable, stop_event: threading.Event):

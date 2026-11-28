@@ -74,6 +74,11 @@ function validatePayload(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return "invalid-json-object";
   if (payload.model && payload.model !== MODEL_ID) return "unsupported-model";
   if (payload.stream === true) return "streaming-not-supported";
+  if (
+    payload.response_format !== undefined &&
+    (!payload.response_format || typeof payload.response_format !== "object" ||
+      Array.isArray(payload.response_format) || payload.response_format.type !== "json_object")
+  ) return "unsupported-response-format";
   if (!Array.isArray(payload.messages) || payload.messages.length < 1 || payload.messages.length > MAX_MESSAGES) {
     return "invalid-messages";
   }
@@ -171,7 +176,8 @@ async function selfHostedGenerate(env, payload) {
         model: config.model,
         stream: false,
         temperature: 0.1,
-        messages: payload.messages
+        messages: payload.messages,
+        response_format: payload.response_format
       })
     });
     if (!response.ok) return null;
@@ -249,12 +255,22 @@ export default {
       if (!env.AI || typeof env.AI.run !== "function") {
         return json({ error: { code: "inference_not_configured", message: "No self-hosted model endpoint or Workers AI binding is ready." } }, 503);
       }
-      const result = await env.AI.run(MODEL_ID, {
+      const aiInput = {
         messages: payload.messages,
         temperature: 0.1,
         chat_template_kwargs: { enable_thinking: false },
         max_tokens: MAX_OUTPUT_TOKENS
-      });
+      };
+      if (payload.response_format) aiInput.response_format = payload.response_format;
+      let result;
+      try {
+        result = await env.AI.run(MODEL_ID, aiInput);
+      } catch (error) {
+        const detail = String((error && error.message) || error || "");
+        if (!payload.response_format || !/json.?mode|json.?schema|response_format|structured output/i.test(detail)) throw error;
+        delete aiInput.response_format;
+        result = await env.AI.run(MODEL_ID, aiInput);
+      }
       const content = extractModelText(result);
       if (!content.trim()) {
         return json({ error: { code: "empty_model_response", message: "The model returned no text." } }, 502);

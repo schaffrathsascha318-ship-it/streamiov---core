@@ -1,3 +1,4 @@
+from contextlib import closing
 import json
 import tempfile
 import threading
@@ -123,7 +124,7 @@ class ProjectSupervisorTests(unittest.TestCase):
         self.assertEqual(len(engine.created), 1)
         first_mission = engine.created[0][0]
         self.assertEqual(engine.runs, [first_mission, first_mission])
-        with supervisor._connect() as db:
+        with closing(supervisor._connect()) as db:
             row = db.execute(
                 "SELECT active_mission_id,completed_missions FROM development_supervisors"
             ).fetchone()
@@ -135,7 +136,7 @@ class ProjectSupervisorTests(unittest.TestCase):
         supervisor = self.make_supervisor(engine)
         self.assertTrue(supervisor.configure_if_missing("Original durable goal."))
         self.assertFalse(supervisor.configure_if_missing("Changed context must not replace the goal."))
-        with supervisor._connect() as db:
+        with closing(supervisor._connect()) as db:
             row = db.execute(
                 "SELECT goal FROM development_supervisors"
             ).fetchone()
@@ -176,7 +177,7 @@ class ProjectSupervisorTests(unittest.TestCase):
         supervisor.configure("Do not skip verification.")
         supervisor.run(threading.Event(), poll_seconds=0.01, emit=lambda _message: None)
 
-        with supervisor._connect() as db:
+        with closing(supervisor._connect()) as db:
             row = db.execute(
                 "SELECT active_mission_id,completed_missions FROM development_supervisors"
             ).fetchone()

@@ -70,6 +70,7 @@ class CloudflareWorkerProviderTests(unittest.TestCase):
         self.assertEqual(request.headers["User-agent"], "curl/8.0")
         sent = json.loads(request.data.decode("utf-8"))
         self.assertEqual(sent["model"], DEFAULT_MODEL)
+        self.assertEqual(sent["response_format"], {"type": "json_object"})
         self.assertEqual(sent["messages"][0]["role"], "system")
 
     def test_rejects_a_single_message_over_worker_character_limit_before_network(self):
@@ -124,10 +125,16 @@ class CloudflareWorkerProviderTests(unittest.TestCase):
         self.assertFalse(status["ready"])
 
     def test_quota_exhaustion_never_falls_back_to_another_provider(self):
-        error = HTTPError(WORKER_URL + "/v1/chat/completions", 429, "Too Many Requests", {}, io.BytesIO(b""))
+        error = HTTPError(
+            WORKER_URL + "/v1/chat/completions", 429, "Too Many Requests",
+            {"Retry-After": "120"}, io.BytesIO(b""),
+        )
         with patch("ai.providers.cloudflare_worker.urlopen", side_effect=error):
-            with self.assertRaisesRegex(CloudflareWorkerError, "daily free allocation"):
+            with self.assertRaises(CloudflareWorkerError) as caught:
                 self.provider().generate(system="System", messages=[])
+        self.assertIn("daily free allocation", str(caught.exception))
+        self.assertEqual(caught.exception.failure_class, "quota")
+        self.assertEqual(caught.exception.retry_after_seconds, 120)
 
     def test_environment_selects_cloudflare_worker_without_changing_local_defaults(self):
         with patch.dict(os.environ, {

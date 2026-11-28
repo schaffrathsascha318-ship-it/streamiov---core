@@ -93,12 +93,28 @@ class SelfHostedGatewayTests(unittest.TestCase):
                     "model": "qwen2.5-coder:7b",
                     "stream": False,
                     "messages": [{"role": "user", "content": "Hello"}],
+                    "response_format": {"type": "json_object"},
                 },
             )
         self.assertEqual(status, 200)
         self.assertEqual(body["choices"][0]["message"]["content"], "Streamiov self-hosted inference works")
         self.assertEqual(upstream.call_args.args[0], "/api/chat")
         self.assertEqual(upstream.call_args.args[1]["model"], "qwen2.5-coder:7b")
+        self.assertEqual(upstream.call_args.args[1]["format"], "json")
+
+    def test_chat_rejects_unsupported_response_format_before_inference(self):
+        with patch.object(self.gateway, "ollama_request") as upstream:
+            status, body = self.request(
+                "/v1/chat/completions", method="POST", token=self.token,
+                payload={
+                    "model": "qwen2.5-coder:7b",
+                    "messages": [{"role": "user", "content": "hi"}],
+                    "response_format": {"type": "json_schema", "schema": {}},
+                },
+            )
+        self.assertEqual(status, 400)
+        self.assertEqual(body["error"]["code"], "unsupported_response_format")
+        upstream.assert_not_called()
 
     def test_chat_rejects_wrong_model_and_invalid_roles_before_inference(self):
         with patch.object(self.gateway, "ollama_request") as upstream:
